@@ -1,0 +1,62 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CAUFA | LOGIN </title>
+  <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body>
+  <section class="login-shell">
+    <div class="brand">
+      <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA logo">
+      <div>
+        <strong>CAUFA</strong>
+        <span>System Portal Login</span>
+      </div>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if login_error %}
+      <p class="error-note">{{ login_error }}</p>
+      {% endif %}
+
+      <div>
+        <label for="username">Username</label>
+        <div class="input-wrap">
+          <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
+          <input id="username" name="username" type="text" placeholder="Enter username" required>
+        </div>
+      </div>
+
+      <div>
+        <label for="password">Password</label>
+        <div class="input-wrap password-wrap">
+          <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+          <input id="password" name="password" type="password" placeholder="Enter password" required>
+          <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password">
+            <i class="fa-regular fa-eye" id="passwordToggleIcon" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="forgot-row">
+          <a class="forgot-link" href="#" onclick="return false;">Forgot password?</a>
+        </div>
+        <!--<p class="forgot-note">Display only for now. Forgot password is not yet working.</p> -->
+      </div>
+
+      <button class="submit-btn" type="submit"><i class="fa-solid fa-right-to-bracket"></i> Login</button>
+    </form>
+  </section>
+
+  <script src="{% static 'js/login.js' %}"></script>
+</body>
+</html>
