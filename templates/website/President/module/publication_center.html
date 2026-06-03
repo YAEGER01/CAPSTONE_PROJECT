@@ -1,0 +1,99 @@
+<div class="dashboard-panel module-fade-in">
+  <div
+    style="
+      margin-bottom: 25px;
+      border-bottom: 2px solid #eef7ef;
+      padding-bottom: 15px;
+    "
+  >
+    <h2 style="color: #1b5e20; font-size: 1.35rem; font-weight: 700">
+      Membership Publication Center
+    </h2>
+    <p style="color: #5a6b5a; font-size: 0.88rem; margin-top: 2px">
+      Deploy signed financial reports directly to the general membership
+      registry.
+    </p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px">
+    <!-- Left Column: Pending Releases -->
+    <div
+      style="
+        background: #fbfdfb;
+        border: 1px solid #cfdccc;
+        border-radius: 12px;
+        padding: 20px;
+      "
+    >
+      <h3
+        style="
+          color: #1b5e20;
+          font-size: 1.05rem;
+          font-weight: 600;
+          margin-bottom: 15px;
+        "
+      >
+        Pending Release Artifacts
+      </h3>
+
+      <div
+        style="
+          background: white;
+          border: 1px solid #dfe9df;
+          border-radius: 10px;
+          padding: 15px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        "
+      >
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 600; color: #263238">
+            Q2 Finalized Statement of Accounts
+          </h4>
+          <p style="font-size: 0.8rem; color: #5a6b5a; margin-top: 2px">
+            Signed by Executive Authority on 2026-06-03
+          </p>
+        </div>
+        <button
+          class="btn-brand btn-brand-primary"
+          style="padding: 10px 20px; font-size: 0.85rem"
+          onclick="
+            alert(
+              'Dispatched. System generated tamper-evident SHA-256 block hash for public index.',
+            )
+          "
+        >
+          <i class="fa-solid fa-paper-plane"></i> Publish to Members
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Column: Verification Integrity Check Box -->
+    <div
+      style="
+        background: #eef7ef;
+        border: 1px solid #dfe9df;
+        border-radius: 12px;
+        padding: 20px;
+      "
+    >
+      <h3
+        style="
+          color: #1b5e20;
+          font-size: 1.05rem;
+          font-weight: 600;
+          margin-bottom: 10px;
+        "
+      >
+        <i class="fa-solid fa-fingerprint"></i> System Lock Matrix
+      </h3>
+      <p style="font-size: 0.85rem; color: #263238; line-height: 1.5">
+        Artifacts published through this portal are embedded with cryptographic
+        block hashes derived from all three dashboard levels (Treasurer,
+        Auditor, and President). Any altered records will automatically alert
+        the audit pipeline.
+      </p>
+    </div>
+  </div>
+</div>

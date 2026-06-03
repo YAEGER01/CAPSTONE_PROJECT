@@ -1,0 +1,99 @@
+<div class="dashboard-panel module-fade-in">
+  <div
+    style="
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      border-bottom: 2px solid #eef7ef;
+      padding-bottom: 15px;
+    "
+  >
+    <div>
+      <h2 style="color: #1b5e20; font-size: 1.35rem; font-weight: 700">
+        Executive Sign-off Queue
+      </h2>
+      <p style="color: #5a6b5a; font-size: 0.88rem; margin-top: 2px">
+        Review and digitally authorize statements verified by the Auditor.
+      </p>
+    </div>
+    <span class="badge-zero" style="background: #fbc02d; color: #1b1b1b"
+      ><i class="fa-solid fa-clock"></i> Awaiting Authorization</span
+    >
+  </div>
+
+  <!-- Verified Entries Table Matrix -->
+  <div style="overflow-x: auto">
+    <table
+      style="
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        margin-bottom: 20px;
+      "
+    >
+      <thead>
+        <tr
+          style="
+            background: #eef7ef;
+            color: #1b5e20;
+            font-weight: 600;
+            font-size: 0.9rem;
+          "
+        >
+          <th style="padding: 15px">Statement ID</th>
+          <th style="padding: 15px">Reporting Period</th>
+          <th style="padding: 15px">Treasurer Hash</th>
+          <th style="padding: 15px">Auditor Verification Code</th>
+          <th style="padding: 15px; text-align: right">Actions</th>
+        </tr>
+      </thead>
+      <tbody style="color: #263238; font-size: 0.9rem; font-weight: 500">
+        <tr style="border-bottom: 1px solid #dfe9df">
+          <td style="padding: 15px; font-weight: 600">#SOA-2026-Q2</td>
+          <td style="padding: 15px">April - June 2026</td>
+          <td style="padding: 15px">
+            <code
+              style="
+                background: #f1f5f1;
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-family: monospace;
+              "
+              >7a2b9f..</code
+            >
+          </td>
+          <td style="padding: 15px; color: #16a34a">
+            <i class="fa-solid fa-shield-check"></i> AUD-VERIFIED-9912
+          </td>
+          <td
+            style="
+              padding: 15px;
+              text-align: right;
+              display: flex;
+              gap: 10px;
+              justify-content: flex-end;
+            "
+          >
+            <button
+              class="btn-brand btn-brand-secondary"
+              style="padding: 8px 16px; font-size: 0.85rem"
+              onclick="alert('Returned to Auditor for re-evaluation.')"
+            >
+              <i class="fa-solid fa-rotate-left"></i> Reject
+            </button>
+            <button
+              class="btn-brand btn-brand-primary"
+              style="padding: 8px 16px; font-size: 0.85rem"
+              onclick="
+                alert('Digital signature applied. Statement Authorized.')
+              "
+            >
+              <i class="fa-solid fa-signature"></i> Grant Sign-off
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

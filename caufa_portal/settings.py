@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "django-insecure-change-me-for-production"
@@ -14,7 +13,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "website",
+    "core_system",
 ]
 
 MIDDLEWARE = [
@@ -28,6 +27,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "caufa_portal.urls"
+# Inside caufa_portal/settings.py
 
 TEMPLATES = [
     {
@@ -40,6 +40,10 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
+            # ADD THIS BLOCK BELOW TO GLOBALLY ENABLE LOAD STATIC
+            "builtins": [
+                "django.templatetags.static",
+            ],
         },
     },
 ]
@@ -47,15 +51,25 @@ TEMPLATES = [
 WSGI_APPLICATION = "caufa_portal.wsgi.application"
 ASGI_APPLICATION = "caufa_portal.asgi.application"
 
+# Replace your old DATABASES dictionary with this:
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "capstone_project_db",
+        "USER": "root",
+        "PASSWORD": "new_password",
+        "HOST": "127.0.0.1",
+        "PORT": "3307",
+        "OPTIONS": {
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -70,3 +84,7 @@ STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Authentication Redirect routing boundaries
+LOGIN_REDIRECT_URL = "dashboard"
+LOGOUT_REDIRECT_URL = "login"
