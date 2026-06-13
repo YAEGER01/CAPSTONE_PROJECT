@@ -220,6 +220,108 @@
       font-size: 1rem;
       max-width: 400px;
     }
+
+    /* Enhanced Card Styles */
+    .info-card {
+      display: flex !important;
+      flex-direction: column !important;
+      background: white !important;
+      border: 1px solid #e5e7eb !important;
+      border-radius: 12px !important;
+      padding: 1.5rem !important;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+      transition: all 0.3s !important;
+    }
+
+    .info-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+      border-color: #d1d5db !important;
+    }
+
+    .card-header {
+      display: flex !important;
+      align-items: flex-start !important;
+      justify-content: space-between !important;
+      margin-bottom: 1rem !important;
+    }
+
+    .card-icon {
+      width: 50px !important;
+      height: 50px !important;
+      border-radius: 10px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 1.5rem !important;
+    }
+
+    .trend-badge {
+      font-size: 0.85rem !important;
+      font-weight: 600 !important;
+      padding: 0.35rem 0.75rem !important;
+      border-radius: 6px !important;
+    }
+
+    .trend-badge.positive {
+      background: #d1fae5 !important;
+      color: #065f46 !important;
+    }
+
+    .trend-badge.negative {
+      background: #fee2e2 !important;
+      color: #7f1d1d !important;
+    }
+
+    .card-value {
+      font-size: 1.75rem !important;
+      font-weight: 700 !important;
+      margin: 0.5rem 0 !important;
+    }
+
+    .live-badge {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 0.5rem !important;
+      background: #fee2e2 !important;
+      color: #7f1d1d !important;
+      padding: 0.35rem 0.75rem !important;
+      border-radius: 6px !important;
+      font-size: 0.8rem !important;
+      font-weight: 600 !important;
+    }
+
+    .panel {
+      background: white !important;
+      border: 1px solid #e5e7eb !important;
+      border-radius: 12px !important;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+      overflow: hidden !important;
+    }
+
+    .panel-heading {
+      padding: 1.5rem !important;
+      border-bottom: 1px solid #e5e7eb !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+    }
+
+    .panel-heading h2 {
+      margin: 0 !important;
+      font-size: 1.1rem !important;
+      font-weight: 600 !important;
+    }
+
+    .panel-heading a {
+      color: #6366f1 !important;
+      text-decoration: none !important;
+      font-size: 0.9rem !important;
+      font-weight: 600 !important;
+    }
+
+    .panel-heading a:hover {
+      text-decoration: underline !important;
+    }
   </style>
 </head>
 <body class="system-dashboard">
@@ -283,116 +385,307 @@
       <header class="dashboard-header">
         <div>
           <p class="dashboard-label">Overview</p>
-          <h1>Dashboard</h1>
-          <p class="dashboard-subtitle">Manage QR attendance, event scanning, and attendance reports in one view.</p>
+          <h1>QR Attendance Dashboard</h1>
+          <p class="dashboard-subtitle">Monitor event attendance, scan activity, and attendance metrics in real-time.</p>
         </div>
       </header>
 
-            <!-- Overview Cards -->
+      <!-- Top Stats Cards -->
       <div class="overview-cards">
         <article class="info-card">
-          <div class="card-icon attendance">
-            <i class="fas fa-calendar-check"></i>
+          <div class="card-header">
+            <div class="card-icon attendance" style="background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%); color: white;">
+              <i class="fas fa-calendar-check"></i>
+            </div>
+            <span class="trend-badge positive">↑ 12%</span>
           </div>
           <div class="card-content">
-            <span class="card-label">Active events</span>
-            <strong>{{ dashboard.active_events }}</strong>
-            <p class="card-meta">Live this week</p>
+            <span class="card-label">Total Events</span>
+            <strong class="card-value">24</strong>
+            <p class="card-meta">This semester</p>
           </div>
         </article>
 
         <article class="info-card">
-          <div class="card-icon members">
-            <i class="fas fa-user-check"></i>
+          <div class="card-header">
+            <div class="card-icon members" style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%); color: white;">
+              <i class="fas fa-users"></i>
+            </div>
+            <span class="trend-badge positive">↑ 6%</span>
           </div>
           <div class="card-content">
-            <span class="card-label">QR codes generated</span>
-            <strong>{{ dashboard.qr_codes }}</strong>
-            <p class="card-meta">Since last update</p>
+            <span class="card-label">Total Attendees</span>
+            <strong class="card-value">1,256</strong>
+            <p class="card-meta">Across all events</p>
           </div>
         </article>
 
         <article class="info-card">
-          <div class="card-icon treasury">
-            <i class="fas fa-chart-line"></i>
+          <div class="card-header">
+            <div class="card-icon treasury" style="background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); color: white;">
+              <i class="fas fa-chart-pie"></i>
+            </div>
+            <span class="trend-badge positive">↑ 5%</span>
           </div>
           <div class="card-content">
-            <span class="card-label">Average scan rate</span>
-            <strong>{{ dashboard.scan_rate }}%</strong>
-            <p class="card-meta">Across active events</p>
+            <span class="card-label">Average Attendance</span>
+            <strong class="card-value">87%</strong>
+            <p class="card-meta">This semester</p>
           </div>
         </article>
 
         <article class="info-card">
-          <div class="card-icon approvals">
-            <i class="fas fa-user-check"></i>
+          <div class="card-header">
+            <div class="card-icon approvals" style="background: linear-gradient(135deg, #ef4444 0%, #f87171 100%); color: white;">
+              <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <span class="trend-badge negative">↓ 2%</span>
           </div>
           <div class="card-content">
-            <span class="card-label">Attendees today</span>
-            <strong>{{ dashboard.attendees_today }}</strong>
-            <p class="card-meta">Checked in so far</p>
+            <span class="card-label">Low Attendance Events</span>
+            <strong class="card-value">3</strong>
+            <p class="card-meta">Below target</p>
           </div>
         </article>
       </div>
 
-            <!-- Main Panels -->
-      <div class="main-panels">
+      <!-- Main Content Grid -->
+      <div class="main-panels" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+        <!-- Active Event Section -->
+        <section class="panel module-status" style="grid-column: 1 / -1;">
+          <div class="panel-heading">
+            <div>
+              <h2>Active Event (Live)</h2>
+              <span class="live-badge"><i class="fas fa-circle" style="color: #ef4444;"></i> LIVE NOW</span>
+            </div>
+            <a href="#">View Details</a>
+          </div>
+          <div class="active-event-container" style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 2rem; padding: 1.5rem; background: #f9fafb; border-radius: 10px;">
+            <!-- Map Area -->
+            <div class="event-map-container" style="background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%); border-radius: 10px; padding: 1.5rem; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+              <svg viewBox="0 0 300 300" style="width: 100%; height: 300px; opacity: 0.3; position: absolute;">
+                <defs>
+                  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#d1d5db" stroke-width="0.5"/>
+                  </pattern>
+                </defs>
+                <rect width="300" height="300" fill="url(#grid)" />
+              </svg>
+              <div style="text-align: center; position: relative; z-index: 1;">
+                <div style="width: 250px; height: 250px; border: 3px solid #6366f1; border-radius: 50%; background: rgba(99, 102, 241, 0.1); display: flex; align-items: center; justify-content: center; position: relative;">
+                  <i class="fas fa-map-marker-alt" style="font-size: 3rem; color: #6366f1;"></i>
+                  <div style="position: absolute; bottom: 20px; text-align: center; color: #374151; font-weight: 600;">
+                    <p style="margin: 0;">ISU Main</p>
+                    <p style="margin: 0; font-size: 0.9rem; color: #6b7280;">Auditorium</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Event Info -->
+            <div class="event-info">
+              <div style="margin-bottom: 1.5rem;">
+                <h3 style="margin: 0 0 0.5rem 0; font-size: 1.3rem;">Student Assembly</h3>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #6b7280; margin-bottom: 1rem;">
+                  <i class="fas fa-map-pin"></i>
+                  <span>ISU Main Auditorium</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #6b7280; margin-bottom: 1rem;">
+                  <i class="fas fa-calendar"></i>
+                  <span>May 20, 2025</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; color: #6b7280;">
+                  <i class="fas fa-clock"></i>
+                  <span>10:00 AM - 01:00 PM</span>
+                </div>
+              </div>
+
+              <div style="background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                  <div>
+                    <p style="margin: 0; font-size: 0.85rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Inside Area</p>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 1.5rem; font-weight: 700; color: #10b981;">142</p>
+                  </div>
+                  <div>
+                    <p style="margin: 0; font-size: 0.85rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Outside Area</p>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 1.5rem; font-weight: 700; color: #ef4444;">8</p>
+                  </div>
+                </div>
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+                  <p style="margin: 0; font-size: 0.85rem; color: #6b7280; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem;">Total Registered</p>
+                  <p style="margin: 0; font-size: 1.25rem; font-weight: 700;">150</p>
+                </div>
+              </div>
+
+              <div style="background: #e0f2fe; border: 1px solid #0284c7; border-radius: 8px; padding: 0.75rem; text-align: center;">
+                <span style="color: #0c4a6e; font-weight: 600; font-size: 0.9rem;">Geofence Radius: 50 m</span>
+              </div>
+
+              <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+                <button style="flex: 1; background: white; border: 1px solid #e5e7eb; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600; color: #374151; transition: all 0.2s;">View Details</button>
+                <button style="flex: 1; background: #6366f1; color: white; border: none; padding: 0.75rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s;" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#6366f1'"><i class="fas fa-qrcode"></i> Monitor Event</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Upcoming Events -->
         <section class="panel module-status">
           <div class="panel-heading">
-            <h2>Event queue</h2>
-            <a href="#">View all</a>
+            <h2>Upcoming Events</h2>
+            <a href="#">View All</a>
           </div>
-          <div class="panel-list">
-            {% for item in dashboard.event_status %}
-            <article class="panel-item">
-              <div>
-                <strong>{{ item.title }}</strong>
-                <p>{{ item.subtitle }}</p>
+          <div class="panel-list" style="max-height: 400px; overflow-y: auto;">
+            <article class="panel-item" style="padding: 1.25rem; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+              <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                <div style="background: #fef3c7; color: #b45309; width: 50px; height: 50px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-align: center; font-size: 0.9rem;">MAY<br>22</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; margin-bottom: 0.25rem;">Leadership Seminar</strong>
+                  <p style="margin: 0; font-size: 0.85rem; color: #6b7280;">07:00 AM - 11:00 AM</p>
+                  <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #6b7280;">ISU Conference Room</p>
+                </div>
+                <span style="background: #e0e7ff; color: #4f46e5; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">120 Registered</span>
               </div>
-              <span class="status-pill {{ item.status|lower }}">{{ item.status }}</span>
             </article>
-            {% endfor %}
+            <article class="panel-item" style="padding: 1.25rem; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+              <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                <div style="background: #dbeafe; color: #0369a1; width: 50px; height: 50px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-align: center; font-size: 0.9rem;">MAY<br>25</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; margin-bottom: 0.25rem;">Research Forum</strong>
+                  <p style="margin: 0; font-size: 0.85rem; color: #6b7280;">01:00 PM - 04:00 PM</p>
+                  <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #6b7280;">ISU AVR</p>
+                </div>
+                <span style="background: #dbeafe; color: #0369a1; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">80 Registered</span>
+              </div>
+            </article>
+            <article class="panel-item" style="padding: 1.25rem; border-bottom: 1px solid #e5e7eb; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+              <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                <div style="background: #e9d5ff; color: #7e22ce; width: 50px; height: 50px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-align: center; font-size: 0.9rem;">MAY<br>30</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; margin-bottom: 0.25rem;">Graduation Practice</strong>
+                  <p style="margin: 0; font-size: 0.85rem; color: #6b7280;">07:00 AM - 10:00 AM</p>
+                  <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #6b7280;">ISU Grandstand</p>
+                </div>
+                <span style="background: #e9d5ff; color: #7e22ce; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">200 Registered</span>
+              </div>
+            </article>
+            <article class="panel-item" style="padding: 1.25rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+              <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                <div style="background: #fecaca; color: #991b1b; width: 50px; height: 50px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; text-align: center; font-size: 0.9rem;">JUN<br>05</div>
+                <div style="flex: 1;">
+                  <strong style="display: block; margin-bottom: 0.25rem;">Sports Meet</strong>
+                  <p style="margin: 0; font-size: 0.85rem; color: #6b7280;">08:00 AM - 03:00 PM</p>
+                  <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: #6b7280;">ISU Sports Complex</p>
+                </div>
+                <span style="background: #fecaca; color: #991b1b; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">300 Registered</span>
+              </div>
+            </article>
+          </div>
+          <div style="padding: 1rem; text-align: center; border-top: 1px solid #e5e7eb;">
+            <button style="background: #6366f1; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: background 0.2s;" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#6366f1'"><i class="fas fa-plus"></i> Create New Event</button>
           </div>
         </section>
 
-        <section class="panel attendance-chart">
+        <!-- Recent Events Table -->
+        <section class="panel" style="grid-column: 1 / -1;">
           <div class="panel-heading">
-            <h2>Attendance overview</h2>
+            <h2>Recent Events</h2>
+            <a href="#">See all</a>
+          </div>
+          <div class="feature-table" style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead style="background: #f9fafb;">
+                <tr style="border-bottom: 2px solid #e5e7eb;">
+                  <th style="padding: 1rem; text-align: left; font-weight: 600; color: #6b7280; font-size: 0.85rem; text-transform: uppercase;">Event Name</th>
+                  <th style="padding: 1rem; text-align: left; font-weight: 600; color: #6b7280; font-size: 0.85rem; text-transform: uppercase;">Date & Time</th>
+                  <th style="padding: 1rem; text-align: left; font-weight: 600; color: #6b7280; font-size: 0.85rem; text-transform: uppercase;">Registered</th>
+                  <th style="padding: 1rem; text-align: left; font-weight: 600; color: #6b7280; font-size: 0.85rem; text-transform: uppercase;">Attended</th>
+                  <th style="padding: 1rem; text-align: left; font-weight: 600; color: #6b7280; font-size: 0.85rem; text-transform: uppercase;">Attendance Rate</th>
+                  <th style="padding: 1rem; text-align: left; font-weight: 600; color: #6b7280; font-size: 0.85rem; text-transform: uppercase;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                  <td style="padding: 1rem; font-weight: 500;">Student Assembly</td>
+                  <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">May 20, 2025<br>10:00 am - 01:00 pm</td>
+                  <td style="padding: 1rem; font-weight: 600;">150</td>
+                  <td style="padding: 1rem; font-weight: 600;">142</td>
+                  <td style="padding: 1rem; color: #10b981; font-weight: 600;">94.7%</td>
+                  <td style="padding: 1rem;"><span style="background: #d1fae5; color: #065f46; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">Live</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                  <td style="padding: 1rem; font-weight: 500;">Tech Talk 2025</td>
+                  <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">May 18, 2025<br>07:00 am - 04:00 pm</td>
+                  <td style="padding: 1rem; font-weight: 600;">200</td>
+                  <td style="padding: 1rem; font-weight: 600;">178</td>
+                  <td style="padding: 1rem; color: #10b981; font-weight: 600;">89.0%</td>
+                  <td style="padding: 1rem;"><span style="background: #d1fae5; color: #065f46; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">Completed</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                  <td style="padding: 1rem; font-weight: 500;">Career Guidance</td>
+                  <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">May 14, 2025<br>01:00 pm - 04:00 pm</td>
+                  <td style="padding: 1rem; font-weight: 600;">180</td>
+                  <td style="padding: 1rem; font-weight: 600;">160</td>
+                  <td style="padding: 1rem; color: #f59e0b; font-weight: 600;">88.9%</td>
+                  <td style="padding: 1rem;"><span style="background: #fef3c7; color: #92400e; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">Completed</span></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e5e7eb; transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                  <td style="padding: 1rem; font-weight: 500;">Blood Donation Drive</td>
+                  <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">May 10, 2025<br>08:00 am - 02:00 pm</td>
+                  <td style="padding: 1rem; font-weight: 600;">160</td>
+                  <td style="padding: 1rem; font-weight: 600;">96</td>
+                  <td style="padding: 1rem; color: #ef4444; font-weight: 600;">60.0%</td>
+                  <td style="padding: 1rem;"><span style="background: #fee2e2; color: #7f1d1d; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">Completed</span></td>
+                </tr>
+                <tr style="transition: background 0.2s;" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                  <td style="padding: 1rem; font-weight: 500;">Environmental Seminar</td>
+                  <td style="padding: 1rem; color: #6b7280; font-size: 0.9rem;">May 1, 2025<br>10:00 am - 01:00 pm</td>
+                  <td style="padding: 1rem; font-weight: 600;">120</td>
+                  <td style="padding: 1rem; font-weight: 600;">95</td>
+                  <td style="padding: 1rem; color: #10b981; font-weight: 600;">84.4%</td>
+                  <td style="padding: 1rem;"><span style="background: #d1fae5; color: #065f46; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600;">Completed</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Attendance Overview Chart -->
+        <section class="panel" style="grid-column: 1 / -1;">
+          <div class="panel-heading">
+            <div>
+              <h2>Attendance Overview</h2>
+              <p style="margin: 0.5rem 0 0 0; color: #6b7280; font-size: 0.9rem;">This semester</p>
+            </div>
             <a href="#">Full report</a>
           </div>
-          <div class="attendance-list">
-            {% for event in dashboard.attendance_events %}
-            <div class="attendance-row">
-              <span>{{ event.label }}</span>
-              <div class="attendance-bar-wrap">
-                <div class="attendance-bar" style="--fill: {{ event.value }}%;"></div>
-              </div>
-              <strong>{{ event.value }}%</strong>
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; padding: 1.5rem;">
+            <!-- Chart Area -->
+            <div style="display: flex; align-items: flex-end; gap: 0.5rem; height: 250px; align-items: flex-end;">
+              <div style="flex: 1; background: linear-gradient(to top, #818cf8, #c7d2fe); border-radius: 6px 6px 0 0; height: 45%; display: flex; align-items: flex-end; justify-content: center; color: white; font-weight: 600; font-size: 0.85rem;">45%</div>
+              <div style="flex: 1; background: linear-gradient(to top, #818cf8, #c7d2fe); border-radius: 6px 6px 0 0; height: 55%; display: flex; align-items: flex-end; justify-content: center; color: white; font-weight: 600; font-size: 0.85rem;">55%</div>
+              <div style="flex: 1; background: linear-gradient(to top, #818cf8, #c7d2fe); border-radius: 6px 6px 0 0; height: 65%; display: flex; align-items: flex-end; justify-content: center; color: white; font-weight: 600; font-size: 0.85rem;">65%</div>
+              <div style="flex: 1; background: linear-gradient(to top, #818cf8, #c7d2fe); border-radius: 6px 6px 0 0; height: 72%; display: flex; align-items: flex-end; justify-content: center; color: white; font-weight: 600; font-size: 0.85rem;">72%</div>
+              <div style="flex: 1; background: linear-gradient(to top, #818cf8, #c7d2fe); border-radius: 6px 6px 0 0; height: 78%; display: flex; align-items: flex-end; justify-content: center; color: white; font-weight: 600; font-size: 0.85rem;">78%</div>
+              <div style="flex: 1; background: linear-gradient(to top, #818cf8, #c7d2fe); border-radius: 6px 6px 0 0; height: 88%; display: flex; align-items: flex-end; justify-content: center; color: white; font-weight: 600; font-size: 0.85rem;">88%</div>
             </div>
-            {% endfor %}
-          </div>
-        </section>
-      </div>
-
-            <!-- Lower Panels -->
-      <div class="lower-panels">
-        <section class="panel approvals-list">
-          <div class="panel-heading">
-            <h2>Recent scan logs</h2>
-            <span class="items-count">{{ dashboard.scan_logs|length }} entries</span>
-          </div>
-          <div class="panel-list">
-            {% for log in dashboard.scan_logs %}
-            <article class="panel-item approval-item">
-              <div>
-                <strong>{{ log.event }}</strong>
-                <p>{{ log.detail }}</p>
+            <!-- Legend -->
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+              <div style="width: 180px; height: 180px; border-radius: 50%; background: conic-gradient(from 0deg, #818cf8 0% 87%, #e5e7eb 87% 100%); display: flex; align-items: center; justify-content: center;">
+                <div style="width: 140px; height: 140px; border-radius: 50%; background: white; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                  <p style="margin: 0; font-size: 0.85rem; color: #6b7280; font-weight: 600;">AVERAGE</p>
+                  <p style="margin: 0.5rem 0 0 0; font-size: 2rem; font-weight: 700; color: #6366f1;">87%</p>
+                </div>
               </div>
-              <div class="approval-actions">
-                <button class="btn-icon-action btn-approve" title="View"><i class="fas fa-eye"></i></button>
+              <div style="margin-top: 1.5rem; text-align: center;">
+                <p style="margin: 0; font-size: 0.9rem; color: #6b7280;">
+                  <span style="display: inline-block; width: 12px; height: 12px; background: #818cf8; border-radius: 2px; margin-right: 0.5rem; vertical-align: middle;"></span>
+                  Attendance Rate
+                </p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #9ca3af;">From last semester</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #10b981; font-weight: 600;"><i class="fas fa-arrow-up"></i> 5% increase</p>
               </div>
-            </article>
-            {% endfor %}
+            </div>
           </div>
         </section>
       </div>
