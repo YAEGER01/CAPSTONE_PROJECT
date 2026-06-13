@@ -26,7 +26,13 @@
 
     <!-- User Profile -->
     <div class="sidebar-user">
-      <div class="user-avatar">{{ member_first_name|first }}</div>
+      <div class="user-avatar">
+        {% if profile_picture_url %}
+          <img src="{{ profile_picture_url }}" alt="Profile Picture" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+        {% else %}
+          {{ member_first_name|first }}
+        {% endif %}
+      </div>
       <div class="user-info">
         <strong>{{ member_first_name }} {{ member_last_name }}</strong>
         <small>Member</small>
@@ -125,7 +131,13 @@
       </button>
       <!-- Mobile User Profile Header -->
       <div class="mobile-user-header">
-        <div class="mobile-user-avatar">{{ member_first_name|first }}</div>
+        <div class="mobile-user-avatar">
+          {% if profile_picture_url %}
+            <img src="{{ profile_picture_url }}" alt="Profile Picture" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+          {% else %}
+            {{ member_first_name|first }}
+          {% endif %}
+        </div>
         <div class="mobile-user-info">
           <strong>{{ member_first_name }} {{ member_last_name }}</strong>
           <small>Member</small>
