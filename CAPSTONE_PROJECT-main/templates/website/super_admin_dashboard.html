@@ -1,0 +1,121 @@
+{% extends 'website/system_base.html' %}
+{% load static %}
+
+{% block title %}Super Admin Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+{% include 'website/includes/back_button.html' %}
+<section class="dashboard-shell">
+  <header class="dashboard-header">
+    <div>
+      <p class="dashboard-label">Super Admin Portal</p>
+      <h1>Super Admin Dashboard</h1>
+      <p class="dashboard-subtitle">Welcome back, {{ dashboard.user_name }}. You have full access to all systems and organization controls.</p>
+    </div>
+    <div class="dashboard-actions">
+      <a class="button secondary" href="{% url 'portal-logout' %}">Logout</a>
+    </div>
+  </header>
+
+  <div class="dashboard-grid overview-cards">
+    {% for card in dashboard.summary_cards %}
+    <article class="info-card">
+      <span class="card-label">{{ card.label }}</span>
+      <strong>{{ card.value }}</strong>
+    </article>
+    {% endfor %}
+  </div>
+
+  <div class="dashboard-grid main-panels">
+    <section class="panel module-status">
+      <div class="panel-heading">
+        <h2>System access</h2>
+        <a href="#">Manage all</a>
+      </div>
+      <div class="panel-list">
+        {% for module in dashboard.system_access %}
+        <article class="panel-item">
+          <div>
+            <strong>{{ module.title }}</strong>
+            <p>{{ module.description }}</p>
+          </div>
+          <a class="button outline" href="#">Open</a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel attendance-chart">
+      <div class="panel-heading">
+        <h2>Quick actions</h2>
+        <a href="#">Audit log</a>
+      </div>
+      <div class="attendance-list">
+        <div class="attendance-row">
+          <span>Approve pending requests</span>
+          <strong>Instant access</strong>
+        </div>
+        <div class="attendance-row">
+          <span>Review officer roles</span>
+          <strong>High priority</strong>
+        </div>
+        <div class="attendance-row">
+          <span>Generate report</span>
+          <strong>CSV / PDF</strong>
+        </div>
+        <div class="attendance-row">
+          <span>Monitor system health</span>
+          <strong>Live overview</strong>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="dashboard-grid">
+    <section class="panel create-president-panel">
+      <div class="panel-heading">
+        <h2>Create President Account</h2>
+      </div>
+
+      {% if creation_message %}
+      <div class="panel-note success">{{ creation_message }}</div>
+      {% endif %}
+
+      <form method="post" class="create-president-form">
+        {% csrf_token %}
+        <div class="panel-list form-fields">
+          <div class="panel-item">
+            {{ form.username.label_tag }}
+            {{ form.username }}
+            {% if form.username.errors %}
+              <div class="form-error">{{ form.username.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="panel-item">
+            {{ form.password1.label_tag }}
+            {{ form.password1 }}
+            {% if form.password1.errors %}
+              <div class="form-error">{{ form.password1.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div class="panel-item">
+            {{ form.password2.label_tag }}
+            {{ form.password2 }}
+            {% if form.password2.errors %}
+              <div class="form-error">{{ form.password2.errors.0 }}</div>
+            {% endif %}
+          </div>
+          {% if form.non_field_errors %}
+            <div class="form-error">{{ form.non_field_errors.0 }}</div>
+          {% endif %}
+        </div>
+        <button class="button secondary" type="submit">Create President</button>
+      </form>
+    </section>
+  </section>
+</section>
+{% endblock %}

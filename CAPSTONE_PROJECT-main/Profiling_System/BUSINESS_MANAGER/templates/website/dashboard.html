@@ -1,0 +1,1892 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - ISU CAUFA Management System</title>
+  <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <link rel="stylesheet" href="{% static 'css/profiling-dashboard.css' %}">
+</head>
+<body class="system-dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <i class="fas fa-cube"></i>
+      <div>
+        <strong>ISU-CAUFA</strong>
+        <small>Business Manager</small>
+      </div>
+    </div>
+
+    <!-- Overview Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">OVERVIEW</h3>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active">
+          <i class="fas fa-tachometer-alt"></i>
+          <span>DASHBOARD</span>
+        </a>
+      </nav>
+    </div>
+
+        <!-- Modules Section -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-title">MODULES</h3>
+        <nav class="sidebar-nav">
+          <button class="nav-item expandable" data-toggle="members-menu">
+            <i class="fas fa-users"></i>
+            <span>MEMBERS</span>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          <div id="members-menu" class="submenu" style="display: none;">
+            <a href="#account-management" class="submenu-item feature-launcher" data-modal-key="members-account-management">ACCOUNT MANAGEMENT</a>
+            <a href="#profile-management" class="submenu-item feature-launcher" data-modal-key="members-profile-management">PROFILE MANAGEMENT</a>
+            <a href="#approval-management" class="submenu-item feature-launcher" data-modal-key="members-approval-management" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+              <span>APPROVAL MANAGEMENT</span>
+              <div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;background:#f44336;border-radius:50%;flex-shrink:0;">
+                <span id="sidebar-pending-badge" style="color:#fff;font-size:12px;font-weight:700;">0</span>
+              </div>
+            </a>
+          </div>
+        </nav>
+      </div>
+
+    <!-- User Profile -->
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ request.user.get_full_name|first }}</div>
+      <div class="user-info">
+        <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+        <small>Business Manager</small>
+      </div>
+      <a href="{% url 'portal-logout' %}" class="btn-logout" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <section class="dashboard-content">
+      <header class="top-bar"></header>
+
+      <header class="dashboard-header">
+        <div>
+          <p class="dashboard-label">Overview</p>
+          <h1>Dashboard</h1>
+          <p class="dashboard-subtitle">Review member profiles, verify submissions, and manage profiling reports.</p>
+        </div>
+      </header>
+
+            <!-- Overview Cards -->
+      <div class="overview-cards">
+        <article class="info-card">
+          <div class="card-icon members">
+            <i class="fas fa-id-badge"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Total profiles</span>
+            <strong>{{ dashboard.total_profiles }}</strong>
+            <p class="card-meta">Completed today</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon attendance">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Verified profiles</span>
+            <strong>{{ dashboard.verified_profiles }}</strong>
+            <p class="card-meta">Verified this week</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon treasury">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Pending updates</span>
+            <strong>{{ dashboard.pending_updates }}</strong>
+            <p class="card-meta">Awaiting review</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon approvals">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Active members</span>
+            <strong id="active-members-card-count">{{ dashboard.active_members }}</strong>
+            <p class="card-meta">Current active count</p>
+          </div>
+        </article>
+      </div>
+
+      <!-- Main Panels - New 2-Column Design -->
+      <div class="dashboard-grid">
+        <!-- Left Column: Member Status Breakdown -->
+        <section class="panel member-status-panel">
+          <div class="panel-heading">
+            <h2>Member status breakdown</h2>
+          </div>
+          <div class="member-status-content">
+            <div class="status-chart">
+              <div class="donut-chart">
+                <svg class="donut-svg" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Active (Green) -->
+                  <circle id="donut-active" cx="70" cy="70" r="55" fill="none" stroke="#4caf50" stroke-width="16" stroke-dasharray="129.59 345.58" stroke-dashoffset="0" stroke-linecap="round"></circle>
+                  <!-- Inactive (Orange) -->
+                  <circle id="donut-inactive" cx="70" cy="70" r="55" fill="none" stroke="#f57c00" stroke-width="16" stroke-dasharray="129.59 345.58" stroke-dashoffset="-129.59" stroke-linecap="round"></circle>
+                  <!-- Pending (Red) -->
+                  <circle id="donut-pending" cx="70" cy="70" r="55" fill="none" stroke="#f44336" stroke-width="16" stroke-dasharray="86.40 345.58" stroke-dashoffset="-259.18" stroke-linecap="round"></circle>
+                </svg>
+                <div class="donut-center">
+                  <span id="member-status-total" class="donut-text">8</span>
+                  <span class="donut-label">TOTAL</span>
+                </div>
+              </div>
+              <div class="status-legend">
+                <div class="legend-item">
+                  <span class="legend-color active"></span>
+                  <span class="legend-label">Active members</span>
+                  <span id="member-status-active-count" class="legend-value">3</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color inactive"></span>
+                  <span class="legend-label">Inactive members</span>
+                  <span id="member-status-inactive-count" class="legend-value">5</span>
+                </div>
+                <div class="legend-item">
+                  <span class="legend-color pending"></span>
+                  <span class="legend-label">Pending approvals</span>
+                  <span id="member-status-pending-count" class="legend-value">2</span>
+                </div>
+              </div>
+            </div>
+            <div class="faculty-filters" id="faculty-counts-container">
+              <span class="filter-label">Faculty:</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right Column: Verification Trend + Stats -->
+        <div class="right-column">
+          <section class="panel verification-panel">
+            <div class="panel-heading">
+              <h2>Verification trend</h2>
+              <div class="trend-filters">
+                <select id="trend-month" class="trend-filter-select">
+                  <option value="">All Months</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+                <select id="trend-year" class="trend-filter-select">
+                  <option value="">All Years</option>
+                </select>
+              </div>
+            </div>
+            <div class="verification-chart" id="verification-chart">
+              {% for event in dashboard.verification_trend %}
+              <div class="trend-row">
+                <span class="trend-label">{{ event.label }}</span>
+                <div class="trend-bar-container">
+                  <div class="trend-bar" style="width: {{ event.value }}%;" data-value="{{ event.value }}%"></div>
+                </div>
+                <span class="trend-value">{{ event.value }}%</span>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="stats-summary" style="justify-content:center;">
+              <div class="stat-box" style="margin: 0 auto; text-align: center;">
+                <span id="registered-count" class="stat-number">8</span>
+                <span class="stat-label">Registered</span>
+              </div>
+              <div class="stat-box" style="margin: 0 auto; text-align: center;">
+                <span id="verified-count" class="stat-number">0</span>
+                <span class="stat-label">Verified</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Bottom Row: Recent Members -->
+      <div class="dashboard-bottom">
+        <!-- Recent Members -->
+        <section class="panel recent-members-panel">
+          <div class="panel-heading">
+            <h2>Recent members</h2>
+          </div>
+          <table class="recent-members-table">
+            <thead>
+              <tr>
+                <th>NAME</th>
+                <th>FACULTY</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody id="recent-members-body">
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </section>
+
+  {{ officer_role_choices|json_script:"officer-role-choices-data" }}
+  {{ officer_profiles_data|json_script:"officer-profiles-data" }}
+  {{ members_data|json_script:"members-data" }}
+  {{ approvals_data|json_script:"approvals-data" }}
+
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+  <script src="{% static 'js/swal-helpers.js' %}"></script>
+
+  <script>
+    const dashboardContent = document.querySelector('.dashboard-content');
+    const dashboardHeader = document.querySelector('.dashboard-header');
+    const dashboardSections = Array.from(document.querySelectorAll('.overview-cards, .main-panels, .lower-panels'));
+
+    let featureWorkspace = null;
+    let featureLoading = null;
+    let featureStyleHost = null;
+    let featureBody = null;
+
+    function ensureFeatureWorkspace() {
+      if (featureWorkspace) {
+        return featureWorkspace;
+      }
+
+      featureWorkspace = document.createElement('section');
+      featureWorkspace.className = 'feature-workspace';
+      featureWorkspace.innerHTML = `
+        <div class="feature-workspace-dialog">
+          <div class="feature-workspace-loading" id="feature-workspace-loading" hidden>Loading feature...</div>
+          <div class="feature-workspace-style-host" id="feature-workspace-style-host" aria-hidden="true"></div>
+          <div class="feature-workspace-body" id="feature-workspace-body"></div>
+        </div>
+      `;
+
+      dashboardContent.insertBefore(featureWorkspace, dashboardHeader.nextSibling);
+      featureLoading = featureWorkspace.querySelector('#feature-workspace-loading');
+      featureStyleHost = featureWorkspace.querySelector('#feature-workspace-style-host');
+      featureBody = featureWorkspace.querySelector('#feature-workspace-body');
+
+      return featureWorkspace;
+    }
+
+    const featureMap = {
+      'finance-income': { templateId: 'template-finance-income' },
+      'finance-fees': { templateId: 'template-finance-fees' },
+      'finance-budget': { templateId: 'template-finance-budget' },
+      'finance-reports': { templateId: 'template-finance-reports' },
+      'finance-receipts': { templateId: 'template-finance-receipts' },
+      'documents-memos': { templateId: 'template-documents-memos' },
+      'documents-minutes': { templateId: 'template-documents-minutes' },
+      'documents-archive': { templateId: 'template-documents-archive' },
+      'documents-announcements': { templateId: 'template-documents-announcements' },
+      'documents-official': { templateId: 'template-documents-official' },
+      'attendance-qr': { templateId: 'template-attendance-qr' },
+      'attendance-monitor': { templateId: 'template-attendance-monitor' },
+      'attendance-events': { templateId: 'template-attendance-events' },
+      'attendance-export': { templateId: 'template-attendance-export' },
+      'members-account-management': { templateId: 'template-members-account-management' },
+      'members-profile-management': { templateId: 'template-members-profile-management' },
+      'members-approval-management': { templateId: 'template-members-approval-management' },
+    };
+
+    async function openFeatureModal(featureKey) {
+      const feature = featureMap[featureKey];
+
+      if (!feature) {
+        return;
+      }
+
+      // Store the current feature key for page reload restoration
+      sessionStorage.setItem('lastOpenedFeature', featureKey);
+
+      ensureFeatureWorkspace();
+      featureWorkspace.hidden = false;
+      dashboardContent.classList.add('feature-mode');
+      dashboardSections.forEach((section) => {
+        section.hidden = true;
+      });
+      featureBody.innerHTML = '';
+      featureStyleHost.innerHTML = '';
+      featureLoading.hidden = false;
+      featureWorkspace.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      try {
+        const template = document.getElementById(feature.templateId);
+        if (!template) {
+          throw new Error(`Feature template not found: ${feature.templateId}`);
+        }
+
+        const content = template.content.cloneNode(true);
+        featureBody.appendChild(content);
+        initializeFeatureContent(featureKey);
+      } catch (error) {
+        featureBody.innerHTML = `
+          <div class="feature-workspace-error">
+            <strong>Unable to load feature content.</strong>
+            <p>${error.message}</p>
+          </div>
+        `;
+      } finally {
+        featureLoading.hidden = true;
+      }
+    }
+
+    function closeFeatureModal() {
+      if (featureWorkspace) {
+        featureWorkspace.remove();
+        featureWorkspace = null;
+        featureLoading = null;
+        featureStyleHost = null;
+        featureBody = null;
+      }
+
+      // Clear the stored feature key when closing the modal
+      sessionStorage.removeItem('lastOpenedFeature');
+
+      dashboardContent.classList.remove('feature-mode');
+      dashboardSections.forEach((section) => {
+        section.hidden = false;
+      });
+    }
+
+    function parseJsonArray(elementId) {
+      try {
+        const raw = document.getElementById(elementId)?.textContent || '[]';
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    const officerProfiles = parseJsonArray('officer-profiles-data');
+    const officerRoleChoices = parseJsonArray('officer-role-choices-data');
+    const membersData = parseJsonArray('members-data');
+    const approvalsData = parseJsonArray('approvals-data');
+
+    function updateOfficerData(newData) {
+      officerProfiles.length = 0;
+      officerProfiles.push(...newData);
+    }
+
+    function updateMembersData(newData) {
+      membersData.length = 0;
+      membersData.push(...newData);
+      updateStatusBreakdown(membersData, approvalsData);
+      updateVerificationSummary(membersData, approvalsData);
+      renderFacultyButtons(membersData);
+      updateVerificationTrend();
+    }
+
+    function updateApprovalsData(newData) {
+      approvalsData.length = 0;
+      approvalsData.push(...newData);
+      
+      // Update approval badge
+      const pendingCount = newData.filter(a => a.status === 'Pending').length;
+      const badge = document.querySelector('#sidebar-pending-badge');
+      if (badge) {
+        badge.textContent = pendingCount;
+      }
+      updateStatusBreakdown(membersData, approvalsData);
+      updateVerificationSummary(membersData, approvalsData);
+      updateVerificationTrend();
+    }
+
+    function updateVerificationSummary(members, approvals) {
+      const registeredEl = document.getElementById('registered-count');
+      const verifiedEl = document.getElementById('verified-count');
+
+      const registeredCount = members.length;
+      const verifiedCount = members.filter((member) => member.status === 'Active' || member.status === 'Inactive').length;
+
+      if (registeredEl) registeredEl.textContent = registeredCount;
+      if (verifiedEl) verifiedEl.textContent = verifiedCount;
+    }
+
+    function renderFacultyButtons(members) {
+      const container = document.getElementById('faculty-counts-container');
+      if (!container) return;
+
+      const facultyCounts = members.reduce((acc, member) => {
+        const faculty = (member.faculty || 'Unknown').trim();
+        const key = faculty || 'Unknown';
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+
+      const entries = Object.entries(facultyCounts).sort((a, b) => b[1] - a[1]);
+      container.innerHTML = '<span class="filter-label">Faculty:</span>' + entries
+        .map(([faculty, count], index) => `
+          <button type="button" class="faculty-btn${index === 0 ? ' active' : ''}">${faculty} — ${count}</button>
+        `)
+        .join('');
+    }
+
+    function calculateMemberStatusCounts(members, approvals) {
+      const activeCount = members.filter((member) => member.status === 'Active').length;
+      const inactiveCount = members.filter((member) => member.status === 'Inactive').length;
+      const pendingCount = approvals.filter((approval) => approval.status === 'Pending').length;
+      const totalCount = activeCount + inactiveCount + pendingCount;
+      return { activeCount, inactiveCount, pendingCount, totalCount };
+    }
+
+
+    function updateStatusBreakdown(members, approvals) {
+      const { activeCount, inactiveCount, pendingCount, totalCount } = calculateMemberStatusCounts(members, approvals);
+
+      const totalEl = document.getElementById('member-status-total');
+      const activeEl = document.getElementById('member-status-active-count');
+      const inactiveEl = document.getElementById('member-status-inactive-count');
+      const pendingEl = document.getElementById('member-status-pending-count');
+      const activeCardEl = document.getElementById('active-members-card-count');
+      const donutActive = document.getElementById('donut-active');
+      const donutInactive = document.getElementById('donut-inactive');
+      const donutPending = document.getElementById('donut-pending');
+
+      if (totalEl) totalEl.textContent = totalCount;
+      if (activeEl) activeEl.textContent = activeCount;
+      if (inactiveEl) inactiveEl.textContent = inactiveCount;
+      if (pendingEl) pendingEl.textContent = pendingCount;
+      if (activeCardEl) activeCardEl.textContent = activeCount;
+
+      const circumference = 2 * Math.PI * 55;
+      const activeStroke = totalCount > 0 ? (activeCount / totalCount) * circumference : 0;
+      const inactiveStroke = totalCount > 0 ? (inactiveCount / totalCount) * circumference : 0;
+      const pendingStroke = totalCount > 0 ? (pendingCount / totalCount) * circumference : 0;
+
+      if (donutActive) {
+        donutActive.setAttribute('stroke-dasharray', `${activeStroke} ${circumference}`);
+        donutActive.setAttribute('stroke-dashoffset', '0');
+      }
+      if (donutInactive) {
+        donutInactive.setAttribute('stroke-dasharray', `${inactiveStroke} ${circumference}`);
+        donutInactive.setAttribute('stroke-dashoffset', `-${activeStroke}`);
+      }
+      if (donutPending) {
+        donutPending.setAttribute('stroke-dasharray', `${pendingStroke} ${circumference}`);
+        donutPending.setAttribute('stroke-dashoffset', `-${activeStroke + inactiveStroke}`);
+      }
+    }
+
+    // Initialize approval badge on page load
+    function initializeApprovalBadge() {
+      const pendingCount = approvalsData.filter(a => a.status === 'Pending').length;
+      const badge = document.querySelector('#sidebar-pending-badge');
+      if (badge) {
+        badge.textContent = pendingCount;
+      }
+    }
+    initializeApprovalBadge();
+    updateStatusBreakdown(membersData, approvalsData);
+    renderFacultyButtons(membersData);
+    updateVerificationSummary(membersData, approvalsData);
+    updateVerificationTrend();
+
+    function formatRoleLabel(role) {
+      if (role === 'Membership Officer') {
+        return 'Membership Officer (Business Manager)';
+      }
+      if (role === 'Attendance Officer') {
+        return 'Attendance Officer (PIO)';
+      }
+      return role;
+    }
+
+    function buildRoleOptions(selectedRole) {
+      return officerRoleChoices
+        .map((role) => {
+          const label = formatRoleLabel(role);
+          return `
+          <option value="${role}" ${role === selectedRole ? 'selected' : ''}>
+            ${label}
+          </option>`;
+        })
+        .join('');
+    }
+
+    function initializeFeatureContent(featureKey) {
+      if (!featureBody) {
+        return;
+      }
+
+      const panel = featureBody.querySelector('.feature-panel');
+      if (!panel) {
+        return;
+      }
+
+      if (featureKey === 'members-account-management') {
+        const tableBody = panel.querySelector('tbody');
+        if (tableBody) {
+          // Filter out pending members - only show approved members in Account Management
+          const pendingMemberIds = approvalsData
+            .filter(approval => approval.status === 'Pending' && approval.member)
+            .map(approval => approval.member.id);
+          
+          const approvedMembers = membersData.filter(member => !pendingMemberIds.includes(member.id));
+          
+          if (approvedMembers.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:#999;">No approved members to display. Pending registrations will be available here once approved.</td></tr>`;
+          } else {
+            tableBody.innerHTML = approvedMembers
+              .map((member) => `
+                <tr>
+                  <td>${member.name}</td>
+                  <td>${member.email || '—'}</td>
+                  <td>${member.faculty || '—'}</td>
+                  <td>${member.status}</td>
+                  <td>
+                    <button type="button" class="btn-secondary btn-toggle-status" data-member-id="${member.id}" data-current-status="${member.status}">
+                      ${member.status === 'Active' ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button type="button" class="btn-secondary btn-reset-password" data-member-id="${member.id}">
+                      Reset Password
+                    </button>
+                    <button type="button" class="btn-secondary btn-delete-member" data-member-id="${member.id}" style="color:#c62828;border-color:#c62828;">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              `)
+              .join('');
+          }
+
+          tableBody.addEventListener('click', async (event) => {
+            const toggleButton = event.target.closest('.btn-toggle-status');
+            if (toggleButton) {
+              const memberId = toggleButton.dataset.memberId;
+              const currentStatus = toggleButton.dataset.currentStatus;
+              const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+              const actionText = newStatus === 'Active' ? 'Activate' : 'Deactivate';
+
+              // Show confirmation dialog
+              const confirmation = await Swal.fire({
+                title: `${actionText} Account?`,
+                text: `Are you sure you want to ${actionText.toLowerCase()} this member's account?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: actionText,
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: newStatus === 'Active' ? '#2e7d32' : '#c62828',
+              });
+
+              // If user cancels, return
+              if (!confirmation.isConfirmed) {
+                return;
+              }
+
+              const result = await sendOfficerAction({
+                action: 'update_member_status',
+                member_id: memberId,
+                status: newStatus,
+                reason: 'Updated from account management panel',
+              });
+
+              Swal.fire({
+                icon: result.success ? 'success' : 'error',
+                title: result.success ? 'Account status updated' : 'Unable to update status',
+                text: result.message,
+              });
+
+              if (result.success) {
+                updateMembersData(result.members || []);
+                updateApprovalsData(result.approvals || []);
+                initializeFeatureContent(featureKey);
+              }
+              return;
+            }
+
+            const resetButton = event.target.closest('.btn-reset-password');
+            if (resetButton) {
+              const memberId = resetButton.dataset.memberId;
+              const member = membersData.find((item) => String(item.id) === String(memberId));
+              
+              if (!member) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Member not found',
+                  text: 'Unable to locate member details.',
+                });
+                return;
+              }
+
+              Swal.fire({
+                title: `<div style="text-align:center;font-size:20px;font-weight:700;color:#1b5e20;">Reset Password</div>`,
+                html: `
+                  <div style="padding:20px;background:#fff;border-radius:12px;text-align:left;">
+                    <p style="margin:0 0 20px 0;color:#666;font-size:14px;"><strong>Member:</strong> ${member.name}</p>
+                    
+                    <div style="margin-bottom:20px;">
+                      <label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:8px;">
+                        New Password
+                      </label>
+                      <div style="position:relative;">
+                        <input type="password" id="newPassword" placeholder="Enter new password (min. 8 characters)" 
+                          style="width:100%;padding:12px 40px 12px 12px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px;font-family:monospace;box-sizing:border-box;transition:all 0.3s ease;"
+                          onchange="if(this.value) this.style.borderColor='#1b5e20';"
+                          onfocus="this.style.borderColor='#1b5e20';"
+                          onblur="this.style.borderColor='#e0e0e0';" />
+                        <button type="button" class="toggle-password-btn" data-target="newPassword" 
+                          style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#1b5e20;cursor:pointer;font-size:16px;padding:4px 8px;">
+                          <i class="fas fa-eye"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                      <label style="display:block;font-size:13px;font-weight:600;color:#333;margin-bottom:8px;">
+                        Confirm Password
+                      </label>
+                      <div style="position:relative;">
+                        <input type="password" id="confirmPassword" placeholder="Confirm new password" 
+                          style="width:100%;padding:12px 40px 12px 12px;border:2px solid #e0e0e0;border-radius:6px;font-size:14px;font-family:monospace;box-sizing:border-box;transition:all 0.3s ease;"
+                          onchange="if(this.value) this.style.borderColor='#1b5e20';"
+                          onfocus="this.style.borderColor='#1b5e20';"
+                          onblur="this.style.borderColor='#e0e0e0';" />
+                        <button type="button" class="toggle-password-btn" data-target="confirmPassword" 
+                          style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#1b5e20;cursor:pointer;font-size:16px;padding:4px 8px;">
+                          <i class="fas fa-eye"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                `,
+                showCancelButton: true,
+                cancelButtonText: 'Cancel',
+                confirmButtonText: 'Reset Password',
+                confirmButtonColor: '#1b5e20',
+                width: '500px',
+                padding: '20px',
+                didOpen: (modal) => {
+                  modal.style.borderRadius = '12px';
+                  
+                  // Add toggle password functionality
+                  const toggleButtons = modal.querySelectorAll('.toggle-password-btn');
+                  toggleButtons.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                      e.preventDefault();
+                      const targetId = btn.dataset.target;
+                      const input = document.getElementById(targetId);
+                      const icon = btn.querySelector('i');
+                      
+                      if (input.type === 'password') {
+                        input.type = 'text';
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                      } else {
+                        input.type = 'password';
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                      }
+                    });
+                  });
+                },
+                preConfirm: async () => {
+                  const newPassword = document.getElementById('newPassword').value.trim();
+                  const confirmPassword = document.getElementById('confirmPassword').value.trim();
+
+                  if (!newPassword || !confirmPassword) {
+                    Swal.showValidationMessage('Please enter both passwords');
+                    return false;
+                  }
+
+                  if (newPassword !== confirmPassword) {
+                    Swal.showValidationMessage('Passwords do not match');
+                    return false;
+                  }
+
+                  if (newPassword.length < 8) {
+                    Swal.showValidationMessage('Password must be at least 8 characters long');
+                    return false;
+                  }
+
+                  const result = await sendOfficerAction({
+                    action: 'reset_member_password',
+                    member_id: memberId,
+                    new_password: newPassword,
+                    confirm_password: confirmPassword,
+                  });
+
+                  if (!result.success) {
+                    Swal.showValidationMessage(result.message || 'Failed to reset password');
+                    return false;
+                  }
+
+                  return result;
+                }
+              }).then((result) => {
+                if (result.isConfirmed && result.value && result.value.success) {
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'Password Reset',
+                    text: result.value.message,
+                  });
+                  initializeFeatureContent(featureKey);
+                }
+              });
+              return;
+            }
+
+            const deleteButton = event.target.closest('.btn-delete-member');
+            if (deleteButton) {
+              const memberId = deleteButton.dataset.memberId;
+              const memberName = deleteButton.closest('tr').querySelector('td').textContent;
+
+              // Show confirmation dialog
+              const confirmation = await Swal.fire({
+                title: 'Delete Member?',
+                text: `Are you sure you want to permanently delete this member and all associated records? This action cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Delete',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#c62828',
+              });
+
+              // If user cancels, return
+              if (!confirmation.isConfirmed) {
+                return;
+              }
+
+              const result = await sendOfficerAction({
+                action: 'delete_member',
+                member_id: memberId,
+                reason: 'Deleted from account management panel',
+              });
+
+              Swal.fire({
+                icon: result.success ? 'success' : 'error',
+                title: result.success ? 'Member deleted' : 'Unable to delete member',
+                text: result.message,
+              });
+
+              if (result.success) {
+                updateMembersData(result.members || []);
+                updateApprovalsData(result.approvals || []);
+                initializeFeatureContent(featureKey);
+              }
+              return;
+            }
+          });
+
+          // Add search filter functionality
+          const searchInput = panel.querySelector('.search-filter');
+          const clearButton = panel.querySelector('.clear-search');
+          const resultCounter = panel.querySelector('.search-results-count');
+          
+          if (searchInput) {
+            // Show/hide clear button based on input
+            searchInput.addEventListener('input', (e) => {
+              const searchTerm = e.target.value.toLowerCase();
+              if (clearButton) {
+                clearButton.style.display = searchTerm ? 'flex' : 'none';
+              }
+              
+              const rows = tableBody.querySelectorAll('tr:not(.no-results)');
+              let visibleCount = 0;
+
+              rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                const isVisible = text.includes(searchTerm);
+                row.style.display = isVisible ? '' : 'none';
+                if (isVisible) visibleCount++;
+              });
+
+              // Update result counter
+              if (resultCounter) {
+                if (searchTerm) {
+                  resultCounter.textContent = visibleCount === 0 ? 'No results' : visibleCount === 1 ? '1 result' : `${visibleCount} results`;
+                } else {
+                  resultCounter.textContent = '';
+                }
+              }
+
+              if (visibleCount === 0 && searchTerm) {
+                if (!tableBody.querySelector('.no-results')) {
+                  tableBody.innerHTML += '<tr class="no-results"><td colspan="5" style="text-align:center;padding:40px 20px;color:#999;font-style:italic;">No matching records found</td></tr>';
+                }
+              } else {
+                const noResultsRow = tableBody.querySelector('.no-results');
+                if (noResultsRow) noResultsRow.remove();
+              }
+            });
+
+            // Clear button functionality
+            if (clearButton) {
+              clearButton.addEventListener('click', () => {
+                searchInput.value = '';
+                clearButton.style.display = 'none';
+                if (resultCounter) resultCounter.textContent = '';
+                
+                // Show all rows
+                const rows = tableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                  row.style.display = '';
+                });
+                
+                const noResultsRow = tableBody.querySelector('.no-results');
+                if (noResultsRow) noResultsRow.remove();
+                
+                searchInput.focus();
+              });
+            }
+          }
+        }
+        return;
+      }
+
+      if (featureKey === 'members-profile-management') {
+        const tableBody = panel.querySelector('tbody');
+        if (tableBody) {
+          // Filter out pending members - only show approved members
+          const pendingMemberIds = approvalsData
+            .filter(approval => approval.status === 'Pending' && approval.member)
+            .map(approval => approval.member.id);
+          
+          const approvedMembers = membersData.filter(member => !pendingMemberIds.includes(member.id));
+          
+          if (approvedMembers.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:#999;">No approved members to display. Pending registrations will appear here once approved.</td></tr>`;
+          } else {
+            tableBody.innerHTML = approvedMembers
+              .map((member) => `
+                <tr>
+                  <td>${member.name}</td>
+                  <td>${member.email || '—'}</td>
+                  <td>${member.faculty || '—'}</td>
+                  <td>${member.status}</td>
+                  <td>
+                    <button type="button" class="btn-secondary btn-view-profile" data-member-id="${member.id}">View</button>
+                    <button type="button" class="btn-secondary btn-edit-profile" data-member-id="${member.id}" style="background-color:#1b5e20;color:white;margin-left:8px;">Edit</button>
+                  </td>
+                </tr>
+              `)
+              .join('');
+          }
+
+          tableBody.addEventListener('click', (event) => {
+            const viewButton = event.target.closest('.btn-view-profile');
+            const editButton = event.target.closest('.btn-edit-profile');
+
+            if (viewButton) {
+              const memberId = viewButton.dataset.memberId;
+              const member = membersData.find((item) => String(item.id) === String(memberId));
+              if (!member) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Member not found',
+                  text: 'Unable to locate member profile details.',
+                });
+                return;
+              }
+
+              const profilePictureHtml = member.profile_picture_url 
+                ? `<img src="${member.profile_picture_url}" alt="Profile" style="width:100%;max-width:140px;height:140px;border-radius:8px;object-fit:cover;border:3px solid #ddd;">`
+                : '<div style="width:140px;height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:12px;">No Photo</div>';
+
+              const statusBgColor = member.status === 'Active' ? '#e8f5e9' : member.status === 'Inactive' ? '#ffebee' : '#fff3e0';
+              const statusTextColor = member.status === 'Active' ? '#2e7d32' : member.status === 'Inactive' ? '#c62828' : '#e65100';
+
+              Swal.fire({
+                title: `<div style="text-align:center;font-size:24px;font-weight:700;color:#1b5e20;">${member.name}</div>`,
+                html: `
+                  <div style="padding:20px;background:#fff;border-radius:12px;text-align:left;max-height:600px;overflow-y:auto;">
+                    <!-- Profile Picture & Header -->
+                    <div style="text-align:center;margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid #e0e0e0;">
+                      <div style="margin-bottom:15px;">
+                        ${profilePictureHtml}
+                      </div>
+                      <h2 style="font-size:18px;font-weight:700;color:#1b5e20;margin:0;">${member.name}</h2>
+                      <p style="font-size:12px;color:#999;margin:5px 0 0 0;">Member Profile</p>
+                    </div>
+
+                    <!-- Account Information Section -->
+                    <div style="margin-bottom:25px;">
+                      <h3 style="font-size:13px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 15px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Account Information</h3>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Username</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.username || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Email Address</p>
+                          <p style="font-size:14px;color:#0066cc;margin:0;font-weight:500;word-break:break-all;">${member.email || '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Personal Information Section -->
+                    <div style="margin-bottom:25px;">
+                      <h3 style="font-size:13px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 15px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Personal Information</h3>
+                      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:15px;">
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">First Name</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.first_name || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Middle Name</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.middle_name || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Last Name</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.last_name || '—'}</p>
+                        </div>
+                      </div>
+                      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Gender</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.gender || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Date of Birth</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.date_of_birth || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Age</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.age || '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Faculty Section -->
+                    <div style="margin-bottom:25px;">
+                      <h3 style="font-size:13px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 15px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Faculty</h3>
+                      <div>
+                        <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Faculty</p>
+                        <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.faculty || '—'}</p>
+                      </div>
+                    </div>
+
+                    <!-- Membership Status Section -->
+                    <div>
+                      <h3 style="font-size:13px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 15px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Membership Status</h3>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Status</p>
+                          <p style="display:inline-block;padding:6px 12px;background:${statusBgColor};color:${statusTextColor};font-weight:600;border-radius:4px;font-size:13px;margin:0;">${member.status}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Joined Date</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.joined_date || '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `,
+                confirmButtonText: 'Close',
+                confirmButtonColor: '#1b5e20',
+                width: '900px',
+                padding: '20px',
+                didOpen: (modal) => {
+                  modal.style.borderRadius = '12px';
+                }
+              });
+              return;
+            }
+
+            if (editButton) {
+              const memberId = editButton.dataset.memberId;
+              const member = membersData.find((item) => String(item.id) === String(memberId));
+              if (!member) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Member not found',
+                  text: 'Unable to locate member profile for editing.',
+                });
+                return;
+              }
+
+              const statusBgColor = member.status === 'Active' ? '#e8f5e9' : member.status === 'Inactive' ? '#ffebee' : '#fff3e0';
+              const statusTextColor = member.status === 'Active' ? '#2e7d32' : member.status === 'Inactive' ? '#c62828' : '#e65100';
+
+              const editForm = `
+                <div style="text-align:left;">
+                  <form id="editMemberForm" style="display:grid;gap:15px;">
+                    <!-- Account Information (Read-only) -->
+                    <div style="padding:12px;background:#f9f9f9;border-radius:6px;border-left:3px solid #1b5e20;">
+                      <h4 style="font-size:11px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 10px 0;">Account Information</h4>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#999;display:block;margin-bottom:5px;text-transform:uppercase;">Username</label>
+                          <input type="text" value="${member.username || '—'}" disabled style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;background:#f5f5f5;color:#666;">
+                        </div>
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#999;display:block;margin-bottom:5px;text-transform:uppercase;">Email Address</label>
+                          <input type="email" class="edit-field" name="email" value="${member.email || ''}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Personal Information (Editable) -->
+                    <div>
+                      <h4 style="font-size:11px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 10px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Personal Information</h4>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#1b5e20;display:block;margin-bottom:5px;text-transform:uppercase;">First Name</label>
+                          <input type="text" class="edit-field" name="first_name" value="${member.first_name || ''}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                        </div>
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#1b5e20;display:block;margin-bottom:5px;text-transform:uppercase;">Middle Name</label>
+                          <input type="text" class="edit-field" name="middle_name" value="${member.middle_name || ''}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                        </div>
+                      </div>
+                      <div style="margin-bottom:15px;">
+                        <label style="font-size:11px;font-weight:600;color:#1b5e20;display:block;margin-bottom:5px;text-transform:uppercase;">Last Name</label>
+                        <input type="text" class="edit-field" name="last_name" value="${member.last_name || ''}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                      </div>
+                      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;">
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#1b5e20;display:block;margin-bottom:5px;text-transform:uppercase;">Gender</label>
+                          <select class="edit-field" name="gender" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                            <option value="">Select...</option>
+                            <option value="Male" ${member.gender === 'Male' ? 'selected' : ''}>Male</option>
+                            <option value="Female" ${member.gender === 'Female' ? 'selected' : ''}>Female</option>
+                            <option value="Other" ${member.gender === 'Other' ? 'selected' : ''}>Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#1b5e20;display:block;margin-bottom:5px;text-transform:uppercase;">Date of Birth</label>
+                          <input type="date" class="edit-field" name="date_of_birth" value="${member.date_of_birth || ''}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                        </div>
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#999;display:block;margin-bottom:5px;text-transform:uppercase;">Age</label>
+                          <input type="text" value="${member.age || '—'}" disabled style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;background:#f5f5f5;color:#666;">
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Faculty (Editable) -->
+                    <div>
+                      <label style="font-size:11px;font-weight:600;color:#1b5e20;display:block;margin-bottom:5px;text-transform:uppercase;">Faculty</label>
+                      <select class="edit-field" name="faculty" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;">
+                        <option value="">Select...</option>
+                        <option value="CCSICT" ${member.faculty === 'CCSICT' ? 'selected' : ''}>CCSICT</option>
+                        <option value="PS" ${member.faculty === 'PS' ? 'selected' : ''}>PS</option>
+                        <option value="CCJE" ${member.faculty === 'CCJE' ? 'selected' : ''}>CCJE</option>
+                        <option value="SAS" ${member.faculty === 'SAS' ? 'selected' : ''}>SAS</option>
+                        <option value="CED" ${member.faculty === 'CED' ? 'selected' : ''}>CED</option>
+                        <option value="CBM" ${member.faculty === 'CBM' ? 'selected' : ''}>CBM</option>
+                        <option value="IAT" ${member.faculty === 'IAT' ? 'selected' : ''}>IAT</option>
+                      </select>
+                    </div>
+
+                    <!-- Membership Status (Read-only) -->
+                    <div style="padding:12px;background:#f9f9f9;border-radius:6px;border-left:3px solid #1b5e20;">
+                      <h4 style="font-size:11px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 10px 0;">Membership Status</h4>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#999;display:block;margin-bottom:5px;text-transform:uppercase;">Status</label>
+                          <div style="display:inline-block;padding:6px 12px;background:${statusBgColor};color:${statusTextColor};font-weight:600;border-radius:4px;font-size:12px;">${member.status}</div>
+                        </div>
+                        <div>
+                          <label style="font-size:11px;font-weight:600;color:#999;display:block;margin-bottom:5px;text-transform:uppercase;">Joined Date</label>
+                          <input type="text" value="${member.joined_date || '—'}" disabled style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px;background:#f5f5f5;color:#666;">
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              `;
+
+              Swal.fire({
+                title: `Edit Profile - ${member.name}`,
+                html: editForm,
+                confirmButtonText: 'Save Changes',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#1b5e20',
+                showCancelButton: true,
+                width: '600px',
+                padding: '20px',
+                didOpen: (modal) => {
+                  modal.style.borderRadius = '12px';
+                },
+                preConfirm: async () => {
+                  const form = document.getElementById('editMemberForm');
+                  const formData = new FormData(form);
+                  
+                  const updateData = {
+                    action: 'update_member_profile',
+                    member_id: memberId,
+                    email: formData.get('email'),
+                    first_name: formData.get('first_name'),
+                    middle_name: formData.get('middle_name'),
+                    last_name: formData.get('last_name'),
+                    gender: formData.get('gender'),
+                    date_of_birth: formData.get('date_of_birth'),
+                    faculty: formData.get('faculty'),
+                    reason: 'Updated from profile management panel',
+                  };
+
+                  const result = await sendOfficerAction(updateData);
+                  
+                  if (!result.success) {
+                    Swal.showValidationMessage(result.message || 'Failed to update profile');
+                    return false;
+                  }
+
+                  return result;
+                }
+              }).then((result) => {
+                if (result.isConfirmed && result.value && result.value.success) {
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'Profile Updated',
+                    text: 'Member profile has been successfully updated.',
+                  });
+                  
+                  updateMembersData(result.value.members || []);
+                  updateApprovalsData(result.value.approvals || []);
+                  initializeFeatureContent(featureKey);
+                }
+              });
+              return;
+            }
+          });
+
+          // Add search filter functionality
+          const searchInput = panel.querySelector('.search-filter');
+          const clearButton = panel.querySelector('.clear-search');
+          const resultCounter = panel.querySelector('.search-results-count');
+          
+          if (searchInput) {
+            // Show/hide clear button based on input
+            searchInput.addEventListener('input', (e) => {
+              const searchTerm = e.target.value.toLowerCase();
+              if (clearButton) {
+                clearButton.style.display = searchTerm ? 'flex' : 'none';
+              }
+              
+              const rows = tableBody.querySelectorAll('tr:not(.no-results)');
+              let visibleCount = 0;
+
+              rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                const isVisible = text.includes(searchTerm);
+                row.style.display = isVisible ? '' : 'none';
+                if (isVisible) visibleCount++;
+              });
+
+              // Update result counter
+              if (resultCounter) {
+                if (searchTerm) {
+                  resultCounter.textContent = visibleCount === 0 ? 'No results' : visibleCount === 1 ? '1 result' : `${visibleCount} results`;
+                } else {
+                  resultCounter.textContent = '';
+                }
+              }
+
+              if (visibleCount === 0 && searchTerm) {
+                if (!tableBody.querySelector('.no-results')) {
+                  tableBody.innerHTML += '<tr class="no-results"><td colspan="5" style="text-align:center;padding:40px 20px;color:#999;font-style:italic;">No matching records found</td></tr>';
+                }
+              } else {
+                const noResultsRow = tableBody.querySelector('.no-results');
+                if (noResultsRow) noResultsRow.remove();
+              }
+            });
+
+            // Clear button functionality
+            if (clearButton) {
+              clearButton.addEventListener('click', () => {
+                searchInput.value = '';
+                clearButton.style.display = 'none';
+                if (resultCounter) resultCounter.textContent = '';
+                
+                // Show all rows
+                const rows = tableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                  row.style.display = '';
+                });
+                
+                const noResultsRow = tableBody.querySelector('.no-results');
+                if (noResultsRow) noResultsRow.remove();
+                
+                searchInput.focus();
+              });
+            }
+          }
+        }
+        return;
+      }
+
+      if (featureKey === 'members-approval-management') {
+        const tableBody = panel.querySelector('tbody');
+        if (tableBody) {
+          tableBody.innerHTML = approvalsData
+            .map((approval) => `
+              <tr>
+                <td>${approval.title}</td>
+                <td>${approval.request_type}</td>
+                <td>${approval.submitted_by || 'System'}</td>
+                <td>${approval.status}</td>
+                <td>${approval.created_at}</td>
+                <td>
+                  <button type="button" class="btn-secondary btn-view-registration" data-approval-id="${approval.id}">Review</button>
+                </td>
+              </tr>
+            `)
+            .join('');
+
+
+          tableBody.addEventListener('click', async (event) => {
+            const viewButton = event.target.closest('.btn-view-registration');
+            if (viewButton) {
+              const approvalId = viewButton.dataset.approvalId;
+              const approval = approvalsData.find((item) => String(item.id) === String(approvalId));
+              
+              if (!approval || !approval.member) {
+                Swal.fire({
+                  icon: 'error',
+                  title: 'Registration not found',
+                  text: 'Unable to locate registration details.',
+                });
+                return;
+              }
+
+              const member = approval.member;
+              const profilePictureHtml = member.profile_picture_url 
+                ? `<img src="${member.profile_picture_url}" alt="Profile" style="width:100%;max-width:140px;height:140px;border-radius:8px;object-fit:cover;border:3px solid #ddd;">`
+                : '<div style="width:140px;height:140px;background:#f5f5f5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:12px;">No Photo</div>';
+
+              const statusBgColor = member.status === 'Active' ? '#e8f5e9' : member.status === 'Inactive' ? '#ffebee' : '#fff3e0';
+              const statusTextColor = member.status === 'Active' ? '#2e7d32' : member.status === 'Inactive' ? '#c62828' : '#e65100';
+
+              Swal.fire({
+                title: `<div style="text-align:center;font-size:20px;font-weight:700;color:#1b5e20;">Review Registration</div>`,
+                html: `
+                  <div style="padding:20px;background:#fff;border-radius:12px;text-align:left;max-height:600px;overflow-y:auto;">
+                    <!-- Profile Picture & Header -->
+                    <div style="text-align:center;margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid #e0e0e0;">
+                      <div style="margin-bottom:15px;">
+                        ${profilePictureHtml}
+                      </div>
+                      <h2 style="font-size:18px;font-weight:700;color:#1b5e20;margin:0;">${member.name}</h2>
+                      <p style="font-size:12px;color:#999;margin:5px 0 0 0;">Member Registration</p>
+                    </div>
+
+                    <!-- Account Information Section -->
+                    <div style="margin-bottom:25px;">
+                      <h3 style="font-size:13px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 15px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Account Information</h3>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Username</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.username || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Email Address</p>
+                          <p style="font-size:14px;color:#0066cc;margin:0;font-weight:500;word-break:break-all;">${member.email || '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Personal Information Section -->
+                    <div style="margin-bottom:25px;">
+                      <h3 style="font-size:13px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 15px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Personal Information</h3>
+                      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:15px;">
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">First Name</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.first_name || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Middle Name</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.middle_name || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Last Name</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.last_name || '—'}</p>
+                        </div>
+                      </div>
+                      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;">
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Gender</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.gender || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Date of Birth</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.date_of_birth || '—'}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Age</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.age || '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Faculty Section -->
+                    <div style="margin-bottom:25px;">
+                      <h3 style="font-size:13px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 15px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Faculty</h3>
+                      <div>
+                        <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Faculty</p>
+                        <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${member.faculty || '—'}</p>
+                      </div>
+                    </div>
+
+                    <!-- Membership Status Section -->
+                    <div>
+                      <h3 style="font-size:13px;font-weight:700;color:#1b5e20;text-transform:uppercase;margin:0 0 15px 0;padding-bottom:8px;border-bottom:2px solid #1b5e20;">Membership Status</h3>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Status</p>
+                          <p style="display:inline-block;padding:6px 12px;background:${statusBgColor};color:${statusTextColor};font-weight:600;border-radius:4px;font-size:13px;margin:0;">${member.status}</p>
+                        </div>
+                        <div>
+                          <p style="font-size:11px;color:#999;margin:0 0 6px 0;text-transform:uppercase;font-weight:600;">Submitted</p>
+                          <p style="font-size:14px;color:#333;margin:0;font-weight:500;">${approval.created_at || '—'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                `,
+                showCancelButton: true,
+                cancelButtonText: 'Reject',
+                confirmButtonText: 'Approve',
+                confirmButtonColor: '#1b5e20',
+                cancelButtonColor: '#d32f2f',
+                width: '900px',
+                padding: '20px',
+                didOpen: (modal) => {
+                  modal.style.borderRadius = '12px';
+                }
+              }).then(async (result) => {
+                if (result.isConfirmed) {
+                  const resp = await sendOfficerAction({
+                    action: 'approve_registration',
+                    approval_id: approvalId,
+                  });
+
+                  Swal.fire({
+                    icon: resp.success ? 'success' : 'error',
+                    title: resp.success ? 'Registration Approved' : 'Unable to approve',
+                    text: resp.message,
+                  });
+
+                  if (resp.success) {
+                    updateMembersData(resp.members || []);
+                    updateApprovalsData(resp.approvals || []);
+                    initializeFeatureContent(featureKey);
+                  }
+                } else if (result.isDismissed && result.dismiss === Swal.DismissReason.cancel) {
+                  const resp = await sendOfficerAction({
+                    action: 'reject_registration',
+                    approval_id: approvalId,
+                  });
+
+                  Swal.fire({
+                    icon: resp.success ? 'success' : 'error',
+                    title: resp.success ? 'Registration Rejected' : 'Unable to reject',
+                    text: resp.message,
+                  });
+
+                  if (resp.success) {
+                    updateMembersData(resp.members || []);
+                    updateApprovalsData(resp.approvals || []);
+                    initializeFeatureContent(featureKey);
+                  }
+                }
+              });
+              return;
+            }
+          });
+
+          // Add search filter functionality
+          const searchInput = panel.querySelector('.search-filter');
+          const clearButton = panel.querySelector('.clear-search');
+          const resultCounter = panel.querySelector('.search-results-count');
+          
+          if (searchInput) {
+            // Show/hide clear button based on input
+            searchInput.addEventListener('input', (e) => {
+              const searchTerm = e.target.value.toLowerCase();
+              if (clearButton) {
+                clearButton.style.display = searchTerm ? 'flex' : 'none';
+              }
+              
+              const rows = tableBody.querySelectorAll('tr:not(.no-results)');
+              let visibleCount = 0;
+
+              rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                const isVisible = text.includes(searchTerm);
+                row.style.display = isVisible ? '' : 'none';
+                if (isVisible) visibleCount++;
+              });
+
+              // Update result counter
+              if (resultCounter) {
+                if (searchTerm) {
+                  resultCounter.textContent = visibleCount === 0 ? 'No results' : visibleCount === 1 ? '1 result' : `${visibleCount} results`;
+                } else {
+                  resultCounter.textContent = '';
+                }
+              }
+
+              if (visibleCount === 0 && searchTerm) {
+                if (!tableBody.querySelector('.no-results')) {
+                  tableBody.innerHTML += '<tr class="no-results"><td colspan="6" style="text-align:center;padding:40px 20px;color:#999;font-style:italic;">No matching records found</td></tr>';
+                }
+              } else {
+                const noResultsRow = tableBody.querySelector('.no-results');
+                if (noResultsRow) noResultsRow.remove();
+              }
+            });
+
+            // Clear button functionality
+            if (clearButton) {
+              clearButton.addEventListener('click', () => {
+                searchInput.value = '';
+                clearButton.style.display = 'none';
+                if (resultCounter) resultCounter.textContent = '';
+                
+                // Show all rows
+                const rows = tableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                  row.style.display = '';
+                });
+                
+                const noResultsRow = tableBody.querySelector('.no-results');
+                if (noResultsRow) noResultsRow.remove();
+                
+                searchInput.focus();
+              });
+            }
+          }
+        }
+        return;
+      }
+
+    }
+
+    function getCookie(name) {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(name + '='));
+      return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
+    }
+
+    async function sendOfficerAction(payload) {
+      console.log('[AJAX] sendOfficerAction called with payload:', payload);
+      
+      Swal.fire({
+        title: 'Working on it...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      try {
+        console.log('[AJAX] Sending POST request to:', window.location.href);
+        const response = await fetch(window.location.href, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: new URLSearchParams(payload),
+        });
+        
+        console.log('[AJAX] Response status:', response.status);
+        console.log('[AJAX] Response headers:', response.headers);
+        
+        const result = await response.json();
+        console.log('[AJAX] Response parsed as JSON:', result);
+        console.log('[AJAX] Response success:', result.success);
+        console.log('[AJAX] Response message:', result.message);
+        
+        Swal.close();
+        return result;
+      } catch (error) {
+        console.error('[AJAX] Error occurred:', error);
+        Swal.close();
+        return {
+          success: false,
+          message: `AJAX Error: ${error.message}`
+        };
+      }
+    }
+
+    document.addEventListener('click', (event) => {
+      const closeButton = event.target.closest('.btn-close-feature');
+      if (closeButton) {
+        event.preventDefault();
+        closeFeatureModal();
+        return;
+      }
+
+      const dashboardLink = event.target.closest('.nav-item.active');
+      if (dashboardLink) {
+        event.preventDefault();
+        closeFeatureModal();
+        return;
+      }
+
+      const featureLink = event.target.closest('.feature-launcher');
+      if (!featureLink) {
+        return;
+      }
+
+      const featureKey = featureLink.dataset.modalKey;
+      if (!featureKey || !featureMap[featureKey]) {
+        return;
+      }
+
+      event.preventDefault();
+      openFeatureModal(featureKey);
+    });
+    document.addEventListener('submit', (event) => {
+      if (featureWorkspace && featureWorkspace.contains(event.target)) {
+        event.preventDefault();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && featureWorkspace && !featureWorkspace.hidden) {
+        closeFeatureModal();
+      }
+    });
+
+    // Populate recent members table
+    const recentMembersBody = document.getElementById('recent-members-body');
+    if (recentMembersBody && membersData && membersData.length > 0) {
+      const recentMembers = membersData.slice(0, 5); // Show top 5 most recent
+      recentMembersBody.innerHTML = recentMembers
+        .map((member) => {
+          const statusColor = member.status === 'Active' ? '#4caf50' : member.status === 'Inactive' ? '#f44336' : '#ff9800';
+          return `
+            <tr>
+              <td>${member.name || '—'}</td>
+              <td>${member.faculty || '—'}</td>
+              <td><span style="padding:4px 8px;background:${statusColor}20;color:${statusColor};border-radius:4px;font-size:12px;font-weight:600;">${member.status}</span></td>
+            </tr>
+          `;
+        })
+        .join('');
+    } else if (recentMembersBody) {
+      recentMembersBody.innerHTML = '';
+    }
+
+    // Dynamically populate year dropdown based on current year
+    function populateYearOptions() {
+      const trendYearSelect = document.getElementById('trend-year');
+      if (!trendYearSelect) return;
+
+      const currentYear = new Date().getFullYear();
+      const startYear = 2024; // Starting year for the system
+      const endYear = currentYear + 1; // Current year + 1 for future data
+
+      // Clear existing options except "All Years"
+      const allYearsOption = trendYearSelect.querySelector('option[value=""]');
+      trendYearSelect.innerHTML = '';
+      
+      if (allYearsOption) {
+        trendYearSelect.appendChild(allYearsOption.cloneNode(true));
+      }
+
+      // Add year options from start to end year
+      for (let year = startYear; year <= endYear; year++) {
+        const option = document.createElement('option');
+        option.value = year.toString();
+        option.textContent = year.toString();
+        trendYearSelect.appendChild(option);
+      }
+    }
+
+    // Call function on page load
+    populateYearOptions();
+
+    // Verification trend filter functionality
+    async function updateVerificationTrend(month = '', year = '') {
+      try {
+        const response = await fetch(window.location.href, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: new URLSearchParams({
+            action: 'get_verification_trend',
+            month: month,
+            year: year,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch verification trend data');
+        }
+
+        const result = await response.json();
+        
+        if (result.success && result.trend) {
+          const chartContainer = document.getElementById('verification-chart');
+          chartContainer.innerHTML = result.trend
+            .map((event) => `
+              <div class="trend-row">
+                <span class="trend-label">${event.label}</span>
+                <div class="trend-bar-container">
+                  <div class="trend-bar" style="width: ${event.value}%;" data-value="${event.value}%"></div>
+                </div>
+                <span class="trend-value">${event.approved || 0}/${event.total || 0} (${event.value}%)</span>
+              </div>
+            `)
+            .join('');
+
+          if (typeof result.registered_count !== 'undefined') {
+            const registeredEl = document.getElementById('registered-count');
+            if (registeredEl) {
+              registeredEl.textContent = result.registered_count;
+            }
+          }
+
+          if (typeof result.verified_count !== 'undefined') {
+            const verifiedEl = document.getElementById('verified-count');
+            if (verifiedEl) {
+              verifiedEl.textContent = result.verified_count;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error updating verification trend:', error);
+      }
+    }
+
+    // Add event listeners to filter selects
+    const trendMonthSelect = document.getElementById('trend-month');
+    const trendYearSelect = document.getElementById('trend-year');
+
+    if (trendMonthSelect && trendYearSelect) {
+      const handleFilterChange = () => {
+        const month = trendMonthSelect.value;
+        const year = trendYearSelect.value;
+        updateVerificationTrend(month, year);
+      };
+
+      trendMonthSelect.addEventListener('change', handleFilterChange);
+      trendYearSelect.addEventListener('change', handleFilterChange);
+    }
+
+    // Sidebar expandable menus with state persistence
+    function saveMenuState() {
+      const menuStates = {};
+      document.querySelectorAll('.expandable').forEach(button => {
+        const menuId = button.dataset.toggle;
+        const menu = document.getElementById(menuId);
+        if (menu) {
+          menuStates[menuId] = menu.style.display !== 'none';
+        }
+      });
+      sessionStorage.setItem('sidebarMenuStates', JSON.stringify(menuStates));
+    }
+
+    function restoreMenuState() {
+      const menuStates = JSON.parse(sessionStorage.getItem('sidebarMenuStates') || '{}');
+      document.querySelectorAll('.expandable').forEach(button => {
+        const menuId = button.dataset.toggle;
+        const menu = document.getElementById(menuId);
+        if (menu && typeof menuStates[menuId] !== 'undefined') {
+          menu.style.display = menuStates[menuId] ? 'block' : 'none';
+          if (menuStates[menuId]) {
+            button.classList.add('expanded');
+          } else {
+            button.classList.remove('expanded');
+          }
+        }
+      });
+    }
+
+    document.querySelectorAll('.expandable').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const menuId = button.dataset.toggle;
+        const menu = document.getElementById(menuId);
+        const isVisible = menu.style.display !== 'none';
+        menu.style.display = isVisible ? 'none' : 'block';
+        button.classList.toggle('expanded');
+        saveMenuState();
+      });
+    });
+
+    // Restore sidebar menu states on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      restoreMenuState();
+    });
+
+    // Also restore if script runs after DOMContentLoaded
+    if (document.readyState !== 'loading') {
+      restoreMenuState();
+    }
+
+    // Restore the last opened feature on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      const lastOpenedFeature = sessionStorage.getItem('lastOpenedFeature');
+      if (lastOpenedFeature && featureMap[lastOpenedFeature]) {
+        // Use a small timeout to ensure all DOM elements are fully ready
+        setTimeout(() => {
+          openFeatureModal(lastOpenedFeature);
+        }, 100);
+      }
+    });
+
+    // Also handle the case where script runs after DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        const lastOpenedFeature = sessionStorage.getItem('lastOpenedFeature');
+        if (lastOpenedFeature && featureMap[lastOpenedFeature]) {
+          setTimeout(() => {
+            openFeatureModal(lastOpenedFeature);
+          }, 100);
+        }
+      });
+    } else {
+      // Script is running after DOMContentLoaded
+      const lastOpenedFeature = sessionStorage.getItem('lastOpenedFeature');
+      if (lastOpenedFeature && featureMap[lastOpenedFeature]) {
+        setTimeout(() => {
+          openFeatureModal(lastOpenedFeature);
+        }, 100);
+      }
+    }
+  </script>
+
+  <template id="template-members-account-management">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Members</p>
+          <h1>Account Management</h1>
+          <p class="dashboard-subtitle">Manage member login accounts, activation status, and access controls.</p>
+        </div>
+      </div>
+      <div style="margin-bottom:25px;display:flex;align-items:center;gap:15px;">
+        <div style="flex:1;position:relative;">
+          <div style="display:flex;align-items:center;gap:12px;background:#fff;padding:12px 16px;border:2px solid #e0e0e0;border-radius:8px;transition:all 0.3s ease;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+            <i class="fas fa-search" style="color:#1b5e20;font-size:14px;flex-shrink:0;"></i>
+            <input type="text" class="search-filter" placeholder="Search by name, email, or faculty..." style="flex:1;border:none;background:transparent;outline:none;font-size:13px;color:#333;" />
+            <button type="button" class="clear-search" style="display:none;background:none;border:none;color:#999;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.2s ease;font-size:16px;" title="Clear search">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+        <span class="search-results-count" style="font-size:12px;color:#666;font-weight:600;min-width:80px;text-align:right;"></span>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Faculty</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="form-note"><i class="fas fa-info-circle"></i> Activate or deactivate accounts from this panel. Password reset is available through support tools.</p>
+    </section>
+  </template>
+
+  <template id="template-members-profile-management">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Members</p>
+          <h1>Profile Management</h1>
+          <p class="dashboard-subtitle">Review member profile details and keep member records up to date.</p>
+        </div>
+      </div>
+      <div style="margin-bottom:25px;display:flex;align-items:center;gap:15px;">
+        <div style="flex:1;position:relative;">
+          <div style="display:flex;align-items:center;gap:12px;background:#fff;padding:12px 16px;border:2px solid #e0e0e0;border-radius:8px;transition:all 0.3s ease;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+            <i class="fas fa-search" style="color:#1b5e20;font-size:14px;flex-shrink:0;"></i>
+            <input type="text" class="search-filter" placeholder="Search by name, email, or faculty..." style="flex:1;border:none;background:transparent;outline:none;font-size:13px;color:#333;" />
+            <button type="button" class="clear-search" style="display:none;background:none;border:none;color:#999;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.2s ease;font-size:16px;" title="Clear search">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+        <span class="search-results-count" style="font-size:12px;color:#666;font-weight:600;min-width:80px;text-align:right;"></span>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Faculty</th>
+              <th>Status</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="form-note"><i class="fas fa-info-circle"></i> Use profile details to verify member records and support profile updates.</p>
+    </section>
+  </template>
+
+  <template id="template-members-approval-management">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Members</p>
+          <h1>Approval Management</h1>
+          <p class="dashboard-subtitle">Review and action new member registration requests.</p>
+        </div>
+      </div>
+      <div style="margin-bottom:25px;display:flex;align-items:center;gap:15px;">
+        <div style="flex:1;position:relative;">
+          <div style="display:flex;align-items:center;gap:12px;background:#fff;padding:12px 16px;border:2px solid #e0e0e0;border-radius:8px;transition:all 0.3s ease;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+            <i class="fas fa-search" style="color:#1b5e20;font-size:14px;flex-shrink:0;"></i>
+            <input type="text" class="search-filter" placeholder="Search by request, type, or submitted by..." style="flex:1;border:none;background:transparent;outline:none;font-size:13px;color:#333;" />
+            <button type="button" class="clear-search" style="display:none;background:none;border:none;color:#999;cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.2s ease;font-size:16px;" title="Clear search">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
+        <span class="search-results-count" style="font-size:12px;color:#666;font-weight:600;min-width:80px;text-align:right;"></span>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Request</th>
+              <th>Type</th>
+              <th>Submitted By</th>
+              <th>Status</th>
+              <th>Submitted At</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="form-note"><i class="fas fa-info-circle"></i> Approve or reject registration requests directly from this dashboard.</p>
+    </section>
+  </template>
+</body>
+</html>

@@ -1,0 +1,173 @@
+{% extends 'website/system_base.html' %}
+{% load static %}
+
+{% block title %}Deactivate Officers{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page-header {
+    margin-bottom: 2rem;
+  }
+  
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+  }
+  
+  .page-description {
+    color: #6b7280;
+    font-size: 1rem;
+  }
+  
+  .warning-banner {
+    background-color: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 2rem;
+  }
+  
+  .warning-banner strong {
+    color: #92400e;
+  }
+  
+  .warning-banner p {
+    color: #b45309;
+    margin: 0;
+    font-size: 0.875rem;
+  }
+  
+  .officers-grid {
+    display: grid;
+    gap: 1.5rem;
+  }
+  
+  .officer-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.625rem;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .officer-card.inactive {
+    opacity: 0.6;
+    background-color: #f9fafb;
+  }
+  
+  .officer-info h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin: 0 0 0.25rem 0;
+  }
+  
+  .officer-role {
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+  
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+  }
+  
+  .status-badge-active {
+    background-color: #dcfce7;
+    color: #166534;
+  }
+  
+  .status-badge-inactive {
+    background-color: #fee2e2;
+    color: #991b1b;
+  }
+  
+  .deactivate-btn {
+    padding: 0.5rem 1rem;
+    background-color: #dc2626;
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+  
+  .deactivate-btn:hover:not(:disabled) {
+    background-color: #b91c1c;
+  }
+  
+  .deactivate-btn:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6b7280;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include 'website/includes/back_button.html' %}
+<div class="page-header">
+  <h1 class="page-title">Deactivate Officers</h1>
+  <p class="page-description">Manage officer account status</p>
+</div>
+
+<div class="warning-banner">
+  <strong>Warning:</strong>
+  <p>Deactivating an officer will prevent them from logging in and accessing the portal.</p>
+</div>
+
+{% if officers %}
+  <div class="officers-grid">
+    {% for officer in officers %}
+      <div class="officer-card {% if not officer.is_active %}inactive{% endif %}">
+        <div class="officer-info">
+          <h3>{{ officer.user.get_full_name|default:officer.user.username }}</h3>
+          <div class="officer-role">{{ officer.role }}</div>
+          <span class="status-badge {% if officer.is_active %}status-badge-active{% else %}status-badge-inactive{% endif %}">
+            {% if officer.is_active %}Active{% else %}Inactive{% endif %}
+          </span>
+        </div>
+        <div>
+          {% if officer.is_active %}
+            <button class="deactivate-btn" onclick="confirmDeactivate({{ officer.id }}, '{{ officer.user.get_full_name|default:officer.user.username }}')">
+              <i class="fa-solid fa-ban"></i> Deactivate
+            </button>
+          {% else %}
+            <button class="deactivate-btn" disabled>
+              <i class="fa-solid fa-check"></i> Already Inactive
+            </button>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <i class="fa-regular fa-inbox" style="font-size: 3rem; color: #d1d5db; margin-bottom: 1rem;"></i>
+    <p>No officers found</p>
+  </div>
+{% endif %}
+
+<script>
+  function confirmDeactivate(officerId, officerName) {
+    if (confirm(`Are you sure you want to deactivate ${officerName}? They will not be able to log in.`)) {
+      console.log('Deactivate officer:', officerId);
+      // TODO: Implement deactivate functionality via API or form submission
+    }
+  }
+</script>
+{% endblock %}

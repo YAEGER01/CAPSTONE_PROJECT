@@ -1,0 +1,76 @@
+{% extends 'website/system_base.html' %}
+{% load static %}
+
+{% block title %}Reset Officer Password{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/login.css' %}">
+<style>
+  .password-reset-container {
+    max-width: 500px;
+    margin: 2rem auto;
+  }
+  
+  .reset-info {
+    background-color: #e0e7ff;
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+    padding: 1rem;
+    border-radius: 0.625rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .officer-select {
+    margin-bottom: 1.5rem;
+  }
+  
+  .officer-select label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #374151;
+  }
+  
+  .officer-select select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.625rem;
+    font-size: 1rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% include 'website/includes/back_button.html' %}
+<section class="login-shell">
+  <div class="brand">
+    <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA logo">
+    <div>
+      <strong>CAUFA</strong>
+      <span>Reset Officer Password</span>
+    </div>
+  </div>
+
+  <div class="reset-info">
+    <i class="fa-solid fa-info-circle"></i>
+    Select an officer to reset their password. They will be prompted to set a new password on next login.
+  </div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    
+    <div class="officer-select">
+      <label for="id_officer">Select Officer</label>
+      <select id="id_officer" name="officer_id" required>
+        <option value="">-- Select an Officer --</option>
+        <!-- Officer options would be populated here -->
+      </select>
+    </div>
+
+    <button class="submit-btn" type="submit">
+      <i class="fa-solid fa-key"></i> Reset Password
+    </button>
+  </form>
+</section>
+{% endblock %}

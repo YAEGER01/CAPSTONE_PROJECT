@@ -1,0 +1,499 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - ISU CAUFA Management System</title>
+  <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+</head>
+<body class="system-dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <i class="fas fa-cube"></i>
+      <div>
+        <strong>ISU-CAUFA</strong>
+        <small>Secretary</small>
+      </div>
+    </div>
+
+    <!-- Overview Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">OVERVIEW</h3>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active">
+          <i class="fas fa-tachometer-alt"></i>
+          <span>DASHBOARD</span>
+        </a>
+        <a href="#" class="nav-item">
+          <i class="fas fa-chart-line"></i>
+          <span>ANALYTICS</span>
+        </a>
+      </nav>
+    </div>
+
+        <!-- Modules Section -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-title">TEMPLATES</h3>
+        <nav class="sidebar-nav">
+          <a href="#" class="nav-item active">
+            <i class="fas fa-th-large"></i>
+            <span>TEMPLATE DASHBOARD</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="fas fa-layer-group"></i>
+            <span>TEMPLATE 1</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="fas fa-layer-group"></i>
+            <span>TEMPLATE 2</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="fas fa-layer-group"></i>
+            <span>TEMPLATE 3</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="fas fa-layer-group"></i>
+            <span>TEMPLATE 4</span>
+          </a>
+        </nav>
+      </div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-title">TEMPLATES</h3>
+        <nav class="sidebar-nav">
+          <a href="#" class="nav-item">
+            <i class="fas fa-layer-group"></i>
+            <span>TEMPLATE 5</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="fas fa-layer-group"></i>
+            <span>TEMPLATE 6</span>
+          </a>
+        </nav>
+      </div>
+
+    <!-- Administration Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">ADMINISTRATION</h3>
+      <nav class="sidebar-nav">
+        <button class="nav-item expandable" data-toggle="officers-menu">
+          <i class="fas fa-user-tie"></i>
+          <span>TEMPLATE TOOLS</span>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <div id="officers-menu" class="submenu" style="display: none;">
+          <a href="#" class="submenu-item">TEMPLATE 7</a>
+          <a href="#" class="submenu-item">TEMPLATE 8</a>
+          <a href="#" class="submenu-item">TEMPLATE 9</a>
+          <a href="#" class="submenu-item">TEMPLATE 10</a>
+        </div>
+
+        <a href="#" class="nav-item">
+          <i class="fas fa-users-cog"></i>
+          <span>TEMPLATE 11</span>
+        </a>
+
+        <a href="#" class="nav-item with-badge">
+          <i class="fas fa-check-circle"></i>
+          <span>TEMPLATE 12</span>
+          <span class="badge">4</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fas fa-cog"></i>
+          <span>TEMPLATE SETTINGS</span>
+        </a>
+      </nav>
+    </div>
+    <!-- User Profile -->
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ request.user.get_full_name|first }}</div>
+      <div class="user-info">
+        <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+        <small>Secretary</small>
+      </div>
+      <a href="{% url 'portal-logout' %}" class="btn-logout" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="top-bar">
+      <div class="search-bar">
+        <i class="fas fa-search"></i>
+        <input type="text" placeholder="Search...">
+      </div>
+      <div class="top-actions">
+        <button class="btn-icon">
+          <i class="fas fa-bell"></i>
+        </button>
+        <button class="btn-export">
+          <i class="fas fa-download"></i>
+          Export Report
+        </button>
+      </div>
+    </header>
+
+    <section class="dashboard-content">
+      <header class="dashboard-header">
+        <div>
+          <p class="dashboard-label">Overview</p>
+          <h1>Dashboard</h1>
+          <p class="dashboard-subtitle">Organize documents, archive official files, and manage document workflows.</p>
+        </div>
+      </header>
+
+            <!-- Overview Cards -->
+      <div class="overview-cards">
+        <article class="info-card">
+          <div class="card-icon members">
+            <i class="fas fa-folder"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Pending files</span>
+            <strong>{{ dashboard.pending_files }}</strong>
+            <p class="card-meta">Need classification</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon attendance">
+            <i class="fas fa-archive"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Archived records</span>
+            <strong>{{ dashboard.archived_records }}</strong>
+            <p class="card-meta">Total archive</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon treasury">
+            <i class="fas fa-file-circle-check"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Minutes uploaded</span>
+            <strong>{{ dashboard.meeting_minutes }}</strong>
+            <p class="card-meta">This month</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon approvals">
+            <i class="fas fa-paper-plane"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Document requests</span>
+            <strong>{{ dashboard.requests }}</strong>
+            <p class="card-meta">Awaiting action</p>
+          </div>
+        </article>
+      </div>
+
+            <!-- Main Panels -->
+      <div class="main-panels">
+        <section class="panel module-status">
+          <div class="panel-heading">
+            <h2>Document workflow</h2>
+            <a href="#">View all</a>
+          </div>
+          <div class="panel-list">
+            {% for item in dashboard.document_status %}
+            <article class="panel-item">
+              <div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.subtitle }}</p>
+              </div>
+              <span class="status-pill {{ item.status|lower }}">{{ item.status }}</span>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel attendance-chart">
+          <div class="panel-heading">
+            <h2>Archive activity</h2>
+            <a href="#">Report</a>
+          </div>
+          <div class="attendance-list">
+            {% for event in dashboard.archive_activity %}
+            <div class="attendance-row">
+              <span>{{ event.label }}</span>
+              <div class="attendance-bar-wrap">
+                <div class="attendance-bar" style="--fill: {{ event.value }}%;"></div>
+              </div>
+              <strong>{{ event.value }}%</strong>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+            <!-- Lower Panels -->
+      <div class="lower-panels">
+        <section class="panel approvals-list">
+          <div class="panel-heading">
+            <h2>Recent documents</h2>
+            <span class="items-count">{{ dashboard.recent_documents|length }} items</span>
+          </div>
+          <div class="panel-list">
+            {% for doc in dashboard.recent_documents %}
+            <article class="panel-item approval-item">
+              <div>
+                <strong>{{ doc.title }}</strong>
+                <p>{{ doc.subtitle }}</p>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <template id="template-officer-create">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Create Officer Account</h1>
+          <p class="dashboard-subtitle">Add a new officer with a temporary password in one clean form.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Full Name
+            <input type="text" name="full_name" placeholder="e.g. Ana Reyes">
+          </label>
+          <label class="form-group">
+            Role
+            <select name="role"></select>
+          </label>
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. areyes_vp">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. areyes@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Temporary Password
+            <input type="password" name="password" placeholder="Min. 8 characters">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary">Create Account</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-officer-roles">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Manage Roles & Permissions</h1>
+          <p class="dashboard-subtitle">View and update officer roles without leaving the dashboard.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-shield-alt"></i>
+          <div>
+            <strong>Officer Role Matrix</strong>
+            <p>Assign roles, approve permissions, and keep officer duties clear.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr><th>Officer</th><th>Current Role</th><th>New Role</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>J. Flores</td><td>Attendance Officer (PIO)</td><td><select><option>Attendance Officer (PIO)</option><option>Membership Officer (Business Manager)</option><option>Secretary</option></select></td></tr>
+            <tr><td>B. Garcia</td><td>Membership Officer (Business Manager)</td><td><select><option>Membership Officer (Business Manager)</option><option>Auditor</option><option>Treasurer</option></select></td></tr>
+            <tr><td>M. Santos</td><td>Treasurer</td><td><select><option>Treasurer</option><option>Vice President</option><option>Auditor</option></select></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="feature-actions feature-actions-right">
+        <button type="button" class="btn-primary">Save Role Changes</button>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-officer-reset">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Reset Officer Password</h1>
+          <p class="dashboard-subtitle">Send a new temporary password to the officer account.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Select Officer
+            <select name="officer">
+              <option value="">— Select —</option>
+            </select>
+          </label>
+          <label class="form-group">
+            New Temporary Password
+            <input type="password" name="new_password" placeholder="Min. 8 characters">
+          </label>
+        </div>
+        <p class="form-note"><i class="fas fa-info-circle"></i> Once changed, this will be their new password on their next login attempt.</p>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary"><i class="fas fa-key"></i> Reset Password</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-officer-deactivate">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Deactivate Officer Account</h1>
+          <p class="dashboard-subtitle">Review officer status and manage account availability.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-user-times"></i>
+          <div>
+            <strong>Officer Account Management</strong>
+            <p>Deactivate or reactivate officer accounts to control access and permissions.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Officer</th>
+              <th>Role</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-user-management">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Administration</p>
+          <h1>User Management</h1>
+          <p class="dashboard-subtitle">Manage system users, view roles, and update account status.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-users-cog"></i>
+          <div>
+            <strong>Manage Users</strong>
+            <p>Quickly search, edit, and toggle user access from one place.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-toolbar">
+        <input type="search" class="user-search-input" placeholder="Quickly search by username, name, or role">
+        <select class="user-role-filter">
+          <option value="">All roles</option>
+        </select>
+        <button type="button" class="btn-primary user-filter-apply">Apply</button>
+        <button type="button" class="btn-secondary user-filter-clear">Clear</button>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Full Name</th>
+              <th>Role</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-user-edit">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Administration</p>
+          <h1>Edit User Credentials</h1>
+          <p class="dashboard-subtitle">Update user information, credentials, and password.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. presidentvon" readonly>
+          </label>
+          <label class="form-group">
+            Full Name
+            <input type="text" name="full_name" placeholder="e.g. Von Reyes">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. vreyes@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Role
+            <select name="role"></select>
+          </label>
+          <label class="form-group">
+            New Password (Optional)
+            <input type="password" name="new_password" placeholder="Leave empty to keep current password">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  {{ officer_role_choices|json_script:"officer-role-choices-data" }}
+  {{ officer_profiles_data|json_script:"officer-profiles-data" }}
+  {{ members_data|json_script:"members-data" }}
+  {{ member_history_data|json_script:"members-history-data" }}

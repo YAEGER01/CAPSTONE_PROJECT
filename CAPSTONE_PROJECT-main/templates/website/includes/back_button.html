@@ -1,0 +1,44 @@
+<!-- Back Button Navigation Component -->
+<div style="margin-bottom: 1.5rem;">
+  <button type="button" class="back-button" onclick="goBack()">
+    <i class="fa-solid fa-arrow-left"></i> Back
+  </button>
+</div>
+
+<style>
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.25rem;
+    background-color: #6b7280;
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+  }
+  
+  .back-button:hover {
+    background-color: #4b5563;
+    transform: translateX(-2px);
+  }
+  
+  .back-button i {
+    font-size: 1rem;
+  }
+</style>
+
+<script>
+  function goBack() {
+    // Use browser history to go back to the previous page
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      // Fallback to dashboard if no history
+      window.location.href = '/dashboard/';
+    }
+  }
+</script>

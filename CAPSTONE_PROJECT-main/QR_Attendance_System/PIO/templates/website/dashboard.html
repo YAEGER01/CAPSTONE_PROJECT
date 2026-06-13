@@ -1,0 +1,826 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - ISU CAUFA Management System</title>
+  <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <link rel="stylesheet" href="{% static 'css/qr-attendance-dashboard.css' %}">
+  <style>
+    .feature-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .feature-panel-header {
+      margin-bottom: 2rem;
+    }
+
+    .feature-panel-header h1 {
+      font-size: 2rem;
+      margin: 0.5rem 0;
+    }
+
+    .feature-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+
+    .form-grid-columns-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .form-group input,
+    .form-group select {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+    }
+
+    .form-note {
+      background: #ecfdf5;
+      border: 1px solid #10b981;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      color: #065f46;
+    }
+
+    .feature-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-start;
+    }
+
+    .feature-actions-right {
+      justify-content: flex-end;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      transition: background 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: #246b26;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-strong);
+    }
+
+    .btn-close-feature {
+      border-color: var(--border);
+    }
+
+    .roles-info-card {
+      background: var(--surface-strong);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .roles-info-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .roles-info-header i {
+      font-size: 1.5rem;
+      color: var(--primary);
+    }
+
+    .feature-table {
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+    }
+
+    .feature-table table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .feature-table table thead {
+      background: var(--surface-strong);
+    }
+
+    .feature-table table th,
+    .feature-table table td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .feature-table table th {
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .feature-table table select {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.5rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .dashboard-content-hidden {
+      display: none;
+    }
+
+    .feature-panel-active {
+      display: block;
+    }
+
+    .placeholder-panel {
+      background: var(--surface);
+      border: 2px dashed var(--primary);
+      border-radius: 12px;
+      padding: 4rem 2rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+    }
+
+    .placeholder-icon {
+      font-size: 3.5rem;
+      color: var(--primary);
+      margin-bottom: 1.5rem;
+      opacity: 0.8;
+    }
+
+    .placeholder-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    .placeholder-text {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 400px;
+    }
+  </style>
+</head>
+<body class="system-dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <i class="fas fa-cube"></i>
+      <div>
+        <strong>ISU-CAUFA</strong>
+        <small>PIO</small>
+      </div>
+    </div>
+
+    <!-- Overview Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">OVERVIEW</h3>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active">
+          <i class="fas fa-tachometer-alt"></i>
+          <span>DASHBOARD</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Modules Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">MODULES</h3>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item">
+          <i class="fas fa-th-large"></i>
+          <span>TEMPLATE 1</span>
+        </a>
+        <a href="#" class="nav-item">
+          <i class="fas fa-layer-group"></i>
+          <span>TEMPLATE 2</span>
+        </a>
+        <a href="#" class="nav-item">
+          <i class="fas fa-layer-group"></i>
+          <span>TEMPLATE 3</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- User Profile -->
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ request.user.get_full_name|first }}</div>
+      <div class="user-info">
+        <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+        <small>PIO</small>
+      </div>
+      <a href="{% url 'portal-logout' %}" class="btn-logout" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="top-bar">
+    </header>
+
+    <section class="dashboard-content">
+      <header class="dashboard-header">
+        <div>
+          <p class="dashboard-label">Overview</p>
+          <h1>Dashboard</h1>
+          <p class="dashboard-subtitle">Manage QR attendance, event scanning, and attendance reports in one view.</p>
+        </div>
+      </header>
+
+            <!-- Overview Cards -->
+      <div class="overview-cards">
+        <article class="info-card">
+          <div class="card-icon attendance">
+            <i class="fas fa-calendar-check"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Active events</span>
+            <strong>{{ dashboard.active_events }}</strong>
+            <p class="card-meta">Live this week</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon members">
+            <i class="fas fa-user-check"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">QR codes generated</span>
+            <strong>{{ dashboard.qr_codes }}</strong>
+            <p class="card-meta">Since last update</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon treasury">
+            <i class="fas fa-chart-line"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Average scan rate</span>
+            <strong>{{ dashboard.scan_rate }}%</strong>
+            <p class="card-meta">Across active events</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon approvals">
+            <i class="fas fa-user-check"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Attendees today</span>
+            <strong>{{ dashboard.attendees_today }}</strong>
+            <p class="card-meta">Checked in so far</p>
+          </div>
+        </article>
+      </div>
+
+            <!-- Main Panels -->
+      <div class="main-panels">
+        <section class="panel module-status">
+          <div class="panel-heading">
+            <h2>Event queue</h2>
+            <a href="#">View all</a>
+          </div>
+          <div class="panel-list">
+            {% for item in dashboard.event_status %}
+            <article class="panel-item">
+              <div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.subtitle }}</p>
+              </div>
+              <span class="status-pill {{ item.status|lower }}">{{ item.status }}</span>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel attendance-chart">
+          <div class="panel-heading">
+            <h2>Attendance overview</h2>
+            <a href="#">Full report</a>
+          </div>
+          <div class="attendance-list">
+            {% for event in dashboard.attendance_events %}
+            <div class="attendance-row">
+              <span>{{ event.label }}</span>
+              <div class="attendance-bar-wrap">
+                <div class="attendance-bar" style="--fill: {{ event.value }}%;"></div>
+              </div>
+              <strong>{{ event.value }}%</strong>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+            <!-- Lower Panels -->
+      <div class="lower-panels">
+        <section class="panel approvals-list">
+          <div class="panel-heading">
+            <h2>Recent scan logs</h2>
+            <span class="items-count">{{ dashboard.scan_logs|length }} entries</span>
+          </div>
+          <div class="panel-list">
+            {% for log in dashboard.scan_logs %}
+            <article class="panel-item approval-item">
+              <div>
+                <strong>{{ log.event }}</strong>
+                <p>{{ log.detail }}</p>
+              </div>
+              <div class="approval-actions">
+                <button class="btn-icon-action btn-approve" title="View"><i class="fas fa-eye"></i></button>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <template id="template-officer-create">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Create Officer Account</h1>
+          <p class="dashboard-subtitle">Add a new officer with a temporary password in one clean form.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Full Name
+            <input type="text" name="full_name" placeholder="e.g. Ana Reyes">
+          </label>
+          <label class="form-group">
+            Role
+            <select name="role"></select>
+          </label>
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. areyes_vp">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. areyes@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Temporary Password
+            <input type="password" name="password" placeholder="Min. 8 characters">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary">Create Account</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-officer-roles">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Manage Roles & Permissions</h1>
+          <p class="dashboard-subtitle">View and update officer roles without leaving the dashboard.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-shield-alt"></i>
+          <div>
+            <strong>Officer Role Matrix</strong>
+            <p>Assign roles, approve permissions, and keep officer duties clear.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr><th>Officer</th><th>Current Role</th><th>New Role</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>J. Flores</td><td>Attendance Officer (PIO)</td><td><select><option>Attendance Officer (PIO)</option><option>Membership Officer (Business Manager)</option><option>Secretary</option></select></td></tr>
+            <tr><td>B. Garcia</td><td>Membership Officer (Business Manager)</td><td><select><option>Membership Officer (Business Manager)</option><option>Auditor</option><option>Treasurer</option></select></td></tr>
+            <tr><td>M. Santos</td><td>Treasurer</td><td><select><option>Treasurer</option><option>Vice President</option><option>Auditor</option></select></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="feature-actions feature-actions-right">
+        <button type="button" class="btn-primary">Save Role Changes</button>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-officer-reset">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Reset Officer Password</h1>
+          <p class="dashboard-subtitle">Send a new temporary password to the officer account.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Select Officer
+            <select name="officer">
+              <option value="">— Select —</option>
+            </select>
+          </label>
+          <label class="form-group">
+            New Temporary Password
+            <input type="password" name="new_password" placeholder="Min. 8 characters">
+          </label>
+        </div>
+        <p class="form-note"><i class="fas fa-info-circle"></i> Once changed, this will be their new password on their next login attempt.</p>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary"><i class="fas fa-key"></i> Reset Password</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-officer-deactivate">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Deactivate Officer Account</h1>
+          <p class="dashboard-subtitle">Review officer status and manage account availability.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-user-times"></i>
+          <div>
+            <strong>Officer Account Management</strong>
+            <p>Deactivate or reactivate officer accounts to control access and permissions.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Officer</th>
+              <th>Role</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-user-management">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Administration</p>
+          <h1>User Management</h1>
+          <p class="dashboard-subtitle">Manage system users, view roles, and update account status.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-users-cog"></i>
+          <div>
+            <strong>Manage Users</strong>
+            <p>Quickly search, edit, and toggle user access from one place.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-toolbar">
+        <input type="search" class="user-search-input" placeholder="Quickly search by username, name, or role">
+        <select class="user-role-filter">
+          <option value="">All roles</option>
+        </select>
+        <button type="button" class="btn-primary user-filter-apply">Apply</button>
+        <button type="button" class="btn-secondary user-filter-clear">Clear</button>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Full Name</th>
+              <th>Role</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-user-edit">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Administration</p>
+          <h1>Edit User Credentials</h1>
+          <p class="dashboard-subtitle">Update user information, credentials, and password.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. presidentvon" readonly>
+          </label>
+          <label class="form-group">
+            Full Name
+            <input type="text" name="full_name" placeholder="e.g. Von Reyes">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. vreyes@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Role
+            <select name="role"></select>
+          </label>
+          <label class="form-group">
+            New Password (Optional)
+            <input type="password" name="new_password" placeholder="Leave empty to keep current password">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-placeholder-2">
+    <section class="placeholder-panel">
+      <div class="placeholder-icon">
+        <i class="fas fa-wrench"></i>
+      </div>
+      <h2 class="placeholder-title">Template 2</h2>
+      <p class="placeholder-text">This feature is coming soon! We're working on adding this functionality to your dashboard.</p>
+    </section>
+  </template>
+
+  <template id="template-placeholder-3">
+    <section class="placeholder-panel">
+      <div class="placeholder-icon">
+        <i class="fas fa-hammer"></i>
+      </div>
+      <h2 class="placeholder-title">Template 3</h2>
+      <p class="placeholder-text">This feature is coming soon! We're working on adding this functionality to your dashboard.</p>
+    </section>
+  </template>
+
+  {{ officer_role_choices|json_script:"officer-role-choices-data" }}
+  {{ officer_profiles_data|json_script:"officer-profiles-data" }}
+  {{ members_data|json_script:"members-data" }}
+  {{ member_history_data|json_script:"members-history-data" }}
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const dashboardContent = document.querySelector('.dashboard-content');
+      const navItems = document.querySelectorAll('.sidebar-nav a');
+      
+      // Store original content
+      const defaultDashboard = {
+        header: dashboardContent.querySelector('.dashboard-header'),
+        cards: dashboardContent.querySelector('.overview-cards'),
+        mainPanels: dashboardContent.querySelector('.main-panels'),
+        lowerPanels: dashboardContent.querySelector('.lower-panels')
+      };
+      
+      let currentFeatureContainer = null;
+      
+      navItems.forEach(item => {
+        const itemText = item.textContent.trim();
+        
+        if (itemText === 'TEMPLATE 1') {
+          item.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Remove active class from all items
+            document.querySelectorAll('.sidebar-nav a').forEach(nav => {
+              nav.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Hide default dashboard content
+            defaultDashboard.header.style.display = 'none';
+            defaultDashboard.cards.style.display = 'none';
+            defaultDashboard.mainPanels.style.display = 'none';
+            defaultDashboard.lowerPanels.style.display = 'none';
+            
+            // Remove existing feature container if any
+            if (currentFeatureContainer) {
+              currentFeatureContainer.remove();
+            }
+            
+            // Get the feature template
+            const featureTemplate = document.getElementById('template-officer-create');
+            if (featureTemplate) {
+              const clone = featureTemplate.content.cloneNode(true);
+              
+              // Create container
+              currentFeatureContainer = document.createElement('div');
+              currentFeatureContainer.className = 'feature-container';
+              currentFeatureContainer.appendChild(clone);
+              
+              // Insert at the beginning of dashboard content
+              dashboardContent.insertBefore(currentFeatureContainer, dashboardContent.firstChild);
+              
+              // Add close functionality
+              const closeBtn = currentFeatureContainer.querySelector('.btn-close-feature');
+              if (closeBtn) {
+                closeBtn.addEventListener('click', restoreDashboard);
+              }
+            }
+          });
+        }
+        
+        if (itemText === 'TEMPLATE 2') {
+          item.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Remove active class from all items
+            document.querySelectorAll('.sidebar-nav a').forEach(nav => {
+              nav.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Hide default dashboard content
+            defaultDashboard.header.style.display = 'none';
+            defaultDashboard.cards.style.display = 'none';
+            defaultDashboard.mainPanels.style.display = 'none';
+            defaultDashboard.lowerPanels.style.display = 'none';
+            
+            // Remove existing feature container if any
+            if (currentFeatureContainer) {
+              currentFeatureContainer.remove();
+            }
+            
+            // Get the placeholder template
+            const placeholderTemplate = document.getElementById('template-placeholder-2');
+            if (placeholderTemplate) {
+              const clone = placeholderTemplate.content.cloneNode(true);
+              
+              // Create container
+              currentFeatureContainer = document.createElement('div');
+              currentFeatureContainer.className = 'feature-container';
+              currentFeatureContainer.appendChild(clone);
+              
+              // Insert at the beginning of dashboard content
+              dashboardContent.insertBefore(currentFeatureContainer, dashboardContent.firstChild);
+            }
+          });
+        }
+        
+        if (itemText === 'TEMPLATE 3') {
+          item.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Remove active class from all items
+            document.querySelectorAll('.sidebar-nav a').forEach(nav => {
+              nav.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Hide default dashboard content
+            defaultDashboard.header.style.display = 'none';
+            defaultDashboard.cards.style.display = 'none';
+            defaultDashboard.mainPanels.style.display = 'none';
+            defaultDashboard.lowerPanels.style.display = 'none';
+            
+            // Remove existing feature container if any
+            if (currentFeatureContainer) {
+              currentFeatureContainer.remove();
+            }
+            
+            // Get the placeholder template
+            const placeholderTemplate = document.getElementById('template-placeholder-3');
+            if (placeholderTemplate) {
+              const clone = placeholderTemplate.content.cloneNode(true);
+              
+              // Create container
+              currentFeatureContainer = document.createElement('div');
+              currentFeatureContainer.className = 'feature-container';
+              currentFeatureContainer.appendChild(clone);
+              
+              // Insert at the beginning of dashboard content
+              dashboardContent.insertBefore(currentFeatureContainer, dashboardContent.firstChild);
+            }
+          });
+        }
+        
+        if (itemText === 'DASHBOARD') {
+          item.addEventListener('click', function(e) {
+            e.preventDefault();
+            restoreDashboard();
+            
+            // Remove active class from all
+            document.querySelectorAll('.sidebar-nav a').forEach(nav => {
+              nav.classList.remove('active');
+            });
+            this.classList.add('active');
+          });
+        }
+      });
+      
+      function restoreDashboard() {
+        // Show default content
+        defaultDashboard.header.style.display = 'block';
+        defaultDashboard.cards.style.display = 'grid';
+        defaultDashboard.mainPanels.style.display = 'grid';
+        defaultDashboard.lowerPanels.style.display = 'grid';
+        
+        // Remove feature container
+        if (currentFeatureContainer) {
+          currentFeatureContainer.remove();
+          currentFeatureContainer = null;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{% extends "website/base.html" %}
+{% block title %}{{ title|default:"Template" }} | CAUFA{% endblock %}
+{% block content %}
+<section style="padding: 3rem; max-width: 900px; margin: 0 auto;">
+  <div style="background: #fff; border-radius: 14px; padding: 2rem; box-shadow: 0 12px 40px rgba(0,0,0,.08);">
+    <h1 style="margin-bottom: 0.75rem; font-size: 2rem;">{{ title|default:"Template Page" }}</h1>
+    <p style="font-size: 1rem; color: #555; margin-bottom: 1.5rem;">This section is currently a placeholder. Module content will be added soon.</p>
+    {% if officer_role %}
+      <p><strong>Role:</strong> {{ officer_role }}</p>
+    {% endif %}
+    {% if dashboard %}
+      <div style="margin-top: 1rem; padding: 1rem; background: #f6f8fb; border-radius: 10px;">
+        <h2 style="margin-top:0;">Dashboard Data</h2>
+        <pre style="white-space: pre-wrap; word-wrap: break-word;">{{ dashboard|safe }}</pre>
+      </div>
+    {% endif %}
+    <a href="{% url 'dashboard' %}" style="display:inline-block; margin-top:1.5rem; padding:0.9rem 1.4rem; background:#0052cc; color:#fff; border-radius:8px; text-decoration:none;">Return to Home</a>
+  </div>
+</section>
+{% endblock %}

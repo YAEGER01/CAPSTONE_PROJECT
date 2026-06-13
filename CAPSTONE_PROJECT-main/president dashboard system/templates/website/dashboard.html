@@ -1,0 +1,1803 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - ISU CAUFA Management System</title>
+  <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+</head>
+<body class="system-dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <i class="fas fa-cube"></i>
+      <div>
+        <strong>ISU-CAUFA</strong>
+        <small>Management System</small>
+      </div>
+    </div>
+
+    <!-- Overview Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">OVERVIEW</h3>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active">
+          <i class="fas fa-tachometer-alt"></i>
+          <span>DASHBOARD</span>
+        </a>
+        <a href="#" class="nav-item">
+          <i class="fas fa-chart-line"></i>
+          <span>ANALYTICS</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Modules Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">MODULES</h3>
+      <nav class="sidebar-nav">
+        <button class="nav-item expandable" data-toggle="finance-menu">
+          <i class="fas fa-wallet"></i>
+          <span>FINANCE</span>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <div id="finance-menu" class="submenu" style="display: none;">
+          <a href="#income-expenses" class="submenu-item feature-launcher" data-modal-key="finance-income">Income & Expenses</a>
+          <a href="#membership-fees" class="submenu-item feature-launcher" data-modal-key="finance-fees">Membership Fees</a>
+          <a href="#budget-tracking" class="submenu-item feature-launcher" data-modal-key="finance-budget">Budget Tracking</a>
+          <a href="#financial-reports" class="submenu-item feature-launcher" data-modal-key="finance-reports">Financial Reports</a>
+          <a href="#receipt-uploads" class="submenu-item feature-launcher" data-modal-key="finance-receipts">Receipt Uploads</a>
+        </div>
+
+        <button class="nav-item expandable" data-toggle="documents-menu">
+          <i class="fas fa-file-alt"></i>
+          <span>DOCUMENTS</span>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <div id="documents-menu" class="submenu" style="display: none;">
+          <a href="#memorandums" class="submenu-item feature-launcher" data-modal-key="documents-memos">Memorandums</a>
+          <a href="#meeting-minutes" class="submenu-item feature-launcher" data-modal-key="documents-minutes">Meeting Minutes</a>
+          <a href="#archived-files" class="submenu-item feature-launcher" data-modal-key="documents-archive">Archived Files</a>
+          <a href="#announcements" class="submenu-item feature-launcher" data-modal-key="documents-announcements">Announcements</a>
+          <a href="#official-documents" class="submenu-item feature-launcher" data-modal-key="documents-official">Official Documents</a>
+        </div>
+
+        <button class="nav-item expandable" data-toggle="attendance-menu">
+          <i class="fas fa-clipboard-list"></i>
+          <span>ATTENDANCE</span>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <div id="attendance-menu" class="submenu" style="display: none;">
+          <a href="#generate-qr" class="submenu-item feature-launcher" data-modal-key="attendance-qr">Generate QR Codes</a>
+          <a href="#monitor-attendance" class="submenu-item feature-launcher" data-modal-key="attendance-monitor">Monitor Attendance</a>
+          <a href="#event-list" class="submenu-item feature-launcher" data-modal-key="attendance-events">Event List</a>
+          <a href="#export-logs" class="submenu-item feature-launcher" data-modal-key="attendance-export">Export Logs</a>
+        </div>
+
+        <a href="#members-monitor" class="nav-item feature-launcher" data-modal-key="members-monitor">
+          <i class="fas fa-users"></i>
+          <span>MEMBERS MONITOR</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Administration Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">ADMINISTRATION</h3>
+      <nav class="sidebar-nav">
+        <button class="nav-item expandable" data-toggle="officers-menu">
+          <i class="fas fa-user-tie"></i>
+          <span>OFFICER ACCOUNTS</span>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <div id="officers-menu" class="submenu" style="display: none;">
+          <a href="#officer-create" class="submenu-item feature-launcher" data-modal-key="officer-create">CREATE ACCOUNTS</a>
+          <a href="#officer-roles" class="submenu-item feature-launcher" data-modal-key="officer-roles">MANAGE ROLES</a>
+          <a href="#officer-reset" class="submenu-item feature-launcher" data-modal-key="officer-reset">RESET PASSWORD</a>
+          <a href="#officer-deactivate" class="submenu-item feature-launcher" data-modal-key="officer-deactivate">DEACTIVATE ACCOUNT</a>
+        </div>
+
+        <a href="#user-management" class="nav-item feature-launcher" data-modal-key="user-management">
+          <i class="fas fa-users-cog"></i>
+          <span>USER MANAGEMENT</span>
+        </a>
+
+        <a href="#" class="nav-item with-badge">
+          <i class="fas fa-check-circle"></i>
+          <span>Approvals</span>
+          <span class="badge">4</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- User Profile -->
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ request.user.get_full_name|first }}</div>
+      <div class="user-info">
+        <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+        <small>President</small>
+      </div>
+      <a href="{% url 'portal-logout' %}" class="btn-logout" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="top-bar">
+      <div class="search-bar">
+        <i class="fas fa-search"></i>
+        <input type="text" placeholder="Search...">
+      </div>
+      <div class="top-actions">
+        <button class="btn-icon">
+          <i class="fas fa-bell"></i>
+        </button>
+        <button class="btn-export">
+          <i class="fas fa-download"></i>
+          Export Report
+        </button>
+      </div>
+    </header>
+
+    <section class="dashboard-content">
+      <header class="dashboard-header">
+        <div>
+          <p class="dashboard-label">Overview</p>
+          <h1>Dashboard</h1>
+          <p class="dashboard-subtitle">Welcome back, {{ request.user.get_full_name|default:request.user.username }}. Here's your organization overview.</p>
+        </div>
+      </header>
+
+      <!-- Overview Cards -->
+      <div class="overview-cards">
+        <article class="info-card">
+          <div class="card-icon members">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Total members</span>
+            <strong>{{ dashboard.total_members }}</strong>
+            <p class="card-meta">+6 this sem</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon attendance">
+            <i class="fas fa-chart-bar"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Avg. attendance rate</span>
+            <strong>{{ dashboard.attendance_rate }}%</strong>
+            <p class="card-meta">+3 vs last month</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon treasury">
+            <i class="fas fa-coins"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Treasury balance</span>
+            <strong>{{ dashboard.treasury_balance }}</strong>
+            <p class="card-meta">-â‚±800 spent</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon approvals">
+            <i class="fas fa-clipboard-check"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Pending approvals</span>
+            <strong>{{ dashboard.pending_approvals }}</strong>
+            <p class="card-meta">Needs review</p>
+          </div>
+        </article>
+      </div>
+
+      <!-- Main Panels -->
+      <div class="main-panels">
+        <section class="panel module-status">
+          <div class="panel-heading">
+            <h2>Module status</h2>
+            <a href="#">View all</a>
+          </div>
+          <div class="panel-list">
+            {% for item in dashboard.module_status %}
+            <article class="panel-item">
+              <div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.subtitle }}</p>
+              </div>
+              <span class="status-pill {{ item.status|lower }}">{{ item.status }}</span>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel attendance-chart">
+          <div class="panel-heading">
+            <h2>Attendance by event</h2>
+            <a href="#">Full report</a>
+          </div>
+          <div class="attendance-list">
+            {% for event in dashboard.attendance_events %}
+            <div class="attendance-row">
+              <span>{{ event.label }}</span>
+              <div class="attendance-bar-wrap">
+                <div class="attendance-bar" style="--fill: {{ event.value }}%;"></div>
+              </div>
+              <strong>{{ event.value }}%</strong>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <!-- Lower Panels -->
+      <div class="lower-panels">
+        <section class="panel approvals-list">
+          <div class="panel-heading">
+            <h2>Pending approvals</h2>
+            <span class="items-count">{{ dashboard.pending_requests|length }} items</span>
+          </div>
+          <div class="panel-list">
+            {% for request_item in dashboard.pending_requests %}
+            <article class="panel-item approval-item">
+              <div>
+                <strong>{{ request_item.title }}</strong>
+                <p>{{ request_item.subtitle }}</p>
+              </div>
+              <div class="approval-actions">
+                <button class="btn-icon-action btn-approve" title="Approve"><i class="fas fa-check"></i></button>
+                <button class="btn-icon-action btn-reject" title="Reject"><i class="fas fa-times"></i></button>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <template id="template-officer-create">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Create Officer Account</h1>
+          <p class="dashboard-subtitle">Add a new officer with a temporary password in one clean form.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Full Name
+            <input type="text" name="full_name" placeholder="e.g. Ana Reyes">
+          </label>
+          <label class="form-group">
+            Role
+            <select name="role"></select>
+          </label>
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. areyes_vp">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. areyes@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Temporary Password
+            <input type="password" name="password" placeholder="Min. 8 characters">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary">Create Account</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-officer-roles">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Manage Roles & Permissions</h1>
+          <p class="dashboard-subtitle">View and update officer roles without leaving the dashboard.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-shield-alt"></i>
+          <div>
+            <strong>Officer Role Matrix</strong>
+            <p>Assign roles, approve permissions, and keep officer duties clear.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr><th>Officer</th><th>Current Role</th><th>New Role</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>J. Flores</td><td>Attendance Officer (PIO)</td><td><select><option>Attendance Officer (PIO)</option><option>Membership Officer (Business Manager)</option><option>Secretary</option></select></td></tr>
+            <tr><td>B. Garcia</td><td>Membership Officer (Business Manager)</td><td><select><option>Membership Officer (Business Manager)</option><option>Auditor</option><option>Treasurer</option></select></td></tr>
+            <tr><td>M. Santos</td><td>Treasurer</td><td><select><option>Treasurer</option><option>Vice President</option><option>Auditor</option></select></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="feature-actions feature-actions-right">
+        <button type="button" class="btn-primary">Save Role Changes</button>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-officer-reset">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Reset Officer Password</h1>
+          <p class="dashboard-subtitle">Send a new temporary password to the officer account.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Select Officer
+            <select name="officer">
+              <option value="">— Select —</option>
+            </select>
+          </label>
+          <label class="form-group">
+            New Temporary Password
+            <input type="password" name="new_password" placeholder="Min. 8 characters">
+          </label>
+        </div>
+        <p class="form-note"><i class="fas fa-info-circle"></i> Once changed, this will be their new password on their next login attempt.</p>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary"><i class="fas fa-key"></i> Reset Password</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-officer-deactivate">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Deactivate Officer Account</h1>
+          <p class="dashboard-subtitle">Review officer status and manage account availability.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-user-times"></i>
+          <div>
+            <strong>Officer Account Management</strong>
+            <p>Deactivate or reactivate officer accounts to control access and permissions.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Officer</th>
+              <th>Role</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+  </template>
+
+  <template id="template-user-management">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Administration</p>
+          <h1>User Management</h1>
+          <p class="dashboard-subtitle">Manage system users, view roles, and update account status.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-users-cog"></i>
+          <div>
+            <strong>Manage Users</strong>
+            <p>Quickly search, edit, and toggle user access from one place.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-toolbar">
+        <input type="search" class="user-search-input" placeholder="Quickly search by username, name, or role">
+        <select class="user-role-filter">
+          <option value="">All roles</option>
+        </select>
+        <button type="button" class="btn-primary user-filter-apply">Apply</button>
+        <button type="button" class="btn-secondary user-filter-clear">Clear</button>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Full Name</th>
+              <th>Role</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-user-edit">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Administration</p>
+          <h1>Edit User Credentials</h1>
+          <p class="dashboard-subtitle">Update user information, credentials, and password.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. presidentvon" readonly>
+          </label>
+          <label class="form-group">
+            Full Name
+            <input type="text" name="full_name" placeholder="e.g. Von Reyes">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. vreyes@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Role
+            <select name="role"></select>
+          </label>
+          <label class="form-group">
+            New Password (Optional)
+            <input type="password" name="new_password" placeholder="Leave empty to keep current password">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  {{ officer_role_choices|json_script:"officer-role-choices-data" }}
+  {{ officer_profiles_data|json_script:"officer-profiles-data" }}
+  {{ members_data|json_script:"members-data" }}
+  {{ member_history_data|json_script:"members-history-data" }}
+
+  <template id="template-finance-income">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Finance</p>
+          <h1>Income & Expenses</h1>
+          <p class="dashboard-subtitle">Quickly review recent income and expense summaries.</p>
+        </div>
+      </div>
+      <div class="overview-cards">
+        <article class="info-card"><strong>Income</strong><p>â‚±48,200</p></article>
+        <article class="info-card"><strong>Expenses</strong><p>â‚±18,700</p></article>
+        <article class="info-card"><strong>Net</strong><p>â‚±29,500</p></article>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-finance-fees">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Finance</p>
+          <h1>Membership Fees</h1>
+          <p class="dashboard-subtitle">Overview active fee payments and incoming collections.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Member fees are tracked here with payment status, due dates, and totals for the current term.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-finance-budget">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Finance</p>
+          <h1>Budget Tracking</h1>
+          <p class="dashboard-subtitle">Monitor planned vs actual budget allocations.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Budget tracking shows category status, spent amounts, and remaining balance.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-finance-reports">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Finance</p>
+          <h1>Financial Reports</h1>
+          <p class="dashboard-subtitle">Generate summaries for income, expenses, and forecasts.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Financial reports let you export spending details, revenue summaries, and administrative totals.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-finance-receipts">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Finance</p>
+          <h1>Receipt Uploads</h1>
+          <p class="dashboard-subtitle">Track submitted receipts and upload new transaction documentation.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Upload or review receipts and confirm transaction approvals directly in the dashboard.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-documents-memos">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Documents</p>
+          <h1>Memorandums</h1>
+          <p class="dashboard-subtitle">Review and manage current memorandum drafts.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Access memorandums created by officers with approval status and category information.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-documents-minutes">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Documents</p>
+          <h1>Meeting Minutes</h1>
+          <p class="dashboard-subtitle">Track recent meeting notes and attendance records.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Meeting minutes stored here show topics, outcomes, and follow-up items for each session.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-documents-archive">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Documents</p>
+          <h1>Archived Files</h1>
+          <p class="dashboard-subtitle">Browse archived documents and official files.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Archived files include previous memos, minutes, and official documentation for reference.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-documents-announcements">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Documents</p>
+          <h1>Announcements</h1>
+          <p class="dashboard-subtitle">Manage published announcements and pending notices.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Announcements show the latest published notices and their approval status.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-documents-official">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Documents</p>
+          <h1>Official Documents</h1>
+          <p class="dashboard-subtitle">View official CAUFA documents and correspondence.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Official documents include statements, forms, and signed records from the organization.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-attendance-qr">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Attendance</p>
+          <h1>Generate QR Codes</h1>
+          <p class="dashboard-subtitle">Create QR codes for upcoming attendance events.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Use this page to generate one-time QR codes for attendance tracking.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-attendance-monitor">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Attendance</p>
+          <h1>Monitor Attendance</h1>
+          <p class="dashboard-subtitle">View attendance summaries and scanning logs.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Monitor live attendance records and QR scan history for current events.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-attendance-events">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Attendance</p>
+          <h1>Event List</h1>
+          <p class="dashboard-subtitle">See all scheduled attendance events and their status.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Event listings show upcoming sessions, locations, and QR access details.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-attendance-export">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Attendance</p>
+          <h1>Export Logs</h1>
+          <p class="dashboard-subtitle">Export attendance logs and reports.</p>
+        </div>
+      </div>
+      <article class="feature-details">
+        <p>Download attendance reports for review and auditing purposes.</p>
+      </article>
+    </section>
+  </template>
+
+  <template id="template-members-add">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Members</p>
+          <h1>Add Members</h1>
+          <p class="dashboard-subtitle">Add new association members from one dashboard view.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Full Name
+            <input type="text" name="name" placeholder="e.g. Maria Cruz">
+          </label>
+          <label class="form-group">
+            Faculty
+            <select name="faculty" required>
+              <option value="">Select faculty</option>
+              <option value="CCSICT">CCSICT</option>
+              <option value="PS">PS</option>
+              <option value="CCJE">CCJE</option>
+              <option value="SAS">SAS</option>
+              <option value="CED">CED</option>
+              <option value="CBM">CBM</option>
+              <option value="IAT">IAT</option>
+            </select>
+          </label>
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. mcruz01">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. maria.cruz@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Password
+            <input type="password" name="password" placeholder="Create a password for login">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+          <label class="form-group">
+            Phone
+            <input type="text" name="phone" placeholder="e.g. 0917-000-0000">
+          </label>
+          <label class="form-group">
+            Course
+            <input type="text" name="course" placeholder="e.g. Faculty of Science">
+          </label>
+          <label class="form-group">
+            Year Level
+            <select name="year_level">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="submit" class="btn-primary">Register Member</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-members-profiles">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Members</p>
+          <h1>Member Profiles</h1>
+          <p class="dashboard-subtitle">Review member profiles and role status.</p>
+        </div>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Faculty</th>
+              <th>Course</th>
+              <th>Year</th>
+              <th>Status</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-members-status">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Members</p>
+          <h1>Active / Inactive</h1>
+          <p class="dashboard-subtitle">Manage active and inactive member statuses.</p>
+        </div>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Current Status</th>
+              <th>New Status</th>
+              <th>Reason</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="form-note"><i class="fas fa-info-circle"></i> Update status records to keep activation states current.</p>
+    </section>
+  </template>
+
+  <template id="template-members-history">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Members</p>
+          <h1>Member History</h1>
+          <p class="dashboard-subtitle">View membership history and status changes.</p>
+        </div>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Status</th>
+              <th>Changed Date</th>
+              <th>Reason</th>
+              <th>Changed By</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-members-monitor">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Members</p>
+          <h1>Members Monitor</h1>
+          <p class="dashboard-subtitle">Quick monitoring view: recent joins and status alerts.</p>
+        </div>
+      </div>
+      <div class="feature-details">
+        <p>Overview of recent member activity and alerts for president monitoring.</p>
+        <div class="monitor-cards">
+          <article class="info-card"><span class="card-label">New this week</span><strong>{{ dashboard.new_members_week }}</strong></article>
+          <article class="info-card"><span class="card-label">Pending verifications</span><strong>{{ dashboard.pending_member_verifications }}</strong></article>
+          <article class="info-card"><span class="card-label">Inactive flagged</span><strong>{{ dashboard.inactive_flagged }}</strong></article>
+        </div>
+        <div class="feature-table">
+          <table>
+            <thead>
+              <tr><th>Member</th><th>Status</th><th>Last Activity</th></tr>
+            </thead>
+            <tbody>
+              {% for m in dashboard.recent_members %}
+              <tr><td>{{ m.name }}</td><td>{{ m.status }}</td><td>{{ m.last_activity }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+  <script src="{% static 'js/swal-helpers.js' %}"></script>
+
+  <script>
+    const dashboardContent = document.querySelector('.dashboard-content');
+    const dashboardHeader = document.querySelector('.dashboard-header');
+    const dashboardSections = Array.from(document.querySelectorAll('.overview-cards, .main-panels, .lower-panels'));
+
+    let featureWorkspace = null;
+    let featureLoading = null;
+    let featureStyleHost = null;
+    let featureBody = null;
+
+    function ensureFeatureWorkspace() {
+      if (featureWorkspace) {
+        return featureWorkspace;
+      }
+
+      featureWorkspace = document.createElement('section');
+      featureWorkspace.className = 'feature-workspace';
+      featureWorkspace.innerHTML = `
+        <div class="feature-workspace-dialog">
+          <div class="feature-workspace-loading" id="feature-workspace-loading" hidden>Loading feature...</div>
+          <div class="feature-workspace-style-host" id="feature-workspace-style-host" aria-hidden="true"></div>
+          <div class="feature-workspace-body" id="feature-workspace-body"></div>
+        </div>
+      `;
+
+      dashboardContent.insertBefore(featureWorkspace, dashboardHeader.nextSibling);
+      featureLoading = featureWorkspace.querySelector('#feature-workspace-loading');
+      featureStyleHost = featureWorkspace.querySelector('#feature-workspace-style-host');
+      featureBody = featureWorkspace.querySelector('#feature-workspace-body');
+
+      return featureWorkspace;
+    }
+
+    const featureMap = {
+      'finance-income': { templateId: 'template-finance-income' },
+      'finance-fees': { templateId: 'template-finance-fees' },
+      'finance-budget': { templateId: 'template-finance-budget' },
+      'finance-reports': { templateId: 'template-finance-reports' },
+      'finance-receipts': { templateId: 'template-finance-receipts' },
+      'documents-memos': { templateId: 'template-documents-memos' },
+      'documents-minutes': { templateId: 'template-documents-minutes' },
+      'documents-archive': { templateId: 'template-documents-archive' },
+      'documents-announcements': { templateId: 'template-documents-announcements' },
+      'documents-official': { templateId: 'template-documents-official' },
+      'attendance-qr': { templateId: 'template-attendance-qr' },
+      'attendance-monitor': { templateId: 'template-attendance-monitor' },
+      'attendance-events': { templateId: 'template-attendance-events' },
+      'attendance-export': { templateId: 'template-attendance-export' },
+      'members-add': { templateId: 'template-members-add' },
+      'members-profiles': { templateId: 'template-members-profiles' },
+      'members-status': { templateId: 'template-members-status' },
+      'members-monitor': { templateId: 'template-members-monitor' },
+      'members-history': { templateId: 'template-members-history' },
+      'officer-create': { templateId: 'template-officer-create' },
+      'officer-roles': { templateId: 'template-officer-roles' },
+      'officer-reset': { templateId: 'template-officer-reset' },
+      'officer-deactivate': { templateId: 'template-officer-deactivate' },
+      'user-management': { templateId: 'template-user-management' },
+      'user-edit': { templateId: 'template-user-edit' },
+    };
+
+    async function openFeatureModal(featureKey) {
+      const feature = featureMap[featureKey];
+
+      if (!feature) {
+        return;
+      }
+
+      ensureFeatureWorkspace();
+      featureWorkspace.hidden = false;
+      dashboardContent.classList.add('feature-mode');
+      dashboardSections.forEach((section) => {
+        section.hidden = true;
+      });
+      featureBody.innerHTML = '';
+      featureStyleHost.innerHTML = '';
+      featureLoading.hidden = false;
+      featureWorkspace.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      try {
+        const template = document.getElementById(feature.templateId);
+        if (!template) {
+          throw new Error(`Feature template not found: ${feature.templateId}`);
+        }
+
+        const content = template.content.cloneNode(true);
+        featureBody.appendChild(content);
+        initializeFeatureContent(featureKey);
+      } catch (error) {
+        featureBody.innerHTML = `
+          <div class="feature-workspace-error">
+            <strong>Unable to load feature content.</strong>
+            <p>${error.message}</p>
+          </div>
+        `;
+      } finally {
+        featureLoading.hidden = true;
+      }
+    }
+
+    function closeFeatureModal() {
+      if (featureWorkspace) {
+        featureWorkspace.remove();
+        featureWorkspace = null;
+        featureLoading = null;
+        featureStyleHost = null;
+        featureBody = null;
+      }
+
+      dashboardContent.classList.remove('feature-mode');
+      dashboardSections.forEach((section) => {
+        section.hidden = false;
+      });
+    }
+
+    function parseJsonArray(elementId) {
+      try {
+        const raw = document.getElementById(elementId)?.textContent || '[]';
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    const officerProfiles = parseJsonArray('officer-profiles-data');
+    const officerRoleChoices = parseJsonArray('officer-role-choices-data');
+    const membersData = parseJsonArray('members-data');
+    const memberHistoryData = parseJsonArray('members-history-data');
+
+    function updateOfficerData(newData) {
+      officerProfiles.length = 0;
+      officerProfiles.push(...newData);
+    }
+
+    function updateMembersData(newData) {
+      membersData.length = 0;
+      membersData.push(...newData);
+    }
+
+    function updateMemberHistoryData(newData) {
+      memberHistoryData.length = 0;
+      memberHistoryData.push(...newData);
+    }
+
+    function formatRoleLabel(role) {
+      if (role === 'Membership Officer') {
+        return 'Membership Officer (Business Manager)';
+      }
+      if (role === 'Attendance Officer') {
+        return 'Attendance Officer (PIO)';
+      }
+      return role;
+    }
+
+    function buildRoleOptions(selectedRole) {
+      return officerRoleChoices
+        .map((role) => {
+          const label = formatRoleLabel(role);
+          return `
+          <option value="${role}" ${role === selectedRole ? 'selected' : ''}>
+            ${label}
+          </option>`;
+        })
+        .join('');
+    }
+
+    function initializeFeatureContent(featureKey) {
+      if (!featureBody) {
+        return;
+      }
+
+      const panel = featureBody.querySelector('.feature-panel');
+      if (!panel) {
+        return;
+      }
+
+      if (featureKey === 'members-add') {
+        const form = panel.querySelector('.feature-form');
+        form?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const fullName = form.querySelector('input[name="name"]').value.trim();
+          const username = form.querySelector('input[name="username"]').value.trim();
+          const faculty = form.querySelector('input[name="faculty"]').value.trim();
+          const email = form.querySelector('input[name="email"]').value.trim();
+          const password = form.querySelector('input[name="password"]').value;
+          const passwordConfirm = form.querySelector('input[name="confirm_password"]').value;
+          const phone = form.querySelector('input[name="phone"]').value.trim();
+          const course = form.querySelector('input[name="course"]').value.trim();
+          const yearLevel = form.querySelector('select[name="year_level"]').value;
+
+          if (!fullName || !faculty || !username || !email || !password || !passwordConfirm) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Required fields missing',
+              text: 'Please provide name, username, faculty, email, and password.',
+            });
+            return;
+          }
+
+          if (password !== passwordConfirm) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Passwords do not match',
+              text: 'Please make sure both password fields match.',
+            });
+            return;
+          }
+
+          if (password.length < 8) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Password too short',
+              text: 'Password must be at least 8 characters long.',
+            });
+            return;
+          }
+
+          const result = await sendOfficerAction({
+            action: 'create_member',
+            name: fullName,
+            username: username,
+            faculty: faculty,
+            email: email,
+            password: password,
+            phone: phone,
+            course: course,
+            year_level: yearLevel,
+          });
+
+          Swal.fire({
+            icon: result.success ? 'success' : 'error',
+            title: result.success ? 'Member Registered' : 'Unable to register member',
+            text: result.message,
+          });
+
+          if (result.success) {
+            updateMembersData(result.members);
+            updateMemberHistoryData(result.history);
+            form.reset();
+          }
+        });
+        return;
+      }
+
+      if (featureKey === 'members-profiles') {
+        const body = panel.querySelector('tbody');
+        if (body) {
+          body.innerHTML = membersData
+            .map((member) => `
+              <tr>
+                <td>${member.name}</td>
+                <td>${member.email || '—'}</td>
+                <td>${member.faculty || '—'}</td>
+                <td>${member.course || '—'}</td>
+                <td>${member.year_level}</td>
+                <td>${member.status}</td>
+                <td>${member.joined_date}</td>
+              </tr>
+            `)
+            .join('');
+        }
+        return;
+      }
+
+      if (featureKey === 'members-status') {
+        const tableBody = panel.querySelector('tbody');
+        if (tableBody) {
+          tableBody.innerHTML = membersData
+            .map((member) => `
+              <tr>
+                <td>${member.name}</td>
+                <td>${member.status}</td>
+                <td>
+                  <select data-member-id="${member.id}" class="member-status-select">
+                    <option value="Active" ${member.status === 'Active' ? 'selected' : ''}>Active</option>
+                    <option value="Inactive" ${member.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                    <option value="On Leave" ${member.status === 'On Leave' ? 'selected' : ''}>On Leave</option>
+                    <option value="Graduated" ${member.status === 'Graduated' ? 'selected' : ''}>Graduated</option>
+                  </select>
+                </td>
+                <td><input type="text" class="status-reason-input" data-member-id="${member.id}" placeholder="Optional reason"></td>
+                <td><button type="button" class="btn-primary btn-update-member-status" data-member-id="${member.id}">Update</button></td>
+              </tr>
+            `)
+            .join('');
+
+          tableBody.addEventListener('click', async (event) => {
+            const button = event.target.closest('.btn-update-member-status');
+            if (!button) {
+              return;
+            }
+
+            const memberId = button.dataset.memberId;
+            const statusSelect = panel.querySelector(`select[data-member-id="${memberId}"]`);
+            const reasonInput = panel.querySelector(`.status-reason-input[data-member-id="${memberId}"]`);
+            const newStatus = statusSelect?.value;
+            const reason = reasonInput?.value.trim() || '';
+
+            if (!newStatus) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Choose a status',
+                text: 'Please select a new status before updating.',
+              });
+              return;
+            }
+
+            const result = await sendOfficerAction({
+              action: 'update_member_status',
+              member_id: memberId,
+              status: newStatus,
+              reason: reason,
+            });
+
+            Swal.fire({
+              icon: result.success ? 'success' : 'error',
+              title: result.success ? 'Status Updated' : 'Unable to update status',
+              text: result.message,
+            });
+
+            if (result.success) {
+              updateMembersData(result.members);
+              updateMemberHistoryData(result.history);
+              initializeFeatureContent(featureKey);
+            }
+          });
+        }
+        return;
+      }
+
+      if (featureKey === 'members-history') {
+        const body = panel.querySelector('tbody');
+        if (body) {
+          body.innerHTML = memberHistoryData
+            .map((record) => `
+              <tr>
+                <td>${record.member_name}</td>
+                <td>${record.status}</td>
+                <td>${record.status_changed_date}</td>
+                <td>${record.reason_for_change}</td>
+                <td>${record.changed_by}</td>
+              </tr>
+            `)
+            .join('');
+        }
+        return;
+      }
+
+      if (featureKey === 'officer-create') {
+        const roleSelect = panel.querySelector('select[name="role"]');
+        if (roleSelect) {
+          roleSelect.innerHTML = buildRoleOptions('Vice President');
+        }
+
+        panel.querySelector('.feature-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const form = event.target;
+          const fullName = form.querySelector('input[name="full_name"]').value.trim();
+          const username = form.querySelector('input[name="username"]').value.trim();
+          const email = form.querySelector('input[name="email"]').value.trim();
+          const password = form.querySelector('input[name="password"]').value;
+          const passwordConfirm = form.querySelector('input[name="confirm_password"]').value;
+          const role = form.querySelector('select[name="role"]').value;
+
+          if (!fullName || !username || !email || !password || !passwordConfirm) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Missing required fields',
+              text: 'Please fill in every field before creating the account.',
+            });
+            return;
+          }
+
+          if (password !== passwordConfirm) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Passwords do not match',
+              text: 'Please make sure both password fields match.',
+            });
+            return;
+          }
+
+          if (password.length < 8) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Password too short',
+              text: 'Password must be at least 8 characters long.',
+            });
+            return;
+          }
+
+          const payload = {
+            action: 'create_officer',
+            full_name: fullName,
+            username: username,
+            email: email,
+            password: password,
+            role: role,
+          };
+
+          const confirmResult = await Swal.fire({
+            title: 'Create officer account?',
+            text: `Create ${role} account for ${fullName}?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Create',
+            cancelButtonText: 'Cancel',
+          });
+
+          if (!confirmResult.isConfirmed) {
+            return;
+          }
+
+          const result = await sendOfficerAction(payload);
+          Swal.fire({
+            icon: result.success ? 'success' : 'error',
+            title: result.success ? 'Officer Created' : 'Unable to create officer',
+            text: result.message,
+          });
+
+          if (result.success) {
+            updateOfficerData(result.officers);
+            form.reset();
+          }
+        });
+      }
+
+      if (featureKey === 'officer-roles') {
+        const tableBody = panel.querySelector('tbody');
+        if (tableBody) {
+          tableBody.innerHTML = officerProfiles
+            .map((officer) => `
+              <tr>
+                <td>${officer.full_name}</td>
+                <td>${officer.role}</td>
+                <td>
+                  <select data-profile-id="${officer.id}">
+                    ${buildRoleOptions(officer.role)}
+                  </select>
+                </td>
+              </tr>
+            `)
+            .join('');
+        }
+
+        panel.querySelector('.btn-primary')?.addEventListener('click', async () => {
+          const updates = {};
+          panel.querySelectorAll('select[data-profile-id]').forEach((select) => {
+            const profileId = select.dataset.profileId;
+            const newRole = select.value;
+            updates[profileId] = newRole;
+          });
+
+          const confirmResult = await Swal.fire({
+            title: 'Apply role changes?',
+            text: 'This will update officer roles immediately.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Apply',
+            cancelButtonText: 'Cancel',
+          });
+
+          if (!confirmResult.isConfirmed) {
+            return;
+          }
+
+          const result = await sendOfficerAction({
+            action: 'update_roles',
+            role_updates: JSON.stringify(updates),
+          });
+
+          Swal.fire({
+            icon: result.success ? 'success' : 'error',
+            title: result.success ? 'Roles updated' : 'Unable to update roles',
+            text: result.message,
+          });
+
+          if (result.success) {
+            updateOfficerData(result.officers);
+            initializeFeatureContent(featureKey);
+          }
+        });
+      }
+
+      if (featureKey === 'officer-reset') {
+        const officerSelect = panel.querySelector('select[name="officer"]');
+        if (officerSelect) {
+          officerSelect.innerHTML = officerProfiles
+            .map((officer) => `
+              <option value="${officer.id}">${officer.full_name} — ${officer.role}</option>
+            `)
+            .join('');
+        }
+
+        panel.querySelector('.feature-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const form = event.target;
+          const selectedOfficer = officerSelect.options[officerSelect.selectedIndex]?.text || 'selected officer';
+          const payload = {
+            action: 'reset_officer_password',
+            profile_id: officerSelect.value,
+            new_password: form.querySelector('input[name="new_password"]').value,
+            confirm_password: form.querySelector('input[name="confirm_password"]').value,
+          };
+
+          const confirmResult = await Swal.fire({
+            title: 'Reset officer password?',
+            text: `Reset the password for ${selectedOfficer}?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Reset',
+            cancelButtonText: 'Cancel',
+          });
+
+          if (!confirmResult.isConfirmed) {
+            return;
+          }
+
+          const result = await sendOfficerAction(payload);
+          Swal.fire({
+            icon: result.success ? 'success' : 'error',
+            title: result.success ? 'Password reset' : 'Unable to reset password',
+            text: result.message,
+          });
+
+          if (result.success) {
+            form.reset();
+          }
+        });
+      }
+
+      if (featureKey === 'officer-deactivate') {
+        const tableBody = panel.querySelector('tbody');
+        if (tableBody) {
+          tableBody.innerHTML = officerProfiles
+            .map((officer) => `
+              <tr>
+                <td>${officer.full_name}</td>
+                <td>${officer.role}</td>
+                <td>${officer.last_login}</td>
+                <td><span class="status-pill ${officer.is_active ? 'active' : 'inactive'}">${officer.status}</span></td>
+                <td>
+                  <button type="button" class="btn-deactivate" data-profile-id="${officer.id}" data-action="${officer.is_active ? 'deactivate' : 'reactivate'}">
+                    ${officer.is_active ? 'Deactivate' : 'Reactivate'}
+                  </button>
+                </td>
+              </tr>
+            `)
+            .join('');
+        }
+
+        tableBody?.addEventListener('click', async (event) => {
+          const button = event.target.closest('button[data-profile-id]');
+          if (!button) {
+            return;
+          }
+
+          const profileId = button.dataset.profileId;
+          const desiredStatus = button.dataset.action;
+          const actionLabel = desiredStatus === 'reactivate' ? 'Reactivate' : 'Deactivate';
+
+          const confirmResult = await Swal.fire({
+            title: `${actionLabel} officer account?`,
+            text: `This will ${desiredStatus} the selected officer account.`,
+            icon: desiredStatus === 'reactivate' ? 'question' : 'warning',
+            showCancelButton: true,
+            confirmButtonText: actionLabel,
+            cancelButtonText: 'Cancel',
+          });
+
+          if (!confirmResult.isConfirmed) {
+            return;
+          }
+
+          const result = await sendOfficerAction({
+            action: 'toggle_officer_status',
+            profile_id: profileId,
+            desired_status: desiredStatus,
+          });
+
+          Swal.fire({
+            icon: result.success ? 'success' : 'error',
+            title: result.success ? 'Status updated' : 'Unable to update status',
+            text: result.message,
+          });
+
+          if (result.success) {
+            updateOfficerData(result.officers);
+            initializeFeatureContent(featureKey);
+          }
+        });
+      }
+
+      if (featureKey === 'user-management') {
+        const tableBody = panel.querySelector('tbody');
+        if (tableBody) {
+          const renderUserRows = (filter = '', role = '') => {
+            const q = (filter || '').trim().toLowerCase();
+            const rows = officerProfiles.filter((officer) => {
+              if (q) {
+                const hay = `${officer.username || ''} ${officer.full_name || ''} ${officer.role || ''}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+              }
+              if (role) {
+                // special-case 'Members' to match membership-related roles or member flag
+                if (String(role).toLowerCase() === 'members') {
+                  if (officer.is_member) return true;
+                  const r = String(officer.role || '').toLowerCase();
+                  return r.includes('member') || r.includes('membership');
+                }
+                return String(officer.role || '').toLowerCase() === String(role).toLowerCase();
+              }
+              return true;
+            });
+
+            tableBody.innerHTML = rows
+              .map((officer) => `
+                <tr>
+                  <td>${officer.username || officer.full_name}</td>
+                  <td>${officer.full_name}</td>
+                  <td>${officer.role}</td>
+                  <td>${officer.last_login}</td>
+                  <td><span class="status-pill ${officer.is_active ? 'active' : 'inactive'}">${officer.status}</span></td>
+                  <td class="action-buttons">
+                    <button type="button" class="btn-icon-action btn-edit" data-profile-id="${officer.id}" data-action="edit" title="Edit"><i class="fas fa-edit"></i></button>
+                    <button type="button" class="btn-icon-action btn-deactivate-icon" data-profile-id="${officer.id}" data-action="${officer.is_active ? 'deactivate' : 'reactivate'}" title="${officer.is_active ? 'Deactivate' : 'Reactivate'}"><i class="fas ${officer.is_active ? 'fa-ban' : 'fa-check'}"></i></button>
+                    <button type="button" class="btn-icon-action btn-delete-icon" data-profile-id="${officer.id}" data-action="delete" title="Delete"><i class="fas fa-trash-alt"></i></button>
+                  </td>
+                </tr>
+              `)
+              .join('');
+          };
+
+          // initial render
+          renderUserRows();
+
+          // wire search input inside this panel (text filter updates live)
+          const searchInput = panel.querySelector('.user-search-input');
+          const roleSelect = panel.querySelector('.user-role-filter');
+          const applyBtn = panel.querySelector('.user-filter-apply');
+
+          // populate role options from officerRoleChoices
+          if (roleSelect && Array.isArray(officerRoleChoices)) {
+            // include provided officer roles and a Members option
+            const roleOpts = officerRoleChoices.slice();
+            if (!roleOpts.includes('Members')) roleOpts.unshift('Members');
+            const opts = ['<option value="">All roles</option>'].concat(
+              roleOpts.map((r) => `<option value="${r}">${formatRoleLabel(r)}</option>`)
+            );
+            roleSelect.innerHTML = opts.join('');
+          }
+
+          if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+              renderUserRows(e.target.value);
+            });
+          }
+
+          if (applyBtn) {
+            applyBtn.addEventListener('click', () => {
+              const q = searchInput ? searchInput.value : '';
+              const role = roleSelect ? roleSelect.value : '';
+              renderUserRows(q, role);
+            });
+          }
+
+          const clearBtn = panel.querySelector('.user-filter-clear');
+          if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+              if (searchInput) searchInput.value = '';
+              if (roleSelect) roleSelect.value = '';
+              renderUserRows();
+            });
+          }
+
+          tableBody?.addEventListener('click', async (event) => {
+            const button = event.target.closest('button[data-profile-id]');
+            if (!button) return;
+
+            const profileId = button.dataset.profileId;
+            const action = button.dataset.action;
+            if (action !== 'delete') return;
+
+            const confirmResult = await Swal.fire({
+              title: 'Delete officer account?',
+              text: 'Deleting this user will remove their account and associated history.',
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonText: 'Delete',
+              cancelButtonText: 'Cancel',
+            });
+
+            if (!confirmResult.isConfirmed) return;
+
+            const result = await sendOfficerAction({
+              action: 'delete_officer',
+              profile_id: profileId,
+            });
+
+            Swal.fire({
+              icon: result.success ? 'success' : 'error',
+              title: result.success ? 'Deleted' : 'Unable to delete',
+              text: result.message,
+            });
+
+            if (result.success) {
+              updateOfficerData(result.officers);
+              initializeFeatureContent(featureKey);
+            }
+          });
+        }
+
+        tableBody?.addEventListener('click', async (event) => {
+          const editBtn = event.target.closest('button[data-action="edit"]');
+          if (editBtn) {
+            const profileId = editBtn.dataset.profileId;
+            const officer = officerProfiles.find((o) => String(o.id) === String(profileId));
+            const { value: formValues } = await Swal.fire({
+              title: 'Edit User Credentials',
+              html: `
+                <div style="text-align: left; margin: 10px 0;">
+                  <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem;">Full Name</label>
+                  <input id="swal-fullname" class="swal2-input" placeholder="Full name" value="${officer ? officer.full_name : ''}">
+                </div>
+                <div style="text-align: left; margin: 10px 0;">
+                  <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem;">Email</label>
+                  <input id="swal-email" class="swal2-input" type="email" placeholder="Email" value="${officer ? officer.email : ''}">
+                </div>
+                <div style="text-align: left; margin: 10px 0;">
+                  <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem;">New Password (Optional)</label>
+                  <input id="swal-password" class="swal2-input" type="password" placeholder="Leave empty to keep current password">
+                </div>
+                <div style="text-align: left; margin: 10px 0;">
+                  <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem;">Confirm Password</label>
+                  <input id="swal-confirm-password" class="swal2-input" type="password" placeholder="Repeat password">
+                </div>
+              `,
+              focusConfirm: false,
+              showCancelButton: true,
+              confirmButtonText: 'Save Changes',
+              preConfirm: () => {
+                const password = document.getElementById('swal-password').value;
+                const confirmPassword = document.getElementById('swal-confirm-password').value;
+                if (password !== confirmPassword && password !== '') {
+                  Swal.showValidationMessage('Passwords do not match!');
+                  return false;
+                }
+                return {
+                  full_name: document.getElementById('swal-fullname').value,
+                  email: document.getElementById('swal-email').value,
+                  password: password || null,
+                };
+              },
+            });
+
+            if (formValues) {
+              Swal.fire({ icon: 'success', title: 'Saved', text: 'Officer changes saved (UI only).' });
+            }
+            return;
+          }
+
+          const button = event.target.closest('button[data-profile-id]');
+          if (!button) {
+            return;
+          }
+
+          const profileId = button.dataset.profileId;
+          const desiredStatus = button.dataset.action;
+          if (!['deactivate', 'reactivate'].includes(desiredStatus)) {
+            return;
+          }
+          const actionLabel = desiredStatus === 'reactivate' ? 'Reactivate' : 'Deactivate';
+
+          const confirmResult = await Swal.fire({
+            title: `${actionLabel} user account?`,
+            text: `This will ${desiredStatus} the selected user account.`,
+            icon: desiredStatus === 'reactivate' ? 'question' : 'warning',
+            showCancelButton: true,
+            confirmButtonText: actionLabel,
+            cancelButtonText: 'Cancel',
+          });
+
+          if (!confirmResult.isConfirmed) {
+            return;
+          }
+
+          const result = await sendOfficerAction({
+            action: 'toggle_officer_status',
+            profile_id: profileId,
+            desired_status: desiredStatus,
+          });
+
+          Swal.fire({
+            icon: result.success ? 'success' : 'error',
+            title: result.success ? 'Status updated' : 'Unable to update status',
+            text: result.message,
+          });
+
+          if (result.success) {
+            updateOfficerData(result.officers);
+            initializeFeatureContent(featureKey);
+          }
+        });
+      }
+    }
+
+    function getCookie(name) {
+      const cookieValue = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith(name + '='));
+      return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
+    }
+
+    async function sendOfficerAction(payload) {
+      Swal.fire({
+        title: 'Working on it...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const response = await fetch(window.location.href, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: new URLSearchParams(payload),
+      });
+      const result = await response.json();
+      Swal.close();
+      return result;
+    }
+
+    document.addEventListener('click', (event) => {
+      const closeButton = event.target.closest('.btn-close-feature');
+      if (closeButton) {
+        event.preventDefault();
+        closeFeatureModal();
+        return;
+      }
+
+      const dashboardLink = event.target.closest('.nav-item.active');
+      if (dashboardLink) {
+        event.preventDefault();
+        closeFeatureModal();
+        return;
+      }
+
+      const featureLink = event.target.closest('.feature-launcher');
+      if (!featureLink) {
+        return;
+      }
+
+      const featureKey = featureLink.dataset.modalKey;
+      if (!featureKey || !featureMap[featureKey]) {
+        return;
+      }
+
+      event.preventDefault();
+      openFeatureModal(featureKey);
+    });
+    document.addEventListener('submit', (event) => {
+      if (featureWorkspace && featureWorkspace.contains(event.target)) {
+        event.preventDefault();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && featureWorkspace && !featureWorkspace.hidden) {
+        closeFeatureModal();
+      }
+    });
+
+    // Sidebar expandable menus
+    document.querySelectorAll('.expandable').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const menuId = button.dataset.toggle;
+        const menu = document.getElementById(menuId);
+        const isVisible = menu.style.display !== 'none';
+        menu.style.display = isVisible ? 'none' : 'block';
+        button.classList.toggle('expanded');
+      });
+    });
+  </script>
+</body>
+</html>
+

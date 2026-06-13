@@ -1,0 +1,65 @@
+{% extends 'website/system_base.html' %}
+{% load static %}
+
+{% block title %}Create President Account{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/login.css' %}">
+{% endblock %}
+
+{% block content %}
+{% include 'website/includes/back_button.html' %}
+<section class="login-shell">
+  <div class="brand">
+    <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA logo">
+    <div>
+      <strong>CAUFA</strong>
+      <span>Create President Account</span>
+    </div>
+  </div>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="form-errors">
+      {% if form.errors %}
+        <ul>
+          {% for field in form %}
+            {% for error in field.errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          {% endfor %}
+          {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+
+    <div>
+      <label for="id_username">Username</label>
+      <div class="input-wrap">
+        <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
+        {{ form.username }}
+      </div>
+    </div>
+
+    <div>
+      <label for="id_password1">Password</label>
+      <div class="input-wrap password-wrap">
+        <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+        {{ form.password1 }}
+      </div>
+    </div>
+
+    <div>
+      <label for="id_password2">Confirm Password</label>
+      <div class="input-wrap password-wrap">
+        <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+        {{ form.password2 }}
+      </div>
+    </div>
+
+    <button class="submit-btn" type="submit"><i class="fa-solid fa-user-plus"></i> Create President</button>
+  </form>
+</section>
+{% endblock %}

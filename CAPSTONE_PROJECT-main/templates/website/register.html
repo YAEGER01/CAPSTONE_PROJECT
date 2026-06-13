@@ -1,0 +1,573 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CAUFA | REGISTER</title>
+  <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="{% static 'css/login.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
+</head>
+<body>
+  <section class="login-shell register-shell">
+    <div class="brand">
+      <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA logo">
+      <div>
+        <strong>CAUFA</strong>
+        <span>Register for access to the portal</span>
+      </div>
+    </div>
+
+    <div class="form-intro">
+      <p>Complete the registration form to create your member account. Fill in the required fields and review password requirements below.</p>
+    </div>
+
+    <div id="clientErrors" class="error-block client-error-block" hidden>
+      <strong>Required Credentials</strong>
+      <ul></ul>
+    </div>
+
+    {% if registration_message %}
+    <div hidden>
+      <span id="registrationMessage">{{ registration_message }}</span>
+    </div>
+    {% endif %}
+
+    {% if registration_errors %}
+    <div class="error-block">
+      <strong>Required Credentials</strong>
+      <ul>
+        {% for error in registration_errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <form id="registrationForm" method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <div class="form-grid form-grid-columns-2">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <div class="input-wrap">
+            <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
+            <input id="username" type="text" name="username" placeholder="Choose a username" required>
+          </div>
+          <div id="username-status" class="validation-status"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input id="email" type="email" name="email" placeholder="Enter your email" required>
+          <div id="email-status" class="validation-status"></div>
+        </div>
+      </div>
+
+      <div class="form-grid form-grid-columns-2">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="input-wrap password-wrap">
+            <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+            <input id="password" name="password" type="password" placeholder="Create a password" required>
+            <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password">
+              <i class="fa-regular fa-eye" id="passwordToggleIcon" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="password-strength-bar">
+            <div id="strengthBar" class="strength-fill" style="width: 0%;"></div>
+          </div>
+          <p id="strengthText" class="strength-text" style="font-size: 12px; margin-top: 4px; color: #666;"></p>
+        </div>
+
+        <div class="form-group">
+          <label for="confirm_password">Confirm Password</label>
+          <div class="input-wrap password-wrap">
+            <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+            <input id="confirm_password" name="confirm_password" type="password" placeholder="Repeat password" required>
+            <button class="password-toggle" type="button" id="confirmPasswordToggle" aria-label="Show password">
+              <i class="fa-regular fa-eye" id="confirmPasswordToggleIcon" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p id="passwordMatch" class="password-match-indicator" style="font-size: 12px; margin-top: 4px;"></p>
+        </div>
+      </div>
+
+      <div class="password-requirements">
+        <p>Password must include:</p>
+        <ul>
+          <li id="req-length">At least 8 characters</li>
+          <li id="req-lower">A lowercase letter</li>
+          <li id="req-upper">An uppercase letter</li>
+          <li id="req-number">A number</li>
+          <li id="req-special">A special character</li>
+        </ul>
+      </div>
+
+      <div class="form-grid form-grid-columns-2">
+        <div class="form-group">
+          <label for="first_name">First Name</label>
+          <input id="first_name" type="text" name="first_name" placeholder="First name" required>
+        </div>
+
+        <div class="form-group">
+          <label for="middle_name">Middle Name</label>
+          <input id="middle_name" type="text" name="middle_name" placeholder="Middle name" required>
+        </div>
+      </div>
+
+      <div class="form-grid form-grid-columns-2">
+        <div class="form-group">
+          <label for="last_name">Last Name</label>
+          <input id="last_name" type="text" name="last_name" placeholder="Last name" required>
+        </div>
+
+        <div class="form-group">
+          <label for="gender">Gender</label>
+          <select id="gender" name="gender" required>
+            <option value="">Select gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid form-grid-columns-2">
+        <div class="form-group">
+          <label for="date_of_birth">Date of Birth</label>
+          <input id="date_of_birth" type="date" name="date_of_birth" required>
+        </div>
+
+        <div class="form-group">
+          <label for="age">Age</label>
+          <input id="age" type="number" name="age" min="1" placeholder="Age" required>
+        </div>
+      </div>
+
+      <div class="form-grid form-grid-columns-2">
+        <div class="form-group">
+          <label for="faculty">Faculty</label>
+          <select id="faculty" name="faculty" required>
+            <option value="">Select faculty</option>
+            <option value="CCSICT">CCSICT</option>
+            <option value="PS">PS</option>
+            <option value="CCJE">CCJE</option>
+            <option value="SAS">SAS</option>
+            <option value="CED">CED</option>
+            <option value="CBM">CBM</option>
+            <option value="IAT">IAT</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-grid form-grid-columns-1">
+        <div class="form-group file-group">
+          <label for="profile_picture">Profile Picture</label>
+          <input id="profile_picture" type="file" name="profile_picture" accept=".jpg,.jpeg,.png" required>
+        </div>
+      </div>
+
+      <div class="feature-actions feature-actions-right">
+        <button class="submit-btn" type="submit"><i class="fa-solid fa-user-plus"></i> Register</button>
+      </div>
+    </form>
+
+    <div class="login-footer">
+      <p>Already have an account? <a href="{% url 'portal-login' %}">Login here</a></p>
+    </div>
+  </section>
+
+  <script>
+    // Show success message as SweetAlert modal if registration was successful
+    const registrationMessageElement = document.getElementById('registrationMessage');
+    if (registrationMessageElement) {
+      const message = registrationMessageElement.textContent.trim();
+      Swal.fire({
+        title: 'Success!',
+        text: message,
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#1b5e20',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }).then((result) => {
+        if (result.isConfirmed) {
+          window.location.href = '{% url "portal-login" %}';
+        }
+      });
+    }
+  </script>
+
+  <script>
+    const usernameInput = document.getElementById('username');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm_password');
+    const passwordToggle = document.getElementById('passwordToggle');
+    const passwordToggleIcon = document.getElementById('passwordToggleIcon');
+    const confirmPasswordToggle = document.getElementById('confirmPasswordToggle');
+    const confirmPasswordToggleIcon = document.getElementById('confirmPasswordToggleIcon');
+    const form = document.getElementById('registrationForm');
+    const usernameStatus = document.getElementById('username-status');
+    const emailStatus = document.getElementById('email-status');
+    const strengthBar = document.getElementById('strengthBar');
+    const strengthText = document.getElementById('strengthText');
+    const passwordMatchText = document.getElementById('passwordMatch');
+
+    // Toggle password visibility for password field
+    if (passwordToggle && passwordInput && passwordToggleIcon) {
+      passwordToggle.addEventListener('click', function (e) {
+        e.preventDefault();
+        const showingPassword = passwordInput.type === 'text';
+        passwordInput.type = showingPassword ? 'password' : 'text';
+        passwordToggle.setAttribute('aria-label', showingPassword ? 'Show password' : 'Hide password');
+        passwordToggleIcon.className = showingPassword ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
+      });
+    }
+
+    // Toggle password visibility for confirm password field
+    if (confirmPasswordToggle && confirmInput && confirmPasswordToggleIcon) {
+      confirmPasswordToggle.addEventListener('click', function (e) {
+        e.preventDefault();
+        const showingPassword = confirmInput.type === 'text';
+        confirmInput.type = showingPassword ? 'password' : 'text';
+        confirmPasswordToggle.setAttribute('aria-label', showingPassword ? 'Show password' : 'Hide password');
+        confirmPasswordToggleIcon.className = showingPassword ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
+      });
+    }
+
+    const clientErrors = document.getElementById('clientErrors');
+    const clientErrorsList = clientErrors?.querySelector('ul');
+
+    function setValidationError(message) {
+      if (!clientErrors || !clientErrorsList) {
+        return;
+      }
+      const item = document.createElement('li');
+      item.textContent = message;
+      clientErrorsList.appendChild(item);
+    }
+
+    function clearValidationErrors() {
+      if (!clientErrors || !clientErrorsList) {
+        return;
+      }
+      clientErrors.hidden = true;
+      clientErrorsList.innerHTML = '';
+    }
+
+    function updateRequirementStatus(password) {
+      const requirements = [
+        {id: 'req-length', valid: password.length >= 8},
+        {id: 'req-lower', valid: /[a-z]/.test(password)},
+        {id: 'req-upper', valid: /[A-Z]/.test(password)},
+        {id: 'req-number', valid: /[0-9]/.test(password)},
+        {id: 'req-special', valid: /[!@#$%^&*()\-_=+\[\]{};:'",.<>/?]/.test(password)},
+      ];
+      requirements.forEach(({id, valid}) => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.classList.toggle('valid', valid);
+        }
+      });
+    }
+
+    function calculatePasswordStrength(password) {
+      let strength = 0;
+      if (password.length >= 8) strength++;
+      if (password.length >= 12) strength++;
+      if (/[a-z]/.test(password)) strength++;
+      if (/[A-Z]/.test(password)) strength++;
+      if (/[0-9]/.test(password)) strength++;
+      if (/[!@#$%^&*()\-_=+\[\]{};:'",.<>/?]/.test(password)) strength++;
+      return strength;
+    }
+
+    function updatePasswordStrength(password) {
+      if (!password) {
+        strengthBar.style.width = '0%';
+        strengthBar.className = 'strength-fill';
+        strengthText.textContent = '';
+        return;
+      }
+
+      const strength = calculatePasswordStrength(password);
+      const percentage = (strength / 6) * 100;
+      strengthBar.style.width = percentage + '%';
+      strengthBar.className = 'strength-fill';
+
+      if (strength <= 2) {
+        strengthBar.classList.add('weak');
+        strengthText.textContent = 'Weak';
+        strengthText.style.color = '#d32f2f';
+      } else if (strength <= 4) {
+        strengthBar.classList.add('medium');
+        strengthText.textContent = 'Medium';
+        strengthText.style.color = '#f57c00';
+      } else {
+        strengthBar.classList.add('strong');
+        strengthText.textContent = 'Strong';
+        strengthText.style.color = '#388e3c';
+      }
+    }
+
+    function updatePasswordMatch() {
+      const password = passwordInput.value;
+      const confirm = confirmInput.value;
+      
+      if (!confirm) {
+        passwordMatchText.textContent = '';
+        return;
+      }
+
+      if (password === confirm) {
+        passwordMatchText.innerHTML = '<i class="fa-solid fa-check" style="color: #388e3c; margin-right: 4px;"></i><span style="color: #388e3c;">Passwords match</span>';
+      } else {
+        passwordMatchText.innerHTML = '<i class="fa-solid fa-times" style="color: #d32f2f; margin-right: 4px;"></i><span style="color: #d32f2f;">Passwords do not match</span>';
+      }
+    }
+
+    // Real-time username validation
+    let usernameCheckTimeout;
+    usernameInput?.addEventListener('input', () => {
+      clearTimeout(usernameCheckTimeout);
+      const username = usernameInput.value.trim();
+
+      if (!username) {
+        usernameStatus.textContent = '';
+        return;
+      }
+
+      usernameCheckTimeout = setTimeout(async () => {
+        try {
+          const response = await fetch('{% url "portal-login" %}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-Requested-With': 'XMLHttpRequest',
+              'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value,
+            },
+            body: new URLSearchParams({
+              action: 'check_username',
+              username: username,
+            }),
+          });
+          const result = await response.json();
+
+          if (result.exists) {
+            usernameStatus.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: #d32f2f; margin-right: 4px;"></i><span style="color: #d32f2f; font-size: 12px;">Username already taken</span>';
+            usernameInput.classList.add('input-invalid');
+          } else {
+            usernameStatus.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #388e3c; margin-right: 4px;"></i><span style="color: #388e3c; font-size: 12px;">Username available</span>';
+            usernameInput.classList.remove('input-invalid');
+          }
+        } catch (error) {
+          console.error('Error checking username:', error);
+        }
+      }, 300);
+    });
+
+    // Real-time email validation
+    let emailCheckTimeout;
+    emailInput?.addEventListener('input', () => {
+      clearTimeout(emailCheckTimeout);
+      const email = emailInput.value.trim();
+
+      if (!email || !email.includes('@')) {
+        emailStatus.textContent = '';
+        return;
+      }
+
+      emailCheckTimeout = setTimeout(async () => {
+        try {
+          const response = await fetch('{% url "portal-login" %}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-Requested-With': 'XMLHttpRequest',
+              'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value,
+            },
+            body: new URLSearchParams({
+              action: 'check_email',
+              email: email,
+            }),
+          });
+          const result = await response.json();
+
+          if (result.exists) {
+            emailStatus.innerHTML = '<i class="fa-solid fa-circle-xmark" style="color: #d32f2f; margin-right: 4px;"></i><span style="color: #d32f2f; font-size: 12px;">Email already registered</span>';
+            emailInput.classList.add('input-invalid');
+          } else {
+            emailStatus.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #388e3c; margin-right: 4px;"></i><span style="color: #388e3c; font-size: 12px;">Email available</span>';
+            emailInput.classList.remove('input-invalid');
+          }
+        } catch (error) {
+          console.error('Error checking email:', error);
+        }
+      }, 300);
+    });
+
+    function markFieldError(field) {
+      if (!field) {
+        return;
+      }
+      field.classList.add('input-invalid');
+    }
+
+    function clearFieldError(field) {
+      if (!field) {
+        return;
+      }
+      field.classList.remove('input-invalid');
+    }
+
+    if (form) {
+      const requiredFields = Array.from(form.querySelectorAll('input[required], select[required]'));
+
+      requiredFields.forEach((field) => {
+        field.addEventListener('input', () => {
+          clearFieldError(field);
+          clearValidationErrors();
+        });
+      });
+
+      passwordInput?.addEventListener('input', () => {
+        updateRequirementStatus(passwordInput.value);
+        updatePasswordStrength(passwordInput.value);
+        updatePasswordMatch();
+        clearFieldError(passwordInput);
+      });
+
+      confirmInput?.addEventListener('input', () => {
+        updatePasswordMatch();
+        clearFieldError(confirmInput);
+      });
+
+      // File type validation for profile picture
+      const profilePictureInput = document.getElementById('profile_picture');
+      profilePictureInput?.addEventListener('change', () => {
+        const file = profilePictureInput.files[0];
+        if (file) {
+          const validTypes = ['image/jpeg', 'image/png'];
+          if (!validTypes.includes(file.type)) {
+            setValidationError('Profile picture must be a JPG or PNG file.');
+            markFieldError(profilePictureInput);
+            profilePictureInput.value = '';
+            clientErrors.hidden = false;
+          } else {
+            clearFieldError(profilePictureInput);
+          }
+        }
+      });
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        clearValidationErrors();
+        const password = passwordInput.value.trim();
+        const confirmPassword = confirmInput.value.trim();
+        let isValid = true;
+
+        requiredFields.forEach((field) => {
+          if (!field.value.trim()) {
+            isValid = false;
+            const label = field.closest('.form-group')?.querySelector('label');
+            const labelText = label?.textContent?.trim() || 'Field';
+            setValidationError(`${labelText} is required.`);
+            markFieldError(field);
+          }
+        });
+
+        // Validate profile picture file type
+        const profileFile = profilePictureInput?.files[0];
+        if (profileFile) {
+          const validTypes = ['image/jpeg', 'image/png'];
+          if (!validTypes.includes(profileFile.type)) {
+            isValid = false;
+            setValidationError('Profile picture must be a JPG or PNG file.');
+            markFieldError(profilePictureInput);
+          }
+        }
+
+        if (password !== confirmPassword) {
+          isValid = false;
+          setValidationError('Passwords do not match.');
+          markFieldError(passwordInput);
+          markFieldError(confirmInput);
+        }
+        if (password.length < 8) {
+          isValid = false;
+          setValidationError('Password must be at least 8 characters long.');
+        }
+        if (!/[a-z]/.test(password)) {
+          isValid = false;
+          setValidationError('Password must include a lowercase letter.');
+        }
+        if (!/[A-Z]/.test(password)) {
+          isValid = false;
+          setValidationError('Password must include an uppercase letter.');
+        }
+        if (!/[0-9]/.test(password)) {
+          isValid = false;
+          setValidationError('Password must include a number.');
+        }
+        if (!/[!@#$%^&*()\-_=+\[\]{};:'",.<>/?]/.test(password)) {
+          isValid = false;
+          setValidationError('Password must include a special character.');
+        }
+
+        if (!isValid) {
+          clientErrors.hidden = false;
+          return;
+        }
+
+        // All validations passed - show confirmation modal
+        const firstName = document.getElementById('first_name').value.trim();
+        const middleName = document.getElementById('middle_name').value.trim();
+        const lastName = document.getElementById('last_name').value.trim();
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const gender = document.getElementById('gender').value.trim();
+        const dob = document.getElementById('date_of_birth').value;
+        const age = document.getElementById('age').value.trim();
+        const fileName = profileFile?.name || 'No file selected';
+
+        const credentialsHTML = `
+          <div style="text-align: left; margin-top: 20px;">
+            <table style="width: 100%; font-size: 14px; line-height: 1.8;">
+              <tr><td style="font-weight: bold; width: 40%;">Username:</td><td>${username}</td></tr>
+              <tr><td style="font-weight: bold;">Email:</td><td>${email}</td></tr>
+              <tr><td style="font-weight: bold;">First Name:</td><td>${firstName}</td></tr>
+              <tr><td style="font-weight: bold;">Middle Name:</td><td>${middleName}</td></tr>
+              <tr><td style="font-weight: bold;">Last Name:</td><td>${lastName}</td></tr>
+              <tr><td style="font-weight: bold;">Gender:</td><td>${gender}</td></tr>
+              <tr><td style="font-weight: bold;">Date of Birth:</td><td>${dob}</td></tr>
+              <tr><td style="font-weight: bold;">Age:</td><td>${age}</td></tr>
+              <tr><td style="font-weight: bold;">Profile Picture:</td><td>${fileName}</td></tr>
+            </table>
+          </div>
+        `;
+
+        Swal.fire({
+          title: 'Confirm Registration',
+          html: 'Please verify your credentials are correct before submitting:<br>' + credentialsHTML,
+          icon: 'info',
+          showCancelButton: true,
+          confirmButtonText: 'Register',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#1b5e20',
+          cancelButtonColor: '#d32f2f',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            form.submit();
+          }
+        });
+      });
+    }
+  </script>
+</body>
+</html>

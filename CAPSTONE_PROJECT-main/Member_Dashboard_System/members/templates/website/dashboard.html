@@ -1,0 +1,1276 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - ISU CAUFA Management System</title>
+  <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="{% static 'css/members-dashboard.css' %}">
+</head>
+<body class="system-dashboard">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <i class="fas fa-cube"></i>
+      <div>
+        <strong>ISU-CAUFA</strong>
+        <small>Member</small>
+      </div>
+    </div>
+
+    <!-- User Profile -->
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ member_first_name|first }}</div>
+      <div class="user-info">
+        <strong>{{ member_first_name }} {{ member_last_name }}</strong>
+        <small>Member</small>
+      </div>
+      <a href="{% url 'portal-logout' %}" class="btn-logout" title="Logout">
+        <i class="fas fa-sign-out-alt"></i>
+      </a>
+    </div>
+
+    <!-- Overview Section -->
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">OVERVIEW</h3>
+      <nav class="sidebar-nav">
+          <a href="#" class="nav-item active dashboard-toggle" data-toggle-view="dashboard">
+            <i class="fas fa-tachometer-alt"></i>
+            <span>DASHBOARD</span>
+          </a>
+        </nav>
+    </div>
+
+      <!-- Modules Section -->
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-title">MY ACCOUNT</h3>
+        <nav class="sidebar-nav">
+          <button class="nav-item expandable" data-toggle="account-menu">
+            <i class="fas fa-user"></i>
+            <span>MY ACCOUNT</span>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          <div id="account-menu" class="submenu" style="display: none;">
+            <a href="#" class="submenu-item profile-toggle" data-toggle-view="profile">PROFILE</a>
+          </div>
+        </nav>
+      </div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-title">EVENTS</h3>
+        <nav class="sidebar-nav">
+          <button class="nav-item expandable" data-toggle="events-menu">
+            <i class="fas fa-calendar"></i>
+            <span>EVENTS</span>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          <div id="events-menu" class="submenu" style="display: none;">
+            <a href="#" class="submenu-item events-toggle" data-toggle-view="events">UPCOMING EVENTS</a>
+            <a href="#" class="submenu-item attendance-toggle" data-toggle-view="attendance">ATTENDANCE LOG</a>
+          </div>
+        </nav>
+      </div>
+
+    <!-- Administration Section -->
+    {% if is_officer %}
+    <div class="sidebar-section">
+      <h3 class="sidebar-section-title">ADMINISTRATION</h3>
+      <nav class="sidebar-nav">
+        <button class="nav-item expandable" data-toggle="officers-menu">
+          <i class="fas fa-user-tie"></i>
+          <span>OFFICER ACCOUNTS</span>
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <div id="officers-menu" class="submenu" style="display: none;">
+          <a href="#officer-create" class="submenu-item feature-launcher" data-modal-key="officer-create">CREATE ACCOUNTS</a>
+          <a href="#officer-roles" class="submenu-item feature-launcher" data-modal-key="officer-roles">MANAGE ROLES</a>
+          <a href="#officer-reset" class="submenu-item feature-launcher" data-modal-key="officer-reset">RESET PASSWORD</a>
+          <a href="#officer-deactivate" class="submenu-item feature-launcher" data-modal-key="officer-deactivate">DEACTIVATE ACCOUNT</a>
+        </div>
+
+        <a href="#user-management" class="nav-item feature-launcher" data-modal-key="user-management">
+          <i class="fas fa-users-cog"></i>
+          <span>USER MANAGEMENT</span>
+        </a>
+
+        <a href="#" class="nav-item with-badge">
+          <i class="fas fa-check-circle"></i>
+          <span>Approvals</span>
+          <span class="badge">4</span>
+        </a>
+
+        <a href="#" class="nav-item">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </a>
+      </nav>
+    </div>
+    {% endif %}
+
+  </aside>
+
+  <!-- Mobile Sidebar Overlay -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <main class="main-content">
+    <header class="top-bar">
+      <button class="mobile-menu-toggle" id="mobile-menu-toggle" title="Toggle menu">
+        <i class="fas fa-bars"></i>
+      </button>
+      <!-- Mobile User Profile Header -->
+      <div class="mobile-user-header">
+        <div class="mobile-user-avatar">{{ member_first_name|first }}</div>
+        <div class="mobile-user-info">
+          <strong>{{ member_first_name }} {{ member_last_name }}</strong>
+          <small>Member</small>
+        </div>
+        <a href="{% url 'portal-logout' %}" class="mobile-btn-logout" title="Logout">
+          <i class="fas fa-sign-out-alt"></i>
+        </a>
+      </div>
+    </header>
+
+    <section class="dashboard-content">
+      <div id="dashboard-view" class="view-container">
+        <header class="dashboard-header">
+          <div>
+            <p class="dashboard-label">Overview</p>
+            <h1>Dashboard</h1>
+            <p class="dashboard-subtitle">Access your profile, event attendance, and membership updates from one panel.</p>
+          </div>
+        </header>
+
+              <!-- Overview Cards -->
+        <div class="overview-cards">
+        <article class="info-card">
+          <div class="card-icon members">
+            <i class="fas fa-user"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Membership status</span>
+            <strong>{{ dashboard.membership_status }}</strong>
+            <p class="card-meta">Current role</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon attendance">
+            <i class="fas fa-calendar-check"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Events attended</span>
+            <strong>{{ dashboard.events_attended }}</strong>
+            <p class="card-meta">This semester</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon treasury">
+            <i class="fas fa-money-bill-wave"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Dues status</span>
+            <strong>{{ dashboard.dues_status }}</strong>
+            <p class="card-meta">Updated today</p>
+          </div>
+        </article>
+
+        <article class="info-card">
+          <div class="card-icon approvals">
+            <i class="fas fa-envelope"></i>
+          </div>
+          <div class="card-content">
+            <span class="card-label">Announcements</span>
+            <strong>{{ dashboard.announcements }}</strong>
+            <p class="card-meta">New messages</p>
+          </div>
+        </article>
+      </div>
+
+            <!-- Main Panels -->
+      <div class="main-panels">
+        <section class="panel module-status">
+          <div class="panel-heading">
+            <h2>Upcoming activities</h2>
+            <a href="#">See schedule</a>
+          </div>
+          <div class="panel-list">
+            {% for item in dashboard.upcoming_activities %}
+            <article class="panel-item">
+              <div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.subtitle }}</p>
+              </div>
+              <span class="status-pill {{ item.status|lower }}">{{ item.status }}</span>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel attendance-chart">
+          <div class="panel-heading">
+            <h2>Membership progress</h2>
+            <a href="#">Details</a>
+          </div>
+          <div class="attendance-list">
+            {% for event in dashboard.progress_metrics %}
+            <div class="attendance-row">
+              <span>{{ event.label }}</span>
+              <div class="attendance-bar-wrap">
+                <div class="attendance-bar" style="--fill: {{ event.value }}%;"></div>
+              </div>
+              <strong>{{ event.value }}%</strong>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+            <!-- Lower Panels -->
+      <div class="lower-panels">
+        <section class="panel approvals-list">
+          <div class="panel-heading">
+            <h2>Latest notices</h2>
+            <span class="items-count">{{ dashboard.recent_notices|length }} items</span>
+          </div>
+          <div class="panel-list">
+            {% for notice in dashboard.recent_notices %}
+            <article class="panel-item approval-item">
+              <div>
+                <strong>{{ notice.title }}</strong>
+                <p>{{ notice.subtitle }}</p>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+      </div>
+
+      <!-- Profile View -->
+      <div id="profile-view" class="view-container" style="display: none;">
+        <header class="dashboard-header">
+          <div>
+            <p class="dashboard-label">My Account</p>
+            <h1>Member Profile</h1>
+            <p class="dashboard-subtitle">View your complete profile information and membership details.</p>
+          </div>
+          <div class="header-buttons">
+            <button class="btn-refresh" id="refresh-profile-btn" title="Refresh to see latest changes from Profiling System">
+              <i class="fas fa-sync-alt"></i>
+              <span>Refresh</span>
+            </button>
+            <button class="btn-edit-profile" id="edit-profile-btn" title="Edit your profile information">
+              <i class="fas fa-edit"></i>
+              <span>Edit Profile</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="profile-info-container">
+          <article class="profile-card">
+            <div class="profile-header">
+              <div class="profile-avatar">
+                {% if profile_picture_url %}
+                  <img src="{{ profile_picture_url }}" alt="Profile Picture" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                {% else %}
+                  <span id="profile-avatar-text">{{ member_first_name|first }}</span>
+                {% endif %}
+              </div>
+              <div class="profile-header-info">
+                <h2 id="profile-header-name">{{ member_first_name|default:"Not specified" }} {{ member_last_name|default:"Not specified" }}</h2>
+                <p class="profile-role" id="profile-header-status">{{ membership_status|default:"Member" }}</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="profile-section">
+            <h3>Account Information</h3>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <span class="field-label">Username</span>
+                <p class="field-value">{{ request.user.username }}</p>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Email Address</span>
+                <p class="field-value">{{ request.user.email }}</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="profile-section">
+            <h3>Personal Information</h3>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <span class="field-label">First Name</span>
+                <p class="field-value" id="profile-first-name">{{ member_first_name|default:"Not specified" }}</p>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Middle Name</span>
+                <p class="field-value" id="profile-middle-name">{{ member_middle_name|default:"Not specified" }}</p>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Last Name</span>
+                <p class="field-value" id="profile-last-name">{{ member_last_name|default:"Not specified" }}</p>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Gender</span>
+                <p class="field-value" id="profile-gender">{{ gender|default:"Not specified" }}</p>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Date of Birth</span>
+                <p class="field-value" id="profile-date-of-birth">{{ date_of_birth|default:"Not specified" }}</p>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Age</span>
+                <p class="field-value" id="profile-age">{{ age|default:"Not specified" }}</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="profile-section">
+            <h3>Faculty</h3>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <span class="field-label">Faculty</span>
+                <p class="field-value" id="profile-faculty">{{ faculty|default:"Not specified" }}</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="profile-section">
+            <h3>Membership Status</h3>
+            <div class="profile-grid">
+              <div class="profile-field">
+                <span class="field-label">Status</span>
+                <p class="field-value"><span class="status-badge active">{{ membership_status|default:"Active" }}</span></p>
+              </div>
+              <div class="profile-field">
+                <span class="field-label">Joined Date</span>
+                <p class="field-value">{{ member_since|default:"Not specified" }}</p>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Edit Profile Modal -->
+        <div id="edit-profile-modal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>Edit Profile</h2>
+              <button class="modal-close" id="close-edit-modal">&times;</button>
+            </div>
+            <form id="edit-profile-form" class="modal-body">
+              <div class="form-section">
+                <h3>Profile Picture</h3>
+                <div class="profile-picture-upload">
+                  <div class="picture-preview-container">
+                    {% if profile_picture_url %}
+                      <img id="profile-preview" src="{{ profile_picture_url }}" alt="Profile Picture" class="profile-preview">
+                    {% else %}
+                      <div id="profile-preview" class="profile-preview-placeholder">
+                        <i class="fas fa-user"></i>
+                      </div>
+                    {% endif %}
+                  </div>
+                  <div class="picture-upload-actions">
+                    <input type="file" id="profile-picture-input" accept="image/*" class="file-input" style="display: none;">
+                    <button type="button" id="upload-picture-btn" class="btn-primary">Upload Picture</button>
+                    <small class="upload-hint">JPG, PNG, or GIF (Max 5MB)</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h3>Account Information (Read-Only)</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" value="{{ request.user.username }}" readonly class="form-input readonly-input">
+                  </div>
+                  <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" value="{{ request.user.email }}" readonly class="form-input readonly-input">
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h3>Personal Information</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>First Name *</label>
+                    <input type="text" id="edit-first-name" value="{{ member_first_name }}" class="form-input" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Middle Name</label>
+                    <input type="text" id="edit-middle-name" value="{{ member_middle_name }}" class="form-input">
+                  </div>
+                  <div class="form-group">
+                    <label>Last Name *</label>
+                    <input type="text" id="edit-last-name" value="{{ member_last_name }}" class="form-input" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Gender</label>
+                    <select id="edit-gender" class="form-input">
+                      <option value="">Select Gender</option>
+                      <option value="Male" {% if gender == 'Male' %}selected{% endif %}>Male</option>
+                      <option value="Female" {% if gender == 'Female' %}selected{% endif %}>Female</option>
+                      <option value="Other" {% if gender == 'Other' %}selected{% endif %}>Other</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Date of Birth</label>
+                    <input type="date" id="edit-dob" value="{{ date_of_birth_iso|default:'' }}" class="form-input">
+                  </div>
+                  <div class="form-group">
+                    <label>Age</label>
+                    <input type="number" id="edit-age" value="{{ age }}" class="form-input">
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h3>Academic Information</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Faculty</label>
+                    <input type="text" id="edit-faculty" value="{{ faculty }}" readonly class="form-input readonly-input">
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h3>Membership Status (Read-Only)</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Status</label>
+                    <input type="text" value="{{ membership_status }}" readonly class="form-input readonly-input">
+                  </div>
+                  <div class="form-group">
+                    <label>Joined Date</label>
+                    <input type="text" value="{{ member_since }}" readonly class="form-input readonly-input">
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="cancel-edit-btn">Cancel</button>
+                <button type="submit" class="btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    <!-- Upcoming Events View -->
+    <div id="events-view" class="view-container" style="display: none;">
+      <header class="dashboard-header">
+        <div>
+          <p class="dashboard-label">Events</p>
+          <h1>Upcoming Events</h1>
+          <p class="dashboard-subtitle">View and register for upcoming CAUFA events and activities.</p>
+        </div>
+      </header>
+      <div class="events-container">
+        <div class="events-list">
+          <!-- Events will be displayed here -->
+          <p class="empty-state">No upcoming events at the moment. Check back soon!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance Log View -->
+    <div id="attendance-view" class="view-container" style="display: none;">
+      <header class="dashboard-header">
+        <div>
+          <p class="dashboard-label">Events</p>
+          <h1>Attendance Log</h1>
+          <p class="dashboard-subtitle">View your attendance history for all CAUFA events.</p>
+        </div>
+      </header>
+      <div class="attendance-monitor-container">
+        <div class="attendance-summary">
+          <div class="summary-stat">
+            <span class="stat-label">Total Events Attended</span>
+            <p class="stat-value">0</p>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-label">Attendance Rate</span>
+            <p class="stat-value">0%</p>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-label">Latest Event</span>
+            <p class="stat-value">—</p>
+          </div>
+        </div>
+
+        <div class="attendance-table-wrapper">
+          <table class="attendance-table">
+            <thead>
+              <tr>
+                <th>Event Name</th>
+                <th>Event Date</th>
+                <th>Attendance Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="4" class="empty-state">No attendance records found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    </section>
+
+  <template id="template-officer-create">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Create Officer Account</h1>
+          <p class="dashboard-subtitle">Add a new officer with a temporary password in one clean form.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Full Name
+            <input type="text" name="full_name" placeholder="e.g. Ana Reyes">
+          </label>
+          <label class="form-group">
+            Role
+            <select name="role"></select>
+          </label>
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. areyes_vp">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. areyes@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Temporary Password
+            <input type="password" name="password" placeholder="Min. 8 characters">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary">Create Account</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-officer-roles">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Manage Roles & Permissions</h1>
+          <p class="dashboard-subtitle">View and update officer roles without leaving the dashboard.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-shield-alt"></i>
+          <div>
+            <strong>Officer Role Matrix</strong>
+            <p>Assign roles, approve permissions, and keep officer duties clear.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr><th>Officer</th><th>Current Role</th><th>New Role</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>J. Flores</td><td>Attendance Officer (PIO)</td><td><select><option>Attendance Officer (PIO)</option><option>Membership Officer (Business Manager)</option><option>Secretary</option></select></td></tr>
+            <tr><td>B. Garcia</td><td>Membership Officer (Business Manager)</td><td><select><option>Membership Officer (Business Manager)</option><option>Auditor</option><option>Treasurer</option></select></td></tr>
+            <tr><td>M. Santos</td><td>Treasurer</td><td><select><option>Treasurer</option><option>Vice President</option><option>Auditor</option></select></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="feature-actions feature-actions-right">
+        <button type="button" class="btn-primary">Save Role Changes</button>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-officer-reset">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Reset Officer Password</h1>
+          <p class="dashboard-subtitle">Send a new temporary password to the officer account.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Select Officer
+            <select name="officer">
+              <option value="">— Select —</option>
+            </select>
+          </label>
+          <label class="form-group">
+            New Temporary Password
+            <input type="password" name="new_password" placeholder="Min. 8 characters">
+          </label>
+        </div>
+        <p class="form-note"><i class="fas fa-info-circle"></i> Once changed, this will be their new password on their next login attempt.</p>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary"><i class="fas fa-key"></i> Reset Password</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  <template id="template-officer-deactivate">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Officer Accounts</p>
+          <h1>Deactivate Officer Account</h1>
+          <p class="dashboard-subtitle">Review officer status and manage account availability.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-user-times"></i>
+          <div>
+            <strong>Officer Account Management</strong>
+            <p>Deactivate or reactivate officer accounts to control access and permissions.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Officer</th>
+              <th>Role</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-user-management">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Administration</p>
+          <h1>User Management</h1>
+          <p class="dashboard-subtitle">Manage system users, view roles, and update account status.</p>
+        </div>
+      </div>
+      <article class="roles-info-card">
+        <div class="roles-info-header">
+          <i class="fas fa-users-cog"></i>
+          <div>
+            <strong>Manage Users</strong>
+            <p>Quickly search, edit, and toggle user access from one place.</p>
+          </div>
+        </div>
+      </article>
+      <div class="feature-toolbar">
+        <input type="search" class="user-search-input" placeholder="Quickly search by username, name, or role">
+        <select class="user-role-filter">
+          <option value="">All roles</option>
+        </select>
+        <button type="button" class="btn-primary user-filter-apply">Apply</button>
+        <button type="button" class="btn-secondary user-filter-clear">Clear</button>
+      </div>
+      <div class="feature-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Full Name</th>
+              <th>Role</th>
+              <th>Last Login</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </template>
+
+  <template id="template-user-edit">
+    <section class="feature-panel">
+      <div class="feature-panel-header">
+        <div>
+          <p class="dashboard-label">Administration</p>
+          <h1>Edit User Credentials</h1>
+          <p class="dashboard-subtitle">Update user information, credentials, and password.</p>
+        </div>
+      </div>
+      <form class="feature-form">
+        <div class="form-grid form-grid-columns-2">
+          <label class="form-group">
+            Username
+            <input type="text" name="username" placeholder="e.g. presidentvon" readonly>
+          </label>
+          <label class="form-group">
+            Full Name
+            <input type="text" name="full_name" placeholder="e.g. Von Reyes">
+          </label>
+          <label class="form-group">
+            Email
+            <input type="email" name="email" placeholder="e.g. vreyes@isu.edu.ph">
+          </label>
+          <label class="form-group">
+            Role
+            <select name="role"></select>
+          </label>
+          <label class="form-group">
+            New Password (Optional)
+            <input type="password" name="new_password" placeholder="Leave empty to keep current password">
+          </label>
+          <label class="form-group">
+            Confirm Password
+            <input type="password" name="confirm_password" placeholder="Repeat password">
+          </label>
+        </div>
+        <div class="feature-actions feature-actions-right">
+          <button type="button" class="btn-secondary btn-close-feature">Cancel</button>
+          <button type="submit" class="btn-primary">Save Changes</button>
+        </div>
+      </form>
+    </section>
+  </template>
+
+  {{ officer_role_choices|json_script:"officer-role-choices-data" }}
+  {{ officer_profiles_data|json_script:"officer-profiles-data" }}
+  {{ members_data|json_script:"members-data" }}
+  {{ member_history_data|json_script:"members-history-data" }}
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // ──────────────── MOBILE MENU TOGGLE ────────────────
+      const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+      const sidebar = document.querySelector('.sidebar');
+      const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+      if (mobileMenuToggle && sidebar && sidebarOverlay) {
+        // Toggle menu on button click
+        mobileMenuToggle.addEventListener('click', function(e) {
+          e.preventDefault();
+          sidebar.classList.toggle('active');
+          sidebarOverlay.classList.toggle('active');
+        });
+
+        // Close menu when overlay is clicked
+        sidebarOverlay.addEventListener('click', function() {
+          sidebar.classList.remove('active');
+          sidebarOverlay.classList.remove('active');
+        });
+
+        // Close menu when a sidebar link is clicked
+        const sidebarLinks = sidebar.querySelectorAll('a, button');
+        sidebarLinks.forEach(link => {
+          link.addEventListener('click', function() {
+            // Don't close if it's an expandable button
+            if (!this.classList.contains('expandable')) {
+              sidebar.classList.remove('active');
+              sidebarOverlay.classList.remove('active');
+            }
+          });
+        });
+
+        // Close menu on window resize if screen becomes larger
+        window.addEventListener('resize', function() {
+          if (window.innerWidth > 768) {
+            sidebar.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
+          }
+        });
+      }
+
+      // Handle view toggles (Dashboard, Profile, Events, Attendance)
+      const viewToggleButtons = document.querySelectorAll('[data-toggle-view]');
+      const dashboardView = document.getElementById('dashboard-view');
+      const profileView = document.getElementById('profile-view');
+      const eventsView = document.getElementById('events-view');
+      const attendanceView = document.getElementById('attendance-view');
+      
+      // Function to show a specific view
+      function showView(viewName) {
+        // Hide all views
+        dashboardView.style.display = 'none';
+        profileView.style.display = 'none';
+        eventsView.style.display = 'none';
+        attendanceView.style.display = 'none';
+        
+        // Remove active class from all toggle buttons
+        viewToggleButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Show selected view and mark button as active
+        const activeButton = document.querySelector(`[data-toggle-view="${viewName}"]`);
+        if (activeButton) {
+          activeButton.classList.add('active');
+        }
+        
+        if (viewName === 'dashboard') {
+          dashboardView.style.display = 'block';
+        } else if (viewName === 'profile') {
+          profileView.style.display = 'block';
+        } else if (viewName === 'events') {
+          eventsView.style.display = 'block';
+        } else if (viewName === 'attendance') {
+          attendanceView.style.display = 'block';
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('memberDashboardActiveView', viewName);
+      }
+      
+      // Restore saved view on page load
+      const savedView = localStorage.getItem('memberDashboardActiveView') || 'dashboard';
+      showView(savedView);
+      
+      // Add click event listeners to all view toggle buttons
+      viewToggleButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          const viewName = this.getAttribute('data-toggle-view');
+          showView(viewName);
+          // Close mobile menu after selecting view
+          if (sidebar && window.innerWidth <= 768) {
+            sidebar.classList.remove('active');
+            if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+          }
+        });
+      });
+
+      // Handle refresh button for profile data
+      const refreshBtn = document.getElementById('refresh-profile-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          refreshBtn.classList.add('loading');
+          
+          // Reload the page to fetch fresh data from Profiling System
+          setTimeout(function() {
+            location.reload();
+          }, 1500);
+        });
+      }
+
+      // Handle edit profile button
+      const editProfileBtn = document.getElementById('edit-profile-btn');
+      const editProfileModal = document.getElementById('edit-profile-modal');
+      const closeEditModal = document.getElementById('close-edit-modal');
+      const cancelEditBtn = document.getElementById('cancel-edit-btn');
+      const editProfileForm = document.getElementById('edit-profile-form');
+
+      if (editProfileBtn) {
+        editProfileBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          editProfileModal.style.display = 'flex';
+        });
+      }
+
+      if (closeEditModal) {
+        closeEditModal.addEventListener('click', function(e) {
+          e.preventDefault();
+          editProfileModal.style.display = 'none';
+        });
+      }
+
+      if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          editProfileModal.style.display = 'none';
+        });
+      }
+
+      // Close modal when clicking outside of it
+      if (editProfileModal) {
+        editProfileModal.addEventListener('click', function(e) {
+          if (e.target === editProfileModal) {
+            editProfileModal.style.display = 'none';
+          }
+        });
+      }
+
+      if (editProfileForm) {
+        editProfileForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          
+          // Get form values
+          const formData = new FormData();
+          formData.append('first_name', document.getElementById('edit-first-name').value);
+          formData.append('middle_name', document.getElementById('edit-middle-name').value);
+          formData.append('last_name', document.getElementById('edit-last-name').value);
+          formData.append('gender', document.getElementById('edit-gender').value);
+          formData.append('age', document.getElementById('edit-age').value);
+          formData.append('date_of_birth', document.getElementById('edit-dob').value);
+          
+          // Add profile picture if selected
+          const fileInput = document.getElementById('profile-picture-input');
+          if (fileInput.files && fileInput.files.length > 0) {
+            formData.append('profile_picture', fileInput.files[0]);
+          }
+
+          // Validate required fields
+          const firstName = document.getElementById('edit-first-name').value.trim();
+          const lastName = document.getElementById('edit-last-name').value.trim();
+          if (!firstName || !lastName) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Validation Error',
+              text: 'First Name and Last Name are required',
+              confirmButtonColor: '#2e7d32',
+            });
+            return;
+          }
+
+          // Get CSRF token from cookie
+          const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                           getCookie('csrftoken');
+
+          // Send update request to backend
+          fetch('/api/update-member-profile/', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': csrfToken,
+            },
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              // Update sidebar user display with data from server response
+              const sidebarUserInfo = document.querySelector('.sidebar-user .user-info strong');
+              const sidebarAvatar = document.querySelector('.sidebar-user .user-avatar');
+              
+              // Use the updated full name from the response
+              if (data.full_name && sidebarUserInfo) {
+                sidebarUserInfo.textContent = data.full_name;
+              }
+              
+              // Update avatar with first letter of first name from response
+              if (data.first_name && sidebarAvatar) {
+                sidebarAvatar.textContent = data.first_name.charAt(0);
+              }
+              
+              // Get form values to update profile display
+              const firstName = document.getElementById('edit-first-name').value.trim();
+              const middleName = document.getElementById('edit-middle-name').value.trim();
+              const lastName = document.getElementById('edit-last-name').value.trim();
+              const gender = document.getElementById('edit-gender').value;
+              const age = document.getElementById('edit-age').value;
+              const dateOfBirth = document.getElementById('edit-dob').value;
+              
+              // Update profile card header
+              const profileHeaderName = document.getElementById('profile-header-name');
+              if (profileHeaderName) {
+                profileHeaderName.textContent = `${firstName || 'Not specified'} ${lastName || 'Not specified'}`.trim();
+              }
+              
+              // Update profile avatar text if needed
+              const profileAvatarText = document.getElementById('profile-avatar-text');
+              if (profileAvatarText) {
+                profileAvatarText.textContent = firstName.charAt(0) || 'N';
+              }
+              
+              // Update individual profile fields using their IDs
+              const profileFieldsMap = {
+                'profile-first-name': firstName || 'Not specified',
+                'profile-middle-name': middleName || 'Not specified',
+                'profile-last-name': lastName || 'Not specified',
+                'profile-gender': gender || 'Not specified',
+                'profile-age': age || 'Not specified'
+              };
+              
+              Object.entries(profileFieldsMap).forEach(([fieldId, value]) => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                  field.textContent = value;
+                }
+              });
+              
+              // Format and update date of birth
+              const dobField = document.getElementById('profile-date-of-birth');
+              if (dobField) {
+                if (dateOfBirth) {
+                  const date = new Date(dateOfBirth + 'T00:00:00Z');
+                  const formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                  dobField.textContent = formattedDate;
+                } else {
+                  dobField.textContent = 'Not specified';
+                }
+              }
+              
+              // Show success message with SweetAlert
+              Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: 'Profile Updated success',
+                confirmButtonColor: '#2e7d32',
+              }).then(() => {
+                // Close modal - no reload needed
+                editProfileModal.style.display = 'none';
+              });
+            } else {
+              Swal.fire({
+                icon: 'error',
+                title: 'Update Failed',
+                text: data.error || 'Failed to update profile',
+                confirmButtonColor: '#2e7d32',
+              });
+            }
+          })
+          .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: 'Error updating profile: ' + error.message,
+              confirmButtonColor: '#2e7d32',
+            });
+          });
+        });
+      }
+
+      // Handle profile picture upload
+      const uploadPictureBtn = document.getElementById('upload-picture-btn');
+      const profilePictureInput = document.getElementById('profile-picture-input');
+      const profilePreview = document.getElementById('profile-preview');
+
+      if (uploadPictureBtn && profilePictureInput) {
+        uploadPictureBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          profilePictureInput.click();
+        });
+
+        profilePictureInput.addEventListener('change', function(e) {
+          const file = this.files[0];
+          if (file) {
+            // Validate file size (5MB max)
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+              Swal.fire({
+                icon: 'warning',
+                title: 'File Too Large',
+                text: 'Please select an image smaller than 5MB',
+                confirmButtonColor: '#2e7d32',
+              });
+              this.value = '';
+              return;
+            }
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+              Swal.fire({
+                icon: 'warning',
+                title: 'Invalid File',
+                text: 'Please select a valid image file (JPG, PNG, or GIF)',
+                confirmButtonColor: '#2e7d32',
+              });
+              this.value = '';
+              return;
+            }
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              if (profilePreview.tagName === 'IMG') {
+                profilePreview.src = e.target.result;
+              } else {
+                // Replace placeholder with image
+                const img = document.createElement('img');
+                img.id = 'profile-preview';
+                img.src = e.target.result;
+                img.className = 'profile-preview';
+                img.alt = 'Profile Picture';
+                profilePreview.parentNode.replaceChild(img, profilePreview);
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+      }
+
+      // Helper function to get CSRF token from cookies
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+
+      // Handle feature launcher clicks for modals (other features)
+      document.addEventListener('click', function(event) {
+        const launcher = event.target.closest('.feature-launcher');
+        if (!launcher) return;
+        
+        event.preventDefault();
+        const modalKey = launcher.getAttribute('data-modal-key');
+        if (!modalKey) return;
+        
+        const templateId = 'template-' + modalKey;
+        const template = document.getElementById(templateId);
+        
+        if (!template) {
+          console.warn('Template not found:', templateId);
+          return;
+        }
+        
+        showFeaturePanel(template.content);
+      });
+
+      // Close button handlers
+      document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('btn-close-feature')) {
+          event.preventDefault();
+          const modal = event.target.closest('.feature-modal');
+          if (modal) {
+            modal.remove();
+          }
+        }
+      });
+
+      // Handle overlay click to close
+      document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('feature-modal')) {
+          event.target.remove();
+        }
+      });
+
+      // Handle expandable menu buttons with localStorage persistence
+      const expandableButtons = document.querySelectorAll('.nav-item.expandable');
+      
+      // Restore expanded state from localStorage on page load
+      expandableButtons.forEach(button => {
+        const toggleId = button.getAttribute('data-toggle');
+        const isExpandedKey = `menu_expanded_${toggleId}`;
+        const wasExpanded = localStorage.getItem(isExpandedKey) === 'true';
+        const submenu = document.getElementById(toggleId);
+        
+        if (submenu && wasExpanded) {
+          submenu.style.display = 'block';
+          button.classList.add('expanded');
+        }
+      });
+      
+      // Add click handlers to toggle and save state
+      expandableButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          const toggleId = this.getAttribute('data-toggle');
+          const submenu = document.getElementById(toggleId);
+          const isExpandedKey = `menu_expanded_${toggleId}`;
+          
+          if (submenu) {
+            const isExpanded = submenu.style.display !== 'none';
+            submenu.style.display = isExpanded ? 'none' : 'block';
+            this.classList.toggle('expanded');
+            
+            // Save state to localStorage
+            localStorage.setItem(isExpandedKey, !isExpanded);
+          }
+        });
+      });
+    });
+
+    function showFeaturePanel(templateContent) {
+      // Remove any existing modal
+      const existingModal = document.querySelector('.feature-modal');
+      if (existingModal) {
+        existingModal.remove();
+      }
+
+      // Create modal wrapper
+      const modal = document.createElement('div');
+      modal.className = 'feature-modal';
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        padding: 20px;
+      `;
+
+      // Create modal content wrapper
+      const modalContent = document.createElement('div');
+      modalContent.style.cssText = `
+        background: white;
+        border-radius: 12px;
+        max-width: 900px;
+        width: 100%;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 2rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease-out;
+      `;
+
+      // Clone and append the template content
+      const clonedContent = templateContent.cloneNode(true);
+      modalContent.appendChild(clonedContent);
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+
+      // Add animation style
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `;
+      if (!document.querySelector('style[data-modal-animation]')) {
+        style.setAttribute('data-modal-animation', 'true');
+        document.head.appendChild(style);
+      }
+    }
+  </script>
+

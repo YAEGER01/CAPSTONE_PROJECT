@@ -1,0 +1,69 @@
+{% extends 'website/system_base.html' %}
+{% load static %}
+
+{% block title %}Access Denied{% endblock %}
+
+{% block extra_css %}
+<style>
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 2rem;
+    text-align: center;
+  }
+  
+  .error-code {
+    font-size: 4rem;
+    font-weight: 700;
+    color: #dc2626;
+    margin: 0;
+    line-height: 1;
+  }
+  
+  .error-title {
+    font-size: 1.875rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .error-message {
+    font-size: 1rem;
+    color: #6b7280;
+    max-width: 400px;
+    margin-bottom: 2rem;
+  }
+  
+  .error-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #3d4ae7;
+    color: #fff;
+    border-radius: 0.625rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+  
+  .error-link:hover {
+    opacity: 0.88;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-container">
+  <p class="error-code">403</p>
+  <h1 class="error-title">Access Denied</h1>
+  <p class="error-message">{{ message|default:"You do not have permission to access this page. Your current role does not grant access to this resource." }}</p>
+  <a href="{% url 'officer-dashboard' %}" class="error-link">
+    <i class="ti ti-arrow-left"></i> Go to Dashboard
+  </a>
+</div>
+{% endblock %}
