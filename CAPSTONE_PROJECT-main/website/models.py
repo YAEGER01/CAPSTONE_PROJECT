@@ -50,6 +50,10 @@ class PresidentProfile(models.Model):
         """Check if this officer can access attendance."""
         return self.role in ["President", "Attendance Officer", "Vice President", "Secretary"]
 
+    def has_attendance_edit(self):
+        """Check if this officer can edit/create attendance records."""
+        return self.role in ["President", "Attendance Officer"]
+
     def has_member_access(self):
         """Check if this officer can access member data."""
         return self.role in ["President", "Membership Officer", "Vice President", "Secretary"]
@@ -204,6 +208,8 @@ class AttendanceEvent(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     event_date = models.DateField()
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
     location = models.CharField(max_length=255, blank=True)
     qr_code = models.CharField(max_length=100, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
@@ -220,6 +226,7 @@ class AttendanceLog(models.Model):
     event = models.ForeignKey(AttendanceEvent, on_delete=models.CASCADE, related_name='attendance_logs')
     member = models.ForeignKey('Member', on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
+    check_in_time = models.DateTimeField(null=True, blank=True)  # When member checked in
 
     class Meta:
         unique_together = ('event', 'member')
@@ -317,3 +324,24 @@ class ApprovalRequest(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.status})"
+
+
+# ────────────────── GEOFENCE MODELS ──────────────────
+
+class Geofence(models.Model):
+    event = models.ForeignKey(AttendanceEvent, on_delete=models.CASCADE, related_name='geofences')
+    name = models.CharField(max_length=255)
+    location = models.CharField(max_length=255)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    radius = models.IntegerField(help_text="Radius in meters")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('event', 'name')
+
+    def __str__(self):
+        return f"{self.name} ({self.radius}m)"

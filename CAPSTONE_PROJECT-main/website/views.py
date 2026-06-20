@@ -23,12 +23,15 @@ from .models import (
     Document,
     Announcement,
     AttendanceEvent,
+    AttendanceLog,
     PresidentProfile,
     Member,
     Membership,
     MemberStatus,
     ApprovalRequest,
+    Geofence,
 )
+from django.db import IntegrityError
 
 
 def get_member_payload(member):
@@ -2132,6 +2135,1097 @@ def attendance_export_view(request):
         "officer_role": officer.role,
     }
     return render(request, "website/attendance_export.html", context)
+
+
+# ────────────────── ATTENDANCE API ENDPOINTS ──────────────────
+
+@login_required
+def api_create_attendance_event(request):
+    """API: Create a new attendance event"""
+    if request.method != 'POST':
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_edit():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        data = request.POST.dict()
+    
+    # Validate required fields
+    event_name = data.get('event_name', '').strip()
+    event_date_str = data.get('start_datetime', '').strip()
+    location = data.get('venue', '').strip()
+    
+    if not event_name or not event_date_str or not location:
+        return JsonResponse({
+            "status": "error",
+            "message": "Event name, date, and location are required"
+        }, status=400)
+    
+    try:
+        # Parse datetime and extract date and time
+        from django.utils.dateparse import parse_datetime
+        event_datetime = parse_datetime(event_date_str)
+        if not event_datetime:
+            raise ValueError("Invalid datetime format")
+        event_date = event_datetime.date()
+        start_time = event_datetime.time()
+        
+        # Parse end_datetime if provided
+        end_time = None
+        end_datetime_str = data.get('end_datetime', '').strip()
+        if end_datetime_str:
+            end_datetime = parse_datetime(end_datetime_str)
+            if end_datetime:
+                end_time = end_datetime.time()
+        
+        # Generate unique QR code
+        qr_code = str(uuid.uuid4())
+        
+        # Create the event
+        event = AttendanceEvent.objects.create(
+            name=event_name,
+            description=data.get('description', ''),
+            event_date=event_date,
+            start_time=start_time,
+            end_time=end_time,
+            location=location,
+            qr_code=qr_code,
+            created_by=request.user,
+        )
+        
+        return JsonResponse({
+            "status": "success",
+            "message": "Event created successfully",
+            "event": {
+                "id": event.id,
+                "name": event.name,
+                "date": event.event_date.strftime("%Y-%m-%d"),
+                "start_time": start_time.strftime("%H:%M") if start_time else None,
+                "end_time": end_time.strftime("%H:%M") if end_time else None,
+                "location": event.location,
+                "qr_code": event.qr_code,
+            }
+        }, status=201)
+        
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error creating event: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_get_attendance_events(request):
+    """API: Get list of attendance events with pagination"""
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_access():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+        
+        # Get all events ordered by date
+        events = AttendanceEvent.objects.all().order_by('-event_date')
+        
+        # Build events data
+        events_data = []
+        for event in events:
+            # Calculate attendance stats
+            total_attendance = event.attendance_logs.count()
+            # Registered members for this event (members who clicked register)
+            registered = event.attendance_logs.count()
+            
+            # Calculate attendance rate
+            attendance_rate = (total_attendance / registered * 100) if registered > 0 else 0
+            
+            # Determine status based on date
+            from django.utils.timezone import now
+            if event.event_date < now().date():
+                status = "Completed"
+            else:
+                status = "Upcoming"
+            
+            # Determine color for attendance rate
+            if attendance_rate >= 90:
+                rate_color = "#2e7d32"  # green
+            elif attendance_rate >= 70:
+                rate_color = "#f59e0b"  # amber
+            else:
+                rate_color = "#dc2626"  # red
+            
+            # Format time display
+            if event.start_time and event.end_time:
+                time_display = f"{event.start_time.strftime('%I:%M %p')} - {event.end_time.strftime('%I:%M %p')}"
+            elif event.start_time:
+                time_display = event.start_time.strftime('%I:%M %p')
+            else:
+                time_display = "TBD"
+            
+            events_data.append({
+                "id": event.id,
+                "name": event.name,
+                "date": event.event_date.strftime("%b %d, %Y"),
+                "date_raw": event.event_date.strftime("%Y-%m-%d"),
+                "time": time_display,
+                "start_time_raw": event.start_time.strftime("%H:%M") if event.start_time else None,
+                "end_time_raw": event.end_time.strftime("%H:%M") if event.end_time else None,
+                "location": event.location,
+                "description": event.description,
+                "registered": registered,
+                "attended": total_attendance,
+                "attendance_rate": round(attendance_rate, 1),
+                "rate_color": rate_color,
+                "status": status,
+                "created_by": event.created_by.get_full_name() if event.created_by else "Unknown",
+                "created_at": event.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            })
+        
+        # Pagination settings
+        page_number = request.GET.get('page', 1)
+        paginator = Paginator(events_data, 10)  # 10 events per page
+        
+        try:
+            page_obj = paginator.page(page_number)
+            page_events = page_obj.object_list
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+            page_events = page_obj.object_list
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+            page_events = page_obj.object_list
+        
+        return JsonResponse({
+            "status": "success",
+            "count": len(events_data),
+            "total_count": paginator.count,
+            "page": page_obj.number,
+            "total_pages": paginator.num_pages,
+            "events": page_events
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error retrieving events: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_delete_attendance_event(request, event_id):
+    """API: Delete an attendance event"""
+    if request.method != 'DELETE':
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_edit():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        # Get the event
+        event = AttendanceEvent.objects.get(id=event_id)
+        event_name = event.name
+        
+        # Delete the event (this will also delete associated attendance logs due to CASCADE)
+        event.delete()
+        
+        return JsonResponse({
+            "status": "success",
+            "message": f"Event '{event_name}' has been deleted successfully"
+        })
+        
+    except AttendanceEvent.DoesNotExist:
+        return JsonResponse({
+            "status": "error",
+            "message": "Event not found"
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error deleting event: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_update_attendance_event(request, event_id):
+    """API: Update an attendance event"""
+    if request.method != 'PUT' and request.method != 'PATCH':
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_edit():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        # Get the event
+        event = AttendanceEvent.objects.get(id=event_id)
+        
+        # Parse request data
+        try:
+            data = json.loads(request.body) if request.body else {}
+        except json.JSONDecodeError:
+            data = request.POST.dict()
+        
+        # Update fields if provided
+        if 'name' in data:
+            event.name = data['name'].strip()
+        if 'description' in data:
+            event.description = data['description'].strip()
+        if 'event_date' in data:
+            from django.utils.dateparse import parse_date
+            event_date = parse_date(data['event_date'])
+            if event_date:
+                event.event_date = event_date
+        if 'start_time' in data:
+            from django.utils.dateparse import parse_time
+            start_time = parse_time(data['start_time'])
+            if start_time:
+                event.start_time = start_time
+        if 'end_time' in data:
+            from django.utils.dateparse import parse_time
+            end_time = parse_time(data['end_time'])
+            if end_time:
+                event.end_time = end_time
+        if 'location' in data:
+            event.location = data['location'].strip()
+        
+        event.save()
+        
+        return JsonResponse({
+            "status": "success",
+            "message": "Event updated successfully",
+            "event": {
+                "id": event.id,
+                "name": event.name,
+                "date": event.event_date.strftime("%Y-%m-%d"),
+                "start_time": event.start_time.strftime("%H:%M") if event.start_time else None,
+                "end_time": event.end_time.strftime("%H:%M") if event.end_time else None,
+                "location": event.location,
+            }
+        })
+        
+    except AttendanceEvent.DoesNotExist:
+        return JsonResponse({
+            "status": "error",
+            "message": "Event not found"
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error updating event: {str(e)}"
+        }, status=500)
+
+
+# ────────────────── ATTENDANCE USERS API ──────────────────
+
+@login_required
+def api_get_attendance_users(request):
+    """API: Get all users (Members + Officers) for attendance monitoring"""
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_access():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        User = get_user_model()
+        users_data = []
+        
+        # Get all members
+        members = Member.objects.all().order_by('name')
+        for member in members:
+            # Try to find associated user account
+            user_account = None
+            if member.email:
+                try:
+                    user_account = User.objects.get(email=member.email)
+                except User.DoesNotExist:
+                    pass
+            
+            # Get last login
+            last_login = user_account.last_login if user_account else None
+            last_login_text = timezone.localtime(last_login).strftime('%b %d, %Y %I:%M %p') if last_login else 'Never'
+            
+            # Get role from PresidentProfile if exists
+            role = 'Member'
+            if user_account:
+                try:
+                    profile = PresidentProfile.objects.get(user=user_account)
+                    role = profile.role
+                except PresidentProfile.DoesNotExist:
+                    pass
+            
+            users_data.append({
+                "id": member.id,
+                "user_id": user_account.id if user_account else None,
+                "username": user_account.username if user_account else member.student_id,
+                "name": member.name,
+                "email": member.email,
+                "role": role,
+                "status": member.status,
+                "last_login": last_login_text,
+                "type": "member"
+            })
+        
+        # Get all officers (users with PresidentProfile that aren't in members list)
+        officers = PresidentProfile.objects.select_related('user').all()
+        officer_user_ids = set()
+        
+        for officer_profile in officers:
+            officer_user_ids.add(officer_profile.user.id)
+        
+        # Add officers that aren't linked to members
+        officers_data = []
+        for officer_profile in officers:
+            last_login = officer_profile.user.last_login
+            last_login_text = timezone.localtime(last_login).strftime('%b %d, %Y %I:%M %p') if last_login else 'Never'
+            
+            officers_data.append({
+                "id": officer_profile.user.id,
+                "user_id": officer_profile.user.id,
+                "username": officer_profile.user.username,
+                "name": officer_profile.user.get_full_name() or officer_profile.user.username,
+                "email": officer_profile.user.email,
+                "role": officer_profile.role,
+                "status": "Active" if officer_profile.user.is_active else "Inactive",
+                "last_login": last_login_text,
+                "type": "officer"
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "count": len(users_data) + len(officers_data),
+            "users": users_data + officers_data
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error retrieving users: {str(e)}"
+        }, status=500)
+
+
+# ────────────────── GEOFENCE API ENDPOINTS ──────────────────
+
+@login_required
+def api_create_geofence(request):
+    """API: Create a new geofence for an attendance event"""
+    if request.method != 'POST':
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_edit():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        data = request.POST.dict()
+    
+    # Validate required fields
+    name = data.get('name', '').strip()
+    location = data.get('location', '').strip()
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    radius = data.get('radius')
+    event_id = data.get('event_id')
+    
+    if not name or not location or latitude is None or longitude is None or not radius or not event_id:
+        return JsonResponse({
+            "status": "error",
+            "message": "Missing required fields: name, location, latitude, longitude, radius, event_id"
+        }, status=400)
+    
+    try:
+        # Validate numeric fields
+        lat = float(latitude)
+        lng = float(longitude)
+        rad = int(radius)
+        
+        # Validate coordinates are within valid ranges
+        if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+            return JsonResponse({
+                "status": "error",
+                "message": "Invalid coordinates: latitude must be -90 to 90, longitude must be -180 to 180"
+            }, status=400)
+        
+        if rad < 10 or rad > 500:
+            return JsonResponse({
+                "status": "error",
+                "message": "Radius must be between 10 and 500 meters"
+            }, status=400)
+        
+        # Get the attendance event
+        try:
+            event = AttendanceEvent.objects.get(id=int(event_id))
+        except (AttendanceEvent.DoesNotExist, ValueError):
+            return JsonResponse({
+                "status": "error",
+                "message": "Attendance event not found"
+            }, status=404)
+        
+        # Create the geofence
+        geofence = Geofence.objects.create(
+            event=event,
+            name=name,
+            location=location,
+            latitude=lat,
+            longitude=lng,
+            radius=rad,
+            created_by=request.user,
+        )
+        
+        return JsonResponse({
+            "status": "success",
+            "message": f"Geofence '{name}' created successfully",
+            "geofence": {
+                "id": geofence.id,
+                "name": geofence.name,
+                "location": geofence.location,
+                "latitude": float(geofence.latitude),
+                "longitude": float(geofence.longitude),
+                "radius": geofence.radius,
+                "event_id": geofence.event.id,
+                "created_at": geofence.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        }, status=201)
+        
+    except ValueError as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Invalid data format: {str(e)}"
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error creating geofence: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_get_geofences(request, event_id):
+    """API: Get all geofences for an event"""
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_access():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        # Get the event
+        event = AttendanceEvent.objects.get(id=int(event_id))
+        
+        # Get all geofences for this event
+        geofences = event.geofences.all().order_by('-created_at')
+        
+        geofences_data = []
+        for geofence in geofences:
+            geofences_data.append({
+                "id": geofence.id,
+                "name": geofence.name,
+                "location": geofence.location,
+                "latitude": float(geofence.latitude),
+                "longitude": float(geofence.longitude),
+                "radius": geofence.radius,
+                "created_by": geofence.created_by.get_full_name() if geofence.created_by else "Unknown",
+                "created_at": geofence.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "count": len(geofences_data),
+            "geofences": geofences_data
+        })
+        
+    except (AttendanceEvent.DoesNotExist, ValueError):
+        return JsonResponse({
+            "status": "error",
+            "message": "Event not found"
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error retrieving geofences: {str(e)}"
+        }, status=500)
+
+
+@login_required
+@login_required
+def api_get_my_attendance_history(request):
+    """API: Get historical attendance records (already attended events)"""
+    try:
+        from django.utils import timezone
+        
+        # Get the member
+        try:
+            user_email = request.user.email
+            if not user_email:
+                raise Member.DoesNotExist()
+            member = Member.objects.get(email=user_email)
+        except Member.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Member profile not found"
+            }, status=404)
+        
+        # Get all events where member has checked in (check_in_time is not null)
+        attended_events = AttendanceLog.objects.filter(
+            member=member,
+            check_in_time__isnull=False
+        ).select_related('event').order_by('-check_in_time')
+        
+        events_data = []
+        for log in attended_events:
+            event = log.event
+            # Format event date
+            event_date_str = event.event_date.strftime("%B %d, %Y")
+            
+            # Format time
+            time_str = ''
+            if event.start_time:
+                time_str = event.start_time.strftime("%I:%M %p")
+            
+            events_data.append({
+                "id": event.id,
+                "name": event.name,
+                "date": event_date_str,
+                "date_raw": event.event_date.isoformat(),
+                "time": time_str,
+                "location": event.location,
+                "check_in_time": log.check_in_time.strftime("%B %d, %Y %I:%M %p"),
+                "status": "Attended",
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "events": events_data
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error retrieving attendance history: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_get_my_registered_events(request):
+    """API: Get events registered by the logged-in member (NOT yet checked-in)"""
+    try:
+        from django.utils import timezone
+        
+        # Get the member
+        try:
+            user_email = request.user.email
+            if not user_email:
+                raise Member.DoesNotExist()
+            member = Member.objects.get(email=user_email)
+        except Member.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Member profile not found"
+            }, status=404)
+        
+        # Get all events the member is registered for (including today, excluding only past events from yesterday or earlier)
+        # Filter for events that are TODAY or LATER, but ONLY show if NOT yet checked in (check_in_time is NULL)
+        today = timezone.now().date()
+        
+        # Get registered events that haven't been checked in yet and are today or later
+        registered_events = AttendanceLog.objects.filter(
+            member=member,
+            check_in_time__isnull=True,  # Only show events NOT yet checked in
+            event__event_date__gte=today  # Only show today's and future events
+        ).select_related('event').order_by('event__event_date', 'event__start_time')
+        
+        events_data = []
+        for log in registered_events:
+            event = log.event
+            # Format event date
+            event_date_str = event.event_date.strftime("%B %d, %Y")
+            
+            # Format time
+            time_str = ''
+            if event.start_time:
+                time_str = event.start_time.strftime("%I:%M %p")
+            
+            events_data.append({
+                "id": event.id,
+                "name": event.name,
+                "date": event_date_str,
+                "date_raw": event.event_date.isoformat(),
+                "time": time_str,
+                "location": event.location,
+                "description": event.description or "",
+                "registered_date": log.timestamp.strftime("%B %d, %Y %I:%M %p") if log.timestamp else "Recently",
+                "is_checked_in": bool(log.check_in_time),  # True if check_in_time is set (should always be False here)
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "events": events_data,
+            "debug": {
+                "today": str(today),
+                "total_registered": len(events_data),
+                "member_email": user_email
+            }
+        })
+    
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error retrieving registered events: {str(e)}",
+            "debug": traceback.format_exc()
+        }, status=500)
+
+
+def api_get_upcoming_events_unregistered(request):
+    """API: Get upcoming events that the member is NOT yet registered for"""
+    try:
+        from django.utils import timezone
+        from django.db.models import Exists, OuterRef
+        
+        today = timezone.now().date()
+        
+        # Debug: Get ALL events to see what's in the database
+        all_events = AttendanceEvent.objects.all().values('id', 'name', 'event_date')
+        all_events_list = list(all_events)
+        
+        # If user is not authenticated, return all upcoming events
+        if not request.user.is_authenticated:
+            events = AttendanceEvent.objects.filter(
+                event_date__gte=today
+            ).order_by('event_date', 'start_time')
+        else:
+            # Get the member
+            try:
+                user_email = request.user.email
+                if user_email:
+                    member = Member.objects.get(email=user_email)
+                    # Get events NOT registered by this member
+                    registered_event_ids = AttendanceLog.objects.filter(
+                        member=member
+                    ).values_list('event_id', flat=True)
+                    events = AttendanceEvent.objects.filter(
+                        event_date__gte=today
+                    ).exclude(
+                        id__in=registered_event_ids
+                    ).order_by('event_date', 'start_time')
+                else:
+                    events = AttendanceEvent.objects.filter(
+                        event_date__gte=today
+                    ).order_by('event_date', 'start_time')
+            except Member.DoesNotExist:
+                events = AttendanceEvent.objects.filter(
+                    event_date__gte=today
+                ).order_by('event_date', 'start_time')
+        
+        events_data = []
+        for event in events:
+            # Format event date
+            event_date_str = event.event_date.strftime("%B %d, %Y")
+            
+            # Format time
+            time_str = ''
+            if event.start_time:
+                time_str = event.start_time.strftime("%I:%M %p")
+            
+            events_data.append({
+                "id": event.id,
+                "name": event.name,
+                "date": event_date_str,
+                "date_raw": event.event_date.isoformat(),
+                "time": time_str,
+                "location": event.location,
+                "description": event.description or "",
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "events": events_data,
+            "debug": {
+                "today": str(today),
+                "total_events_in_db": len(all_events_list),
+                "upcoming_events_count": events.count(),
+                "all_events": all_events_list,
+            }
+        })
+    
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error retrieving events: {str(e)}",
+            "debug": traceback.format_exc()
+        }, status=500)
+
+
+# Keep the original for backward compatibility
+def api_get_upcoming_events(request):
+    """API: Get upcoming events (alias for unregistered events)"""
+    return api_get_upcoming_events_unregistered(request)
+
+
+@login_required
+def api_register_for_event(request):
+    """API: Register a member for an event"""
+    if request.method != 'POST':
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    
+    try:
+        data = json.loads(request.body) if request.body else {}
+        event_id = data.get('event_id')
+        
+        if not event_id:
+            return JsonResponse({
+                "status": "error",
+                "message": "Event ID is required"
+            }, status=400)
+        
+        # Get the event
+        try:
+            event = AttendanceEvent.objects.get(id=event_id)
+        except AttendanceEvent.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Event not found"
+            }, status=404)
+        
+        # Get the member by matching the logged-in user's email to Member.email
+        try:
+            user_email = request.user.email
+            if not user_email:
+                raise Member.DoesNotExist()
+            member = Member.objects.get(email=user_email)
+        except Member.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Member profile not found for current user"
+            }, status=404)
+
+        # Create or ignore duplicate attendance log
+        try:
+            # prevent duplicate registrations via unique_together
+            attendance = AttendanceLog.objects.create(event=event, member=member)
+            created = True
+        except IntegrityError:
+            # already registered
+            created = False
+
+        if created:
+            message = f"Successfully registered for {event.name}"
+            status_code = 201
+        else:
+            message = f"Already registered for {event.name}"
+            status_code = 200
+
+        return JsonResponse({
+            "status": "success",
+            "message": message,
+            "event": {
+                "id": event.id,
+                "name": event.name,
+                "date": event.event_date.strftime("%Y-%m-%d"),
+            },
+            "registered": True
+        }, status=status_code)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({
+            "status": "error",
+            "message": "Invalid JSON format"
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error registering for event: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_check_in_to_event(request):
+    """API: Check-in a member to an event with optional geolocation verification"""
+    if request.method != 'POST':
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    
+    try:
+        data = json.loads(request.body) if request.body else {}
+        event_id = data.get('event_id')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        
+        if not event_id:
+            return JsonResponse({
+                "status": "error",
+                "message": "Event ID is required"
+            }, status=400)
+        
+        # Get the event
+        try:
+            event = AttendanceEvent.objects.get(id=event_id)
+        except AttendanceEvent.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Event not found"
+            }, status=404)
+        
+        # Get the member by matching the logged-in user's email to Member.email
+        try:
+            user_email = request.user.email
+            if not user_email:
+                raise Member.DoesNotExist()
+            member = Member.objects.get(email=user_email)
+        except Member.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Member profile not found for current user"
+            }, status=404)
+
+        # Check if member is already registered for this event
+        try:
+            attendance_log = AttendanceLog.objects.get(event=event, member=member)
+            # Already registered, now mark as attended
+            from django.utils import timezone
+            attendance_log.check_in_time = timezone.now()
+            attendance_log.save()
+            return JsonResponse({
+                "status": "success",
+                "message": f"Successfully checked in to {event.name}",
+                "event": {
+                    "id": event.id,
+                    "name": event.name,
+                }
+            }, status=200)
+        except AttendanceLog.DoesNotExist:
+            # Not registered, so register and check-in
+            try:
+                from django.utils import timezone
+                attendance = AttendanceLog.objects.create(
+                    event=event,
+                    member=member,
+                    check_in_time=timezone.now()
+                )
+                return JsonResponse({
+                    "status": "success",
+                    "message": f"Successfully checked in to {event.name}",
+                    "event": {
+                        "id": event.id,
+                        "name": event.name,
+                    }
+                }, status=201)
+            except Exception as e:
+                return JsonResponse({
+                    "status": "error",
+                    "message": f"Error checking in: {str(e)}"
+                }, status=500)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({
+            "status": "error",
+            "message": "Invalid JSON format"
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error checking in: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_delete_geofence(request, geofence_id):
+    """API: Delete a geofence"""
+    if request.method != 'DELETE':
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_edit():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        geofence = Geofence.objects.get(id=int(geofence_id))
+        geofence_name = geofence.name
+        geofence.delete()
+        
+        return JsonResponse({
+            "status": "success",
+            "message": f"Geofence '{geofence_name}' deleted successfully"
+        })
+        
+    except (Geofence.DoesNotExist, ValueError):
+        return JsonResponse({
+            "status": "error",
+            "message": "Geofence not found"
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error deleting geofence: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_get_user_attendance_records(request, user_id):
+    """API: Get attendance records for a specific user"""
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_access():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+    
+    try:
+        # Get the member
+        member = Member.objects.get(id=user_id)
+        
+        # Get all attendance records for this member
+        from .models import AttendanceLog
+        attendance_logs = AttendanceLog.objects.filter(
+            member=member
+        ).select_related('event').order_by('-timestamp')
+        
+        records = []
+        for log in attendance_logs:
+            records.append({
+                "event_id": log.event.id,
+                "event_name": log.event.name,
+                "event_date": log.event.event_date.strftime("%b %d, %Y"),
+                "event_time": f"{log.event.start_time.strftime('%I:%M %p') if log.event.start_time else 'TBD'} - {log.event.end_time.strftime('%I:%M %p') if log.event.end_time else 'TBD'}",
+                "location": log.event.location,
+                "check_in_time": timezone.localtime(log.timestamp).strftime('%I:%M %p'),
+                "check_in_date": timezone.localtime(log.timestamp).strftime('%b %d, %Y'),
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "user": {
+                "id": member.id,
+                "name": member.name,
+                "email": member.email,
+                "student_id": member.student_id,
+                "course": member.course,
+            },
+            "total_attended": len(records),
+            "records": records
+        })
+        
+    except Member.DoesNotExist:
+        return JsonResponse({
+            "status": "error",
+            "message": "User not found"
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error retrieving attendance records: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_get_my_attendance_records(request):
+    """API: Get attendance records for the currently logged-in member"""
+    try:
+        user_email = request.user.email
+        if not user_email:
+            return JsonResponse({"status": "error", "message": "No email associated with current user"}, status=400)
+
+        try:
+            member = Member.objects.get(email=user_email)
+        except Member.DoesNotExist:
+            return JsonResponse({"status": "error", "message": "Member profile not found"}, status=404)
+
+        attendance_logs = AttendanceLog.objects.filter(member=member).select_related('event').order_by('-timestamp')
+
+        records = []
+        for log in attendance_logs:
+            records.append({
+                "event_id": log.event.id,
+                "event_name": log.event.name,
+                "event_date": log.event.event_date.strftime('%b %d, %Y'),
+                "event_time": f"{log.event.start_time.strftime('%I:%M %p') if log.event.start_time else 'TBD'} - {log.event.end_time.strftime('%I:%M %p') if log.event.end_time else 'TBD'}",
+                "location": log.event.location,
+                "check_in_time": timezone.localtime(log.timestamp).strftime('%I:%M %p'),
+                "check_in_date": timezone.localtime(log.timestamp).strftime('%b %d, %Y'),
+            })
+
+        return JsonResponse({
+            "status": "success",
+            "total_attended": len(records),
+            "records": records
+        })
+
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error retrieving attendance records: {str(e)}"}, status=500)
+
+
+@login_required
+def api_get_event_registered_members(request, event_id):
+    """API: Get all members registered for a specific event (officer view)"""
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_access():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+
+    try:
+        event = AttendanceEvent.objects.get(id=int(event_id))
+        
+        # Get all members who registered for this event
+        registered_members = AttendanceLog.objects.filter(event=event).select_related('member').order_by('member__name')
+        
+        members_data = []
+        for log in registered_members:
+            member = log.member
+            members_data.append({
+                "id": member.id,
+                "name": member.name,
+                "email": member.email,
+                "student_id": member.student_id,
+                "faculty": member.faculty,
+                "course": member.course,
+                "status": member.status,
+                "registered_date": timezone.localtime(log.timestamp).strftime('%b %d, %Y %I:%M %p'),
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "event": {
+                "id": event.id,
+                "name": event.name,
+                "date": event.event_date.strftime("%b %d, %Y"),
+                "location": event.location,
+                "total_registered": len(members_data),
+            },
+            "members": members_data
+        })
+    
+    except (AttendanceEvent.DoesNotExist, ValueError):
+        return JsonResponse({"status": "error", "message": "Event not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error retrieving registered members: {str(e)}"}, status=500)
 
 
 # ────────────────── MEMBERS MODULE ──────────────────

@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>Dashboard - ISU CAUFA Management System</title>
   <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,7 +29,7 @@
     <div class="sidebar-user">
       <div class="user-avatar">
         {% if profile_picture_url %}
-          <img src="{{ profile_picture_url }}" alt="Profile Picture" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+          <img src="{{ profile_picture_url }}" alt="Profile Picture" class="user-avatar-img">
         {% else %}
           {{ member_first_name|first }}
         {% endif %}
@@ -78,7 +79,8 @@
           </button>
           <div id="events-menu" class="submenu" style="display: none;">
             <a href="#" class="submenu-item events-toggle" data-toggle-view="events">UPCOMING EVENTS</a>
-            <a href="#" class="submenu-item attendance-toggle" data-toggle-view="attendance">ATTENDANCE LOG</a>
+            <a href="#" class="submenu-item attendance-toggle" data-toggle-view="attendance">ATTENDANCE EVENTS</a>
+            <a href="#" class="submenu-item attendance-history-toggle" data-toggle-view="attendance-history">ATTENDANCE LOGS</a>
           </div>
         </nav>
       </div>
@@ -133,7 +135,7 @@
       <div class="mobile-user-header">
         <div class="mobile-user-avatar">
           {% if profile_picture_url %}
-            <img src="{{ profile_picture_url }}" alt="Profile Picture" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+            <img src="{{ profile_picture_url }}" alt="Profile Picture" class="user-avatar-img">
           {% else %}
             {{ member_first_name|first }}
           {% endif %}
@@ -384,7 +386,7 @@
                 <div class="profile-picture-upload">
                   <div class="picture-preview-container">
                     {% if profile_picture_url %}
-                      <img id="profile-preview" src="{{ profile_picture_url }}" alt="Profile Picture" class="profile-preview">
+                      <img id="profile-preview" src="{{ profile_picture_url }}" alt="Profile Picture" class="profile-preview user-avatar-img">
                     {% else %}
                       <div id="profile-preview" class="profile-preview-placeholder">
                         <i class="fas fa-user"></i>
@@ -491,9 +493,9 @@
         </div>
       </header>
       <div class="events-container">
-        <div class="events-list">
-          <!-- Events will be displayed here -->
-          <p class="empty-state">No upcoming events at the moment. Check back soon!</p>
+        <div class="events-list" id="upcoming-events-list">
+          <!-- Events will be loaded here dynamically -->
+          <p class="empty-state">Loading upcoming events...</p>
         </div>
       </div>
     </div>
@@ -503,23 +505,29 @@
       <header class="dashboard-header">
         <div>
           <p class="dashboard-label">Events</p>
-          <h1>Attendance Log</h1>
-          <p class="dashboard-subtitle">View your attendance history for all CAUFA events.</p>
+          <h1>Event Check-In</h1>
+          <p class="dashboard-subtitle">Check-in to registered events using geolocation. You can only check-in when within the event's geofence radius.</p>
         </div>
       </header>
+      
+      <!-- Map for location verification -->
+      <div id="attendance-map-container" style="display: none; margin-bottom: 2rem; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div id="attendance-map" style="height: 300px; background: #f0f0f0;"></div>
+      </div>
+
       <div class="attendance-monitor-container">
         <div class="attendance-summary">
           <div class="summary-stat">
-            <span class="stat-label">Total Events Attended</span>
-            <p class="stat-value">0</p>
+            <span class="stat-label">Registered Events</span>
+            <p class="stat-value" id="registered-count">0</p>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-label">Events Attended</span>
+            <p class="stat-value" id="attended-count">0</p>
           </div>
           <div class="summary-stat">
             <span class="stat-label">Attendance Rate</span>
-            <p class="stat-value">0%</p>
-          </div>
-          <div class="summary-stat">
-            <span class="stat-label">Latest Event</span>
-            <p class="stat-value">—</p>
+            <p class="stat-value" id="attendance-rate">0%</p>
           </div>
         </div>
 
@@ -528,14 +536,59 @@
             <thead>
               <tr>
                 <th>Event Name</th>
-                <th>Event Date</th>
-                <th>Attendance Date</th>
+                <th>Date & Time</th>
+                <th>Location</th>
+                <th>Distance</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="registered-events-tbody">
+              <tr>
+                <td colspan="6" class="empty-state">No registered events. Browse upcoming events to register!</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance History View -->
+    <div id="attendance-history-view" class="view-container" style="display: none;">
+      <header class="dashboard-header">
+        <div>
+          <p class="dashboard-label">Events</p>
+          <h1>Attendance Logs</h1>
+          <p class="dashboard-subtitle">View your historical attendance records and completed events.</p>
+        </div>
+      </header>
+
+      <div class="attendance-monitor-container">
+        <div class="attendance-summary">
+          <div class="summary-stat">
+            <span class="stat-label">Events Attended</span>
+            <p class="stat-value" id="total-attended-count">0</p>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-label">Total Attendance</span>
+            <p class="stat-value" id="total-attendance-pct">0%</p>
+          </div>
+        </div>
+
+        <div class="attendance-table-wrapper">
+          <table class="attendance-table">
+            <thead>
+              <tr>
+                <th>Event Name</th>
+                <th>Date & Time</th>
+                <th>Location</th>
+                <th>Check-In Time</th>
                 <th>Status</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="attendance-history-tbody">
               <tr>
-                <td colspan="4" class="empty-state">No attendance records found.</td>
+                <td colspan="5" class="empty-state">No attendance records yet. Start checking in to events!</td>
               </tr>
             </tbody>
           </table>
@@ -784,6 +837,601 @@
   {{ member_history_data|json_script:"members-history-data" }}
 
   <script>
+    // ════════════════ GLOBAL HELPER FUNCTIONS ════════════════
+    // These functions are defined globally so they can be called from onclick attributes
+    
+    // Helper function to get CSRF token from cookies or meta tag
+    function getCookie(name) {
+      // First try to get from meta tag
+      if (name === 'csrftoken') {
+        const csrfMetaTag = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMetaTag && csrfMetaTag.content) {
+          return csrfMetaTag.content;
+        }
+      }
+      
+      // Then try to get from cookies
+      let cookieValue = null;
+      if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+            break;
+          }
+        }
+      }
+      return cookieValue;
+    }
+
+    // Helper function for escaping HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ──────────────── EVENT REGISTRATION HANDLER ────────────────
+    function handleEventRegistration(eventId, eventName) {
+      console.log('[handleEventRegistration] Event registration started for:', eventName);
+      
+      // Show confirmation dialog
+      Swal.fire({
+        icon: 'question',
+        title: 'Confirm Registration',
+        html: `
+          <p style="font-size: 1rem; margin-bottom: 1rem;">
+            Are you sure you want to join this event?
+          </p>
+          <div style="background: #f5f8fb; padding: 1rem; border-radius: 8px; text-align: left; font-size: 0.9rem;">
+            <strong style="color: #2e7d32;">📅 ${escapeHtml(eventName)}</strong>
+            <p style="color: #64748b; margin-top: 0.5rem;">You will be registered as attending this event.</p>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Register',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#2e7d32',
+        cancelButtonColor: '#9e9e9e',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }).then((result) => {
+        if (result.isConfirmed) {
+          console.log('[handleEventRegistration] User confirmed registration');
+          
+          // Show loading state
+          Swal.fire({
+            icon: 'info',
+            title: 'Registering...',
+            html: 'Processing your registration. Please wait...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+              Swal.showLoading();
+            }
+          });
+          
+          // Call API to register for the event
+          const csrftoken = getCookie('csrftoken');
+          console.log('[handleEventRegistration] CSRF token:', csrftoken ? 'present' : 'MISSING');
+          console.log('[handleEventRegistration] Event ID:', eventId);
+          
+          fetch('/api/attendance/register-event/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ event_id: eventId })
+          })
+          .then(res => {
+            console.log('[handleEventRegistration] Response status:', res.status);
+            return res.json().then(data => ({
+              status: res.status,
+              ok: res.ok,
+              data: data
+            }));
+          })
+          .then(({ status, ok, data }) => {
+            console.log('[handleEventRegistration] Parsed response:', { status, ok, data });
+            
+            if (ok && data.status === 'success') {
+              Swal.fire({
+                icon: 'success',
+                title: data.message || 'Registration Successful!',
+                html: `
+                  <p style="font-size: 0.95rem; margin-bottom: 1rem;">
+                    You have successfully registered for:
+                  </p>
+                  <div style="background: #def7e0; padding: 1rem; border-radius: 8px; border-left: 4px solid #2e7d32;">
+                    <strong style="color: #1b5e20;">${escapeHtml(eventName)}</strong>
+                    <p style="color: #1b5e20; margin-top: 0.5rem; font-size: 0.85rem;">
+                      <i class="fas fa-check-circle"></i> You're all set!
+                    </p>
+                  </div>
+                `,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#2e7d32',
+              }).then(() => {
+                console.log('[handleEventRegistration] Reloading events and attendance...');
+                // Reload to refresh both tabs
+                if (typeof loadUpcomingEvents === 'function') {
+                  loadUpcomingEvents();
+                }
+                if (typeof loadAttendanceLog === 'function') {
+                  setTimeout(() => loadAttendanceLog(), 500); // Small delay to ensure event is saved
+                }
+                // Switch to ATTENDANCE EVENTS tab automatically
+                if (typeof showView === 'function') {
+                  setTimeout(() => showView('attendance'), 800);
+                }
+              });
+            } else if (data.status === 'success') {
+              // Already registered
+              Swal.fire({ 
+                icon: 'info', 
+                title: 'Already Registered', 
+                text: data.message || 'You are already registered for this event'
+              });
+            } else {
+              console.error('[handleEventRegistration] API returned error:', data);
+              Swal.fire({ 
+                icon: 'error', 
+                title: 'Registration Failed', 
+                text: data.message || 'Unable to register for this event. Please try again.'
+              });
+            }
+          })
+          .catch(err => {
+            console.error('[handleEventRegistration] Network/Parse error:', err);
+            Swal.fire({ 
+              icon: 'error', 
+              title: 'Registration Error', 
+              text: 'An error occurred while registering: ' + (err.message || 'Unknown error') + '. Please try again.'
+            });
+          });
+        } else {
+          console.log('[handleEventRegistration] User cancelled registration');
+        }
+      });
+    }
+
+    // ────────────── EVENT CHECK-IN WITH GEOFENCE ──────────────
+    let currentMap = null;
+    let userMarker = null;
+    let geofenceCircle = null;
+
+    function handleEventCheckIn(eventId, eventName) {
+      console.log('[handleEventCheckIn] Starting check-in for event:', eventName);
+      
+      // First check if geolocation is available
+      if (!navigator.geolocation) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Geolocation Not Supported',
+          text: 'Your browser does not support geolocation. Please use a modern browser with location support.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        });
+        return;
+      }
+      
+      // Show loading dialog while getting geofence info
+      Swal.fire({
+        icon: 'info',
+        title: 'Verifying Event Location...',
+        html: 'Loading event geofence data. Please wait...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      // Get geofence data for this event
+      fetch(`/api/attendance/geofences/${eventId}/`)
+        .then(res => res.json())
+        .then(geofenceData => {
+          console.log('[handleEventCheckIn] Geofence data:', geofenceData);
+          
+          // STRICT: Geofence MUST be set for check-in
+          if (!geofenceData.geofences || geofenceData.geofences.length === 0) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Geofence Not Configured',
+              text: 'This event does not have a geofence configured by the admin. Check-in is not available.',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626'
+            });
+            return;
+          }
+          
+          // Now request user's location
+          Swal.fire({
+            icon: 'info',
+            title: 'Getting Your Location...',
+            html: 'Please allow location access to check-in to this event. Your device location must be enabled.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+              Swal.showLoading();
+            }
+          });
+          
+          // Get user's location with timeout
+          const locationTimeout = setTimeout(() => {
+            Swal.close();
+            Swal.fire({
+              icon: 'error',
+              title: 'Location Timeout',
+              text: 'Unable to get your location. Please ensure: 1) Location is enabled on your device, 2) GPS is active, 3) You are outdoors if using GPS',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626'
+            });
+          }, 15000); // 15 second timeout
+          
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              clearTimeout(locationTimeout);
+              
+              const userLat = position.coords.latitude;
+              const userLng = position.coords.longitude;
+              const accuracy = position.coords.accuracy; // Accuracy in meters
+              const geofence = geofenceData.geofences[0];
+              
+              console.log('[handleEventCheckIn] User location:', { userLat, userLng, accuracy });
+              console.log('[handleEventCheckIn] Geofence center:', { lat: geofence.latitude, lng: geofence.longitude, radius: geofence.radius });
+              
+              // Calculate distance to event center
+              const distance = calculateDistance(userLat, userLng, geofence.latitude, geofence.longitude);
+              console.log('[handleEventCheckIn] Distance to event:', distance, 'meters, Radius:', geofence.radius, 'meters');
+              
+              // STRICT: Must be within geofence radius
+              const isWithinGeofence = distance <= geofence.radius;
+              
+              showCheckInDialog(eventId, eventName, isWithinGeofence, {
+                userLat, userLng,
+                geofenceLat: geofence.latitude,
+                geofenceLng: geofence.longitude,
+                radius: geofence.radius,
+                distance,
+                accuracy
+              });
+            },
+            (error) => {
+              clearTimeout(locationTimeout);
+              console.error('[handleEventCheckIn] Geolocation error:', error);
+              
+              let errorMsg = '';
+              switch(error.code) {
+                case error.PERMISSION_DENIED:
+                  errorMsg = 'Location permission denied. Please enable location in your browser settings and try again.';
+                  break;
+                case error.POSITION_UNAVAILABLE:
+                  errorMsg = 'Location information is unavailable. Ensure your device location is enabled.';
+                  break;
+                case error.TIMEOUT:
+                  errorMsg = 'Location request timeout. Please ensure GPS is enabled and try again.';
+                  break;
+                default:
+                  errorMsg = 'Unable to retrieve your location. Please check your device location settings.';
+              }
+              
+              Swal.fire({
+                icon: 'error',
+                title: 'Location Access Failed',
+                html: `<strong>Issue:</strong> ${errorMsg}<br><br><small>Make sure: <br>✓ Location permission is granted<br>✓ GPS/Location services are enabled<br>✓ You are outdoors for GPS signal</small>`,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#dc2626'
+              });
+            },
+            {
+              enableHighAccuracy: true, // Request high accuracy (GPS)
+              timeout: 10000,
+              maximumAge: 0 // Don't use cached position
+            }
+          );
+        })
+        .catch(err => {
+          console.error('[handleEventCheckIn] Error fetching geofence:', err);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error Loading Geofence',
+            text: 'Unable to load event geofence data. Please try again.',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#dc2626'
+          });
+        });
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      // Haversine formula to calculate distance between two coordinates
+      const R = 6371000; // Earth's radius in meters
+      const φ1 = (lat1 * Math.PI) / 180;
+      const φ2 = (lat2 * Math.PI) / 180;
+      const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+      const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+      
+      const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function showCheckInDialog(eventId, eventName, isWithinGeofence, locationData) {
+      const distanceMeters = Math.round(locationData.distance);
+      const radiusMeters = locationData.radius;
+      const distanceKm = (locationData.distance / 1000).toFixed(2);
+      const radiusKm = (locationData.radius / 1000).toFixed(2);
+      const accuracy = locationData.accuracy ? Math.round(locationData.accuracy) : 'Unknown';
+      
+      let htmlContent = `
+        <div style="text-align: left; padding: 1rem; background: #f5f5f5; border-radius: 8px; margin-bottom: 1rem;">
+          <h4 style="margin-top: 0; color: #1976D2;">📍 Geofence Verification</h4>
+          <p><strong>Your Distance to Event:</strong> ${distanceMeters}m (${distanceKm} km)</p>
+          <p><strong>Event Geofence Radius:</strong> ${radiusMeters}m (${radiusKm} km)</p>
+          <p><strong>Location Accuracy:</strong> ±${accuracy}m</p>
+          <p style="margin-bottom: 0;"><strong>Status:</strong> 
+            <span style="display: inline-block; background: ${isWithinGeofence ? '#def7e0' : '#ffebee'}; padding: 0.5rem 1rem; border-radius: 6px; color: ${isWithinGeofence ? '#1b5e20' : '#b71c1c'}; font-weight: bold;">
+              ${isWithinGeofence ? '✓ WITHIN GEOFENCE' : '✗ OUTSIDE GEOFENCE'}
+            </span>
+          </p>
+        </div>
+      `;
+      
+      if (isWithinGeofence) {
+        htmlContent += `
+          <div style="background: #def7e0; padding: 1rem; border-radius: 8px; border-left: 4px solid #2e7d32; margin: 1rem 0;">
+            <p style="color: #1b5e20; margin: 0;"><i class="fas fa-check-circle"></i> <strong>You are within the event geofence!</strong></p>
+            <p style="color: #1b5e20; font-size: 0.9rem; margin: 0.5rem 0 0 0;">Click "Confirm Check-In" to record your attendance.</p>
+          </div>
+        `;
+      } else {
+        htmlContent += `
+          <div style="background: #ffebee; padding: 1rem; border-radius: 8px; border-left: 4px solid #b71c1c; margin: 1rem 0;">
+            <p style="color: #b71c1c; margin: 0;"><i class="fas fa-times-circle"></i> <strong>You are OUTSIDE the event geofence!</strong></p>
+            <p style="color: #b71c1c; font-size: 0.9rem; margin: 0.5rem 0 0 0;">You must be within ${radiusMeters}m to check in.</p>
+            <p style="color: #b71c1c; font-size: 0.85rem; margin: 0.5rem 0 0 0;"><strong>Required Distance:</strong> Move closer to the event location.</p>
+          </div>
+        `;
+      }
+      
+      Swal.fire({
+        title: `Check-In for ${eventName}`,
+        html: htmlContent,
+        showCancelButton: true,
+        confirmButtonText: isWithinGeofence ? 'Confirm Check-In' : 'Close',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: isWithinGeofence ? '#2e7d32' : '#9e9e9e',
+        cancelButtonColor: '#9e9e9e',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        preConfirm: isWithinGeofence ? undefined : false, // Disable confirm if outside geofence
+      }).then((result) => {
+        if (result.isConfirmed && isWithinGeofence) {
+          proceedWithCheckIn(eventId, eventName, locationData);
+        } else if (!result.isConfirmed && !isWithinGeofence) {
+          // User closed the dialog - ask if they want to try again or move closer
+          Swal.fire({
+            icon: 'info',
+            title: 'Move Closer to Event',
+            text: 'Move closer to the event location within the geofence radius and try again.',
+            confirmButtonText: 'Try Again',
+            confirmButtonColor: '#2196F3'
+          }).then(() => {
+            // Call handleEventCheckIn again to get new location
+            setTimeout(() => handleEventCheckIn(eventId, eventName), 500);
+          });
+        }
+      });
+    }
+
+    function proceedWithCheckIn(eventId, eventName, locationData) {
+      // Show loading dialog
+      Swal.fire({
+        icon: 'info',
+        title: 'Checking You In...',
+        html: 'Processing your check-in. Please wait...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      // Call API to check-in to event
+      const csrftoken = getCookie('csrftoken');
+      fetch('/api/attendance/check-in/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+          event_id: eventId,
+          latitude: locationData ? locationData.userLat : null,
+          longitude: locationData ? locationData.userLng : null
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          Swal.fire({
+            icon: 'success',
+            title: 'Checked In!',
+            html: `
+              <p style="font-size: 0.95rem; margin-bottom: 1rem;">
+                You have successfully checked in to:
+              </p>
+              <div style="background: #def7e0; padding: 1rem; border-radius: 8px; border-left: 4px solid #2e7d32;">
+                <strong style="color: #1b5e20;">${escapeHtml(eventName)}</strong>
+                <p style="color: #1b5e20; margin-top: 0.5rem; font-size: 0.85rem;">
+                  <i class="fas fa-check-circle"></i> Your attendance has been recorded.
+                </p>
+              </div>
+            `,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#2e7d32',
+          }).then(() => {
+            if (typeof loadAttendanceLog === 'function') {
+              loadAttendanceLog();
+            }
+          });
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Check-In Failed',
+            text: data.message || 'Unable to check-in. Please try again.',
+            confirmButtonColor: '#dc2626'
+          });
+        }
+      })
+      .catch(err => {
+        console.error('[proceedWithCheckIn] Error:', err);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'An error occurred during check-in. Please try again.',
+          confirmButtonColor: '#dc2626'
+        });
+      });
+    }
+
+    // ────────────── LOAD UPCOMING EVENTS & ATTENDANCE LOG ──────────────
+    function loadAttendanceLog() {
+      console.log('[loadAttendanceLog] Loading registered events for check-in...');
+      
+      const tbody = document.getElementById('registered-events-tbody');
+      if (!tbody) {
+        console.warn('[loadAttendanceLog] Table body not found');
+        return;
+      }
+      
+      // Show loading state
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Loading registered events...</td></tr>';
+      
+      // Fetch REGISTERED events for the logged-in member
+      fetch('/api/attendance/my-registered-events/')
+        .then(res => {
+          console.log('[loadAttendanceLog] Response status:', res.status);
+          return res.json();
+        })
+        .then(data => {
+          console.log('[loadAttendanceLog] Data received:', data);
+          
+          if (data.debug) {
+            console.log('[loadAttendanceLog] Debug info:', data.debug);
+          }
+          
+          if (data.status === 'success' && Array.isArray(data.events)) {
+            const events = data.events;
+            console.log('[loadAttendanceLog] Found', events.length, 'registered events');
+            
+            // Update counts
+            const registeredCountEl = document.getElementById('registered-count');
+            const attendedCountEl = document.getElementById('attended-count');
+            const attendanceRateEl = document.getElementById('attendance-rate');
+            
+            if (registeredCountEl) registeredCountEl.textContent = events.length;
+            
+            // Count checked-in events
+            const checkedInCount = events.filter(e => e.is_checked_in).length;
+            if (attendedCountEl) attendedCountEl.textContent = checkedInCount;
+            
+            // Calculate attendance rate
+            const attendanceRate = events.length > 0 ? Math.round((checkedInCount / events.length) * 100) : 0;
+            if (attendanceRateEl) attendanceRateEl.textContent = attendanceRate + '%';
+
+            if (events.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No registered events. Browse upcoming events to register!</td></tr>';
+              return;
+            }
+
+            tbody.innerHTML = events.map(event => {
+              const eventStatus = event.is_checked_in ? 'Checked In' : 'Upcoming';
+              const statusBadgeClass = event.is_checked_in ? 'checked-in' : 'upcoming';
+              const distanceText = 'Calculate on check-in';
+              
+              return `
+                <tr>
+                  <td data-label="Event Name"><strong>${escapeHtml(event.name)}</strong></td>
+                  <td data-label="Date & Time">${escapeHtml(event.date)}<br><small>${escapeHtml(event.time || 'Time TBD')}</small></td>
+                  <td data-label="Location">${escapeHtml(event.location || 'Location TBD')}</td>
+                  <td data-label="Distance"><span style="color: #f59e0b; font-size: 0.9rem;">--</span></td>
+                  <td data-label="Status"><span class="event-status-badge ${statusBadgeClass}">${escapeHtml(eventStatus)}</span></td>
+                  <td data-label="Action">
+                    ${event.is_checked_in ? 
+                      `<span style="color: #2e7d32; font-weight: bold; text-align: center; width: 100%;"><i class="fas fa-check-circle"></i> Checked In</span>` :
+                      `<button class="btn-action-mini" onclick="handleEventCheckIn(${event.id}, '${escapeHtml(event.name).replace(/'/g, "\\'")}')" title="Check In" style="background: #2e7d32; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">
+                        <i class="fas fa-map-marker-alt"></i> Check In
+                      </button>`
+                    }
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          } else {
+            console.error('[loadAttendanceLog] API error:', data);
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Unable to load registered events. ' + (data.message || '') + '</td></tr>';
+          }
+        })
+        .catch(err => {
+          console.error('[loadAttendanceLog] Error fetching events:', err);
+          tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading events. Please try refreshing the page.</td></tr>';
+        });
+    }
+
+    function loadAttendanceHistory() {
+      console.log('[loadAttendanceHistory] Loading attendance history...');
+      
+      const tbody = document.getElementById('attendance-history-tbody');
+      if (!tbody) {
+        console.warn('[loadAttendanceHistory] Table body not found');
+        return;
+      }
+      
+      // Fetch attendance history for the logged-in member
+      fetch('/api/attendance/my-attendance-history/')
+        .then(res => res.json())
+        .then(data => {
+          console.log('[loadAttendanceHistory] Data received:', data);
+          if (data.status === 'success' && Array.isArray(data.events)) {
+            const events = data.events;
+            
+            // Update counts
+            const totalAttendedEl = document.getElementById('total-attended-count');
+            const totalAttendancePctEl = document.getElementById('total-attendance-pct');
+            
+            if (totalAttendedEl) totalAttendedEl.textContent = events.length;
+            if (totalAttendancePctEl) totalAttendancePctEl.textContent = events.length > 0 ? '100%' : '0%';
+
+            if (events.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No attendance records yet. Start checking in to events!</td></tr>';
+              return;
+            }
+
+            tbody.innerHTML = events.map(event => {
+              return `
+                <tr>
+                  <td><strong>${escapeHtml(event.name)}</strong></td>
+                  <td>${escapeHtml(event.date)}<br><small>${escapeHtml(event.time || 'Time TBD')}</small></td>
+                  <td>${escapeHtml(event.location || 'Location TBD')}</td>
+                  <td><small>${escapeHtml(event.check_in_time)}</small></td>
+                  <td><span class="event-status-badge attended" style="background: #def7e0; color: #1b5e20;">✓ ${escapeHtml(event.status)}</span></td>
+                </tr>
+              `;
+            }).join('');
+          } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Unable to load attendance history.</td></tr>';
+          }
+        })
+        .catch(err => {
+          console.error('[loadAttendanceHistory] Error fetching history:', err);
+          tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Error loading history. Please try again.</td></tr>';
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       // ──────────────── MOBILE MENU TOGGLE ────────────────
       const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
@@ -831,6 +1479,7 @@
       const profileView = document.getElementById('profile-view');
       const eventsView = document.getElementById('events-view');
       const attendanceView = document.getElementById('attendance-view');
+      const attendanceHistoryView = document.getElementById('attendance-history-view');
       
       // Function to show a specific view
       function showView(viewName) {
@@ -839,6 +1488,7 @@
         profileView.style.display = 'none';
         eventsView.style.display = 'none';
         attendanceView.style.display = 'none';
+        attendanceHistoryView.style.display = 'none';
         
         // Remove active class from all toggle buttons
         viewToggleButtons.forEach(btn => btn.classList.remove('active'));
@@ -855,12 +1505,123 @@
           profileView.style.display = 'block';
         } else if (viewName === 'events') {
           eventsView.style.display = 'block';
+          loadUpcomingEvents(); // Load events when tab is opened
         } else if (viewName === 'attendance') {
           attendanceView.style.display = 'block';
+          loadAttendanceLog(); // Load attendance data when tab is opened
+        } else if (viewName === 'attendance-history') {
+          attendanceHistoryView.style.display = 'block';
+          loadAttendanceHistory(); // Load attendance history when tab is opened
         }
         
         // Save to localStorage
         localStorage.setItem('memberDashboardActiveView', viewName);
+      }
+      
+      // ──────────────── UPCOMING EVENTS FUNCTIONALITY ────────────────
+      function loadUpcomingEvents() {
+        console.log('[loadUpcomingEvents] Fetching upcoming events...');
+        const eventsList = document.getElementById('upcoming-events-list');
+        
+        if (!eventsList) return;
+        
+        // Show loading state
+        eventsList.innerHTML = '<p class="empty-state">Loading upcoming events...</p>';
+        
+        // Fetch events from API
+        fetch('/api/attendance/upcoming-events/')
+          .then(response => response.json())
+          .then(data => {
+            console.log('[loadUpcomingEvents] Data received:', data);
+            
+            // Log debug info
+            if (data.debug) {
+              console.log('[loadUpcomingEvents] Debug Info:', {
+                today: data.debug.today,
+                total_events_in_db: data.debug.total_events_in_db,
+                upcoming_events_count: data.debug.upcoming_events_count,
+                all_events: data.debug.all_events
+              });
+            }
+            
+            if (data.status === 'success' && data.events && data.events.length > 0) {
+              // Filter for future events - compare dates only (not time)
+              const todayDate = new Date().toISOString().split('T')[0]; // "2026-06-20"
+              const futureEvents = data.events.filter(event => {
+                // event.date_raw is ISO format: "2026-06-20"
+                return event.date_raw >= todayDate;
+              });
+              
+              console.log('[loadUpcomingEvents] Date comparison:', {todayDate, eventDates: data.events.map(e => e.date_raw), futureCount: futureEvents.length});
+              
+              if (futureEvents.length === 0) {
+                eventsList.innerHTML = '<p class="empty-state">No upcoming events available. All upcoming events have been registered!</p>';
+                return;
+              }
+              
+              // Build event cards
+              eventsList.innerHTML = futureEvents.map(event => {
+                const todayDate = new Date().toISOString().split('T')[0];
+                const isToday = event.date_raw === todayDate;
+                const statusClass = isToday ? 'today' : 'upcoming';
+                
+                // Format time nicely
+                const timeDisplay = event.time ? event.time : 'Time TBD';
+                const locationDisplay = event.location ? event.location : 'Location TBD';
+                const descDisplay = event.description ? event.description.substring(0, 100) + (event.description.length > 100 ? '...' : '') : 'No description provided';
+                
+                return `
+                  <div class="event-card" data-event-id="${event.id}">
+                    <div class="event-card-header">
+                      <i class="fas fa-calendar-alt event-card-icon"></i>
+                      <div class="event-card-date">${event.date}</div>
+                    </div>
+                    <div class="event-card-body">
+                      <h3 class="event-card-title">${escapeHtml(event.name)}</h3>
+                      <div class="event-card-meta">
+                        <div class="event-meta-item">
+                          <i class="fas fa-clock"></i>
+                          <span>${escapeHtml(timeDisplay)}</span>
+                        </div>
+                        <div class="event-meta-item">
+                          <i class="fas fa-map-marker-alt"></i>
+                          <span>${escapeHtml(locationDisplay)}</span>
+                        </div>
+                      </div>
+                      <p class="event-card-description">${escapeHtml(descDisplay)}</p>
+                      <span class="event-status-badge ${statusClass}">
+                        <i class="fas fa-${isToday ? 'star' : 'calendar'}"></i> ${isToday ? 'Today' : 'Upcoming'}
+                      </span>
+                    </div>
+                    <div class="event-card-footer">
+                      <button class="btn-register" onclick="handleEventRegistration(${event.id}, '${escapeHtml(event.name).replace(/'/g, "\\'")}')" title="Register for this event">
+                        <i class="fas fa-plus-circle"></i>
+                        Register
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+            } else {
+              const errorMsg = data.message || 'No events available';
+              let debugInfo = '';
+              if (data.debug) {
+                debugInfo = ` (DB: ${data.debug.total_events_in_db} total, ${data.debug.upcoming_events_count} upcoming)`;
+              }
+              eventsList.innerHTML = '<p class="empty-state"><i class="fas fa-inbox"></i><br>No upcoming events at the moment.' + debugInfo + '<br><small>Check back soon!</small></p>';
+            }
+          })
+          .catch(error => {
+            console.error('[loadUpcomingEvents] Error:', error);
+            eventsList.innerHTML = '<p class="empty-state"><i class="fas fa-exclamation-circle"></i><br>Failed to load events.<br><small>Please try again later.</small></p>';
+          });
+      }
+
+      // Escape HTML to prevent XSS
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
       }
       
       // Restore saved view on page load
@@ -1131,22 +1892,6 @@
         });
       }
 
-      // Helper function to get CSRF token from cookies
-      function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';');
-          for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-              break;
-            }
-          }
-        }
-        return cookieValue;
-      }
-
       // Handle feature launcher clicks for modals (other features)
       document.addEventListener('click', function(event) {
         const launcher = event.target.closest('.feature-launcher');
@@ -1221,68 +1966,31 @@
       });
     });
 
+    // ──────────────── FEATURE PANEL HANDLER ────────────────
     function showFeaturePanel(templateContent) {
-      // Remove any existing modal
-      const existingModal = document.querySelector('.feature-modal');
-      if (existingModal) {
-        existingModal.remove();
-      }
-
       // Create modal wrapper
       const modal = document.createElement('div');
       modal.className = 'feature-modal';
-      modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        padding: 20px;
-      `;
-
-      // Create modal content wrapper
-      const modalContent = document.createElement('div');
-      modalContent.style.cssText = `
-        background: white;
-        border-radius: 12px;
-        max-width: 900px;
-        width: 100%;
-        max-height: 90vh;
-        overflow-y: auto;
-        padding: 2rem;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        animation: slideIn 0.3s ease-out;
-      `;
-
-      // Clone and append the template content
-      const clonedContent = templateContent.cloneNode(true);
-      modalContent.appendChild(clonedContent);
-      modal.appendChild(modalContent);
+      modal.style.display = 'flex';
+      
+      // Clone template content
+      const content = templateContent.cloneNode(true);
+      
+      // Create modal container
+      const container = document.createElement('div');
+      container.className = 'feature-modal-content';
+      container.appendChild(content);
+      
+      modal.appendChild(container);
       document.body.appendChild(modal);
-
-      // Add animation style
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `;
-      if (!document.querySelector('style[data-modal-animation]')) {
-        style.setAttribute('data-modal-animation', 'true');
-        document.head.appendChild(style);
-      }
     }
+
+    // Load events when events tab is first opened
+    window.addEventListener('load', () => {
+      const savedView = localStorage.getItem('memberDashboardActiveView');
+      if (savedView === 'events') {
+        loadUpcomingEvents();
+      }
+    });
   </script>
 
