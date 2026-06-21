@@ -210,6 +210,10 @@ class AttendanceEvent(models.Model):
     event_date = models.DateField()
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
+    checkin_time_in = models.TimeField(null=True, blank=True)  # When Time In window opens
+    checkin_time_in_end = models.TimeField(null=True, blank=True)  # When Time In window closes (NEW)
+    checkin_time_out = models.TimeField(null=True, blank=True)  # When Time Out window opens
+    checkin_time_out_end = models.TimeField(null=True, blank=True)  # When Time Out window closes (NEW)
     location = models.CharField(max_length=255, blank=True)
     qr_code = models.CharField(max_length=100, unique=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
@@ -227,6 +231,7 @@ class AttendanceLog(models.Model):
     member = models.ForeignKey('Member', on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
     check_in_time = models.DateTimeField(null=True, blank=True)  # When member checked in
+    check_out_time = models.DateTimeField(null=True, blank=True)  # When member checked out
 
     class Meta:
         unique_together = ('event', 'member')

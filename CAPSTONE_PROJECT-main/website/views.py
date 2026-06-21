@@ -32,6 +32,7 @@ from .models import (
     Geofence,
 )
 from django.db import IntegrityError
+from django.db.models import Q
 
 
 def get_member_payload(member):
@@ -2171,9 +2172,26 @@ def api_create_attendance_event(request):
     try:
         # Parse datetime and extract date and time
         from django.utils.dateparse import parse_datetime
+        from django.utils import timezone
+        
         event_datetime = parse_datetime(event_date_str)
         if not event_datetime:
             raise ValueError("Invalid datetime format")
+        
+        # ✅ Make datetime timezone-aware if it isn't already (fixes naive/aware comparison error)
+        if event_datetime.tzinfo is None:
+            event_datetime = timezone.make_aware(event_datetime)
+        
+        # ✅ CRITICAL SECURITY: Prevent creating events in the past
+        now = timezone.now()
+        if event_datetime < now:
+            return JsonResponse({
+                "status": "error",
+                "message": f"Event start date & time cannot be in the past. Current server time: {now.strftime('%Y-%m-%d %H:%M:%S')}",
+                "current_time": now.isoformat(),
+                "submitted_start_time": event_datetime.isoformat()
+            }, status=400)
+        
         event_date = event_datetime.date()
         start_time = event_datetime.time()
         
@@ -2185,6 +2203,44 @@ def api_create_attendance_event(request):
             if end_datetime:
                 end_time = end_datetime.time()
         
+        # Parse check-in times
+        from datetime import time as datetime_time
+        checkin_time_in = None
+        checkin_time_in_str = data.get('checkin_time_in', '').strip()
+        if checkin_time_in_str:
+            try:
+                parts = checkin_time_in_str.split(':')
+                checkin_time_in = datetime_time(int(parts[0]), int(parts[1]))
+            except (ValueError, IndexError):
+                pass
+        
+        checkin_time_in_end = None
+        checkin_time_in_end_str = data.get('checkin_time_in_end', '').strip()
+        if checkin_time_in_end_str:
+            try:
+                parts = checkin_time_in_end_str.split(':')
+                checkin_time_in_end = datetime_time(int(parts[0]), int(parts[1]))
+            except (ValueError, IndexError):
+                pass
+        
+        checkin_time_out = None
+        checkin_time_out_str = data.get('checkin_time_out', '').strip()
+        if checkin_time_out_str:
+            try:
+                parts = checkin_time_out_str.split(':')
+                checkin_time_out = datetime_time(int(parts[0]), int(parts[1]))
+            except (ValueError, IndexError):
+                pass
+        
+        checkin_time_out_end = None
+        checkin_time_out_end_str = data.get('checkin_time_out_end', '').strip()
+        if checkin_time_out_end_str:
+            try:
+                parts = checkin_time_out_end_str.split(':')
+                checkin_time_out_end = datetime_time(int(parts[0]), int(parts[1]))
+            except (ValueError, IndexError):
+                pass
+        
         # Generate unique QR code
         qr_code = str(uuid.uuid4())
         
@@ -2195,14 +2251,44 @@ def api_create_attendance_event(request):
             event_date=event_date,
             start_time=start_time,
             end_time=end_time,
+            checkin_time_in=checkin_time_in,
+            checkin_time_in_end=checkin_time_in_end,
+            checkin_time_out=checkin_time_out,
+            checkin_time_out_end=checkin_time_out_end,
             location=location,
             qr_code=qr_code,
             created_by=request.user,
         )
+
+        # Auto-create geofence when coordinates are provided during event creation
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        radius = data.get('radius')
+        if latitude is not None and longitude is not None and radius:
+            try:
+                lat = float(latitude)
+                lng = float(longitude)
+                rad = int(radius)
+                if (-90 <= lat <= 90) and (-180 <= lng <= 180) and (10 <= rad <= 500):
+                    if not event.geofences.exists():
+                        Geofence.objects.create(
+                            event=event,
+                            name=f"{event_name} Geofence",
+                            location=location,
+                            latitude=lat,
+                            longitude=lng,
+                            radius=rad,
+                            created_by=request.user,
+                        )
+            except (ValueError, TypeError):
+                pass
+
+        geofence_created = event.geofences.exists()
         
         return JsonResponse({
             "status": "success",
             "message": "Event created successfully",
+            "geofence_created": geofence_created,
             "event": {
                 "id": event.id,
                 "name": event.name,
@@ -2215,9 +2301,15 @@ def api_create_attendance_event(request):
         }, status=201)
         
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[ERROR in api_create_attendance_event] {str(e)}")
+        print(f"[TRACEBACK]\n{error_trace}")
         return JsonResponse({
             "status": "error",
-            "message": f"Error creating event: {str(e)}"
+            "message": f"Error creating event: {str(e)}",
+            "error_type": type(e).__name__,
+            "traceback": error_trace
         }, status=500)
 
 
@@ -2240,18 +2332,44 @@ def api_get_attendance_events(request):
         # Build events data
         events_data = []
         for event in events:
-            # Calculate attendance stats
-            total_attendance = event.attendance_logs.count()
-            # Registered members for this event (members who clicked register)
+            # Calculate attendance stats - CORRECT calculation
+            # Registered: Any AttendanceLog entry for this event (whether checked in or not)
             registered = event.attendance_logs.count()
             
-            # Calculate attendance rate
-            attendance_rate = (total_attendance / registered * 100) if registered > 0 else 0
+            # Attended: Only AttendanceLog entries WITH check_in_time set (they actually attended)
+            attended = event.attendance_logs.filter(check_in_time__isnull=False).count()
             
-            # Determine status based on date
-            from django.utils.timezone import now
-            if event.event_date < now().date():
+            # Calculate attendance rate based on those who attended vs registered
+            attendance_rate = (attended / registered * 100) if registered > 0 else 0
+            
+            # Determine status based on date AND time using full datetime comparison
+            from django.utils.timezone import now, make_aware
+            from datetime import datetime
+            
+            current_datetime = now()
+            
+            # Build full datetimes for comparison
+            if event.start_time:
+                event_start_datetime = datetime.combine(event.event_date, event.start_time)
+                # Make timezone-aware if needed using Django's make_aware (handles both pytz and zoneinfo)
+                if not event_start_datetime.tzinfo:
+                    event_start_datetime = make_aware(event_start_datetime)
+            else:
+                event_start_datetime = None
+            
+            if event.end_time:
+                event_end_datetime = datetime.combine(event.event_date, event.end_time)
+                # Make timezone-aware if needed using Django's make_aware (handles both pytz and zoneinfo)
+                if not event_end_datetime.tzinfo:
+                    event_end_datetime = make_aware(event_end_datetime)
+            else:
+                event_end_datetime = None
+            
+            # Determine status using proper datetime comparison
+            if event_end_datetime and current_datetime >= event_end_datetime:
                 status = "Completed"
+            elif event_start_datetime and current_datetime >= event_start_datetime:
+                status = "Ongoing"
             else:
                 status = "Upcoming"
             
@@ -2282,7 +2400,7 @@ def api_get_attendance_events(request):
                 "location": event.location,
                 "description": event.description,
                 "registered": registered,
-                "attended": total_attendance,
+                "attended": attended,  # Use attended count (those with check_in_time)
                 "attendance_rate": round(attendance_rate, 1),
                 "rate_color": rate_color,
                 "status": status,
@@ -2290,6 +2408,13 @@ def api_get_attendance_events(request):
                 "created_at": event.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             })
         
+        if request.GET.get('all') == '1':
+            return JsonResponse({
+                "status": "success",
+                "count": len(events_data),
+                "events": events_data,
+            })
+
         # Pagination settings
         page_number = request.GET.get('page', 1)
         paginator = Paginator(events_data, 10)  # 10 events per page
@@ -2624,12 +2749,21 @@ def api_create_geofence(request):
 @login_required
 def api_get_geofences(request, event_id):
     """API: Get all geofences for an event"""
+    has_access = False
     try:
         officer = PresidentProfile.objects.get(user=request.user)
-        if not officer.has_attendance_access():
-            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+        if officer.has_attendance_access():
+            has_access = True
     except PresidentProfile.DoesNotExist:
-        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+        pass
+
+    if not has_access:
+        user_email = request.user.email
+        if user_email and Member.objects.filter(email=user_email).exists():
+            has_access = True
+
+    if not has_access:
+        return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
     
     try:
         # Get the event
@@ -2654,7 +2788,24 @@ def api_get_geofences(request, event_id):
         return JsonResponse({
             "status": "success",
             "count": len(geofences_data),
-            "geofences": geofences_data
+            "geofences": geofences_data,
+            "event": {
+                "id": event.id,
+                "name": event.name,
+                "event_date": event.event_date.isoformat(),
+                "start_time": event.start_time.strftime("%I:%M %p") if event.start_time else None,
+                "end_time": event.end_time.strftime("%I:%M %p") if event.end_time else None,
+                "start_time_iso": str(event.start_time) if event.start_time else None,
+                "end_time_iso": str(event.end_time) if event.end_time else None,
+                "checkin_time_in": event.checkin_time_in.strftime("%I:%M %p") if event.checkin_time_in else None,
+                "checkin_time_in_end": event.checkin_time_in_end.strftime("%I:%M %p") if event.checkin_time_in_end else None,
+                "checkin_time_out": event.checkin_time_out.strftime("%I:%M %p") if event.checkin_time_out else None,
+                "checkin_time_out_end": event.checkin_time_out_end.strftime("%I:%M %p") if event.checkin_time_out_end else None,
+                "checkin_time_in_iso": str(event.checkin_time_in) if event.checkin_time_in else None,
+                "checkin_time_in_end_iso": str(event.checkin_time_in_end) if event.checkin_time_in_end else None,
+                "checkin_time_out_iso": str(event.checkin_time_out) if event.checkin_time_out else None,
+                "checkin_time_out_end_iso": str(event.checkin_time_out_end) if event.checkin_time_out_end else None,
+            }
         })
         
     except (AttendanceEvent.DoesNotExist, ValueError):
@@ -2670,9 +2821,68 @@ def api_get_geofences(request, event_id):
 
 
 @login_required
+def api_list_geofences(request):
+    """API: List all geofences with associated event info"""
+    try:
+        officer = PresidentProfile.objects.get(user=request.user)
+        if not officer.has_attendance_access():
+            return JsonResponse({"status": "error", "message": "Access Denied"}, status=403)
+    except PresidentProfile.DoesNotExist:
+        return JsonResponse({"status": "error", "message": "Officer profile not found"}, status=403)
+
+    try:
+        event_id = request.GET.get('event_id')
+        search = request.GET.get('search', '').strip()
+
+        geofences = Geofence.objects.select_related('event').all().order_by('-created_at')
+
+        if event_id:
+            geofences = geofences.filter(event_id=int(event_id))
+        if search:
+            geofences = geofences.filter(
+                Q(name__icontains=search)
+                | Q(location__icontains=search)
+                | Q(event__name__icontains=search)
+            )
+
+        geofences_data = []
+        for geofence in geofences:
+            event = geofence.event
+            status = "Inactive" if event.event_date < timezone.now().date() else "Active"
+            geofences_data.append({
+                "id": geofence.id,
+                "name": geofence.name,
+                "location": geofence.location,
+                "latitude": float(geofence.latitude),
+                "longitude": float(geofence.longitude),
+                "radius": geofence.radius,
+                "event_id": event.id,
+                "event_name": event.name,
+                "status": status,
+                "created_at": geofence.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            })
+
+        return JsonResponse({
+            "status": "success",
+            "count": len(geofences_data),
+            "geofences": geofences_data,
+        })
+    except (ValueError, TypeError):
+        return JsonResponse({
+            "status": "error",
+            "message": "Invalid filter parameters",
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error retrieving geofences: {str(e)}",
+        }, status=500)
+
+
+@login_required
 @login_required
 def api_get_my_attendance_history(request):
-    """API: Get historical attendance records (already attended events)"""
+    """API: Get historical attendance records (completed events you registered for)"""
     try:
         from django.utils import timezone
         
@@ -2688,15 +2898,48 @@ def api_get_my_attendance_history(request):
                 "message": "Member profile not found"
             }, status=404)
         
-        # Get all events where member has checked in (check_in_time is not null)
-        attended_events = AttendanceLog.objects.filter(
-            member=member,
-            check_in_time__isnull=False
-        ).select_related('event').order_by('-check_in_time')
+        now_dt = timezone.now()
+        today = now_dt.date()
+        
+        # Get all events the member has registered for (has an AttendanceLog entry)
+        from datetime import datetime as dt
+        from django.utils.timezone import make_aware, get_current_timezone
+        
+        all_registered_logs = AttendanceLog.objects.filter(
+            member=member
+        ).select_related('event').order_by('-event__event_date', '-event__end_time')
         
         events_data = []
-        for log in attended_events:
+        for log in all_registered_logs:
             event = log.event
+            
+            # Check if event is completed using proper timezone-aware datetime comparison
+            is_completed = False
+            
+            if event.end_time:
+                # Create datetime from event_date and end_time, using current timezone
+                event_end_dt = dt.combine(event.event_date, event.end_time)
+                if not event_end_dt.tzinfo:
+                    event_end_dt = make_aware(event_end_dt, get_current_timezone())
+                
+                # Compare with current timezone-aware time
+                if now_dt >= event_end_dt:
+                    is_completed = True
+            elif event.event_date < today:
+                # No end_time but event date is in the past
+                is_completed = True
+            elif event.event_date == today and event.start_time:
+                # Event is today with start time but no end time - check if started
+                event_start_dt = dt.combine(event.event_date, event.start_time)
+                if not event_start_dt.tzinfo:
+                    event_start_dt = make_aware(event_start_dt, get_current_timezone())
+                if now_dt >= event_start_dt:
+                    is_completed = True
+            
+            # Only include completed events
+            if not is_completed:
+                continue
+            
             # Format event date
             event_date_str = event.event_date.strftime("%B %d, %Y")
             
@@ -2705,6 +2948,26 @@ def api_get_my_attendance_history(request):
             if event.start_time:
                 time_str = event.start_time.strftime("%I:%M %p")
             
+            # Determine attendance status
+            if log.check_in_time and log.check_out_time:
+                attendance_status = "Attended"
+            elif log.check_in_time:
+                # Checked in but not out
+                attendance_status = "Checked In (No Check-Out)"
+            else:
+                # Registered but never checked in
+                attendance_status = "Absent"
+            
+            # Format check_in_time
+            check_in_formatted = ''
+            if log.check_in_time:
+                check_in_formatted = log.check_in_time.strftime("%B %d, %Y %I:%M %p")
+            
+            # Format check_out_time
+            check_out_formatted = ''
+            if log.check_out_time:
+                check_out_formatted = log.check_out_time.strftime("%B %d, %Y %I:%M %p")
+            
             events_data.append({
                 "id": event.id,
                 "name": event.name,
@@ -2712,8 +2975,11 @@ def api_get_my_attendance_history(request):
                 "date_raw": event.event_date.isoformat(),
                 "time": time_str,
                 "location": event.location,
-                "check_in_time": log.check_in_time.strftime("%B %d, %Y %I:%M %p"),
-                "status": "Attended",
+                "check_in_time": check_in_formatted if log.check_in_time else "—",
+                "check_in_time_iso": log.check_in_time.isoformat() if log.check_in_time else None,
+                "check_out_time": check_out_formatted if log.check_out_time else "—",
+                "check_out_time_iso": log.check_out_time.isoformat() if log.check_out_time else None,
+                "status": attendance_status,  # "Attended", "Absent", or "Checked In (No Check-Out)"
             })
         
         return JsonResponse({
@@ -2730,9 +2996,10 @@ def api_get_my_attendance_history(request):
 
 @login_required
 def api_get_my_registered_events(request):
-    """API: Get events registered by the logged-in member (NOT yet checked-in)"""
+    """API: Get all registered events for today and future dates (shown regardless of checkout status)"""
     try:
         from django.utils import timezone
+        from django.db.models import Q
         
         # Get the member
         try:
@@ -2746,16 +3013,57 @@ def api_get_my_registered_events(request):
                 "message": "Member profile not found"
             }, status=404)
         
-        # Get all events the member is registered for (including today, excluding only past events from yesterday or earlier)
-        # Filter for events that are TODAY or LATER, but ONLY show if NOT yet checked in (check_in_time is NULL)
-        today = timezone.now().date()
+        # Get all events the member is registered for that are still ongoing or upcoming
+        # Show events that: NOT yet checked in OR (checked in but NOT yet checked out)
+        now_dt = timezone.now()
+        today = now_dt.date()
         
-        # Get registered events that haven't been checked in yet and are today or later
-        registered_events = AttendanceLog.objects.filter(
+        # Get registered events - show all registered events for today and future dates, even if already checked out
+        all_registered_events = AttendanceLog.objects.filter(
             member=member,
-            check_in_time__isnull=True,  # Only show events NOT yet checked in
-            event__event_date__gte=today  # Only show today's and future events
+            event__event_date__gte=today  # Show today's and future events (regardless of checkout status)
         ).select_related('event').order_by('event__event_date', 'event__start_time')
+        
+        # Count total registered events (for display count)
+        total_registered_count = len(all_registered_events)
+        
+        # Further filter: exclude events that have already ended (for card display)
+        from datetime import datetime as dt
+        from django.utils.timezone import make_aware, get_current_timezone
+        
+        registered_events_list = []
+        for log in all_registered_events:
+            event = log.event
+            
+            is_completed = False
+            
+            # Check if event has ended using proper timezone-aware datetime comparison
+            if event.end_time:
+                # Create datetime from event_date and end_time, using current timezone
+                event_end_dt = dt.combine(event.event_date, event.end_time)
+                # Make aware using current timezone (which should be the timezone where the event is)
+                if not event_end_dt.tzinfo:
+                    event_end_dt = make_aware(event_end_dt, get_current_timezone())
+                
+                # Compare with current timezone-aware time
+                if now_dt >= event_end_dt:
+                    is_completed = True
+            elif event.event_date < today:
+                # No end_time but event date is in the past
+                is_completed = True
+            
+            # Skip completed events from display (but they're counted)
+            if is_completed:
+                continue
+            
+            registered_events_list.append(log)
+        
+        registered_events = registered_events_list
+        
+        # Import timezone utilities once for ISO datetime creation
+        from datetime import datetime as dt
+        from django.utils.timezone import make_aware, get_current_timezone
+        current_tz = get_current_timezone()
         
         events_data = []
         for log in registered_events:
@@ -2765,8 +3073,56 @@ def api_get_my_registered_events(request):
             
             # Format time
             time_str = ''
+            start_time_str = ''
+            end_time_str = ''
+            start_time_iso = None
+            end_time_iso = None
+            
             if event.start_time:
                 time_str = event.start_time.strftime("%I:%M %p")
+                start_time_str = event.start_time.strftime("%I:%M %p")
+                # Create timezone-aware ISO datetime for time comparison
+                start_dt = dt.combine(event.event_date, event.start_time)
+                if not start_dt.tzinfo:
+                    start_dt = make_aware(start_dt, current_tz)
+                start_time_iso = start_dt.isoformat()
+            
+            if event.end_time:
+                end_time_str = event.end_time.strftime("%I:%M %p")
+                end_dt = dt.combine(event.event_date, event.end_time)
+                if not end_dt.tzinfo:
+                    end_dt = make_aware(end_dt, current_tz)
+                end_time_iso = end_dt.isoformat()
+            
+            # Create ISO datetime strings for check-in/check-out time windows (timezone-aware)
+            checkin_time_in_iso = None
+            checkin_time_in_end_iso = None
+            checkin_time_out_iso = None
+            checkin_time_out_end_iso = None
+            
+            if event.checkin_time_in:
+                checkin_dt_in = dt.combine(event.event_date, event.checkin_time_in)
+                if not checkin_dt_in.tzinfo:
+                    checkin_dt_in = make_aware(checkin_dt_in, current_tz)
+                checkin_time_in_iso = checkin_dt_in.isoformat()
+            
+            if event.checkin_time_in_end:
+                checkin_dt_in_end = dt.combine(event.event_date, event.checkin_time_in_end)
+                if not checkin_dt_in_end.tzinfo:
+                    checkin_dt_in_end = make_aware(checkin_dt_in_end, current_tz)
+                checkin_time_in_end_iso = checkin_dt_in_end.isoformat()
+            
+            if event.checkin_time_out:
+                checkin_dt_out = dt.combine(event.event_date, event.checkin_time_out)
+                if not checkin_dt_out.tzinfo:
+                    checkin_dt_out = make_aware(checkin_dt_out, current_tz)
+                checkin_time_out_iso = checkin_dt_out.isoformat()
+            
+            if event.checkin_time_out_end:
+                checkin_dt_out_end = dt.combine(event.event_date, event.checkin_time_out_end)
+                if not checkin_dt_out_end.tzinfo:
+                    checkin_dt_out_end = make_aware(checkin_dt_out_end, current_tz)
+                checkin_time_out_end_iso = checkin_dt_out_end.isoformat()
             
             events_data.append({
                 "id": event.id,
@@ -2774,18 +3130,34 @@ def api_get_my_registered_events(request):
                 "date": event_date_str,
                 "date_raw": event.event_date.isoformat(),
                 "time": time_str,
+                "start_time": start_time_str,
+                "end_time": end_time_str,
+                "start_time_iso": start_time_iso,
+                "end_time_iso": end_time_iso,
+                "checkin_time_in": event.checkin_time_in.strftime("%I:%M %p") if event.checkin_time_in else None,
+                "checkin_time_in_end": event.checkin_time_in_end.strftime("%I:%M %p") if event.checkin_time_in_end else None,
+                "checkin_time_in_iso": checkin_time_in_iso,
+                "checkin_time_in_end_iso": checkin_time_in_end_iso,
+                "checkin_time_out": event.checkin_time_out.strftime("%I:%M %p") if event.checkin_time_out else None,
+                "checkin_time_out_end": event.checkin_time_out_end.strftime("%I:%M %p") if event.checkin_time_out_end else None,
+                "checkin_time_out_iso": checkin_time_out_iso,
+                "checkin_time_out_end_iso": checkin_time_out_end_iso,
                 "location": event.location,
                 "description": event.description or "",
                 "registered_date": log.timestamp.strftime("%B %d, %Y %I:%M %p") if log.timestamp else "Recently",
-                "is_checked_in": bool(log.check_in_time),  # True if check_in_time is set (should always be False here)
+                "is_checked_in": bool(log.check_in_time),
+                "is_checked_out": bool(log.check_out_time),
             })
         
         return JsonResponse({
             "status": "success",
             "events": events_data,
+            "server_time": timezone.now().isoformat(),
             "debug": {
                 "today": str(today),
-                "total_registered": len(events_data),
+                "now_dt": str(now_dt),
+                "total_registered_count": total_registered_count,
+                "displayed_events": len(events_data),
                 "member_email": user_email
             }
         })
@@ -2863,6 +3235,7 @@ def api_get_upcoming_events_unregistered(request):
         return JsonResponse({
             "status": "success",
             "events": events_data,
+            "server_time": timezone.now().isoformat(),
             "debug": {
                 "today": str(today),
                 "total_events_in_db": len(all_events_list),
@@ -2964,11 +3337,14 @@ def api_register_for_event(request):
 
 @login_required
 def api_check_in_to_event(request):
-    """API: Check-in a member to an event with optional geolocation verification"""
+    """API: Check-in a member to an event with server-side time validation to prevent cheating"""
     if request.method != 'POST':
         return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
     
     try:
+        from django.utils import timezone
+        from datetime import datetime, time, timedelta
+        
         data = json.loads(request.body) if request.body else {}
         event_id = data.get('event_id')
         latitude = data.get('latitude')
@@ -2989,6 +3365,70 @@ def api_check_in_to_event(request):
                 "message": "Event not found"
             }, status=404)
         
+        # ✅ ANTI-CHEATING MEASURE: Validate time on SERVER side using server clock (not device clock)
+        # This prevents users from cheating by changing their device date/time
+        now = timezone.now()
+        current_date = now.date()
+        
+        # Determine which times to check against for Time In (check-in) window
+        # Priority: checkin_time_in/checkin_time_in_end > checkin_time_out > start_time/end_time
+        check_in_start = event.checkin_time_in if event.checkin_time_in else event.start_time
+        check_in_end = event.checkin_time_in_end if event.checkin_time_in_end else (event.checkin_time_out if event.checkin_time_out else event.end_time)
+        
+        # Check if event is today or in the future
+        if current_date < event.event_date:
+            return JsonResponse({
+                "status": "error",
+                "message": "Event has not started yet. Check-in will be available on the event date.",
+                "check_in_available": False,
+                "reason": "event_not_started",
+                "server_time": now.isoformat()
+            }, status=400)
+        elif current_date > event.event_date:
+            return JsonResponse({
+                "status": "error",
+                "message": "This event has ended. Attendance check-in is no longer available.",
+                "check_in_available": False,
+                "reason": "event_ended",
+                "server_time": now.isoformat()
+            }, status=400)
+        
+        # ✅ CRITICAL SECURITY: Check if current time is within check-in window using datetime comparison
+        # Create timezone-aware datetimes for accurate comparison
+        from django.utils.timezone import make_aware, get_current_timezone
+        current_tz = get_current_timezone()
+        
+        # Build datetime objects combining event_date with check-in times
+        check_in_start_dt = datetime.combine(event.event_date, check_in_start)
+        if not check_in_start_dt.tzinfo:
+            check_in_start_dt = make_aware(check_in_start_dt, current_tz)
+        
+        check_in_end_dt = datetime.combine(event.event_date, check_in_end)
+        if not check_in_end_dt.tzinfo:
+            check_in_end_dt = make_aware(check_in_end_dt, current_tz)
+        
+        # Event is today - check time window using SERVER time (immune to device clock tampering)
+        if check_in_start and now < check_in_start_dt:
+            return JsonResponse({
+                "status": "error",
+                "message": f"Check-in not yet available. Check-in starts at {check_in_start.strftime('%I:%M %p')}.",
+                "check_in_available": False,
+                "reason": "check_in_not_started",
+                "start_time": check_in_start.strftime('%I:%M %p'),
+                "server_time": now.isoformat(),
+                "minutes_until_available": int((check_in_start_dt - now).total_seconds() / 60)
+            }, status=400)
+        
+        if check_in_end and now >= check_in_end_dt:
+            return JsonResponse({
+                "status": "error",
+                "message": f"Check-in has ended. Check-in window closed at {check_in_end.strftime('%I:%M %p')}.",
+                "check_in_available": False,
+                "reason": "check_in_ended",
+                "end_time": check_in_end.strftime('%I:%M %p'),
+                "server_time": now.isoformat()
+            }, status=400)
+        
         # Get the member by matching the logged-in user's email to Member.email
         try:
             user_email = request.user.email
@@ -3006,7 +3446,7 @@ def api_check_in_to_event(request):
             attendance_log = AttendanceLog.objects.get(event=event, member=member)
             # Already registered, now mark as attended
             from django.utils import timezone
-            attendance_log.check_in_time = timezone.now()
+            attendance_log.check_in_time = timezone.now()  # ✅ Uses SERVER time, not submitted time
             attendance_log.save()
             return JsonResponse({
                 "status": "success",
@@ -3023,7 +3463,7 @@ def api_check_in_to_event(request):
                 attendance = AttendanceLog.objects.create(
                     event=event,
                     member=member,
-                    check_in_time=timezone.now()
+                    check_in_time=timezone.now()  # ✅ Uses SERVER time, not submitted time
                 )
                 return JsonResponse({
                     "status": "success",
@@ -3048,6 +3488,181 @@ def api_check_in_to_event(request):
         return JsonResponse({
             "status": "error",
             "message": f"Error checking in: {str(e)}"
+        }, status=500)
+
+
+@login_required
+def api_check_out_from_event(request):
+    """API: Check-out a member from an event with server-side time validation and geolocation verification"""
+    if request.method != 'POST':
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    
+    try:
+        from django.utils import timezone
+        from datetime import datetime, time, timedelta
+        import math
+        
+        data = json.loads(request.body) if request.body else {}
+        event_id = data.get('event_id')
+        
+        if not event_id:
+            return JsonResponse({
+                "status": "error",
+                "message": "Event ID is required"
+            }, status=400)
+        
+        # Get the event
+        try:
+            event = AttendanceEvent.objects.get(id=event_id)
+        except AttendanceEvent.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Event not found"
+            }, status=404)
+        
+        # ✅ ANTI-CHEATING MEASURE: Validate time on SERVER side using server clock (not device clock)
+        now = timezone.now()
+        current_date = now.date()
+        
+        # Determine which times to check against for Time Out (check-out) window
+        # Priority: checkin_time_out/checkin_time_out_end > end_time
+        check_out_start = event.checkin_time_out if event.checkin_time_out else event.end_time
+        check_out_end = event.checkin_time_out_end if event.checkin_time_out_end else event.end_time
+        
+        # Check if event is today or in the future
+        if current_date < event.event_date:
+            return JsonResponse({
+                "status": "error",
+                "message": "Event has not started yet. Check-out will be available on the event date.",
+                "check_out_available": False,
+                "reason": "event_not_started",
+                "server_time": now.isoformat()
+            }, status=400)
+        elif current_date > event.event_date:
+            return JsonResponse({
+                "status": "error",
+                "message": "This event has ended. Attendance check-out is no longer available.",
+                "check_out_available": False,
+                "reason": "event_ended",
+                "server_time": now.isoformat()
+            }, status=400)
+        
+        # ✅ CRITICAL SECURITY: Check if current time is within check-out window using datetime comparison
+        from django.utils.timezone import make_aware, get_current_timezone
+        current_tz = get_current_timezone()
+        
+        # Build datetime objects combining event_date with check-out times
+        check_out_start_dt = datetime.combine(event.event_date, check_out_start)
+        if not check_out_start_dt.tzinfo:
+            check_out_start_dt = make_aware(check_out_start_dt, current_tz)
+        
+        check_out_end_dt = datetime.combine(event.event_date, check_out_end)
+        if not check_out_end_dt.tzinfo:
+            check_out_end_dt = make_aware(check_out_end_dt, current_tz)
+        
+        if check_out_start and now < check_out_start_dt:
+            return JsonResponse({
+                "status": "error",
+                "message": f"Check-out not yet available. Check-out starts at {check_out_start.strftime('%I:%M %p')}.",
+                "check_out_available": False,
+                "reason": "check_out_not_started",
+                "start_time": check_out_start.strftime('%I:%M %p'),
+                "server_time": now.isoformat(),
+                "minutes_until_available": int((check_out_start_dt - now).total_seconds() / 60)
+            }, status=400)
+        
+        if check_out_end and now >= check_out_end_dt:
+            return JsonResponse({
+                "status": "error",
+                "message": f"Check-out has ended. Check-out window closed at {check_out_end.strftime('%I:%M %p')}.",
+                "check_out_available": False,
+                "reason": "check_out_ended",
+                "end_time": check_out_end.strftime('%I:%M %p'),
+                "server_time": now.isoformat()
+            }, status=400)
+        
+        # ✅ ANTI-CHEATING MEASURE: Validate geolocation if provided (Defense in depth)
+        user_lat = data.get('latitude')
+        user_lng = data.get('longitude')
+        
+        if user_lat is not None and user_lng is not None:
+            # Get geofences for this event
+            geofences = Geofence.objects.filter(event=event)
+            
+            if geofences.exists():
+                geofence = geofences.first()
+                
+                # Calculate distance using Haversine formula
+                def calculate_distance(lat1, lon1, lat2, lon2):
+                    R = 6371000  # Earth's radius in meters
+                    phi1 = math.radians(lat1)
+                    phi2 = math.radians(lat2)
+                    delta_phi = math.radians(lat2 - lat1)
+                    delta_lambda = math.radians(lon2 - lon1)
+                    
+                    a = math.sin(delta_phi / 2) ** 2 + \
+                        math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+                    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+                    return R * c
+                
+                distance = calculate_distance(
+                    float(user_lat), float(user_lng),
+                    float(geofence.latitude), float(geofence.longitude)
+                )
+                
+                # Check if user is within geofence radius
+                radius = float(geofence.radius)
+                if distance > radius:
+                    return JsonResponse({
+                        "status": "error",
+                        "message": f"You are {int(distance - radius)}m outside the event location. Check-out requires being at the event.",
+                        "reason": "outside_geofence",
+                        "distance": round(distance, 1),
+                        "radius": radius
+                    }, status=400)
+        
+        # Get the member by matching the logged-in user's email to Member.email
+        try:
+            user_email = request.user.email
+            if not user_email:
+                raise Member.DoesNotExist()
+            member = Member.objects.get(email=user_email)
+        except Member.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "Member profile not found for current user"
+            }, status=404)
+
+        # Check if member has an attendance log for this event
+        try:
+            attendance_log = AttendanceLog.objects.get(event=event, member=member)
+            # Update check_out_time with server time
+            attendance_log.check_out_time = timezone.now()  # ✅ Uses SERVER time, not submitted time
+            attendance_log.save()
+            return JsonResponse({
+                "status": "success",
+                "message": f"Successfully checked out from {event.name}",
+                "event": {
+                    "id": event.id,
+                    "name": event.name,
+                }
+            }, status=200)
+        except AttendanceLog.DoesNotExist:
+            return JsonResponse({
+                "status": "error",
+                "message": "You have not checked in to this event yet. Please check in first.",
+                "reason": "not_checked_in"
+            }, status=400)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({
+            "status": "error",
+            "message": "Invalid JSON format"
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"Error checking out: {str(e)}"
         }, status=500)
 
 

@@ -47,6 +47,7 @@ urlpatterns = [
     path("api/attendance/my-records/", views.api_get_my_attendance_records, name="api-my-attendance-records"),
     path("api/attendance/event/<int:event_id>/registered-members/", views.api_get_event_registered_members, name="api-event-registered-members"),
     path("api/attendance/create-geofence/", views.api_create_geofence, name="api-create-geofence"),
+    path("api/attendance/geofences/", views.api_list_geofences, name="api-list-geofences"),
     path("api/attendance/geofences/<int:event_id>/", views.api_get_geofences, name="api-get-geofences"),
     path("api/attendance/delete-geofence/<int:geofence_id>/", views.api_delete_geofence, name="api-delete-geofence"),
     path("api/attendance/upcoming-events/", views.api_get_upcoming_events_unregistered, name="api-upcoming-events"),
@@ -54,6 +55,7 @@ urlpatterns = [
     path("api/attendance/my-attendance-history/", views.api_get_my_attendance_history, name="api-my-attendance-history"),
     path("api/attendance/register-event/", views.api_register_for_event, name="api-register-event"),
     path("api/attendance/check-in/", views.api_check_in_to_event, name="api-check-in-event"),
+    path("api/attendance/check-out/", views.api_check_out_from_event, name="api-check-out-event"),
     
     # Members Module
     path("members/add/", views.members_add_view, name="members-add"),

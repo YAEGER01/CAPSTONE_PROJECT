@@ -5,7 +5,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "django-insecure-change-me-for-production"
 DEBUG = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver", "192.168.1.18", "192.168.1.*"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver", "192.168.1.18", "192.168.1.*", ".ngrok-free.dev"]
+CSRF_TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1", "https://*.ngrok-free.dev"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

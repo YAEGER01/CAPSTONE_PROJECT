@@ -13,7 +13,184 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
   <link rel="stylesheet" href="{% static 'css/members-dashboard.css' %}">
+  <style>
+    /* Map container styling */
+    .checkin-map-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+
+    .checkin-map-modal-content {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 900px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .checkin-map-body {
+      display: flex;
+      flex: 1;
+      gap: 1rem;
+      overflow: hidden;
+      padding: 1rem;
+    }
+
+    .checkin-map-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f0f0f0;
+      min-height: 400px;
+    }
+
+    #checkin-map,
+    #checkout-map {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .checkin-map-legend {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: white;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      font-size: 0.85rem;
+      z-index: 2;
+      display: flex;
+      gap: 1rem;
+    }
+
+    .checkin-map-panel {
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1rem;
+      background: #f5f8fb;
+      border-radius: 8px;
+      overflow-y: auto;
+    }
+
+    .checkin-proximity-status {
+      padding: 1rem;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 500;
+    }
+
+    .checkin-proximity-loading {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .checkin-proximity-within {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .checkin-proximity-outside {
+      background: #ffebee;
+      color: #dc2626;
+    }
+
+    .checkin-proximity-error {
+      background: #fff3e0;
+      color: #f57c00;
+    }
+
+    .checkin-distance-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .checkin-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      background: white;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    .checkin-stat-label {
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .checkin-stat-value {
+      color: #2e7d32;
+      font-weight: 700;
+      font-family: monospace;
+    }
+
+    .checkin-live-hint {
+      margin: 0.5rem 0;
+      padding: 0.75rem;
+      background: white;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: #64748b;
+      text-align: center;
+    }
+
+    .checkin-map-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #cbd5e1;
+    }
+
+    @media (max-width: 768px) {
+      .checkin-map-modal-content {
+        width: 100%;
+        max-width: none;
+        max-height: 100vh;
+      }
+
+      .checkin-map-body {
+        flex-direction: column;
+      }
+
+      .checkin-map-panel {
+        width: 100%;
+        max-height: 200px;
+      }
+
+      .checkin-map-container {
+        min-height: 300px;
+      }
+    }
+  </style>
 </head>
 <body class="system-dashboard">
   <aside class="sidebar">
@@ -506,28 +683,15 @@
         <div>
           <p class="dashboard-label">Events</p>
           <h1>Event Check-In</h1>
-          <p class="dashboard-subtitle">Check-in to registered events using geolocation. You can only check-in when within the event's geofence radius.</p>
+          <p class="dashboard-subtitle">Check-in to registered events using live map tracking. Time In is enabled only when you are within the event geofence.</p>
         </div>
       </header>
       
-      <!-- Map for location verification -->
-      <div id="attendance-map-container" style="display: none; margin-bottom: 2rem; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <div id="attendance-map" style="height: 300px; background: #f0f0f0;"></div>
-      </div>
-
       <div class="attendance-monitor-container">
         <div class="attendance-summary">
           <div class="summary-stat">
             <span class="stat-label">Registered Events</span>
             <p class="stat-value" id="registered-count">0</p>
-          </div>
-          <div class="summary-stat">
-            <span class="stat-label">Events Attended</span>
-            <p class="stat-value" id="attended-count">0</p>
-          </div>
-          <div class="summary-stat">
-            <span class="stat-label">Attendance Rate</span>
-            <p class="stat-value" id="attendance-rate">0%</p>
           </div>
         </div>
 
@@ -538,14 +702,15 @@
                 <th>Event Name</th>
                 <th>Date & Time</th>
                 <th>Location</th>
-                <th>Distance</th>
+                <th>Time In Opens<br><small>Range: --:-- to --:--</small></th>
+                <th>Time Out Opens<br><small>Range: --:-- to --:--</small></th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody id="registered-events-tbody">
               <tr>
-                <td colspan="6" class="empty-state">No registered events. Browse upcoming events to register!</td>
+                <td colspan="7" class="empty-state">No registered events. Browse upcoming events to register!</td>
               </tr>
             </tbody>
           </table>
@@ -570,7 +735,7 @@
             <p class="stat-value" id="total-attended-count">0</p>
           </div>
           <div class="summary-stat">
-            <span class="stat-label">Total Attendance</span>
+            <span class="stat-label">Attendance Rate</span>
             <p class="stat-value" id="total-attendance-pct">0%</p>
           </div>
         </div>
@@ -582,13 +747,14 @@
                 <th>Event Name</th>
                 <th>Date & Time</th>
                 <th>Location</th>
-                <th>Check-In Time</th>
+                <th>Time In</th>
+                <th>Time Out</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody id="attendance-history-tbody">
               <tr>
-                <td colspan="5" class="empty-state">No attendance records yet. Start checking in to events!</td>
+                <td colspan="6" class="empty-state">No attendance records yet. Start checking in to events!</td>
               </tr>
             </tbody>
           </table>
@@ -596,6 +762,113 @@
       </div>
     </div>
     </section>
+
+  <!-- Live Check-In Map Modal -->
+  <div id="checkin-map-modal" class="modal checkin-map-modal" style="display: none;">
+    <div class="modal-content checkin-map-modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 id="checkin-map-title">Event Check-In</h2>
+          <p class="checkin-map-subtitle">Live map — move closer to the event location to enable Time In</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeCheckInMapModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="checkin-map-body">
+        <div id="checkin-map-container" class="checkin-map-container">
+          <div id="checkin-map" style="height: 100%; width: 100%; border-radius: 8px;"></div>
+          <div class="checkin-map-legend">
+            <span><i class="fas fa-map-marker-alt" style="color: #2e7d32;"></i> Event</span>
+            <span><i class="fas fa-circle" style="color: #2196F3; font-size: 0.6rem;"></i> You</span>
+          </div>
+        </div>
+        <div class="checkin-map-panel">
+          <div id="checkin-proximity-status" class="checkin-proximity-status checkin-proximity-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Getting your location...</span>
+          </div>
+          <div class="checkin-distance-info">
+            <div class="checkin-stat">
+              <span class="checkin-stat-label">Check-In Starts</span>
+              <span id="checkin-start-time" class="checkin-stat-value">--</span>
+            </div>
+            <div class="checkin-stat">
+              <span class="checkin-stat-label">Check-In Ends</span>
+              <span id="checkin-end-time" class="checkin-stat-value">--</span>
+            </div>
+            <div class="checkin-stat">
+              <span class="checkin-stat-label">GPS accuracy</span>
+              <span id="checkin-accuracy" class="checkin-stat-value">--</span>
+            </div>
+          </div>
+          <p class="checkin-live-hint"><i class="fas fa-satellite-dish"></i> Live location tracking active</p>
+          <div class="checkin-map-actions">
+            <button type="button" class="btn-secondary" onclick="closeCheckInMapModal()">Cancel</button>
+            <button type="button" id="checkin-request-location-btn" class="btn-secondary" onclick="requestLocationPermission()" style="display: none;">
+              <i class="fas fa-location-arrow"></i> Enable Location
+            </button>
+            <button type="button" id="checkin-manual-location-btn" class="btn-secondary" onclick="showManualLocationEntry()" style="display: none;">
+              <i class="fas fa-map-pin"></i> Enter Location Manually
+            </button>
+            <button type="button" id="checkin-time-in-btn" class="btn-primary checkin-time-in-btn" disabled onclick="handleTimeIn()">
+              <i class="fas fa-clock"></i> Time In
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Check-Out Map Modal -->
+  <div id="checkout-map-modal" class="modal checkin-map-modal" style="display: none;">
+    <div class="modal-content checkin-map-modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 id="checkout-map-title">Event Check-Out</h2>
+          <p class="checkin-map-subtitle">Live map — stay at the event location to complete Time Out</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeCheckOutMapModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="checkin-map-body">
+        <div id="checkout-map-container" class="checkin-map-container">
+          <div id="checkout-map" style="height: 100%; width: 100%; border-radius: 8px;"></div>
+          <div class="checkin-map-legend">
+            <span><i class="fas fa-map-marker-alt" style="color: #dc2626;"></i> Event</span>
+            <span><i class="fas fa-circle" style="color: #2196F3; font-size: 0.6rem;"></i> You</span>
+          </div>
+        </div>
+        <div class="checkin-map-panel">
+          <div id="checkout-proximity-status" class="checkin-proximity-status checkin-proximity-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Getting your location...</span>
+          </div>
+          <div class="checkin-distance-info">
+            <div class="checkin-stat">
+              <span class="checkin-stat-label">Check-Out Starts</span>
+              <span id="checkout-start-time" class="checkin-stat-value">--</span>
+            </div>
+            <div class="checkin-stat">
+              <span class="checkin-stat-label">Check-Out Ends</span>
+              <span id="checkout-end-time" class="checkin-stat-value">--</span>
+            </div>
+            <div class="checkin-stat">
+              <span class="checkin-stat-label">GPS accuracy</span>
+              <span id="checkout-accuracy" class="checkin-stat-value">--</span>
+            </div>
+          </div>
+          <p class="checkin-live-hint"><i class="fas fa-satellite-dish"></i> Live location tracking active</p>
+          <div class="checkin-map-actions">
+            <button type="button" class="btn-secondary" onclick="closeCheckOutMapModal()">Cancel</button>
+            <button type="button" id="checkout-request-location-btn" class="btn-secondary" onclick="requestCheckOutLocationPermission()" style="display: none;">
+              <i class="fas fa-location-arrow"></i> Enable Location
+            </button>
+            <button type="button" id="checkout-time-out-btn" class="btn-primary checkin-time-in-btn" disabled onclick="handleTimeOut()">
+              <i class="fas fa-clock"></i> Time Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <template id="template-officer-create">
     <section class="feature-panel">
@@ -954,6 +1227,24 @@
                 confirmButtonText: 'OK',
                 confirmButtonColor: '#2e7d32',
               }).then(() => {
+                console.log('[handleEventRegistration] Removing event card from DOM...');
+                // ✅ Immediately remove the card from upcoming events list (no refresh needed)
+                const eventCard = document.querySelector(`.event-card[data-event-id="${eventId}"]`);
+                if (eventCard) {
+                  eventCard.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+                  eventCard.style.opacity = '0';
+                  eventCard.style.transform = 'scale(0.95)';
+                  setTimeout(() => {
+                    eventCard.remove();
+                    console.log('[handleEventRegistration] Event card removed from DOM');
+                    // Check if there are any events left
+                    const eventsList = document.getElementById('upcoming-events-list');
+                    if (eventsList && eventsList.children.length === 0) {
+                      eventsList.innerHTML = '<p class="empty-state">No upcoming events available. All upcoming events have been registered!</p>';
+                    }
+                  }, 300);
+                }
+                
                 console.log('[handleEventRegistration] Reloading events and attendance...');
                 // Reload to refresh both tabs
                 if (typeof loadUpcomingEvents === 'function') {
@@ -997,15 +1288,31 @@
       });
     }
 
-    // ────────────── EVENT CHECK-IN WITH GEOFENCE ──────────────
-    let currentMap = null;
-    let userMarker = null;
-    let geofenceCircle = null;
+    // ────────────── EVENT CHECK-IN WITH GEOFENCE ────────────────
+    let checkInMap = null;
+    let checkInUserMarker = null;
+    let checkInGeofenceCircle = null;
+    let checkInEventMarker = null;
+    let checkInConnectionLine = null;
+    let checkInWatchId = null;
+    let checkInState = null;
+    let checkInMapFitted = false;
 
-    function handleEventCheckIn(eventId, eventName) {
-      console.log('[handleEventCheckIn] Starting check-in for event:', eventName);
-      
-      // First check if geolocation is available
+    // ────────────── EVENT CHECK-OUT WITH GEOFENCE ────────────────
+    let checkOutMap = null;
+    let checkOutUserMarker = null;
+    let checkOutGeofenceCircle = null;
+    let checkOutEventMarker = null;
+    let checkOutConnectionLine = null;
+    let checkOutWatchId = null;
+    let checkOutState = null;
+    let checkOutMapFitted = false;
+
+    // ──────────────── EVENT CHECK-OUT HANDLER ────────────────
+    function handleEventCheckOut(eventId, eventName) {
+      console.log('[handleEventCheckOut] Starting check-out for event:', eventName);
+
+      // ANTI-CHEATING: Require geolocation validation before allowing check-out
       if (!navigator.geolocation) {
         Swal.fire({
           icon: 'error',
@@ -1016,26 +1323,272 @@
         });
         return;
       }
-      
-      // Show loading dialog while getting geofence info
+
+      // Check if site is served over HTTPS (required for mobile geolocation)
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'HTTPS Required for Location',
+            html: `
+              <p style="font-size: 0.95rem; margin-bottom: 1rem;">
+                Mobile browsers require HTTPS for location services. This site is currently using HTTP.
+              </p>
+              <div style="background: #fff3e0; padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9800; text-align: left; font-size: 0.85rem;">
+                <strong style="color: #e65100;">Why HTTPS is required:</strong>
+                <p style="color: #64748b; margin-top: 0.5rem;">Mobile browsers (Chrome, Safari) block location access on non-secure connections for security reasons.</p>
+                <p style="color: #64748b; margin-top: 0.5rem;"><strong>Solution:</strong> Access this site using HTTPS or contact your administrator to enable SSL.</p>
+              </div>
+            `,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ff9800'
+          });
+          return;
+        }
+      }
+
       Swal.fire({
         icon: 'info',
-        title: 'Verifying Event Location...',
-        html: 'Loading event geofence data. Please wait...',
+        title: 'Loading Event Location...',
+        html: 'Fetching geofence data for location verification. Please wait...',
         allowOutsideClick: false,
         allowEscapeKey: false,
-        didOpen: () => {
-          Swal.showLoading();
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      // Fetch geofence data for location validation
+      fetch(`/api/attendance/geofences/${eventId}/`)
+        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+        .then(({ ok, data: geofenceData }) => {
+          Swal.close();
+
+          if (!ok || geofenceData.status === 'error') {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error Loading Geofence',
+              text: geofenceData.message || 'Unable to load event geofence data. Please try again.',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626'
+            });
+            return;
+          }
+
+          if (!geofenceData.geofences || geofenceData.geofences.length === 0) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Geofence Not Configured',
+              text: 'This event does not have a geofence configured by the admin. Check-out cannot be verified.',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626'
+            });
+            return;
+          }
+
+          // Validate user location before showing check-out confirmation
+          validateLocationForCheckOut(eventId, eventName, geofenceData.geofences[0], geofenceData.event);
+        })
+        .catch(err => {
+          Swal.close();
+          console.error('[handleEventCheckOut] Error fetching geofence:', err);
+          Swal.fire({
+            icon: 'error',
+            title: 'Error Loading Geofence',
+            text: 'Unable to load event geofence data. Please try again.',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#dc2626'
+          });
+        });
+    }
+
+    function validateLocationForCheckOut(eventId, eventName, geofence, eventData) {
+      console.log('[validateLocationForCheckOut] Opening map modal for check-out location verification');
+      openCheckOutMapModal(eventId, eventName, geofence, eventData);
+    }
+
+    function showCheckOutConfirmation(eventId, eventName, locationData) {
+      console.log('[showCheckOutConfirmation] Showing check-out confirmation for event:', eventName);
+      const distance = Math.round(locationData.distance);
+      const accuracy = locationData.accuracy ? Math.round(locationData.accuracy) : null;
+
+      Swal.fire({
+        icon: 'question',
+        title: 'Confirm Check-Out',
+        html: `
+          <p style="font-size: 1rem; margin-bottom: 1rem;">
+            Are you sure you want to check out from this event?
+          </p>
+          <div style="background: #f5f8fb; padding: 1rem; border-radius: 8px; text-align: left; font-size: 0.9rem;">
+            <strong style="color: #dc2626;">📋 ${escapeHtml(eventName)}</strong>
+            <p style="color: #64748b; margin-top: 0.5rem;">Your check-out time will be recorded.</p>
+            <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #cbd5e1; font-size: 0.85rem; color: #7a1c4d;">
+              <p style="margin: 0.25rem 0;"><strong>✅ Location Verified:</strong> ${distance}m from event (±${accuracy}m accuracy)</p>
+              <p style="margin: 0.25rem 0; color: #059669;"><i class="fas fa-shield-alt"></i> Security check passed</p>
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Check Out',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#9e9e9e',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }).then((result) => {
+        if (result.isConfirmed) {
+          console.log('[showCheckOutConfirmation] User confirmed check-out');
+
+          // Show loading state
+          Swal.fire({
+            icon: 'info',
+            title: 'Checking You Out...',
+            html: 'Recording your check-out time. Please wait...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+              Swal.showLoading();
+            }
+          });
+
+          // Call API to check-out from event
+          const csrftoken = getCookie('csrftoken');
+          console.log('[showCheckOutConfirmation] CSRF token:', csrftoken ? 'present' : 'MISSING');
+          console.log('[showCheckOutConfirmation] Event ID:', eventId);
+
+          fetch('/api/attendance/check-out/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+              event_id: eventId,
+              latitude: locationData.userLat,
+              longitude: locationData.userLng
+            })
+          })
+          .then(res => {
+            console.log('[showCheckOutConfirmation] Response status:', res.status);
+            return res.json().then(data => ({
+              status: res.status,
+              ok: res.ok,
+              data: data
+            }));
+          })
+          .then(({ status, ok, data }) => {
+            console.log('[showCheckOutConfirmation] Parsed response:', { status, ok, data });
+
+            if (ok && data.status === 'success') {
+              Swal.fire({
+                icon: 'success',
+                title: 'Check-Out Successful!',
+                html: `
+                  <p style="font-size: 0.95rem; margin-bottom: 1rem;">
+                    You have successfully checked out from:
+                  </p>
+                  <div style="background: #f5e6f3; padding: 1rem; border-radius: 8px; border-left: 4px solid #dc2626;">
+                    <strong style="color: #7a1c4d;">${escapeHtml(eventName)}</strong>
+                    <p style="color: #7a1c4d; margin-top: 0.5rem; font-size: 0.85rem;">
+                      <i class="fas fa-check-circle"></i> Your attendance has been completed.
+                    </p>
+                  </div>
+                `,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#dc2626',
+              }).then(() => {
+                console.log('[showCheckOutConfirmation] Reloading attendance...');
+                if (typeof loadAttendanceLog === 'function') {
+                  loadAttendanceLog();
+                }
+              });
+            } else {
+              console.error('[showCheckOutConfirmation] API returned error:', data);
+              Swal.fire({
+                icon: 'error',
+                title: 'Check-Out Failed',
+                text: data.message || 'Unable to check out from this event. Please try again.',
+                confirmButtonColor: '#dc2626'
+              });
+            }
+          })
+          .catch(err => {
+            console.error('[showCheckOutConfirmation] Network/Parse error:', err);
+            Swal.fire({
+              icon: 'error',
+              title: 'Check-Out Error',
+              text: 'An error occurred while checking out: ' + (err.message || 'Unknown error') + '. Please try again.',
+              confirmButtonColor: '#dc2626'
+            });
+          });
+        } else {
+          console.log('[showCheckOutConfirmation] User cancelled check-out');
         }
       });
-      
-      // Get geofence data for this event
+    }
+
+    function handleEventCheckIn(eventId, eventName) {
+      console.log('[handleEventCheckIn] Starting check-in for event:', eventName);
+
+      if (!navigator.geolocation) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Geolocation Not Supported',
+          text: 'Your browser does not support geolocation. Please use a modern browser with location support.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc2626'
+        });
+        return;
+      }
+
+      // Check if site is served over HTTPS (required for mobile geolocation)
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'HTTPS Required for Location',
+            html: `
+              <p style="font-size: 0.95rem; margin-bottom: 1rem;">
+                Mobile browsers require HTTPS for location services. This site is currently using HTTP.
+              </p>
+              <div style="background: #fff3e0; padding: 1rem; border-radius: 8px; border-left: 4px solid #ff9800; text-align: left; font-size: 0.85rem;">
+                <strong style="color: #e65100;">Why HTTPS is required:</strong>
+                <p style="color: #64748b; margin-top: 0.5rem;">Mobile browsers (Chrome, Safari) block location access on non-secure connections for security reasons.</p>
+                <p style="color: #64748b; margin-top: 0.5rem;"><strong>Solution:</strong> Access this site using HTTPS or contact your administrator to enable SSL.</p>
+              </div>
+            `,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ff9800'
+          });
+          return;
+        }
+      }
+
+      Swal.fire({
+        icon: 'info',
+        title: 'Loading Event Location...',
+        html: 'Fetching geofence data. Please wait...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
       fetch(`/api/attendance/geofences/${eventId}/`)
-        .then(res => res.json())
-        .then(geofenceData => {
-          console.log('[handleEventCheckIn] Geofence data:', geofenceData);
-          
-          // STRICT: Geofence MUST be set for check-in
+        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+        .then(({ ok, data: geofenceData }) => {
+          Swal.close();
+
+          if (!ok || geofenceData.status === 'error') {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error Loading Geofence',
+              text: geofenceData.message || 'Unable to load event geofence data. Please try again.',
+              confirmButtonText: 'OK',
+              confirmButtonColor: '#dc2626'
+            });
+            return;
+          }
+
           if (!geofenceData.geofences || geofenceData.geofences.length === 0) {
             Swal.fire({
               icon: 'error',
@@ -1046,94 +1599,11 @@
             });
             return;
           }
-          
-          // Now request user's location
-          Swal.fire({
-            icon: 'info',
-            title: 'Getting Your Location...',
-            html: 'Please allow location access to check-in to this event. Your device location must be enabled.',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            didOpen: () => {
-              Swal.showLoading();
-            }
-          });
-          
-          // Get user's location with timeout
-          const locationTimeout = setTimeout(() => {
-            Swal.close();
-            Swal.fire({
-              icon: 'error',
-              title: 'Location Timeout',
-              text: 'Unable to get your location. Please ensure: 1) Location is enabled on your device, 2) GPS is active, 3) You are outdoors if using GPS',
-              confirmButtonText: 'OK',
-              confirmButtonColor: '#dc2626'
-            });
-          }, 15000); // 15 second timeout
-          
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              clearTimeout(locationTimeout);
-              
-              const userLat = position.coords.latitude;
-              const userLng = position.coords.longitude;
-              const accuracy = position.coords.accuracy; // Accuracy in meters
-              const geofence = geofenceData.geofences[0];
-              
-              console.log('[handleEventCheckIn] User location:', { userLat, userLng, accuracy });
-              console.log('[handleEventCheckIn] Geofence center:', { lat: geofence.latitude, lng: geofence.longitude, radius: geofence.radius });
-              
-              // Calculate distance to event center
-              const distance = calculateDistance(userLat, userLng, geofence.latitude, geofence.longitude);
-              console.log('[handleEventCheckIn] Distance to event:', distance, 'meters, Radius:', geofence.radius, 'meters');
-              
-              // STRICT: Must be within geofence radius
-              const isWithinGeofence = distance <= geofence.radius;
-              
-              showCheckInDialog(eventId, eventName, isWithinGeofence, {
-                userLat, userLng,
-                geofenceLat: geofence.latitude,
-                geofenceLng: geofence.longitude,
-                radius: geofence.radius,
-                distance,
-                accuracy
-              });
-            },
-            (error) => {
-              clearTimeout(locationTimeout);
-              console.error('[handleEventCheckIn] Geolocation error:', error);
-              
-              let errorMsg = '';
-              switch(error.code) {
-                case error.PERMISSION_DENIED:
-                  errorMsg = 'Location permission denied. Please enable location in your browser settings and try again.';
-                  break;
-                case error.POSITION_UNAVAILABLE:
-                  errorMsg = 'Location information is unavailable. Ensure your device location is enabled.';
-                  break;
-                case error.TIMEOUT:
-                  errorMsg = 'Location request timeout. Please ensure GPS is enabled and try again.';
-                  break;
-                default:
-                  errorMsg = 'Unable to retrieve your location. Please check your device location settings.';
-              }
-              
-              Swal.fire({
-                icon: 'error',
-                title: 'Location Access Failed',
-                html: `<strong>Issue:</strong> ${errorMsg}<br><br><small>Make sure: <br>✓ Location permission is granted<br>✓ GPS/Location services are enabled<br>✓ You are outdoors for GPS signal</small>`,
-                confirmButtonText: 'OK',
-                confirmButtonColor: '#dc2626'
-              });
-            },
-            {
-              enableHighAccuracy: true, // Request high accuracy (GPS)
-              timeout: 10000,
-              maximumAge: 0 // Don't use cached position
-            }
-          );
+
+          openCheckInMapModal(eventId, eventName, geofenceData.geofences[0], geofenceData.event);
         })
         .catch(err => {
+          Swal.close();
           console.error('[handleEventCheckIn] Error fetching geofence:', err);
           Swal.fire({
             icon: 'error',
@@ -1143,6 +1613,831 @@
             confirmButtonColor: '#dc2626'
           });
         });
+    }
+
+    function openCheckInMapModal(eventId, eventName, geofence, eventData) {
+      checkInState = {
+        eventId,
+        eventName,
+        geofenceLat: parseFloat(geofence.latitude),
+        geofenceLng: parseFloat(geofence.longitude),
+        radius: parseFloat(geofence.radius),
+        locationName: geofence.location || geofence.name || 'Event location',
+        userLat: null,
+        userLng: null,
+        accuracy: null,
+        distance: null,
+        eventStartTime: eventData ? eventData.start_time : null,
+        eventEndTime: eventData ? eventData.end_time : null
+      };
+      checkInMapFitted = false;
+
+      document.getElementById('checkin-map-title').textContent = `Check-In: ${eventName}`;
+      
+      // Set start and end times from the event data
+      // Use checkin_time_in and checkin_time_in_end if available, fallback to event times
+      let startTimeDisplay = '--';
+      let endTimeDisplay = '--';
+      if (eventData && eventData.checkin_time_in) {
+        startTimeDisplay = eventData.checkin_time_in;
+      } else if (checkInState.eventStartTime) {
+        startTimeDisplay = checkInState.eventStartTime;
+      }
+      if (eventData && eventData.checkin_time_in_end) {
+        endTimeDisplay = eventData.checkin_time_in_end;
+      } else if (checkInState.eventEndTime) {
+        endTimeDisplay = checkInState.eventEndTime;
+      }
+      
+      document.getElementById('checkin-start-time').textContent = startTimeDisplay;
+      document.getElementById('checkin-end-time').textContent = endTimeDisplay;
+      document.getElementById('checkin-accuracy').textContent = '--';
+
+      const timeInBtn = document.getElementById('checkin-time-in-btn');
+      timeInBtn.disabled = true;
+
+      updateCheckInProximityUI('loading');
+
+      document.getElementById('checkin-map-modal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+
+      setTimeout(() => {
+        initCheckInMap();
+        startCheckInLocationWatch();
+      }, 150);
+    }
+
+    function initCheckInMap() {
+      if (checkInMap) {
+        checkInMap.remove();
+        checkInMap = null;
+        checkInUserMarker = null;
+        checkInGeofenceCircle = null;
+        checkInEventMarker = null;
+        checkInConnectionLine = null;
+      }
+
+      const { geofenceLat, geofenceLng, radius, locationName } = checkInState;
+
+      checkInMap = L.map('checkin-map', { zoomControl: true }).setView([geofenceLat, geofenceLng], 17);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(checkInMap);
+
+      checkInEventMarker = L.marker([geofenceLat, geofenceLng], {
+        icon: L.icon({
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        })
+      }).addTo(checkInMap).bindPopup(`<strong>Event Location</strong><br>${escapeHtml(locationName)}`);
+
+      checkInGeofenceCircle = L.circle([geofenceLat, geofenceLng], {
+        radius: radius,
+        color: '#2e7d32',
+        fillColor: '#4caf50',
+        fillOpacity: 0.2,
+        weight: 2,
+        dashArray: '5, 5'
+      }).addTo(checkInMap);
+
+      checkInMap.fitBounds(checkInGeofenceCircle.getBounds(), { padding: [50, 50] });
+      checkInMap.invalidateSize();
+    }
+
+    function startCheckInLocationWatch() {
+      if (checkInWatchId !== null) {
+        navigator.geolocation.clearWatch(checkInWatchId);
+        checkInWatchId = null;
+      }
+
+      // Mobile-friendly geolocation options
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const geoOptions = {
+        enableHighAccuracy: isMobile ? true : false, // Enable GPS on mobile for accurate location; accept lower accuracy on desktop since IP geolocation is inherently less precise
+        maximumAge: isMobile ? 0 : 5000, // No cache on mobile (want fresh GPS); on desktop allow slightly cached location (5 seconds)
+        timeout: isMobile ? 30000 : 15000 // Longer timeout for mobile (30 seconds vs 15 seconds)
+      };
+
+      console.log('[startCheckInLocationWatch] Starting location watch with options:', geoOptions);
+
+      // Safety timeout: if location is not retrieved within 20 seconds, offer manual entry
+      let locationTimeoutId = null;
+      const startTime = Date.now();
+      const maxWaitTime = 20000; // 20 seconds
+
+      const setSafetyTimeout = () => {
+        locationTimeoutId = setTimeout(() => {
+          const elapsedTime = Date.now() - startTime;
+          console.warn(`[startCheckInLocationWatch] Location not obtained after ${elapsedTime}ms. Showing manual entry option.`);
+          updateCheckInProximityUI('error', 
+            'Location is taking too long to retrieve. This is common in areas with poor GPS signal or indoors. Please use manual location entry below, or move outdoors and try again.',
+            true, // show retry button
+            true  // show request button
+          );
+        }, maxWaitTime);
+      };
+
+      setSafetyTimeout();
+
+      checkInWatchId = navigator.geolocation.watchPosition(
+        (position) => {
+          // Clear the safety timeout once we have a location
+          if (locationTimeoutId) clearTimeout(locationTimeoutId);
+
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          const accuracy = position.coords.accuracy;
+
+          checkInState.userLat = userLat;
+          checkInState.userLng = userLng;
+          checkInState.accuracy = accuracy;
+          checkInState.distance = calculateDistance(
+            userLat, userLng,
+            checkInState.geofenceLat, checkInState.geofenceLng
+          );
+
+          updateUserLocationOnMap(userLat, userLng);
+          updateCheckInProximityUI(checkInState.distance <= checkInState.radius ? 'within' : 'outside');
+        },
+        (error) => {
+          // Clear the safety timeout on error
+          if (locationTimeoutId) clearTimeout(locationTimeoutId);
+
+          console.error('[startCheckInLocationWatch] Geolocation error:', error);
+          let errorMsg = 'Unable to retrieve your location.';
+          let showRetryButton = false;
+          let showRequestButton = false;
+
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              // Detect browser type for specific instructions
+              const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+              const isSafari = /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor);
+              const isFirefox = /Firefox/.test(navigator.userAgent);
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+              
+              if (isMobile) {
+                if (isSafari) {
+                  errorMsg = 'Location permission denied. <strong>iPhone/iPad:</strong> Settings > Safari > Location > "Ask" or "Allow". Then refresh.';
+                } else if (isChrome) {
+                  errorMsg = 'Location permission denied. <strong>Chrome:</strong> Tap 🔒 in address bar > Site settings > Location > "Allow". Then refresh.';
+                } else if (isFirefox) {
+                  errorMsg = 'Location permission denied. <strong>Firefox:</strong> Tap 🔒 in address bar > Permissions > Location > "Allow". Then refresh.';
+                } else {
+                  errorMsg = 'Location permission denied. <strong>Important:</strong> Phone location ON ≠ Browser permission. Check browser settings for this site (look for 🔒 icon).';
+                }
+              } else {
+                errorMsg = 'Location permission denied. Please enable location in your browser settings for this site.';
+              }
+              showRetryButton = true;
+              showRequestButton = true;
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMsg = 'Location information is unavailable. Try moving outdoors or check your GPS signal.';
+              showRetryButton = true;
+              break;
+            case error.TIMEOUT:
+              errorMsg = 'Location request timed out. This is common indoors or with poor GPS. Try moving near a window or use manual location entry.';
+              showRetryButton = true;
+              break;
+          }
+          updateCheckInProximityUI('error', errorMsg, showRetryButton, showRequestButton);
+        },
+        geoOptions
+      );
+    }
+
+    function updateUserLocationOnMap(userLat, userLng) {
+      if (!checkInMap) return;
+
+      if (checkInUserMarker) {
+        checkInUserMarker.setLatLng([userLat, userLng]);
+      } else {
+        checkInUserMarker = L.circleMarker([userLat, userLng], {
+          radius: 10,
+          color: '#1565C0',
+          fillColor: '#2196F3',
+          fillOpacity: 0.9,
+          weight: 3,
+        }).addTo(checkInMap).bindPopup('Your Location');
+      }
+
+      const { geofenceLat, geofenceLng } = checkInState;
+      const latlngs = [[userLat, userLng], [geofenceLat, geofenceLng]];
+      if (checkInConnectionLine) {
+        checkInConnectionLine.setLatLngs(latlngs);
+      } else {
+        checkInConnectionLine = L.polyline(latlngs, {
+          color: '#1976D2',
+          weight: 2,
+          dashArray: '6, 8',
+          opacity: 0.65
+        }).addTo(checkInMap);
+      }
+
+      const group = L.featureGroup([checkInGeofenceCircle, checkInUserMarker]);
+      if (!checkInMapFitted) {
+        checkInMap.fitBounds(group.getBounds(), { padding: [40, 40], maxZoom: 18 });
+        checkInMapFitted = true;
+      }
+    }
+
+    function updateCheckInProximityUI(status, errorMsg, showRetryButton = false, showRequestButton = false) {
+      const statusEl = document.getElementById('checkin-proximity-status');
+      const timeInBtn = document.getElementById('checkin-time-in-btn');
+      const requestBtn = document.getElementById('checkin-request-location-btn');
+      const manualBtn = document.getElementById('checkin-manual-location-btn');
+      const distanceEl = document.getElementById('checkin-distance');
+      const accuracyEl = document.getElementById('checkin-accuracy');
+
+      if (status === 'loading') {
+        if (statusEl) {
+          statusEl.className = 'checkin-proximity-status checkin-proximity-loading';
+          statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Getting your location...</span>';
+        }
+        if (timeInBtn) timeInBtn.disabled = true;
+        if (requestBtn) requestBtn.style.display = 'none';
+        if (manualBtn) manualBtn.style.display = 'none';
+        return;
+      }
+
+      if (status === 'error') {
+        if (statusEl) {
+          statusEl.className = 'checkin-proximity-status checkin-proximity-outside';
+          let errorHtml = `<i class="fas fa-exclamation-triangle"></i><span>${escapeHtml(errorMsg || 'Location error')}</span>`;
+          if (showRetryButton) {
+            errorHtml += `<button type="button" class="btn-retry-location" onclick="retryLocationPermission()" style="margin-left: 10px; padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"><i class="fas fa-redo"></i> Retry</button>`;
+          }
+          statusEl.innerHTML = errorHtml;
+        }
+        if (timeInBtn) timeInBtn.disabled = true;
+        
+        // Show the "Enable Location" button if permission was denied
+        if (showRequestButton && requestBtn) {
+          requestBtn.style.display = 'inline-block';
+        } else if (requestBtn) {
+          requestBtn.style.display = 'none';
+        }
+        
+        // Show manual location entry as fallback
+        if (manualBtn) {
+          manualBtn.style.display = 'inline-block';
+        }
+        return;
+      }
+
+      const distanceMeters = Math.round(checkInState.distance);
+      const radiusMeters = Math.round(checkInState.radius);
+      const remaining = Math.max(0, distanceMeters - radiusMeters);
+      const accuracy = checkInState.accuracy ? Math.round(checkInState.accuracy) : '--';
+
+      if (distanceEl) distanceEl.textContent = `${distanceMeters}m`;
+      if (accuracyEl) accuracyEl.textContent = accuracy !== '--' ? `±${accuracy}m` : '--';
+
+      if (status === 'within') {
+        if (statusEl) {
+          statusEl.className = 'checkin-proximity-status checkin-proximity-within';
+          statusEl.innerHTML = '<i class="fas fa-check-circle"></i><span>You are within the event area — Time In is available</span>';
+        }
+        if (timeInBtn) timeInBtn.disabled = false;
+      } else {
+        if (statusEl) {
+          statusEl.className = 'checkin-proximity-status checkin-proximity-outside';
+          statusEl.innerHTML = `<i class="fas fa-walking"></i><span>Move ${remaining}m closer to the event to Time In</span>`;
+        }
+        if (timeInBtn) timeInBtn.disabled = true;
+      }
+      
+      // Hide the request and manual buttons when location is working
+      if (requestBtn) requestBtn.style.display = 'none';
+      if (manualBtn) manualBtn.style.display = 'none';
+    }
+
+    function handleTimeIn() {
+      if (!checkInState || checkInState.userLat == null || checkInState.userLng == null) return;
+
+      const distance = calculateDistance(
+        checkInState.userLat, checkInState.userLng,
+        checkInState.geofenceLat, checkInState.geofenceLng
+      );
+      if (distance > checkInState.radius) return;
+
+      const locationData = {
+        userLat: checkInState.userLat,
+        userLng: checkInState.userLng,
+        geofenceLat: checkInState.geofenceLat,
+        geofenceLng: checkInState.geofenceLng,
+        radius: checkInState.radius,
+        distance,
+        accuracy: checkInState.accuracy
+      };
+      const eventId = checkInState.eventId;
+      const eventName = checkInState.eventName;
+
+      closeCheckInMapModal();
+      proceedWithCheckIn(eventId, eventName, locationData);
+    }
+
+    function requestLocationPermission() {
+      console.log('[requestLocationPermission] Requesting location permission...');
+      
+      // Hide the request button and show loading
+      const requestBtn = document.getElementById('checkin-request-location-btn');
+      if (requestBtn) {
+        requestBtn.style.display = 'none';
+      }
+      updateCheckInProximityUI('loading');
+      
+      // Clear existing watch
+      if (checkInWatchId !== null) {
+        navigator.geolocation.clearWatch(checkInWatchId);
+        checkInWatchId = null;
+      }
+      
+      // Request permission using getCurrentPosition with mobile-friendly options
+      if (navigator.geolocation) {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('[requestLocationPermission] Permission granted, starting watch...');
+            // If successful, start the watch again
+            startCheckInLocationWatch();
+          },
+          (error) => {
+            console.error('[requestLocationPermission] Permission denied:', error);
+            let errorMsg = 'Location permission denied. Please enable location in your browser settings.';
+            let showRequestBtn = false;
+            
+            if (error.code === error.PERMISSION_DENIED) {
+              // Detect browser type for specific instructions
+              const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+              const isSafari = /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor);
+              const isFirefox = /Firefox/.test(navigator.userAgent);
+              
+              if (isMobile) {
+                if (isSafari) {
+                  errorMsg = 'Location permission denied. <strong>For iPhone/iPad:</strong> Settings > Safari > Location > "Ask" or "Allow". Then refresh this page.';
+                } else if (isChrome) {
+                  errorMsg = 'Location permission denied. <strong>For Chrome:</strong> Tap the lock icon 🔒 in the address bar > "Site settings" > Location > "Allow". Then refresh.';
+                } else if (isFirefox) {
+                  errorMsg = 'Location permission denied. <strong>For Firefox:</strong> Tap the lock icon 🔒 in the address bar > "Permissions" > Location > "Allow". Then refresh.';
+                } else {
+                  errorMsg = 'Location permission denied. <strong>Mobile:</strong> Check your browser\'s location settings for this site. Phone location ON ≠ Browser permission. Look for a lock icon 🔒 or permission prompt in the address bar.';
+                }
+              } else {
+                errorMsg = 'Location permission denied. Please enable location in your browser settings for this site.';
+              }
+              showRequestBtn = true;
+            } else if (error.code === error.TIMEOUT) {
+              errorMsg = 'Location request timed out. This is common indoors or with poor GPS. Try moving near a window or outdoors.';
+              showRequestBtn = true;
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+              errorMsg = 'Location unavailable. GPS signal may be weak. Try moving outdoors or to a location with better signal.';
+              showRequestBtn = true;
+            }
+            
+            updateCheckInProximityUI('error', errorMsg, true);
+            
+            // Show the request button again if permission was denied
+            if (showRequestBtn && requestBtn) {
+              requestBtn.style.display = 'inline-block';
+            }
+          },
+          {
+            enableHighAccuracy: isMobile ? true : false, // Enable GPS on mobile for accurate location; accept lower accuracy on desktop
+            maximumAge: isMobile ? 0 : 5000, // No cache on mobile; allow slightly cached on desktop
+            timeout: isMobile ? 30000 : 15000
+          }
+        );
+      } else {
+        updateCheckInProximityUI('error', 'Geolocation is not supported by your browser.');
+      }
+    }
+
+    function showManualLocationEntry() {
+      console.log('[showManualLocationEntry] Showing manual location entry dialog...');
+      
+      Swal.fire({
+        title: 'Enter Location Manually',
+        html: `
+          <div style="text-align: left; font-size: 0.9rem;">
+            <p style="margin-bottom: 1rem; color: #64748b;">
+              Since automatic location is not available, you can enter your coordinates manually or use your current location from another device.
+            </p>
+            <div style="background: #f5f8fb; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+              <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #12263f;">Latitude:</label>
+              <input type="number" id="manual-lat" step="any" placeholder="e.g., 17.123456" style="width: 100%; padding: 0.5rem; border: 1px solid #d9e2ec; border-radius: 4px; margin-bottom: 0.75rem;">
+              
+              <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #12263f;">Longitude:</label>
+              <input type="number" id="manual-lng" step="any" placeholder="e.g., 121.123456" style="width: 100%; padding: 0.5rem; border: 1px solid #d9e2ec; border-radius: 4px; margin-bottom: 0.75rem;">
+            </div>
+            <p style="font-size: 0.8rem; color: #64748b; margin: 0;">
+              <strong>Tip:</strong> You can get your coordinates from Google Maps - tap and hold on your location to see the coordinates.
+            </p>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Use This Location',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#2e7d32',
+        cancelButtonColor: '#9e9e9e',
+        preConfirm: () => {
+          const lat = document.getElementById('manual-lat').value;
+          const lng = document.getElementById('manual-lng').value;
+          
+          if (!lat || !lng) {
+            Swal.showValidationMessage('Please enter both latitude and longitude');
+            return false;
+          }
+          
+          const latNum = parseFloat(lat);
+          const lngNum = parseFloat(lng);
+          
+          if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+            Swal.showValidationMessage('Please enter valid coordinates (Lat: -90 to 90, Lng: -180 to 180)');
+            return false;
+          }
+          
+          return { lat: latNum, lng: lngNum };
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          const { lat, lng } = result.value;
+          console.log('[showManualLocationEntry] Using manual location:', lat, lng);
+          
+          // Update the state with manual location
+          checkInState.userLat = lat;
+          checkInState.userLng = lng;
+          checkInState.accuracy = null; // No accuracy for manual entry
+          checkInState.distance = calculateDistance(lat, lng, checkInState.geofenceLat, checkInState.geofenceLng);
+          
+          // Update the map and UI
+          updateUserLocationOnMap(lat, lng);
+          updateCheckInProximityUI(checkInState.distance <= checkInState.radius ? 'within' : 'outside');
+          
+          // Stop the location watch since we're using manual location
+          if (checkInWatchId !== null) {
+            navigator.geolocation.clearWatch(checkInWatchId);
+            checkInWatchId = null;
+          }
+          
+          // Update accuracy display
+          const accuracyEl = document.getElementById('checkin-accuracy');
+          if (accuracyEl) {
+            accuracyEl.textContent = 'Manual';
+          }
+        }
+      });
+    }
+
+    function retryLocationPermission() {
+      console.log('[retryLocationPermission] Retrying location permission request...');
+      updateCheckInProximityUI('loading');
+      
+      // Clear existing watch
+      if (checkInWatchId !== null) {
+        navigator.geolocation.clearWatch(checkInWatchId);
+        checkInWatchId = null;
+      }
+      
+      // Request permission first using getCurrentPosition
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('[retryLocationPermission] Permission granted, starting watch...');
+            // If successful, start the watch again
+            startCheckInLocationWatch();
+          },
+          (error) => {
+            console.error('[retryLocationPermission] Permission still denied:', error);
+            let errorMsg = 'Location permission still denied. Please check your browser settings.';
+            if (error.code === error.PERMISSION_DENIED) {
+              errorMsg = 'Location permission denied. Please enable location in your browser settings and refresh the page.';
+            }
+            updateCheckInProximityUI('error', errorMsg, true);
+          },
+          {
+            enableHighAccuracy: false,
+            maximumAge: 0,
+            timeout: 10000
+          }
+        );
+      } else {
+        updateCheckInProximityUI('error', 'Geolocation is not supported by your browser.');
+      }
+    }
+
+    function closeCheckInMapModal() {
+      if (checkInWatchId !== null) {
+        navigator.geolocation.clearWatch(checkInWatchId);
+        checkInWatchId = null;
+      }
+      if (checkInMap) {
+        checkInMap.remove();
+        checkInMap = null;
+      }
+      checkInUserMarker = null;
+      checkInGeofenceCircle = null;
+      checkInEventMarker = null;
+      checkInConnectionLine = null;
+      checkInState = null;
+      checkInMapFitted = false;
+      document.getElementById('checkin-map-modal').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    function openCheckOutMapModal(eventId, eventName, geofence, eventData) {
+      checkOutState = {
+        eventId,
+        eventName,
+        geofenceLat: parseFloat(geofence.latitude),
+        geofenceLng: parseFloat(geofence.longitude),
+        radius: parseFloat(geofence.radius),
+        locationName: geofence.location || geofence.name || 'Event location',
+        userLat: null,
+        userLng: null,
+        accuracy: null,
+        distance: null
+      };
+      checkOutMapFitted = false;
+
+      document.getElementById('checkout-map-title').textContent = `Check-Out: ${eventName}`;
+      
+      // Set start and end times from the event data
+      // Use checkin_time_out and checkin_time_out_end if available
+      let startTimeDisplay = '--';
+      let endTimeDisplay = '--';
+      if (eventData && eventData.checkin_time_out) {
+        startTimeDisplay = eventData.checkin_time_out;
+      }
+      if (eventData && eventData.checkin_time_out_end) {
+        endTimeDisplay = eventData.checkin_time_out_end;
+      }
+      
+      document.getElementById('checkout-start-time').textContent = startTimeDisplay;
+      document.getElementById('checkout-end-time').textContent = endTimeDisplay;
+      document.getElementById('checkout-accuracy').textContent = '--';
+
+      const timeOutBtn = document.getElementById('checkout-time-out-btn');
+      timeOutBtn.disabled = true;
+
+      updateCheckOutProximityUI('loading');
+
+      document.getElementById('checkout-map-modal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+
+      setTimeout(() => {
+        initCheckOutMap();
+        startCheckOutLocationWatch();
+      }, 150);
+    }
+
+    function initCheckOutMap() {
+      if (checkOutMap) {
+        checkOutMap.remove();
+        checkOutMap = null;
+        checkOutUserMarker = null;
+        checkOutGeofenceCircle = null;
+        checkOutEventMarker = null;
+        checkOutConnectionLine = null;
+      }
+
+      const { geofenceLat, geofenceLng, radius, locationName } = checkOutState;
+
+      checkOutMap = L.map('checkout-map', { zoomControl: true }).setView([geofenceLat, geofenceLng], 17);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(checkOutMap);
+
+      checkOutEventMarker = L.marker([geofenceLat, geofenceLng], {
+        icon: L.icon({
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        })
+      }).addTo(checkOutMap).bindPopup(`<strong>Event Location</strong><br>${escapeHtml(locationName)}`);
+
+      checkOutGeofenceCircle = L.circle([geofenceLat, geofenceLng], {
+        radius: radius,
+        color: '#dc2626',
+        fillColor: '#ef4444',
+        fillOpacity: 0.2,
+        weight: 2,
+        dashArray: '5, 5'
+      }).addTo(checkOutMap);
+
+      checkOutMap.fitBounds(checkOutGeofenceCircle.getBounds(), { padding: [50, 50] });
+      checkOutMap.invalidateSize();
+    }
+
+    function startCheckOutLocationWatch() {
+      if (checkOutWatchId !== null) {
+        navigator.geolocation.clearWatch(checkOutWatchId);
+        checkOutWatchId = null;
+      }
+
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const geoOptions = {
+        enableHighAccuracy: isMobile ? true : false, // Enable GPS on mobile for accurate location; accept lower accuracy on desktop since IP geolocation is inherently less precise
+        maximumAge: isMobile ? 0 : 5000, // No cache on mobile (want fresh GPS); on desktop allow slightly cached location (5 seconds)
+        timeout: isMobile ? 30000 : 15000 // Longer timeout for mobile (30 seconds vs 15 seconds)
+      };
+
+      let locationTimeoutId = null;
+      const startTime = Date.now();
+      const maxWaitTime = 20000;
+
+      const setSafetyTimeout = () => {
+        locationTimeoutId = setTimeout(() => {
+          const elapsedTime = Date.now() - startTime;
+          console.warn(`[startCheckOutLocationWatch] Location not obtained after ${elapsedTime}ms`);
+          updateCheckOutProximityUI('error', 'Location is taking too long. Try moving outdoors.', true, true);
+        }, maxWaitTime);
+      };
+
+      setSafetyTimeout();
+
+      checkOutWatchId = navigator.geolocation.watchPosition(
+        (position) => {
+          if (locationTimeoutId) clearTimeout(locationTimeoutId);
+
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          const accuracy = position.coords.accuracy;
+
+          checkOutState.userLat = userLat;
+          checkOutState.userLng = userLng;
+          checkOutState.accuracy = accuracy;
+          checkOutState.distance = calculateDistance(
+            userLat, userLng,
+            checkOutState.geofenceLat, checkOutState.geofenceLng
+          );
+
+          updateCheckOutUserLocationOnMap(userLat, userLng);
+          updateCheckOutProximityUI(checkOutState.distance <= checkOutState.radius ? 'within' : 'outside');
+        },
+        (error) => {
+          if (locationTimeoutId) clearTimeout(locationTimeoutId);
+
+          console.error('[startCheckOutLocationWatch] Geolocation error:', error);
+          let errorMsg = 'Unable to retrieve your location.';
+
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMsg = 'Location permission denied. Enable it in browser settings.';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMsg = 'Location information is unavailable. Move outdoors.';
+              break;
+            case error.TIMEOUT:
+              errorMsg = 'Location request timed out. Try moving near a window.';
+              break;
+          }
+
+          updateCheckOutProximityUI('error', errorMsg, true, true);
+        },
+        geoOptions
+      );
+    }
+
+    function updateCheckOutUserLocationOnMap(userLat, userLng) {
+      if (!checkOutMap) return;
+
+      if (checkOutUserMarker) {
+        checkOutUserMarker.setLatLng([userLat, userLng]);
+      } else {
+        checkOutUserMarker = L.circleMarker([userLat, userLng], {
+          radius: 6,
+          fillColor: '#2196F3',
+          color: '#1976D2',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.8
+        }).addTo(checkOutMap).bindPopup('Your location');
+      }
+
+      if (checkOutConnectionLine) {
+        checkOutConnectionLine.setLatLngs([[userLat, userLng], [checkOutState.geofenceLat, checkOutState.geofenceLng]]);
+      } else {
+        checkOutConnectionLine = L.polyline([[userLat, userLng], [checkOutState.geofenceLat, checkOutState.geofenceLng]], {
+          color: '#2196F3',
+          weight: 2,
+          opacity: 0.5,
+          dashArray: '5, 5'
+        }).addTo(checkOutMap);
+      }
+
+      if (!checkOutMapFitted) {
+        const bounds = L.latLngBounds([[userLat, userLng], [checkOutState.geofenceLat, checkOutState.geofenceLng]]);
+        checkOutMap.fitBounds(bounds, { padding: [50, 50] });
+        checkOutMapFitted = true;
+      }
+    }
+
+    function updateCheckOutProximityUI(status, errorMsg = '', showRetryButton = false, showRequestButton = false) {
+      const statusEl = document.getElementById('checkout-proximity-status');
+      const timeOutBtn = document.getElementById('checkout-time-out-btn');
+      const retryBtn = document.querySelector('[onclick="handleEventCheckOut(checkOutState.eventId, checkOutState.eventName)"]');
+
+      if (status === 'loading') {
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Getting your location...</span>';
+        statusEl.className = 'checkin-proximity-status checkin-proximity-loading';
+        timeOutBtn.disabled = true;
+      } else if (status === 'within') {
+        const distance = Math.round(checkOutState.distance);
+        const accuracy = checkOutState.accuracy ? Math.round(checkOutState.accuracy) : 'unknown';
+        statusEl.innerHTML = `<i class="fas fa-check-circle" style="color: #2e7d32;"></i><span style="color: #2e7d32;"><strong>✅ At Event Location</strong><br>${distance}m from center (±${accuracy}m)</span>`;
+        statusEl.className = 'checkin-proximity-status checkin-proximity-within';
+        timeOutBtn.disabled = false;
+        timeOutBtn.style.backgroundColor = '#2e7d32';
+      } else if (status === 'outside') {
+        const distance = Math.round(checkOutState.distance);
+        const remaining = Math.round(checkOutState.distance - checkOutState.radius);
+        statusEl.innerHTML = `<i class="fas fa-circle-exclamation" style="color: #dc2626;"></i><span style="color: #dc2626;"><strong>⚠️ Outside Geofence</strong><br>${remaining}m too far (${distance}m from center)</span>`;
+        statusEl.className = 'checkin-proximity-status checkin-proximity-outside';
+        timeOutBtn.disabled = true;
+      } else if (status === 'error') {
+        statusEl.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: #dc2626;"></i><span style="color: #dc2626;"><strong>❌ Error</strong><br>${errorMsg}</span>`;
+        statusEl.className = 'checkin-proximity-status checkin-proximity-error';
+        timeOutBtn.disabled = true;
+      }
+    }
+
+    function requestCheckOutLocationPermission() {
+      console.log('[requestCheckOutLocationPermission] Requesting location permission...');
+      
+      const requestBtn = document.getElementById('checkout-request-location-btn');
+      if (requestBtn) {
+        requestBtn.style.display = 'none';
+      }
+      updateCheckOutProximityUI('loading');
+      
+      if (checkOutWatchId !== null) {
+        navigator.geolocation.clearWatch(checkOutWatchId);
+        checkOutWatchId = null;
+      }
+      
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            console.log('[requestCheckOutLocationPermission] Permission granted, starting watch...');
+            startCheckOutLocationWatch();
+          },
+          (error) => {
+            console.error('[requestCheckOutLocationPermission] Permission error:', error);
+            updateCheckOutProximityUI('error', 'Location permission needed. Check browser settings.');
+          }
+        );
+      }
+    }
+
+    function handleTimeOut() {
+      console.log('[handleTimeOut] Processing check-out with location data');
+      const locationData = {
+        userLat: checkOutState.userLat,
+        userLng: checkOutState.userLng,
+        geofenceLat: checkOutState.geofenceLat,
+        geofenceLng: checkOutState.geofenceLng,
+        radius: checkOutState.radius,
+        distance: checkOutState.distance,
+        accuracy: checkOutState.accuracy
+      };
+      const eventId = checkOutState.eventId;
+      const eventName = checkOutState.eventName;
+
+      closeCheckOutMapModal();
+      proceedWithCheckOut(eventId, eventName, locationData);
+    }
+
+    function closeCheckOutMapModal() {
+      if (checkOutWatchId !== null) {
+        navigator.geolocation.clearWatch(checkOutWatchId);
+        checkOutWatchId = null;
+      }
+      if (checkOutMap) {
+        checkOutMap.remove();
+        checkOutMap = null;
+      }
+      checkOutUserMarker = null;
+      checkOutGeofenceCircle = null;
+      checkOutEventMarker = null;
+      checkOutConnectionLine = null;
+      checkOutState = null;
+      checkOutMapFitted = false;
+      document.getElementById('checkout-map-modal').style.display = 'none';
+      document.body.style.overflow = '';
     }
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -1157,74 +2452,6 @@
                 Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
-    }
-
-    function showCheckInDialog(eventId, eventName, isWithinGeofence, locationData) {
-      const distanceMeters = Math.round(locationData.distance);
-      const radiusMeters = locationData.radius;
-      const distanceKm = (locationData.distance / 1000).toFixed(2);
-      const radiusKm = (locationData.radius / 1000).toFixed(2);
-      const accuracy = locationData.accuracy ? Math.round(locationData.accuracy) : 'Unknown';
-      
-      let htmlContent = `
-        <div style="text-align: left; padding: 1rem; background: #f5f5f5; border-radius: 8px; margin-bottom: 1rem;">
-          <h4 style="margin-top: 0; color: #1976D2;">📍 Geofence Verification</h4>
-          <p><strong>Your Distance to Event:</strong> ${distanceMeters}m (${distanceKm} km)</p>
-          <p><strong>Event Geofence Radius:</strong> ${radiusMeters}m (${radiusKm} km)</p>
-          <p><strong>Location Accuracy:</strong> ±${accuracy}m</p>
-          <p style="margin-bottom: 0;"><strong>Status:</strong> 
-            <span style="display: inline-block; background: ${isWithinGeofence ? '#def7e0' : '#ffebee'}; padding: 0.5rem 1rem; border-radius: 6px; color: ${isWithinGeofence ? '#1b5e20' : '#b71c1c'}; font-weight: bold;">
-              ${isWithinGeofence ? '✓ WITHIN GEOFENCE' : '✗ OUTSIDE GEOFENCE'}
-            </span>
-          </p>
-        </div>
-      `;
-      
-      if (isWithinGeofence) {
-        htmlContent += `
-          <div style="background: #def7e0; padding: 1rem; border-radius: 8px; border-left: 4px solid #2e7d32; margin: 1rem 0;">
-            <p style="color: #1b5e20; margin: 0;"><i class="fas fa-check-circle"></i> <strong>You are within the event geofence!</strong></p>
-            <p style="color: #1b5e20; font-size: 0.9rem; margin: 0.5rem 0 0 0;">Click "Confirm Check-In" to record your attendance.</p>
-          </div>
-        `;
-      } else {
-        htmlContent += `
-          <div style="background: #ffebee; padding: 1rem; border-radius: 8px; border-left: 4px solid #b71c1c; margin: 1rem 0;">
-            <p style="color: #b71c1c; margin: 0;"><i class="fas fa-times-circle"></i> <strong>You are OUTSIDE the event geofence!</strong></p>
-            <p style="color: #b71c1c; font-size: 0.9rem; margin: 0.5rem 0 0 0;">You must be within ${radiusMeters}m to check in.</p>
-            <p style="color: #b71c1c; font-size: 0.85rem; margin: 0.5rem 0 0 0;"><strong>Required Distance:</strong> Move closer to the event location.</p>
-          </div>
-        `;
-      }
-      
-      Swal.fire({
-        title: `Check-In for ${eventName}`,
-        html: htmlContent,
-        showCancelButton: true,
-        confirmButtonText: isWithinGeofence ? 'Confirm Check-In' : 'Close',
-        cancelButtonText: 'Cancel',
-        confirmButtonColor: isWithinGeofence ? '#2e7d32' : '#9e9e9e',
-        cancelButtonColor: '#9e9e9e',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        preConfirm: isWithinGeofence ? undefined : false, // Disable confirm if outside geofence
-      }).then((result) => {
-        if (result.isConfirmed && isWithinGeofence) {
-          proceedWithCheckIn(eventId, eventName, locationData);
-        } else if (!result.isConfirmed && !isWithinGeofence) {
-          // User closed the dialog - ask if they want to try again or move closer
-          Swal.fire({
-            icon: 'info',
-            title: 'Move Closer to Event',
-            text: 'Move closer to the event location within the geofence radius and try again.',
-            confirmButtonText: 'Try Again',
-            confirmButtonColor: '#2196F3'
-          }).then(() => {
-            // Call handleEventCheckIn again to get new location
-            setTimeout(() => handleEventCheckIn(eventId, eventName), 500);
-          });
-        }
-      });
     }
 
     function proceedWithCheckIn(eventId, eventName, locationData) {
@@ -1298,7 +2525,263 @@
       });
     }
 
-    // ────────────── LOAD UPCOMING EVENTS & ATTENDANCE LOG ──────────────
+    function proceedWithCheckOut(eventId, eventName, locationData) {
+      // Show loading dialog
+      Swal.fire({
+        icon: 'info',
+        title: 'Checking You Out...',
+        html: 'Processing your check-out. Please wait...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      // Call API to check-out from event
+      const csrftoken = getCookie('csrftoken');
+      fetch('/api/attendance/check-out/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+          event_id: eventId,
+          latitude: locationData ? locationData.userLat : null,
+          longitude: locationData ? locationData.userLng : null
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          Swal.fire({
+            icon: 'success',
+            title: 'Checked Out!',
+            html: `
+              <p style="font-size: 0.95rem; margin-bottom: 1rem;">
+                You have successfully checked out from:
+              </p>
+              <div style="background: #def7e0; padding: 1rem; border-radius: 8px; border-left: 4px solid #2e7d32;">
+                <strong style="color: #1b5e20;">${escapeHtml(eventName)}</strong>
+                <p style="color: #1b5e20; margin-top: 0.5rem; font-size: 0.85rem;">
+                  <i class="fas fa-check-circle"></i> Your departure time has been recorded.
+                </p>
+              </div>
+            `,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#2e7d32',
+          }).then(() => {
+            if (typeof loadAttendanceLog === 'function') {
+              loadAttendanceLog();
+            }
+          });
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'Check-Out Failed',
+            text: data.message || 'Unable to check-out. Please try again.',
+            confirmButtonColor: '#dc2626'
+          });
+        }
+      })
+      .catch(err => {
+        console.error('[proceedWithCheckOut] Error:', err);
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'An error occurred during check-out. Please try again.',
+          confirmButtonColor: '#dc2626'
+        });
+      });
+    }
+
+    // ──────────── HELPER: Time In Button State Determination ────────────
+    function getTimeInButtonState(event) {
+      // Returns state for TIME IN button based on checkin_time_in to checkin_time_in_end window
+      const now = getServerNow(); // Use server-synced time, not client time
+      
+      // Use ISO strings directly from API
+      const timeInStart = event.checkin_time_in_iso;
+      const timeInEnd = event.checkin_time_in_end_iso;
+      
+      // If not available, check if already checked in
+      if (!timeInStart) {
+        return { 
+          isDisabled: true, 
+          buttonText: 'Not Available', 
+          icon: 'ban', 
+          color: '#9e9e9e',
+          tooltip: 'Time In not configured for this event'
+        };
+      }
+      
+      const startTime = new Date(timeInStart);
+      const endTime = timeInEnd ? new Date(timeInEnd) : null;
+      
+      // Before Time In window opens
+      if (now < startTime) {
+        const timeStr = event.checkin_time_in || '--:--';
+        return { 
+          isDisabled: true, 
+          buttonText: 'Not Yet Open', 
+          icon: 'lock', 
+          color: '#f59e0b',
+          tooltip: `Time In opens at ${timeStr}`
+        };
+      }
+      
+      // After Time In window closes
+      if (endTime && now > endTime) {
+        return { 
+          isDisabled: true, 
+          buttonText: 'Closed', 
+          icon: 'times-circle', 
+          color: '#dc2626',
+          tooltip: `Time In closed at ${event.checkin_time_in_end}`
+        };
+      }
+      
+      // Within Time In window - ENABLED
+      return { 
+        isDisabled: false, 
+        buttonText: 'Time In', 
+        icon: 'map-marker-alt', 
+        color: '#0ea5e9',
+        tooltip: 'Check in to this event'
+      };
+    }
+
+    // ──────────── HELPER: Time Out Button State Determination ────────────
+    function getTimeOutButtonState(event) {
+      // Returns state for TIME OUT button based on checkin_time_out to checkin_time_out_end window
+      const now = getServerNow(); // Use server-synced time, not client time
+      
+      // Use ISO strings directly from API
+      const timeOutStart = event.checkin_time_out_iso;
+      const timeOutEnd = event.checkin_time_out_end_iso;
+      
+      // If not available
+      if (!timeOutStart) {
+        return { 
+          isDisabled: true, 
+          buttonText: 'Not Available', 
+          icon: 'ban', 
+          color: '#9e9e9e',
+          tooltip: 'Time Out not configured for this event'
+        };
+      }
+      
+      const startTime = new Date(timeOutStart);
+      const endTime = timeOutEnd ? new Date(timeOutEnd) : null;
+      
+      // Before Time Out window opens
+      if (now < startTime) {
+        const timeStr = event.checkin_time_out || '--:--';
+        return { 
+          isDisabled: true, 
+          buttonText: 'Not Yet Open', 
+          icon: 'lock', 
+          color: '#f59e0b',
+          tooltip: `Time Out opens at ${timeStr}`
+        };
+      }
+      
+      // After Time Out window closes
+      if (endTime && now > endTime) {
+        return { 
+          isDisabled: true, 
+          buttonText: 'Closed', 
+          icon: 'times-circle', 
+          color: '#dc2626',
+          tooltip: `Time Out closed at ${event.checkin_time_out_end}`
+        };
+      }
+      
+      // Within Time Out window - ENABLED
+      return { 
+        isDisabled: false, 
+        buttonText: 'Time Out', 
+        icon: 'sign-out-alt', 
+        color: '#dc2626',
+        tooltip: 'Check out from this event'
+      };
+    }
+
+    // ──────────── HELPER: Check-in Button State Determination (LEGACY) ────────────
+    function getCheckInButtonState(event) {
+      // Returns: { isDisabled: boolean, buttonText: string, tooltip: string, buttonColor: string }
+      // Uses checkin_time_in and checkin_time_out for the check-in window, not the event times
+      const now = new Date();
+      
+      if (event.is_checked_in) {
+        return { isDisabled: true, buttonText: 'Checked In', icon: 'check-circle', color: '#2e7d32' };
+      }
+      
+      // If check-in times are not set, use event times as fallback
+      let checkInTimeStart = event.checkin_time_in_iso;
+      let checkInTimeEnd = event.checkin_time_out_iso;
+      
+      // If check-in times not available, fallback to event times
+      if (!checkInTimeStart || !checkInTimeEnd) {
+        checkInTimeStart = event.start_time_iso;
+        checkInTimeEnd = event.end_time_iso;
+      }
+      
+      if (!checkInTimeStart || !checkInTimeEnd) {
+        return { isDisabled: false, buttonText: 'Time In', icon: 'map-marker-alt', color: '#2e7d32' };
+      }
+      
+      const startTime = new Date(checkInTimeStart);
+      const endTime = new Date(checkInTimeEnd);
+      
+      if (now < startTime) {
+        const startStr = event.checkin_time_in || event.start_time || 'scheduled time';
+        return { 
+          isDisabled: true, 
+          buttonText: 'Not Started', 
+          icon: 'clock', 
+          color: '#f59e0b',
+          tooltip: `Check-in starts at ${startStr}`
+        };
+      }
+      
+      if (now > endTime) {
+        return { 
+          isDisabled: true, 
+          buttonText: 'Ended', 
+          icon: 'times-circle', 
+          color: '#dc2626',
+          tooltip: 'Attendance check-in has closed'
+        };
+      }
+      
+      // Within check-in window
+      return { 
+        isDisabled: false, 
+        buttonText: 'Time In', 
+        icon: 'map-marker-alt', 
+        color: '#2e7d32' 
+      };
+    }
+
+    // ──────────── LOAD UPCOMING EVENTS & ATTENDANCE LOG ────────────
+    // Global server time for syncing with client for accurate button states
+    let serverTimeOffset = 0; // Milliseconds offset between server and client
+    
+    function syncServerTime(serverTimestamp) {
+      // Sync server time with client to ensure accurate button state calculations
+      const serverTime = new Date(serverTimestamp);
+      const clientTime = new Date();
+      serverTimeOffset = serverTime - clientTime;
+      console.log('[syncServerTime] Server time offset:', serverTimeOffset + 'ms');
+    }
+    
+    function getServerNow() {
+      // Get current time synced with server
+      return new Date(Date.now() + serverTimeOffset);
+    }
+
     function loadAttendanceLog() {
       console.log('[loadAttendanceLog] Loading registered events for check-in...');
       
@@ -1320,6 +2803,11 @@
         .then(data => {
           console.log('[loadAttendanceLog] Data received:', data);
           
+          // Sync server time for accurate button states
+          if (data.server_time) {
+            syncServerTime(data.server_time);
+          }
+          
           if (data.debug) {
             console.log('[loadAttendanceLog] Debug info:', data.debug);
           }
@@ -1328,20 +2816,9 @@
             const events = data.events;
             console.log('[loadAttendanceLog] Found', events.length, 'registered events');
             
-            // Update counts
+            // Update counts - use total_registered_count from API (includes completed events)
             const registeredCountEl = document.getElementById('registered-count');
-            const attendedCountEl = document.getElementById('attended-count');
-            const attendanceRateEl = document.getElementById('attendance-rate');
-            
-            if (registeredCountEl) registeredCountEl.textContent = events.length;
-            
-            // Count checked-in events
-            const checkedInCount = events.filter(e => e.is_checked_in).length;
-            if (attendedCountEl) attendedCountEl.textContent = checkedInCount;
-            
-            // Calculate attendance rate
-            const attendanceRate = events.length > 0 ? Math.round((checkedInCount / events.length) * 100) : 0;
-            if (attendanceRateEl) attendanceRateEl.textContent = attendanceRate + '%';
+            if (registeredCountEl) registeredCountEl.textContent = data.debug.total_registered_count;
 
             if (events.length === 0) {
               tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No registered events. Browse upcoming events to register!</td></tr>';
@@ -1351,21 +2828,60 @@
             tbody.innerHTML = events.map(event => {
               const eventStatus = event.is_checked_in ? 'Checked In' : 'Upcoming';
               const statusBadgeClass = event.is_checked_in ? 'checked-in' : 'upcoming';
-              const distanceText = 'Calculate on check-in';
+              const checkInWindowText = event.start_time && event.end_time ? `${event.start_time} - ${event.end_time}` : 'Time TBD';
+              
+              // Format Time In range (opens from checkin_time_in to checkin_time_in_end)
+              const timeInRange = (event.checkin_time_in && event.checkin_time_in_end) 
+                ? `${event.checkin_time_in} to ${event.checkin_time_in_end}`
+                : (event.checkin_time_in ? event.checkin_time_in : '--:-- to --:--');
+              
+              // Format Time Out range (opens from checkin_time_out to checkin_time_out_end)
+              const timeOutRange = (event.checkin_time_out && event.checkin_time_out_end)
+                ? `${event.checkin_time_out} to ${event.checkin_time_out_end}`
+                : (event.checkin_time_out ? event.checkin_time_out : '--:-- to --:--');
+              
+              // Get Time In and Time Out button states
+              const timeInState = getTimeInButtonState(event);
+              const timeOutState = getTimeOutButtonState(event);
+              
+              // Build Time In button HTML
+              const timeInButtonHtml = timeInState.isDisabled ?
+                `<button class="btn-action-mini" disabled title="${timeInState.tooltip}" style="background: ${timeInState.color}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: not-allowed; font-size: 0.85rem; font-weight: 500; opacity: 0.6; white-space: nowrap;">
+                  <i class="fas fa-${timeInState.icon}"></i> ${timeInState.buttonText}
+                </button>` :
+                `<button class="btn-action-mini" onclick="handleEventCheckIn(${event.id}, '${escapeHtml(event.name).replace(/'/g, "\\'")}')" title="${timeInState.tooltip}" style="background: ${timeInState.color}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; white-space: nowrap; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <i class="fas fa-${timeInState.icon}"></i> ${timeInState.buttonText}
+                </button>`;
+              
+              // Build Time Out button HTML
+              const timeOutButtonHtml = timeOutState.isDisabled ?
+                `<button class="btn-action-mini" disabled title="${timeOutState.tooltip}" style="background: ${timeOutState.color}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: not-allowed; font-size: 0.85rem; font-weight: 500; opacity: 0.6; white-space: nowrap;">
+                  <i class="fas fa-${timeOutState.icon}"></i> ${timeOutState.buttonText}
+                </button>` :
+                `<button class="btn-action-mini" onclick="handleEventCheckOut(${event.id}, '${escapeHtml(event.name).replace(/'/g, "\\'")}')" title="${timeOutState.tooltip}" style="background: ${timeOutState.color}; color: white; padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; white-space: nowrap; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  <i class="fas fa-${timeOutState.icon}"></i> ${timeOutState.buttonText}
+                </button>`;
               
               return `
                 <tr>
                   <td data-label="Event Name"><strong>${escapeHtml(event.name)}</strong></td>
                   <td data-label="Date & Time">${escapeHtml(event.date)}<br><small>${escapeHtml(event.time || 'Time TBD')}</small></td>
                   <td data-label="Location">${escapeHtml(event.location || 'Location TBD')}</td>
-                  <td data-label="Distance"><span style="color: #f59e0b; font-size: 0.9rem;">--</span></td>
+                  <td data-label="Time In Opens"><span style="color: #0ea5e9; font-size: 0.9rem; font-weight: 500;"><i class="fas fa-sign-in-alt"></i> ${escapeHtml(timeInRange)}</span></td>
+                  <td data-label="Time Out Opens"><span style="color: #dc2626; font-size: 0.9rem; font-weight: 500;"><i class="fas fa-sign-out-alt"></i> ${escapeHtml(timeOutRange)}</span></td>
                   <td data-label="Status"><span class="event-status-badge ${statusBadgeClass}">${escapeHtml(eventStatus)}</span></td>
                   <td data-label="Action">
-                    ${event.is_checked_in ? 
-                      `<span style="color: #2e7d32; font-weight: bold; text-align: center; width: 100%;"><i class="fas fa-check-circle"></i> Checked In</span>` :
-                      `<button class="btn-action-mini" onclick="handleEventCheckIn(${event.id}, '${escapeHtml(event.name).replace(/'/g, "\\'")}')" title="Check In" style="background: #2e7d32; color: white; padding: 0.4rem 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;">
-                        <i class="fas fa-map-marker-alt"></i> Check In
-                      </button>`
+                    ${event.is_checked_out ? 
+                      `<span style="color: #2e7d32; font-weight: bold; text-align: center; width: 100%;"><i class="fas fa-check-circle"></i> Checked Out</span>` :
+                      event.is_checked_in ?
+                      `<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; justify-content: center;">
+                        <span style="color: #2e7d32; font-weight: 500; display: flex; align-items: center; gap: 0.3rem;"><i class="fas fa-check-circle"></i> Checked In</span>
+                        ${timeOutButtonHtml}
+                      </div>` :
+                      `<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; justify-content: center;">
+                        ${timeInButtonHtml}
+                        ${timeOutButtonHtml}
+                      </div>`
                     }
                   </td>
                 </tr>
@@ -1399,36 +2915,81 @@
           if (data.status === 'success' && Array.isArray(data.events)) {
             const events = data.events;
             
+            // Count attended (both check_in and check_out) vs all events
+            const attendedCount = events.filter(e => e.status === 'Attended').length;
+            const attendancePercentage = events.length > 0 ? Math.round((attendedCount / events.length) * 100) : 0;
+            
             // Update counts
             const totalAttendedEl = document.getElementById('total-attended-count');
             const totalAttendancePctEl = document.getElementById('total-attendance-pct');
             
-            if (totalAttendedEl) totalAttendedEl.textContent = events.length;
-            if (totalAttendancePctEl) totalAttendancePctEl.textContent = events.length > 0 ? '100%' : '0%';
+            if (totalAttendedEl) totalAttendedEl.textContent = attendedCount;
+            if (totalAttendancePctEl) totalAttendancePctEl.textContent = attendancePercentage + '%';
 
             if (events.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No attendance records yet. Start checking in to events!</td></tr>';
+              tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No attendance records yet. Start checking in to events!</td></tr>';
               return;
             }
 
             tbody.innerHTML = events.map(event => {
+              // Format check_in_time to Philippine timezone with 12-hour format
+              let checkInTimeFormatted = 'Not Checked In';
+              if (event.check_in_time_iso) {
+                try {
+                  const dt = new Date(event.check_in_time_iso);
+                  checkInTimeFormatted = dt.toLocaleString('en-US', { 
+                    timeZone: 'Asia/Manila',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                  });
+                } catch (e) {
+                  checkInTimeFormatted = event.check_in_time || 'Not Checked In';
+                }
+              }
+              
+              // Format check_out_time to Philippine timezone with 12-hour format
+              let checkOutTimeFormatted = 'Not Checked Out';
+              if (event.check_out_time_iso) {
+                try {
+                  const dt = new Date(event.check_out_time_iso);
+                  checkOutTimeFormatted = dt.toLocaleString('en-US', { 
+                    timeZone: 'Asia/Manila',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                  });
+                } catch (e) {
+                  checkOutTimeFormatted = event.check_out_time || 'Not Checked Out';
+                }
+              }
+              
+              // Determine status badge styling
+              const isAttended = event.status === 'Attended';
+              const statusBgColor = isAttended ? '#def7e0' : '#ffe0e0';
+              const statusTextColor = isAttended ? '#1b5e20' : '#7a1c4d';
+              const statusIcon = isAttended ? '✓' : '✗';
+              
               return `
                 <tr>
-                  <td><strong>${escapeHtml(event.name)}</strong></td>
-                  <td>${escapeHtml(event.date)}<br><small>${escapeHtml(event.time || 'Time TBD')}</small></td>
-                  <td>${escapeHtml(event.location || 'Location TBD')}</td>
-                  <td><small>${escapeHtml(event.check_in_time)}</small></td>
-                  <td><span class="event-status-badge attended" style="background: #def7e0; color: #1b5e20;">✓ ${escapeHtml(event.status)}</span></td>
+                  <td data-label="Event Name"><strong>${escapeHtml(event.name)}</strong></td>
+                  <td data-label="Date & Time">${escapeHtml(event.date)}<br><small>${escapeHtml(event.time || 'Time TBD')}</small></td>
+                  <td data-label="Location">${escapeHtml(event.location || 'Location TBD')}</td>
+                  <td data-label="Time In"><small style="font-weight: 500; color: #0ea5e9;"><i class="fas fa-sign-in-alt"></i> ${checkInTimeFormatted}</small></td>
+                  <td data-label="Time Out"><small style="font-weight: 500; color: #dc2626;"><i class="fas fa-sign-out-alt"></i> ${checkOutTimeFormatted}</small></td>
+                  <td data-label="Status"><span class="event-status-badge" style="background: ${statusBgColor}; color: ${statusTextColor}; padding: 0.5rem 0.75rem; border-radius: 4px; display: inline-block;">${statusIcon} ${escapeHtml(event.status)}</span></td>
                 </tr>
               `;
             }).join('');
           } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Unable to load attendance history.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Unable to load attendance history.</td></tr>';
           }
         })
         .catch(err => {
           console.error('[loadAttendanceHistory] Error fetching history:', err);
-          tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Error loading history. Please try again.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading history. Please try again.</td></tr>';
         });
     }
 
@@ -1604,11 +3165,7 @@
               }).join('');
             } else {
               const errorMsg = data.message || 'No events available';
-              let debugInfo = '';
-              if (data.debug) {
-                debugInfo = ` (DB: ${data.debug.total_events_in_db} total, ${data.debug.upcoming_events_count} upcoming)`;
-              }
-              eventsList.innerHTML = '<p class="empty-state"><i class="fas fa-inbox"></i><br>No upcoming events at the moment.' + debugInfo + '<br><small>Check back soon!</small></p>';
+              eventsList.innerHTML = '<p class="empty-state"><i class="fas fa-inbox"></i><br>No upcoming events at the moment.<br><small>Check back soon!</small></p>';
             }
           })
           .catch(error => {
@@ -1992,5 +3549,27 @@
         loadUpcomingEvents();
       }
     });
+
+    // ──────────────── AUTO-REFRESH MECHANISM ────────────────
+    // Automatically refresh attendance data every 30 seconds to update status and remove completed events
+    setInterval(() => {
+      // Only refresh if we're on the attendance tab
+      const attendanceView = document.getElementById('attendance-view');
+      if (attendanceView && attendanceView.style.display !== 'none') {
+        console.log('[Auto-Refresh] Refreshing attendance log...');
+        if (typeof loadAttendanceLog === 'function') {
+          loadAttendanceLog();
+        }
+      }
+      
+      // Also refresh attendance history in case events are completed
+      const historyView = document.getElementById('attendance-history-view');
+      if (historyView && historyView.style.display !== 'none') {
+        console.log('[Auto-Refresh] Refreshing attendance history...');
+        if (typeof loadAttendanceHistory === 'function') {
+          loadAttendanceHistory();
+        }
+      }
+    }, 30000); // Every 30 seconds
   </script>
 

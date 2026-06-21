@@ -1318,8 +1318,10 @@
     }
 
     .btn-action-mini:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
+      background: #f3f4f6;
+      color: #d1d5db;
     }
 
     .events-pagination {
@@ -1681,8 +1683,10 @@
     }
 
     .btn-action-mini:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
+      background: #f3f4f6;
+      color: #d1d5db;
     }
 
     /* Modal Styles */
@@ -2558,8 +2562,8 @@
           
           <div style="border-top: 1px solid #ddd; padding-top: 1rem;">
             <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Associated Event</label>
-            <select id="geofence_event_map" class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;">
-              <option value="">Select Event (Optional)</option>
+            <select id="geofence_event_map" class="form-input" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem;" required>
+              <option value="">Select Event *</option>
             </select>
           </div>
           
@@ -2868,11 +2872,36 @@
                 <div class="form-group">
                   <label for="start_datetime">Start Date & Time *</label>
                   <input type="datetime-local" id="start_datetime" name="start_datetime" required>
+                  <small style="color: #d32f2f; margin-top: 0.25rem; display: block;">Cannot be in the past</small>
                 </div>
 
                 <div class="form-group">
                   <label for="end_datetime">End Date & Time *</label>
                   <input type="datetime-local" id="end_datetime" name="end_datetime" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="checkin_time_in">Time In Opens *</label>
+                  <input type="time" id="checkin_time_in" name="checkin_time_in" required title="Set the time when Time In becomes available">
+                  <small style="color: #666; margin-top: 0.25rem; display: block;">Range: <span id="checkin_time_in_range">--:-- to --:--</span></small>
+                </div>
+
+                <div class="form-group">
+                  <label for="checkin_time_in_end">Time In Closes *</label>
+                  <input type="time" id="checkin_time_in_end" name="checkin_time_in_end" required title="Set the time when Time In window closes">
+                  <small style="color: #666; margin-top: 0.25rem; display: block;">Range: <span id="checkin_time_in_end_range">--:-- to --:--</span></small>
+                </div>
+
+                <div class="form-group">
+                  <label for="checkin_time_out">Time Out Opens *</label>
+                  <input type="time" id="checkin_time_out" name="checkin_time_out" required title="Set the time when Time Out becomes available">
+                  <small style="color: #666; margin-top: 0.25rem; display: block;">Range: <span id="checkin_time_out_range">--:-- to --:--</span></small>
+                </div>
+
+                <div class="form-group">
+                  <label for="checkin_time_out_end">Time Out Closes *</label>
+                  <input type="time" id="checkin_time_out_end" name="checkin_time_out_end" required title="Set the time when Time Out window closes">
+                  <small style="color: #666; margin-top: 0.25rem; display: block;">Range: <span id="checkin_time_out_end_range">--:-- to --:--</span></small>
                 </div>
               </div>
             </div>
@@ -3371,25 +3400,22 @@
         <div>
           <p class="dashboard-label">Attendance</p>
           <h1>Geofence Areas</h1>
-          <p class="dashboard-subtitle">Manage geofence areas for events.</p>
+          <p class="dashboard-subtitle">View geofences created from Create Event, or add one manually for an event.</p>
         </div>
       </div>
       <div class="placeholder-panel-body">
         <!-- Controls Section -->
         <div class="geofence-controls">
           <div class="control-group">
-            <input type="text" placeholder="Search geofence..." class="control-search" disabled>
+            <input type="text" placeholder="Search geofence..." class="control-search" id="geofence-search-input">
           </div>
           <div class="control-group">
             <label for="filter-event-geofence">Filter by Event</label>
-            <select id="filter-event-geofence" class="control-select" disabled>
-              <option>All Events</option>
-              <option>Student Assembly</option>
-              <option>Tech Workshop</option>
-              <option>Leadership Summit</option>
+            <select id="filter-event-geofence" class="control-select">
+              <option value="">All Events</option>
             </select>
           </div>
-          <button class="btn-primary" disabled>
+          <button class="btn-primary" data-action="add-geofence">
             <i class="fas fa-plus"></i> Add Geofence
           </button>
         </div>
@@ -3409,96 +3435,9 @@
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="geofence-table-body">
               <tr>
-                <td><strong>Main Auditorium</strong></td>
-                <td>ISU Main Auditorium</td>
-                <td>15.123456</td>
-                <td>120.987654</td>
-                <td>50</td>
-                <td>Student Assembly</td>
-                <td><span class="status-badge status-active">Active</span></td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-action btn-edit" disabled title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action btn-delete" disabled title="Delete"><i class="fas fa-trash"></i></button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Secondary Campus</strong></td>
-                <td>ISU Extension Campus</td>
-                <td>15.234567</td>
-                <td>120.876543</td>
-                <td>75</td>
-                <td>Tech Workshop</td>
-                <td><span class="status-badge status-active">Active</span></td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-action btn-edit" disabled title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action btn-delete" disabled title="Delete"><i class="fas fa-trash"></i></button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Sports Complex</strong></td>
-                <td>ISU Sports Complex</td>
-                <td>15.345678</td>
-                <td>120.765432</td>
-                <td>100</td>
-                <td>Leadership Summit</td>
-                <td><span class="status-badge status-active">Active</span></td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-action btn-edit" disabled title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action btn-delete" disabled title="Delete"><i class="fas fa-trash"></i></button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Conference Room A</strong></td>
-                <td>ISU Conference Building</td>
-                <td>15.456789</td>
-                <td>120.654321</td>
-                <td>25</td>
-                <td>Board Meeting</td>
-                <td><span class="status-badge status-inactive">Inactive</span></td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-action btn-edit" disabled title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action btn-delete" disabled title="Delete"><i class="fas fa-trash"></i></button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Library Grounds</strong></td>
-                <td>ISU Main Library</td>
-                <td>15.567890</td>
-                <td>120.543210</td>
-                <td>40</td>
-                <td>Study Event</td>
-                <td><span class="status-badge status-active">Active</span></td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-action btn-edit" disabled title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action btn-delete" disabled title="Delete"><i class="fas fa-trash"></i></button>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td><strong>Parking Zone</strong></td>
-                <td>ISU Main Parking</td>
-                <td>15.678901</td>
-                <td>120.432109</td>
-                <td>150</td>
-                <td>General Access</td>
-                <td><span class="status-badge status-active">Active</span></td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-action btn-edit" disabled title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action btn-delete" disabled title="Delete"><i class="fas fa-trash"></i></button>
-                  </div>
-                </td>
+                <td colspan="8" style="text-align: center; padding: 2rem; color: #6b7280;">Loading geofences...</td>
               </tr>
             </tbody>
           </table>
@@ -3506,12 +3445,7 @@
 
         <!-- Pagination -->
         <div class="geofence-pagination">
-          <span class="pagination-info">Showing 1 to 6 of 6 geofence areas</span>
-          <div class="pagination-controls">
-            <button class="pagination-btn" disabled>&lt;</button>
-            <button class="pagination-btn active">1</button>
-            <button class="pagination-btn" disabled>&gt;</button>
-          </div>
+          <span class="pagination-info" id="geofence-pagination-info">Loading...</span>
         </div>
       </div>
     </section>
@@ -3576,6 +3510,174 @@
     }
 
     // Handle Create Event form submission
+    // ✅ Initialize time constraints - can be called on page load or after form loads
+    function initializeCreateEventTimeConstraints() {
+      console.log('[initializeCreateEventTimeConstraints] Starting');
+      
+      const startDatetimeInput = document.getElementById('start_datetime');
+      const endDatetimeInput = document.getElementById('end_datetime');
+      const checkinTimeInInput = document.getElementById('checkin_time_in');
+      const checkinTimeInEndInput = document.getElementById('checkin_time_in_end');
+      const checkinTimeOutInput = document.getElementById('checkin_time_out');
+      const checkinTimeOutEndInput = document.getElementById('checkin_time_out_end');
+      const checkinTimeInRange = document.getElementById('checkin_time_in_range');
+      const checkinTimeInEndRange = document.getElementById('checkin_time_in_end_range');
+      const checkinTimeOutRange = document.getElementById('checkin_time_out_range');
+      const checkinTimeOutEndRange = document.getElementById('checkin_time_out_end_range');
+      
+      if (!startDatetimeInput || !endDatetimeInput) {
+        console.log('[initializeCreateEventTimeConstraints] Form inputs not found yet');
+        return;
+      }
+      
+      console.log('[initializeCreateEventTimeConstraints] All form inputs found');
+      
+      // Helper function to convert 24-hour to 12-hour format
+      function formatTime12Hour(time24) {
+        if (!time24) return '--:--';
+        const parts = time24.split(':');
+        const hours = parseInt(parts[0]);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+        const paddedHour = hour12 < 10 ? '0' + hour12 : hour12;
+        return `${paddedHour}:${minutes} ${ampm}`;
+      }
+      
+      // Function to update time constraints based on event start/end times
+      function updateTimeConstraints() {
+        console.log('[updateTimeConstraints] Called');
+        
+        if (!startDatetimeInput.value || !endDatetimeInput.value) {
+          console.log('[updateTimeConstraints] Missing start or end datetime values');
+          return;
+        }
+        
+        // Extract times in HH:MM format from ISO datetime string (e.g., "2026-06-21T14:05")
+        const startTimeStr = startDatetimeInput.value.split('T')[1]; // e.g., "14:05"
+        const endTimeStr = endDatetimeInput.value.split('T')[1];     // e.g., "17:45"
+        
+        console.log('[updateTimeConstraints] Event window: ' + startTimeStr + ' to ' + endTimeStr);
+        
+        // Set min/max constraints on ALL 4 time inputs to event start/end times
+        if (checkinTimeInInput && startTimeStr && endTimeStr) {
+          checkinTimeInInput.min = startTimeStr;
+          checkinTimeInInput.max = endTimeStr;
+        }
+        if (checkinTimeInEndInput && startTimeStr && endTimeStr) {
+          checkinTimeInEndInput.min = startTimeStr;
+          checkinTimeInEndInput.max = endTimeStr;
+        }
+        if (checkinTimeOutInput && startTimeStr && endTimeStr) {
+          checkinTimeOutInput.min = startTimeStr;
+          checkinTimeOutInput.max = endTimeStr;
+        }
+        if (checkinTimeOutEndInput && startTimeStr && endTimeStr) {
+          checkinTimeOutEndInput.min = startTimeStr;
+          checkinTimeOutEndInput.max = endTimeStr;
+        }
+        
+        // Update the range display text for all 4 fields
+        if (startTimeStr && endTimeStr) {
+          const startTimeFormatted = formatTime12Hour(startTimeStr);
+          const endTimeFormatted = formatTime12Hour(endTimeStr);
+          const rangeText = `${startTimeFormatted} to ${endTimeFormatted}`;
+          
+          if (checkinTimeInRange) checkinTimeInRange.textContent = rangeText;
+          if (checkinTimeInEndRange) checkinTimeInEndRange.textContent = rangeText;
+          if (checkinTimeOutRange) checkinTimeOutRange.textContent = rangeText;
+          if (checkinTimeOutEndRange) checkinTimeOutEndRange.textContent = rangeText;
+          
+          console.log('[updateTimeConstraints] Updated all range displays to: ' + rangeText);
+        }
+      }
+      
+      // Attach change AND input listeners to both datetime inputs for real-time updates
+      if (startDatetimeInput) {
+        startDatetimeInput.addEventListener('change', updateTimeConstraints);
+        startDatetimeInput.addEventListener('input', updateTimeConstraints);
+      }
+      
+      if (endDatetimeInput) {
+        endDatetimeInput.addEventListener('change', updateTimeConstraints);
+        endDatetimeInput.addEventListener('input', updateTimeConstraints);
+      }
+      
+      // ✅ Add validation to prevent entering times outside the allowed range
+      function validateTimeInput(input, inputName) {
+        input.addEventListener('change', function() {
+          const enteredTime = this.value;
+          const minTime = this.min;
+          const maxTime = this.max;
+          
+          if (enteredTime && minTime && maxTime) {
+            // Check if entered time is within valid range
+            if (enteredTime < minTime || enteredTime > maxTime) {
+              console.warn('[' + inputName + '] Invalid time entered:', enteredTime, 'Valid range:', minTime, 'to', maxTime);
+              Swal.fire({
+                icon: 'warning',
+                title: 'Invalid Time',
+                text: `${inputName} must be between ${formatTime12Hour(minTime)} and ${formatTime12Hour(maxTime)}`,
+                timer: 3000
+              });
+              // Reset to minimum valid time
+              this.value = minTime;
+              console.log('[' + inputName + '] Reset to minimum valid time:', minTime);
+            }
+          }
+        });
+      }
+      
+      if (checkinTimeInInput) validateTimeInput(checkinTimeInInput, 'Time In Opens');
+      if (checkinTimeInEndInput) validateTimeInput(checkinTimeInEndInput, 'Time In Closes');
+      if (checkinTimeOutInput) validateTimeInput(checkinTimeOutInput, 'Time Out Opens');
+      if (checkinTimeOutEndInput) validateTimeInput(checkinTimeOutEndInput, 'Time Out Closes');
+      
+      // Call updateTimeConstraints immediately to refresh display
+      console.log('[initializeCreateEventTimeConstraints] Calling updateTimeConstraints');
+      updateTimeConstraints();
+    }
+
+    // ✅ SECURITY: Set minimum datetime to current time to prevent past date/time selection
+    document.addEventListener('DOMContentLoaded', function() {
+      const startDatetimeInput = document.getElementById('start_datetime');
+      const endDatetimeInput = document.getElementById('end_datetime');
+      
+      if (startDatetimeInput || endDatetimeInput) {
+        // Get current date/time and add a small buffer (1 minute)
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 1); // Prevent selecting the exact current minute
+        
+        // Format as ISO string for datetime-local input (YYYY-MM-DDTHH:MM)
+        const minDateTime = now.toISOString().slice(0, 16);
+        
+        if (startDatetimeInput) {
+          startDatetimeInput.min = minDateTime;
+          startDatetimeInput.addEventListener('change', function() {
+            // When start datetime changes, ensure end datetime is after it
+            const startVal = this.value;
+            if (startVal && endDatetimeInput) {
+              // Set end datetime minimum to start datetime
+              if (!endDatetimeInput.value || endDatetimeInput.value <= startVal) {
+                // Create a new date that's 1 hour after start
+                const startDate = new Date(startVal + ':00'); // Add seconds
+                const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
+                endDatetimeInput.value = endDate.toISOString().slice(0, 16);
+              }
+            }
+          });
+        }
+        
+        if (endDatetimeInput) {
+          endDatetimeInput.min = minDateTime;
+        }
+      }
+      
+      // Call initialization
+      console.log('[DOMContentLoaded] Calling initializeCreateEventTimeConstraints on load');
+      initializeCreateEventTimeConstraints();
+    });
+
     async function handleCreateEventSubmission(form) {
       console.log('[handleCreateEventSubmission] ✓ FUNCTION CALLED - Starting form submission');
       
@@ -3587,6 +3689,10 @@
           description: document.getElementById('description').value,
           start_datetime: document.getElementById('start_datetime').value,
           end_datetime: document.getElementById('end_datetime').value,
+          checkin_time_in: document.getElementById('checkin_time_in').value,
+          checkin_time_in_end: document.getElementById('checkin_time_in_end').value,
+          checkin_time_out: document.getElementById('checkin_time_out').value,
+          checkin_time_out_end: document.getElementById('checkin_time_out_end').value,
           venue: document.getElementById('venue').value,
           latitude: document.getElementById('latitude').value,
           longitude: document.getElementById('longitude').value,
@@ -3601,6 +3707,10 @@
           event_type: 'Event Type',
           start_datetime: 'Start Date & Time',
           end_datetime: 'End Date & Time',
+          checkin_time_in: 'Time In Opens',
+          checkin_time_in_end: 'Time In Closes',
+          checkin_time_out: 'Time Out Opens',
+          checkin_time_out_end: 'Time Out Closes',
           venue: 'Venue / Location',
           latitude: 'Latitude',
           longitude: 'Longitude',
@@ -3645,6 +3755,138 @@
             confirmButtonText: 'OK',
             allowOutsideClick: false,
             allowEscapeKey: false,
+          });
+          return;
+        }
+
+        // ✅ CRITICAL SECURITY: Validate that start date/time is NOT in the past
+        // This prevents creating events for past dates/times
+        const now = new Date();
+        if (startDate < now) {
+          console.log('[handleCreateEventSubmission] ✗ Cannot create event in the past');
+          const nowStr = now.toLocaleString();
+          const startStr = startDate.toLocaleString();
+          await showAlert({
+            icon: 'error',
+            title: 'Invalid Event Date & Time',
+            html: `<p>Event start date & time cannot be in the past.</p>
+                   <p style="font-size: 0.9rem; margin: 1rem 0; color: #d32f2f;">
+                     <strong>Current Date & Time:</strong> ${nowStr}<br>
+                     <strong>Event Start:</strong> ${startStr}
+                   </p>
+                   <p style="font-size: 0.85rem; color: #666;">Please select a future date and time.</p>`,
+            confirmButtonColor: '#d32f2f',
+            confirmButtonText: 'OK',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+          });
+          return;
+        }
+
+        // ✅ Validate all 4 time inputs are in correct order
+        const startDateObj = new Date(formData.start_datetime);
+        const endDateObj = new Date(formData.end_datetime);
+        const [timeInOpenHour, timeInOpenMin] = formData.checkin_time_in.split(':');
+        const [timeInCloseHour, timeInCloseMin] = formData.checkin_time_in_end.split(':');
+        const [timeOutOpenHour, timeOutOpenMin] = formData.checkin_time_out.split(':');
+        const [timeOutCloseHour, timeOutCloseMin] = formData.checkin_time_out_end.split(':');
+        
+        const timeInOpen = new Date(startDateObj);
+        timeInOpen.setHours(parseInt(timeInOpenHour), parseInt(timeInOpenMin), 0);
+        
+        const timeInClose = new Date(startDateObj);
+        timeInClose.setHours(parseInt(timeInCloseHour), parseInt(timeInCloseMin), 0);
+        
+        const timeOutOpen = new Date(startDateObj);
+        timeOutOpen.setHours(parseInt(timeOutOpenHour), parseInt(timeOutOpenMin), 0);
+        
+        const timeOutClose = new Date(startDateObj);
+        timeOutClose.setHours(parseInt(timeOutCloseHour), parseInt(timeOutCloseMin), 0);
+        
+        // Handle day boundary crossings if times are in chronological order
+        if (timeInClose <= timeInOpen) timeInClose.setDate(timeInClose.getDate() + 1);
+        if (timeOutOpen <= timeInClose) timeOutOpen.setDate(timeOutOpen.getDate() + 1);
+        if (timeOutClose <= timeOutOpen) timeOutClose.setDate(timeOutClose.getDate() + 1);
+
+        // Validate all times are within event range
+        if (timeInOpen < startDateObj || timeInOpen > endDateObj) {
+          await showAlert({
+            icon: 'error',
+            title: 'Invalid Time In Opens',
+            html: '<p>Time In Opens must be within the event date range.</p>',
+            confirmButtonColor: '#d32f2f',
+            confirmButtonText: 'OK'
+          });
+          return;
+        }
+
+        if (timeInClose < startDateObj || timeInClose > endDateObj) {
+          await showAlert({
+            icon: 'error',
+            title: 'Invalid Time In Closes',
+            html: '<p>Time In Closes must be within the event date range.</p>',
+            confirmButtonColor: '#d32f2f',
+            confirmButtonText: 'OK'
+          });
+          return;
+        }
+
+        if (timeOutOpen < startDateObj || timeOutOpen > endDateObj) {
+          await showAlert({
+            icon: 'error',
+            title: 'Invalid Time Out Opens',
+            html: '<p>Time Out Opens must be within the event date range.</p>',
+            confirmButtonColor: '#d32f2f',
+            confirmButtonText: 'OK'
+          });
+          return;
+        }
+
+        if (timeOutClose < startDateObj || timeOutClose > endDateObj) {
+          await showAlert({
+            icon: 'error',
+            title: 'Invalid Time Out Closes',
+            html: '<p>Time Out Closes must be within the event date range.</p>',
+            confirmButtonColor: '#d32f2f',
+            confirmButtonText: 'OK'
+          });
+          return;
+        }
+
+        // Validate time order: Time In Open < Time In Close < Time Out Open < Time Out Close
+        if (timeInClose <= timeInOpen) {
+          await showAlert({
+            icon: 'error',
+            title: 'Invalid Time In Window',
+            html: '<p>Time In Closes must be after Time In Opens.</p>',
+            confirmButtonColor: '#d32f2f',
+            confirmButtonText: 'OK'
+          });
+          return;
+        }
+
+        if (timeOutOpen < timeInClose) {
+          const result = await showAlert({
+            icon: 'warning',
+            title: 'Time Overlap',
+            html: '<p>Time Out Opens should be after Time In Closes (or at the same time).</p>',
+            confirmButtonColor: '#ff9800',
+            confirmButtonText: 'Continue',
+            cancelButtonText: 'Go Back',
+            showCancelButton: true
+          });
+          if (!result.isConfirmed) {
+            return;
+          }
+        }
+
+        if (timeOutClose <= timeOutOpen) {
+          await showAlert({
+            icon: 'error',
+            title: 'Invalid Time Out Window',
+            html: '<p>Time Out Closes must be after Time Out Opens.</p>',
+            confirmButtonColor: '#d32f2f',
+            confirmButtonText: 'OK'
           });
           return;
         }
@@ -3704,7 +3946,8 @@
             icon: 'success',
             title: 'Event Created!',
             html: `<p><strong>"${escapeHtml(formData.event_name)}"</strong> has been created successfully.</p>
-                   <p style="font-size: 0.9rem; color: #666; margin-top: 1rem;">📅 ${formData.start_datetime}<br>📍 ${escapeHtml(formData.venue)}</p>`,
+                   <p style="font-size: 0.9rem; color: #666; margin-top: 1rem;">📅 ${formData.start_datetime}<br>📍 ${escapeHtml(formData.venue)}</p>
+                   ${result.geofence_created ? '<p style="font-size: 0.9rem; color: #2e7d32; margin-top: 0.75rem;">✓ Geofence created automatically. View it in Geofence Areas.</p>' : '<p style="font-size: 0.9rem; color: #b45309; margin-top: 0.75rem;">⚠ No geofence was saved. Add one in Geofence Areas for member check-in.</p>'}`,
             confirmButtonColor: '#2e7d32',
             allowOutsideClick: false,
             allowEscapeKey: false,
@@ -3744,6 +3987,16 @@
     async function loadActualEvents(container, page = 1) {
       console.log('[loadActualEvents] Starting to load events for page:', page);
       
+      // Find the table body and clear it immediately
+      const tbody = container.querySelector('.events-table tbody');
+      if (!tbody) {
+        console.error('[loadActualEvents] Table body not found');
+        return;
+      }
+      
+      // Clear existing rows (including dummy data)
+      tbody.innerHTML = '';
+      
       // Reset search and filter controls
       const searchInput = container.querySelector('#events-search-input');
       const statusFilter = container.querySelector('#events-status-filter');
@@ -3765,15 +4018,6 @@
         console.log('[loadActualEvents] Response:', result);
         
         if (result.status === 'success') {
-          // Find the table body
-          const tbody = container.querySelector('.events-table tbody');
-          if (!tbody) {
-            console.error('[loadActualEvents] Table body not found');
-            return;
-          }
-          
-          // Clear existing rows
-          tbody.innerHTML = '';
           
           if (result.events && result.events.length > 0) {
             // Calculate the start and end indices for display
@@ -3806,8 +4050,13 @@
                   <div class="event-actions-mini">
                     <button class="btn-action-mini btn-view-event" data-event-id="${event.id}" title="View"><i class="fas fa-eye"></i></button>
                     <button class="btn-action-mini btn-view-registered" data-event-id="${event.id}" title="View Registered Members"><i class="fas fa-users"></i></button>
-                    <button class="btn-action-mini btn-edit-event" data-event-id="${event.id}" title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn-action-mini btn-delete-event" data-event-id="${event.id}" style="color: #dc2626;" title="Delete"><i class="fas fa-trash"></i></button>
+                    ${event.status === 'Completed' ? `
+                      <button class="btn-action-mini" disabled title="Edit (Event Completed)"><i class="fas fa-edit"></i></button>
+                      <button class="btn-action-mini" disabled style="color: #d1d5db;" title="Delete (Event Completed)"><i class="fas fa-trash"></i></button>
+                    ` : `
+                      <button class="btn-action-mini btn-edit-event" data-event-id="${event.id}" title="Edit"><i class="fas fa-edit"></i></button>
+                      <button class="btn-action-mini btn-delete-event" data-event-id="${event.id}" style="color: #dc2626;" title="Delete"><i class="fas fa-trash"></i></button>
+                    `}
                   </div>
                 </td>
               `;
@@ -3829,15 +4078,20 @@
                 handleViewRegisteredMembers(event.id, event.name);
               });
 
-              editBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                handleEditEvent(event);
-              });
+              // Only attach listeners if buttons exist (not completed events)
+              if (editBtn) {
+                editBtn.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  handleEditEvent(event);
+                });
+              }
 
-              deleteBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                handleDeleteEvent(event.id, event.name);
-              });
+              if (deleteBtn) {
+                deleteBtn.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  handleDeleteEvent(event.id, event.name);
+                });
+              }
             });
             
             // Update pagination info
@@ -3874,9 +4128,170 @@
           }
         } else {
           console.error('[loadActualEvents] Error in response:', result.message);
+          // Show error message to user
+          const row = document.createElement('tr');
+          row.innerHTML = `<td colspan="8" style="text-align: center; padding: 2rem; color: #dc2626;"><strong>Error:</strong> ${escapeHtml(result.message || 'Failed to load events. Please check the browser console for details.')}</td>`;
+          tbody.appendChild(row);
         }
       } catch (error) {
         console.error('[loadActualEvents] Error:', error);
+        // Show error message to user
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="8" style="text-align: center; padding: 2rem; color: #dc2626;"><strong>Error:</strong> Failed to load events. ${error.message}</td>`;
+        tbody.appendChild(row);
+      }
+    }
+
+    let allGeofencesData = [];
+
+    async function populateGeofenceEventDropdown(selectEl) {
+      const select = selectEl || document.getElementById('geofence_event_map');
+      if (!select) return;
+
+      const currentValue = select.value;
+      select.innerHTML = '<option value="">Select Event *</option>';
+
+      try {
+        const response = await fetch('/api/attendance/events/?all=1');
+        const result = await response.json();
+        if (result.status === 'success' && result.events) {
+          result.events.forEach(event => {
+            const option = document.createElement('option');
+            option.value = event.id;
+            option.textContent = event.name;
+            select.appendChild(option);
+          });
+          if (currentValue) {
+            select.value = currentValue;
+          }
+        }
+      } catch (error) {
+        console.error('[populateGeofenceEventDropdown] Error:', error);
+      }
+    }
+
+    async function loadActualGeofences(container) {
+      console.log('[loadActualGeofences] Loading geofences from database');
+
+      const tbody = container.querySelector('#geofence-table-body');
+      const paginationInfo = container.querySelector('#geofence-pagination-info');
+      const searchInput = container.querySelector('#geofence-search-input');
+      const eventFilter = container.querySelector('#filter-event-geofence');
+
+      if (!tbody) {
+        console.error('[loadActualGeofences] Table body not found');
+        return;
+      }
+
+      const search = searchInput ? searchInput.value.trim() : '';
+      const eventId = eventFilter ? eventFilter.value : '';
+
+      try {
+        const params = new URLSearchParams();
+        if (search) params.set('search', search);
+        if (eventId) params.set('event_id', eventId);
+
+        const query = params.toString();
+        const response = await fetch(`/api/attendance/geofences/${query ? '?' + query : ''}`);
+        const result = await response.json();
+        console.log('[loadActualGeofences] Response:', result);
+
+        if (result.status !== 'success') {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #dc2626;">${escapeHtml(result.message || 'Failed to load geofences')}</td></tr>`;
+          if (paginationInfo) paginationInfo.textContent = 'No geofences loaded';
+          return;
+        }
+
+        allGeofencesData = result.geofences || [];
+        tbody.innerHTML = '';
+
+        if (allGeofencesData.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 2rem; color: #6b7280;">
+                No geofences found. Create an event with <strong>Select on Map</strong> in Create Event,
+                or click <strong>Add Geofence</strong> to link one to an existing event.
+              </td>
+            </tr>
+          `;
+          if (paginationInfo) paginationInfo.textContent = 'Showing 0 geofence areas';
+          return;
+        }
+
+        allGeofencesData.forEach(geofence => {
+          const row = document.createElement('tr');
+          row.dataset.geofenceId = geofence.id;
+          const statusClass = geofence.status === 'Active' ? 'status-active' : 'status-inactive';
+          row.innerHTML = `
+            <td><strong data-name>${escapeHtml(geofence.name)}</strong></td>
+            <td data-location>${escapeHtml(geofence.location)}</td>
+            <td>${geofence.latitude.toFixed(6)}</td>
+            <td>${geofence.longitude.toFixed(6)}</td>
+            <td data-radius>${geofence.radius}</td>
+            <td>${escapeHtml(geofence.event_name)}</td>
+            <td><span class="status-badge ${statusClass}">${geofence.status}</span></td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn-action btn-edit btn-edit-geofence" title="View"><i class="fas fa-eye"></i></button>
+                <button class="btn-action btn-delete btn-delete-geofence" title="Delete"><i class="fas fa-trash"></i></button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(row);
+
+          const viewBtn = row.querySelector('.btn-edit-geofence');
+          const deleteBtn = row.querySelector('.btn-delete-geofence');
+
+          viewBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleEditGeofence(geofence.id, geofence.name, geofence.location, geofence.radius);
+          });
+
+          deleteBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleDeleteGeofence(geofence.id, geofence.name, container);
+          });
+        });
+
+        if (paginationInfo) {
+          paginationInfo.textContent = `Showing 1 to ${allGeofencesData.length} of ${allGeofencesData.length} geofence area${allGeofencesData.length === 1 ? '' : 's'}`;
+        }
+
+        if (eventFilter && eventFilter.options.length <= 1) {
+          const eventsResponse = await fetch('/api/attendance/events/?all=1');
+          const eventsResult = await eventsResponse.json();
+          if (eventsResult.status === 'success' && eventsResult.events) {
+            eventsResult.events.forEach(event => {
+              const option = document.createElement('option');
+              option.value = event.id;
+              option.textContent = event.name;
+              eventFilter.appendChild(option);
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[loadActualGeofences] Error:', error);
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #dc2626;">Failed to load geofences. Please try again.</td></tr>`;
+        if (paginationInfo) paginationInfo.textContent = 'Error loading geofences';
+      }
+    }
+
+    function attachGeofenceFilterListeners(container) {
+      const searchInput = container.querySelector('#geofence-search-input');
+      const eventFilter = container.querySelector('#filter-event-geofence');
+
+      if (searchInput && !searchInput.dataset.bound) {
+        searchInput.dataset.bound = '1';
+        let searchTimeout;
+        searchInput.addEventListener('input', () => {
+          clearTimeout(searchTimeout);
+          searchTimeout = setTimeout(() => loadActualGeofences(container), 300);
+        });
+      }
+
+      if (eventFilter && !eventFilter.dataset.bound) {
+        eventFilter.dataset.bound = '1';
+        eventFilter.addEventListener('change', () => loadActualGeofences(container));
       }
     }
     
@@ -4693,7 +5108,6 @@
                   <thead>
                     <tr style="border-bottom: 2px solid #2196F3;">
                       <th style="padding: 0.5rem; text-align: left;">Name</th>
-                      <th style="padding: 0.5rem; text-align: left;">Student ID</th>
                       <th style="padding: 0.5rem; text-align: left;">Faculty</th>
                       <th style="padding: 0.5rem; text-align: left;">Registered Date</th>
                     </tr>
@@ -4702,7 +5116,6 @@
                     ${members.map(member => `
                       <tr style="border-bottom: 1px solid #e0e0e0;">
                         <td style="padding: 0.5rem;">${escapeHtml(member.name)}</td>
-                        <td style="padding: 0.5rem;">${escapeHtml(member.student_id)}</td>
                         <td style="padding: 0.5rem;">${escapeHtml(member.faculty || 'N/A')}</td>
                         <td style="padding: 0.5rem; font-size: 0.85rem;">${escapeHtml(member.registered_date)}</td>
                       </tr>
@@ -4874,6 +5287,8 @@
       document.getElementById('geofence_event_map').value = '';
       document.getElementById('geofence-map-status').innerHTML = '<i class="fas fa-exclamation-circle"></i> Click on map to select location';
       document.getElementById('geofence-map-confirm-btn').disabled = true;
+
+      await populateGeofenceEventDropdown();
       
       // Show map modal
       const mapModal = document.getElementById('geofence-map-modal');
@@ -5024,8 +5439,9 @@
       const location = document.getElementById('geofence_location_map').value.trim();
       const lat = document.getElementById('geofence_lat_map').value;
       const lng = document.getElementById('geofence_lng_map').value;
+      const eventId = document.getElementById('geofence_event_map').value;
       
-      const isValid = name && location && lat && lng;
+      const isValid = name && location && lat && lng && eventId;
       document.getElementById('geofence-map-confirm-btn').disabled = !isValid;
     }
 
@@ -5161,6 +5577,9 @@
       if (document.getElementById('geofence_location_map')) {
         document.getElementById('geofence_location_map').addEventListener('input', checkGeofenceFormValidity);
       }
+      if (document.getElementById('geofence_event_map')) {
+        document.getElementById('geofence_event_map').addEventListener('change', checkGeofenceFormValidity);
+      }
     });
 
     // Close geofence map modal
@@ -5185,11 +5604,11 @@
       const radius = document.getElementById('geofence_radius_map').value;
       const event_id = document.getElementById('geofence_event_map').value;
       
-      if (!name || !location || !lat || !lng || !radius) {
+      if (!name || !location || !lat || !lng || !radius || !event_id) {
         await Swal.fire({
           icon: 'error',
           title: 'Validation Error',
-          text: 'Please fill all required fields',
+          text: 'Please fill all required fields including the associated event',
           confirmButtonColor: '#d32f2f',
         });
         return;
@@ -5239,8 +5658,10 @@
             allowOutsideClick: false,
             allowEscapeKey: false,
           });
-          
-          // Optionally reload geofence data from server (if you have a function for that)
+
+          if (currentFeatureContainer) {
+            loadActualGeofences(currentFeatureContainer);
+          }
           console.log('[confirmGeofenceSelection] ✓ Geofence created successfully');
           
         } else {
@@ -5295,14 +5716,14 @@
     }
 
     // Delete geofence
-    async function handleDeleteGeofence(geofenceId, geofenceName) {
+    async function handleDeleteGeofence(geofenceId, geofenceName, container) {
       console.log('[handleDeleteGeofence] Deleting geofence:', geofenceId);
       
       const result = await Swal.fire({
         icon: 'warning',
         title: 'Delete Geofence?',
         html: `<p>Are you sure you want to delete <strong>"${escapeHtml(geofenceName)}"</strong>?</p>
-               <p style="font-size: 0.9rem; color: #d32f2f; margin-top: 1rem;">⚠️ This action cannot be undone.</p>`,
+               <p style="font-size: 0.9rem; color: #d32f2f; margin-top: 1rem;">⚠️ Members will not be able to check in to this event until a new geofence is added.</p>`,
         showCancelButton: true,
         confirmButtonColor: '#d32f2f',
         cancelButtonColor: '#9e9e9e',
@@ -5310,12 +5731,44 @@
         cancelButtonText: 'Cancel',
       });
 
-      if (result.isConfirmed) {
+      if (!result.isConfirmed) return;
+
+      try {
+        const response = await fetch(`/api/attendance/delete-geofence/${geofenceId}/`, {
+          method: 'DELETE',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+          },
+        });
+        const deleteResult = await response.json();
+
+        if (deleteResult.status === 'success') {
+          await Swal.fire({
+            icon: 'success',
+            title: 'Geofence Deleted!',
+            text: `"${geofenceName}" has been permanently deleted.`,
+            timer: 2000,
+            confirmButtonColor: '#d32f2f',
+          });
+          if (container) {
+            loadActualGeofences(container);
+          } else if (currentFeatureContainer) {
+            loadActualGeofences(currentFeatureContainer);
+          }
+        } else {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Delete Failed',
+            text: deleteResult.message || 'Failed to delete geofence.',
+            confirmButtonColor: '#d32f2f',
+          });
+        }
+      } catch (error) {
+        console.error('[handleDeleteGeofence] Error:', error);
         await Swal.fire({
-          icon: 'success',
-          title: 'Geofence Deleted!',
-          text: `"${geofenceName}" has been permanently deleted.`,
-          timer: 2000,
+          icon: 'error',
+          title: 'Network Error',
+          text: 'Failed to delete geofence. Please try again.',
           confirmButtonColor: '#d32f2f',
         });
       }
@@ -5434,40 +5887,11 @@
 
       // Geofence action buttons
       if (templateId === 'template-geofence-areas') {
-        // Add geofence button
-        const addBtn = container.querySelector('[data-action="add-geofence"]') || 
-                       Array.from(container.querySelectorAll('button')).find(b => b.textContent.includes('+'));
+        const addBtn = container.querySelector('[data-action="add-geofence"]');
         if (addBtn) {
-          addBtn.disabled = false;
           addBtn.addEventListener('click', handleAddGeofence);
         }
-
-        // Edit/Delete buttons for geofences
-        container.querySelectorAll('[data-geofence-id]').forEach(row => {
-          const geofenceId = row.dataset.geofencId;
-          const geofenceName = row.querySelector('[data-name]')?.textContent || 'Geofence';
-          const location = row.querySelector('[data-location]')?.textContent || 'Unknown';
-          const radius = row.querySelector('[data-radius]')?.textContent || '50';
-
-          const editBtn = row.querySelector('.btn-edit-geofence');
-          const deleteBtn = row.querySelector('.btn-delete-geofence');
-
-          if (editBtn) {
-            editBtn.disabled = false;
-            editBtn.addEventListener('click', (e) => {
-              e.preventDefault();
-              handleEditGeofence(geofenceId, geofenceName, location, radius);
-            });
-          }
-
-          if (deleteBtn) {
-            deleteBtn.disabled = false;
-            deleteBtn.addEventListener('click', (e) => {
-              e.preventDefault();
-              handleDeleteGeofence(geofenceId, geofenceName);
-            });
-          }
-        });
+        attachGeofenceFilterListeners(container);
       }
 
       // Attendance monitoring buttons
@@ -5675,6 +6099,12 @@
               }
             });
           }
+          
+          // ✅ Re-initialize time constraints for Create Event form
+          if (templateId === 'template-create-event') {
+            console.log('[loadFeatureTemplate] Initializing time constraints for Create Event form');
+            initializeCreateEventTimeConstraints();
+          }
         } else {
           console.log('[loadFeatureTemplate] No form found in template:', templateId);
         }
@@ -5682,6 +6112,11 @@
         // Handle event list template - load actual events from database
         if (templateId === 'template-events') {
           loadActualEvents(currentFeatureContainer);
+        }
+
+        // Handle geofence areas - load actual geofences from database
+        if (templateId === 'template-geofence-areas') {
+          loadActualGeofences(currentFeatureContainer);
         }
 
         // Handle users template - load actual users from database
