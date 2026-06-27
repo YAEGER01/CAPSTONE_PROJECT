@@ -1,4 +1,12 @@
 from django.db import models
+import hashlib
+import hmac
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.utils import timezone
+
+
+
 
 
 class OfficerUser(models.Model):
@@ -22,11 +30,14 @@ class OfficerUser(models.Model):
 class Member(models.Model):
     member_id_PK = models.AutoField(primary_key=True)
     full_name = models.CharField(max_length=255)
+    employee_id = models.CharField(max_length=50, null=True, blank=True)
+    department = models.CharField(max_length=100, null=True, blank=True)
+    position = models.CharField(max_length=100, null=True, blank=True)
     contact_number = models.CharField(max_length=50, null=True, blank=True)
     email = models.CharField(max_length=255, null=True, blank=True)
     employment_status = models.CharField(max_length=50)
     membership_status = models.CharField(max_length=50)
-    member_type = models.CharField(max_length=50)
+    member_type = models.CharField(max_length=50, blank=True)
     date_joined = models.DateField()
 
     class Meta:
@@ -118,6 +129,10 @@ class MonthlyDues(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=50)
     payment_status = models.CharField(max_length=50)
+
+    # Added to support treasurer_dashboard.html OTC form field: otc_date
+    payment_date = models.DateField(null=True, blank=True)
+
     receipt_number = models.CharField(max_length=100, null=True, blank=True)
     deduction_batch_reference = models.CharField(max_length=100, null=True, blank=True)
     remittance_reference = models.CharField(max_length=100, null=True, blank=True)
@@ -127,6 +142,7 @@ class MonthlyDues(models.Model):
         on_delete=models.RESTRICT,
         db_column="recorded_by_user_id_FK",
     )
+
 
     class Meta:
         db_table = "MONTHLY_DUES"
@@ -141,8 +157,10 @@ class MembershipFee(models.Model):
         db_column="member_id_FK",
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    payment_date = models.DateField()
+    payment_method = models.CharField(max_length=50)
     payment_status = models.CharField(max_length=50)
+    month_covered = models.CharField(max_length=50, null=True, blank=True)
+    payment_date = models.DateField()
     receipt_number = models.CharField(max_length=100, null=True, blank=True)
     deposit_reference = models.CharField(max_length=100, null=True, blank=True)
 
@@ -154,6 +172,7 @@ class MembershipFee(models.Model):
 
     class Meta:
         db_table = "MEMBERSHIP_FEE"
+        unique_together = (('member_id_FK', 'receipt_number'),)
 
 
 class FinancialDocumentArchive(models.Model):
@@ -176,6 +195,62 @@ class FinancialDocumentArchive(models.Model):
 
     class Meta:
         db_table = "FINANCIAL_DOCUMENT_ARCHIVE"
+
+
+class SupportingProof(models.Model):
+    proof_id_PK = models.AutoField(primary_key=True)
+
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        db_column="content_type_id",
+    )
+    object_id = models.PositiveIntegerField(db_column="object_id")
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    file = models.FileField(
+        upload_to="supporting_proofs/%Y/%m/%d/",
+        max_length=500,
+        db_column="file_path",
+    )
+    file_name = models.CharField(max_length=255, db_column="file_name")
+    file_type = models.CharField(max_length=100, db_column="file_type")
+
+    file_sha256 = models.CharField(max_length=64, db_column="file_sha256")
+    row_signature = models.CharField(max_length=64, db_column="row_signature")
+
+    uploaded_at = models.DateTimeField(auto_now_add=True, db_column="uploaded_at")
+    uploaded_by = models.ForeignKey(
+        "OfficerUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        db_column="uploaded_by_user_id_FK",
+        related_name="supporting_proofs",
+    )
+
+    class Meta:
+        db_table = "SUPPORTING_PROOF"
+        indexes = [
+            models.Index(fields=["content_type", "object_id"]),
+            models.Index(fields=["uploaded_at"]),
+        ]
+
+    def compute_file_hash(self):
+        sha = hashlib.sha256()
+        for chunk in self.file.open("rb").chunks():
+            sha.update(chunk)
+        self.file.open("rb").close()
+        return sha.hexdigest()
+
+    def compute_row_signature(self, file_digest, object_id):
+        from django.conf import settings
+
+        message = f"{file_digest}:{object_id}:{settings.SECRET_KEY}".encode()
+        return hmac.new(
+            settings.SECRET_KEY.encode(),
+            message,
+            hashlib.sha256,
+        ).hexdigest()
 
 
 class AuditLog(models.Model):
@@ -247,6 +322,8 @@ class MedicalAid(models.Model):
     )
 
     request_date = models.DateField()
+    requested_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    hospital_name = models.CharField(max_length=255, blank=True)
     hospital_bill_amount = models.DecimalField(max_digits=10, decimal_places=2)
     claim_year = models.IntegerField()
 
@@ -387,3 +464,124 @@ class DeathAid(models.Model):
 
     class Meta:
         db_table = "DEATH_AID"
+
+
+class RevisionLog(models.Model):
+    log_id = models.AutoField(primary_key=True)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        db_column="content_type_id",
+    )
+    object_id = models.PositiveIntegerField(db_column="object_id")
+    content_object = GenericForeignKey("content_type", "object_id")
+
+    rejection_reason = models.TextField()
+    snapshot_data = models.JSONField()
+    auditor_id_FK = models.ForeignKey(
+        OfficerUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        db_column="auditor_id_FK",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "revision_log"
+        indexes = [
+            models.Index(fields=["content_type", "object_id"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+
+class AuditorPaymentVerification(models.Model):
+    auditor_payment_id_PK = models.AutoField(primary_key=True)
+
+    target_table = models.CharField(max_length=50)  # membership_fee | monthly_dues
+    target_record_id = models.IntegerField()
+
+    auditor_id_FK = models.ForeignKey(
+        "OfficerUser",
+        on_delete=models.RESTRICT,
+        db_column="auditor_id_FK",
+    )
+
+    verified_at = models.DateTimeField()
+    result_status = models.CharField(max_length=50)
+    auditor_remarks = models.TextField()
+
+    evidence_file_path = models.CharField(max_length=500, null=True, blank=True)
+    evidence_file_hash = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = "AUDITOR_PAYMENT_VERIFICATION"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["target_table", "target_record_id"],
+                name="uq_auditor_payment_verif_target",
+            )
+        ]
+
+
+class AuditorAidVerification(models.Model):
+    auditor_aid_verification_id_PK = models.AutoField(primary_key=True)
+
+    # medical_aid | death_aid
+    target_table = models.CharField(max_length=50)
+    target_record_id = models.IntegerField()
+
+    auditor_id_FK = models.ForeignKey(
+        "OfficerUser",
+        on_delete=models.RESTRICT,
+        db_column="auditor_id_FK",
+        related_name="auditor_aid_verifications",
+    )
+
+    verified_at = models.DateTimeField()
+    result_status = models.CharField(max_length=50)
+    auditor_remarks = models.TextField()
+
+    evidence_file_path = models.CharField(max_length=500, null=True, blank=True)
+    evidence_file_hash = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = "AUDITOR_AID_VERIFICATION"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["target_table", "target_record_id"],
+                name="uq_auditor_aid_verif_target",
+            )
+        ]
+
+
+
+
+class TransactionVerification(models.Model):
+    verification_id = models.AutoField(primary_key=True)
+    table_name = models.CharField(max_length=50)
+    record_id = models.IntegerField()
+    verification_status = models.CharField(
+        max_length=50,
+        default="Pending Verification"
+    )
+    auditor_id_FK = models.ForeignKey(
+        OfficerUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="auditor_id_FK",
+        related_name="transaction_verifications_audited",
+    )
+    president_id_FK = models.ForeignKey(
+        OfficerUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="president_id_FK",
+        related_name="transaction_verifications_approved",
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "transaction_verification"

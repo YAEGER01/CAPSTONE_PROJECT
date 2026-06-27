@@ -1,8 +1,6 @@
-# TODO - Logout + President sidebar button
+# TODO.md
 
-- [x] Add logout view in `core_system/views.py` to revoke ACCESS_SESSION and clear session keys.
+- [ ] Add new Treasurer “Membership” sidebar tab for listing membership fee entries.
+- [x] Add new module/section in `templates/website/Treasurer/treasurer_dashboard.html` with a table.
 
-- [x] Add `logout` URL route + `name="logout"` in `core_system/urls.py`.
-- [x] Add logout button/link in `templates/website/President/base.html` sidebar.
-
-- [ ] Test: login -> logout -> redirected to login; protected pages redirect to login.
+- [x] Implement frontend JS handler to fetch `/api/treasurer/membership-fees/list/` and render rows into the new table.

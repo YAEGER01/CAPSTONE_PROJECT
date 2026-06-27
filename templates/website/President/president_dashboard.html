@@ -1,0 +1,2555 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Presidential Executive Approval Console</title>
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+
+      /* ==========================================================================
+       GLOBAL RESET & BRAND VARIABLE PATHS
+       ========================================================================== */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Poppins", sans-serif;
+      }
+
+      body,
+      html {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        background: #f6fbf6; /* Light Pale Mint Brand BG */
+        color: #263238; /* Dark Charcoal Text */
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      /* Master Layout Grid */
+      .app-container {
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* ==========================================================================
+       SIDEBAR COMPONENT
+       ========================================================================== */
+      .sidebar {
+        width: 280px;
+        height: 100%;
+        background: #1b5e20; /* Deep Institutional Green */
+        display: flex;
+        flex-direction: column;
+        transition: width 0.25s ease;
+        flex-shrink: 0;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        z-index: 1010;
+      }
+
+      /* Sidebar Header */
+      .sidebar-brand {
+        padding: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+
+      .brand-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .logo-mark {
+        background: #fbc02d; /* Gold Accent */
+        color: #1b5e20;
+        font-weight: 700;
+        font-size: 1.15rem;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .role-tag {
+        font-size: 0.72rem;
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.9);
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-top: 3px;
+      }
+
+      .collapse-toggle-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-size: 1.15rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px;
+        border-radius: 6px;
+        transition: 0.2s;
+      }
+
+      .collapse-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fbc02d;
+      }
+
+      /* Sidebar Scrollable Area */
+      .sidebar-scroller {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      .sidebar-scroller::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* Navigation Items Matrix */
+      .menu-item {
+        padding: 14px 24px;
+        color: rgba(255, 255, 255, 0.75);
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: 0.3s;
+        border-left: 4px solid transparent;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .menu-item:hover {
+        color: #fbc02d; /* Accent Gold Yellow hover */
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .menu-item.active {
+        color: #1b5e20;
+        background: #f6fbf6; /* Merges cleanly into content bg */
+        border-left: 4px solid #fbc02d;
+        font-weight: 600;
+      }
+
+      /* Nested Folders UI */
+      .nested-folder {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .folder-header {
+        padding: 14px 24px;
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        user-select: none;
+        transition: 0.3s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+      }
+
+      .folder-header:hover {
+        color: #fbc02d;
+      }
+
+      .folder-contents {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-in-out;
+        background: #144317; /* Darker green background tone inside folder dropdown */
+      }
+
+      .folder-contents.open {
+        max-height: 400px;
+      }
+
+      .folder-contents .menu-item {
+        padding-left: 36px;
+      }
+
+      .folder-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .chevron-icon {
+        font-size: 0.8rem;
+        transition: transform 0.25s ease;
+        display: flex;
+        align-items: center;
+      }
+
+      .sub-icon {
+        font-size: 0.95rem;
+        opacity: 0.8;
+      }
+
+      /* Collapsed state adjustments */
+      .sidebar.collapsed {
+        width: 75px;
+      }
+
+      .sidebar.collapsed .logo-mark,
+      .sidebar.collapsed .role-tag,
+      .sidebar.collapsed .menu-text,
+      .sidebar.collapsed .chevron-icon,
+      .sidebar.collapsed .folder-contents,
+      .sidebar.collapsed .brand-title-text {
+        display: none !important;
+      }
+
+      .sidebar.collapsed .sidebar-brand {
+        justify-content: center !important;
+        padding: 24px 0 !important;
+      }
+
+      .sidebar.collapsed .menu-item {
+        justify-content: center !important;
+        padding: 16px 0 !important;
+        border-left: none !important;
+        gap: 0 !important;
+      }
+
+      .sidebar.collapsed .folder-header {
+        justify-content: center !important;
+        padding: 16px 0 !important;
+      }
+
+      .sidebar.collapsed .folder-title-wrapper {
+        justify-content: center !important;
+        gap: 0 !important;
+      }
+
+      .sidebar-footer {
+        width: 100%;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 10px 0;
+      }
+
+      /* ==========================================================================
+       MAIN DASHBOARD WORKSPACE PANELS
+       ========================================================================== */
+      .main-viewport {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      /* Workspace Header Bar */
+      .viewport-header {
+        background: #ffffff;
+        height: 70px;
+        border-bottom: 1px solid #dfe9df;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+        z-index: 1000;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .toggle-sidebar-mobile {
+        display: none;
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        color: #1b5e20;
+        cursor: pointer;
+      }
+
+      .page-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1b5e20;
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .user-profile {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .user-avatar {
+        width: 38px;
+        height: 38px;
+        background: #e1eedf;
+        border: 2px solid #1b5e20;
+        color: #1b5e20;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .user-info {
+        text-align: right;
+      }
+
+      .user-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #263238;
+      }
+
+      .user-role {
+        font-size: 0.75rem;
+        color: #757575;
+      }
+
+      /* Main Content Wrapper Window */
+      .content-viewport {
+        flex: 1;
+        overflow-y: auto;
+        padding: 40px;
+        background: #eef7ef; /* Pale Mint Section Color */
+      }
+
+      /* Dynamic Module / Tab view states */
+      .dashboard-module {
+        display: none;
+      }
+
+      .dashboard-module.active {
+        display: block;
+      }
+
+      /* Modular Content Panel Containers */
+      .dashboard-panel {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 35px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        border: 1px solid #dfe9df;
+        margin-bottom: 30px;
+      }
+
+      .panel-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        border-bottom: 2px solid #f6fbf6;
+        padding-bottom: 15px;
+      }
+
+      .panel-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1b5e20;
+      }
+
+      .panel-subtitle {
+        font-size: 0.85rem;
+        color: #757575;
+      }
+
+      /* KPI Grid cards */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 24px;
+        margin-bottom: 30px;
+      }
+
+      .stat-card {
+        background: #ffffff;
+        border: 1px solid #dfe9df;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: 0.2s;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+      }
+
+      .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: rgba(27, 94, 32, 0.1);
+        color: #1b5e20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+      }
+
+      .stat-icon.accent-yellow {
+        background: rgba(251, 192, 45, 0.15);
+        color: #fbc02d;
+      }
+
+      .stat-icon.accent-blue {
+        background: rgba(33, 150, 243, 0.1);
+        color: #2196f3;
+      }
+
+      .stat-info h4 {
+        font-size: 0.8rem;
+        color: #757575;
+        font-weight: 500;
+      }
+
+      .stat-info .stat-value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #263238;
+        margin-top: 2px;
+      }
+
+      /* Table styles */
+      .table-container {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 12px;
+        border: 1px solid #dfe9df;
+      }
+
+      .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.88rem;
+      }
+
+      .custom-table th {
+        background: #f6fbf6;
+        color: #1b5e20;
+        font-weight: 600;
+        padding: 14px 18px;
+        border-bottom: 2px solid #dfe9df;
+      }
+
+      .custom-table td {
+        padding: 14px 18px;
+        border-bottom: 1px solid #f0f5f0;
+        color: #263238;
+        vertical-align: middle;
+      }
+
+      .custom-table tr:hover {
+        background: #fafdfa;
+        cursor: pointer;
+      }
+
+      .custom-table tr.selected-row {
+        background: #eef7ef;
+        border-left: 4px solid #fbc02d;
+      }
+
+      /* Inspection & Read-only visual layout panels */
+      .audit-split-workspace {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 30px;
+      }
+
+      @media (max-width: 1200px) {
+        .audit-split-workspace {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .inspection-data-block {
+        background: #fdfdfd;
+        border: 1px solid #e2ece2;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .inspection-data-title {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #1b5e20;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #eef7ef;
+        padding-bottom: 6px;
+      }
+
+      .readonly-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+      }
+
+      .readonly-field label {
+        font-size: 0.75rem;
+        color: #757575;
+        font-weight: 500;
+        display: block;
+        margin-bottom: 2px;
+      }
+
+      .readonly-field div {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #263238;
+      }
+
+      /* System Logs Timeline View Styling */
+      .timeline-container {
+        margin-top: 15px;
+        overflow-x: auto;
+      }
+
+      .timeline-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+      }
+
+      .timeline-table th {
+        background: #eef7ef;
+        color: #1b5e20;
+        font-weight: 600;
+        padding: 10px;
+        text-align: left;
+        border-bottom: 2px solid #dfe9df;
+      }
+
+      .timeline-table td {
+        padding: 10px;
+        border-bottom: 1px solid #f0f5f0;
+        color: #37474f;
+      }
+
+      /* Form inputs & styling */
+      .dashboard-form {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      .form-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .dashboard-form label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1b5e20;
+        margin-bottom: 8px;
+      }
+
+      .dashboard-form input,
+      .dashboard-form select,
+      .dashboard-form textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid #cfdccc;
+        font: inherit;
+        background: #fbfdfb;
+        color: #263238;
+        transition: 0.2s;
+      }
+
+      .dashboard-form input:focus,
+      .dashboard-form select:focus,
+      .dashboard-form textarea:focus {
+        outline: none;
+        border-color: #1b5e20;
+        box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.1);
+      }
+
+      .dashboard-form input[readonly] {
+        background: #eef7ef;
+        border-color: #cfdccc;
+        cursor: not-allowed;
+        color: #546e7a;
+      }
+
+      /* Interactive Action Buttons */
+      .btn-brand {
+        padding: 14px 28px;
+        border-radius: 10px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: 0.3s;
+        font-family: "Poppins", sans-serif;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn-brand-primary {
+        background: #1b5e20;
+        color: white;
+      }
+
+      .btn-brand-primary:hover {
+        background: #2e7d32;
+        transform: translateY(-1px);
+      }
+
+      .btn-brand-secondary {
+        background: #fbc02d;
+        color: #1b1b1b;
+      }
+
+      .btn-brand-secondary:hover {
+        background: #ffd54f;
+        transform: translateY(-1px);
+      }
+
+      .btn-brand-danger {
+        background: #e53935;
+        color: white;
+      }
+
+      .btn-brand-danger:hover {
+        background: #d32f2f;
+      }
+
+      /* Badges for System State Loops */
+      .badge-zero {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+      }
+
+      .badge-green {
+        background-color: rgba(27, 94, 32, 0.1);
+        color: #1b5e20;
+      }
+
+      .badge-yellow {
+        background-color: rgba(251, 192, 45, 0.15);
+        color: #d89600;
+      }
+
+      .badge-red {
+        background-color: rgba(229, 57, 53, 0.1);
+        color: #e53935;
+      }
+
+      /* Smooth Navigation Animations */
+      .module-fade-in {
+        animation: fadeInSlide 0.3s ease-out;
+      }
+
+      @keyframes fadeInSlide {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Custom Toast and Alerts */
+      .notification-host {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .custom-toast {
+        background: #ffffff;
+        border-left: 5px solid #1b5e20;
+        border-radius: 8px;
+        padding: 16px 24px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        min-width: 320px;
+        transform: translateX(120%);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      .custom-toast.show {
+        transform: translateX(0);
+      }
+
+      .custom-toast.toast-error {
+        border-left-color: #e53935;
+      }
+
+      /* Modal System */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 3000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal-card {
+        background: white;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 600px;
+        padding: 35px;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        text-align: center;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 900px) {
+        .sidebar {
+          position: absolute;
+          left: -280px;
+          top: 0;
+          bottom: 0;
+          box-shadow: 5px 0 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .sidebar.open-mobile {
+          left: 0;
+          width: 280px;
+        }
+
+        .toggle-sidebar-mobile {
+          display: block;
+        }
+
+        .content-viewport {
+          padding: 20px;
+        }
+      }
+
+      /* Glowing Select Button */
+      .btn-select-glow {
+        background: #1b5e20;
+        color: white;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 8px rgba(27, 94, 32, 0.4);
+        animation: selectPulseGlow 2s infinite alternate;
+      }
+
+      .btn-select-glow:hover {
+        background: #fbc02d;
+        color: #1b5e20;
+        box-shadow: 0 0 12px rgba(251, 192, 45, 0.8);
+      }
+
+      @keyframes selectPulseGlow {
+        0% {
+          box-shadow: 0 0 4px rgba(27, 94, 32, 0.3);
+        }
+        100% {
+          box-shadow: 0 0 14px rgba(27, 94, 32, 0.7);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Custom Alert Modals -->
+    <div class="modal-overlay" id="customAlertModal">
+      <div class="modal-card">
+        <h3
+          style="color: #1b5e20; margin-bottom: 12px; font-size: 1.3rem"
+          id="modalAlertTitle"
+        >
+          Notice
+        </h3>
+        <p
+          style="
+            color: #546e7a;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            text-align: left;
+            white-space: pre-line;
+          "
+          id="modalAlertMessage"
+        >
+          Message text
+        </p>
+        <button
+          class="btn-brand btn-brand-primary"
+          onclick="closeCustomModal()"
+        >
+          Close Document
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="customConfirmModal">
+      <div class="modal-card">
+        <h3 style="color: #e53935; margin-bottom: 12px; font-size: 1.3rem">
+          Destructive System Reset
+        </h3>
+        <p
+          style="
+            color: #546e7a;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+          "
+        >
+          Are you completely sure you want to proceed with resetting database
+          parameters? All current executive approval logs and pending decisions
+          will be flushed.
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center">
+          <button
+            class="btn-brand btn-brand-primary"
+            style="background: #e53935"
+            onclick="triggerConfirmYes()"
+          >
+            Reset Database
+          </button>
+          <button
+            class="btn-brand btn-brand-secondary"
+            onclick="closeConfirmModal()"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Toast Area -->
+    <div class="notification-host" id="toastContainer"></div>
+
+    <!-- Master Grid App Container -->
+    <div class="app-container">
+      <!-- ==========================================================================
+         SIDEBAR NAVIGATION COMPONENT (Presidential Executive Level)
+         ========================================================================== -->
+      <aside class="sidebar" id="appSidebar">
+        <div class="sidebar-top">
+          <!-- Sidebar Brand Header -->
+          <div class="sidebar-brand">
+            <div class="brand-title-wrapper">
+              <span class="logo-mark">P</span>
+              <div class="brand-title-text">
+                <h2 style="font-size: 0.95rem; line-height: 1.2">
+                  President HQ
+                </h2>
+                <span class="role-tag">Executive Office</span>
+              </div>
+            </div>
+            <button
+              class="collapse-toggle-btn"
+              id="collapseBtn"
+              title="Toggle Sidebar Menu"
+            >
+              <svg
+                id="chevronLeftIcon"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+          </div>
+
+          <div class="sidebar-scroller">
+            <!-- Direct Home Dashboard Link -->
+            <a class="menu-item active" data-target="dashboard-overview">
+              <span class="menu-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+                  ></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+              </span>
+              <span class="menu-text">Executive Dashboard</span>
+            </a>
+
+            <!-- FOLDER CATEGORY 1: WORKSPACE INSPECTOR -->
+            <div class="nested-folder">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-verification', this)"
+              >
+                <div class="folder-title-wrapper">
+                  <span class="menu-icon">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect
+                        x="3"
+                        y="4"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        ry="2"
+                      ></rect>
+                      <line x1="9" y1="9" x2="15" y2="9"></line>
+                      <line x1="9" y1="13" x2="15" y2="13"></line>
+                      <line x1="9" y1="17" x2="15" y2="17"></line>
+                    </svg>
+                  </span>
+                  <span class="menu-text">Approval Desk</span>
+                </div>
+                <span class="chevron-icon">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="folder-contents" id="folder-verification">
+                <a class="menu-item" data-target="presidential-payments">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Payments Verification</span>
+                </a>
+                <a class="menu-item" data-target="presidential-aid-requests">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Aid & Claims Approval</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- FOLDER CATEGORY 2: VERIFICATION REGISTRY -->
+            <div class="nested-folder">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-registry', this)"
+              >
+                <div class="folder-title-wrapper">
+                  <span class="menu-icon">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                      ></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                  </span>
+                  <span class="menu-text">Executive Registry</span>
+                </div>
+                <span class="chevron-icon">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="folder-contents" id="folder-registry">
+                <a class="menu-item" data-target="view-executive-ledger">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Disbursement Logs</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- FOLDER CATEGORY 3: REPORT COMPILER -->
+            <div class="nested-folder">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-reports', this)"
+              >
+                <div class="folder-title-wrapper">
+                  <span class="menu-icon">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <line x1="18" y1="20" x2="18" y2="10"></line>
+                      <line x1="12" y1="20" x2="12" y2="4"></line>
+                      <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                  </span>
+                  <span class="menu-text">Oversight Reports</span>
+                </div>
+                <span class="chevron-icon">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="folder-contents" id="folder-reports">
+                <a class="menu-item" data-target="view-reports-compiler">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Oversight Summary</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sidebar Reset Footer -->
+          <div class="sidebar-footer">
+            <a
+              class="menu-item"
+              onclick="resetDatabaseWithWarning()"
+              style="color: rgba(255, 255, 255, 0.5)"
+            >
+              <span class="menu-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"
+                  ></path>
+                </svg>
+              </span>
+              <span class="menu-text" style="font-size: 0.85rem"
+                >Flush Console DB</span
+              >
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ==========================================================================
+         MAIN VIEWPORT COMPONENT
+         ========================================================================== -->
+      <main class="main-viewport">
+        <!-- Workspace Top Header Row -->
+        <header class="viewport-header">
+          <div class="header-left">
+            <button
+              class="toggle-sidebar-mobile"
+              id="mobileSidebarToggle"
+              title="Open Menu"
+            >
+              &#9776;
+            </button>
+            <h1 class="page-title" id="currentModuleTitle">
+              Presidential Dashboard Overview
+            </h1>
+          </div>
+          <div class="header-right">
+            <div class="user-profile">
+              <div class="user-info">
+                <p class="user-name">President Arthur Vance, PhD</p>
+                <p class="user-role">Chief Executive Officer</p>
+              </div>
+              <div class="user-avatar">AV</div>
+            </div>
+            <button
+              type="button"
+              class="btn-brand btn-brand-danger"
+              style="padding: 10px 16px; border-radius: 10px"
+              onclick="confirmLogout()"
+              title="Logout"
+            >
+              Logout
+            </button>
+          </div>
+        </header>
+
+        <!-- Central Scrollable Dashboard Viewport Area -->
+        <div class="content-viewport" id="contentViewport">
+          <!-- ==========================================================================
+             TAB 1: PRESIDENTIAL OVERVIEW
+             ========================================================================== -->
+          <section
+            id="dashboard-overview"
+            class="dashboard-module active module-fade-in"
+          >
+            <!-- KPI Stats grid overview -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon">📥</div>
+                <div class="stat-info">
+                  <h4>Verified Dues Awaiting Sign-off</h4>
+                  <div class="stat-value" id="kpi-pending-payments">0</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon accent-yellow">📁</div>
+                <div class="stat-info">
+                  <h4>Verified Claims Awaiting Sign-off</h4>
+                  <div class="stat-value" id="kpi-pending-claims">0</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon accent-blue">🛡️</div>
+                <div class="stat-info">
+                  <h4>Total Executed Approvals</h4>
+                  <div class="stat-value" id="kpi-total-audits">0</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title">Presidential Executive Directives</h3>
+                  <p class="panel-subtitle">
+                    Final compliance verification, disbursement release
+                    authorization, and audit logs tracking
+                  </p>
+                </div>
+                <span class="badge-zero badge-green" id="db-status-badge"
+                  >Executive Console Online</span
+                >
+              </div>
+
+              <div
+                class="alert-box success"
+                style="
+                  background: rgba(27, 94, 32, 0.06);
+                  border-left: 5px solid #1b5e20;
+                  padding: 20px;
+                  border-radius: 12px;
+                  margin-bottom: 25px;
+                "
+              >
+                <h4
+                  style="color: #1b5e20; font-weight: 600; margin-bottom: 5px"
+                >
+                  Executive Sign-off Framework
+                </h4>
+                <p style="font-size: 0.9rem; line-height: 1.5">
+                  Welcome to the Presidential Approval Console. Financial
+                  objects present here have been first formatted by the
+                  Treasurer, then rigorously checked and verified as secure by
+                  compliance Auditors. You are authorized to approve payouts,
+                  reject deficient requests, modify approved disbursement
+                  amounts, and examine granular system audit trails prior to
+                  confirming decisions.
+                </p>
+              </div>
+
+              <div style="margin-top: 20px">
+                <h4
+                  style="color: #1b5e20; font-weight: 600; margin-bottom: 10px"
+                >
+                  Executive Sign-Off Protocol
+                </h4>
+                <p style="font-size: 0.92rem; line-height: 1.6; color: #546e7a">
+                  1. Review the read-only wide-range data access panel detailing
+                  original Treasurer inputs & verified Auditor summary notes.<br />
+                  2. Analyze the chronological audit trails in the system logs
+                  to identify user footprints.<br />
+                  3. Finalize decision results. Approved claims automatically
+                  proceed to Landbank Cheque release. Rejected entries close and
+                  trigger immediate correction notifications back to the
+                  Treasurer.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 2: MEMBER PROFILE & PAYMENTS APPROVAL
+             ========================================================================== -->
+          <section
+            id="presidential-payments"
+            class="dashboard-module module-fade-in"
+          >
+            <div class="audit-split-workspace">
+              <!-- Left Side: Pending payment ledger table -->
+              <div>
+                <div class="dashboard-panel" style="padding: 24px">
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">Payment Verification Queue</h3>
+                      <p class="panel-subtitle">
+                        Select an entry below to authorize final transaction
+                        audits
+                      </p>
+                    </div>
+                  </div>
+                  <div class="table-container">
+                    <table class="custom-table" id="pendingPaymentsTable">
+                      <thead>
+                        <tr>
+                          <th>Reference Code</th>
+                          <th>Associated Member</th>
+                          <th>Amount Paid</th>
+                          <th>Type</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Side: Wide-Range Read-Only and Decision Desk -->
+              <div>
+                <div
+                  class="dashboard-panel"
+                  style="padding: 24px"
+                  id="paymentAuditFormPanel"
+                >
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">Executive Decision Desk</h3>
+                      <p class="panel-subtitle" id="selectedPaymentHeader">
+                        No item selected
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- 1. Wide-Range Data Access Panel (Read-Only) -->
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">
+                      Treasurer's Original Entries
+                    </div>
+                    <div class="readonly-grid" style="margin-bottom: 15px">
+                      <div class="readonly-field">
+                        <label>Member Name</label>
+                        <div id="pReadName">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Employee ID</label>
+                        <div id="pReadEmpId">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Department / College</label>
+                        <div id="pReadDept">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Membership Status</label>
+                        <div id="pReadStatus">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Contact Info</label>
+                        <div id="pReadContact">—</div>
+                      </div>
+                    </div>
+                    <div class="readonly-grid">
+                      <div class="readonly-field">
+                        <label>Deduction Month / Period</label>
+                        <div id="pReadCovered">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Expected Dues Amount</label>
+                        <div id="pReadExpected">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Payment Method</label>
+                        <div id="pReadMethod">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Official Receipt / Ref</label>
+                        <div id="pReadRef">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Encoded By</label>
+                        <div id="pReadEncoder">—</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 1b. Auditor-approved Membership (Read-Only) -->
+                  <div
+                    class="inspection-data-block"
+                    id="approvedMembershipBlock"
+                  >
+                    <div class="inspection-data-title">
+                      Auditor-approved Membership
+                    </div>
+                    <div class="readonly-grid" style="margin-bottom: 12px">
+                      <div class="readonly-field">
+                        <label>Approved Membership Type</label>
+                        <div id="pApprovedMembershipTypeText">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Approved Membership Ref</label>
+                        <div id="pApprovedMembershipRefText">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Approved Membership Month</label>
+                        <div id="pApprovedMembershipMonthText">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Approved Membership Amount</label>
+                        <div id="pApprovedMembershipAmountText">—</div>
+                      </div>
+                    </div>
+                  </div>
+
+
+
+                  <!-- Auditor Verification Summary Card -->
+                  <div
+                    class="inspection-data-block"
+                    style="border: 1px solid #1b5e20; background: #fbfdfb"
+                  >
+                    <div
+                      class="inspection-data-title"
+                      style="color: #1b5e20; border-bottom: 1px solid #dfe9df"
+                    >
+                      Auditor's Verification Summary
+                    </div>
+                    <div class="readonly-grid" style="margin-bottom: 12px">
+                      <div class="readonly-field">
+                        <label>Auditor Name / Identity</label>
+                        <div id="pAuditByText" style="color: #1b5e20">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Auditor Verification Date</label>
+                        <div id="pAuditDateText">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Attached Finding Evidence</label>
+                        <div id="pAuditEvidenceText">—</div>
+                      </div>
+                    </div>
+                    <div>
+                      <label
+                        style="
+                          font-size: 0.75rem;
+                          color: #757575;
+                          font-weight: 500;
+                        "
+                        >Auditor Verification Notes & Remarks</label
+                      >
+                      <div
+                        id="pAuditRemarksText"
+                        style="
+                          font-size: 0.88rem;
+                          font-weight: 600;
+                          color: #263238;
+                          margin-top: 2px;
+                        "
+                      >
+                        —
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 2. System Logs & Audit Trail Component -->
+                  <!--div class="inspection-data-block">
+                    <div class="inspection-data-title">
+                      System Logs & Audit Trail Component (Timeline View)
+                    </div>
+                    <div class="timeline-container">
+                      <table class="timeline-table" id="pTimelineTable">
+                        <thead>
+                          <tr>
+                            <th>Timestamp</th>
+                            <th>Role</th>
+                            <th>User</th>
+                            <th>Action Performed</th>
+                            <th>Changes Made / Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td
+                              colspan="5"
+                              style="text-align: center; color: #757575"
+                            >
+                              No tracking logs compiled. Select a transaction to
+                              generate path timelines.
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div-->
+
+                  <!-- 3. President Input Form (Writeable Fields) -->
+                  <form
+                    class="dashboard-form"
+                    id="paymentApprovalForm"
+                    onsubmit="submitPresidentialPaymentDecision(event)"
+                  >
+                    {% csrf_token %}
+                    <input type="hidden" id="p_target_id" />
+
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="p_decision"
+                          >President's Executive Decision</label
+                        >
+                        <select
+                          id="p_decision"
+                          required
+                          onchange="
+                            handleDecisionChange('p_decision', 'p_remarks')
+                          "
+                        >
+                          <option value="">-- Choose Final Ruling --</option>
+                          <option value="Approved">
+                            Approved (Commit Transaction & Finalize)
+                          </option>
+                          <option value="Rejected">
+                            Rejected (Flag Deficient & Back to Treasurer)
+                          </option>
+                        </select>
+                      </div>
+
+                      <div class="form-group">
+                        <label for="p_approved_amount"
+                          >Approved Dues Amount (₱)</label
+                        >
+                        <input
+                          type="number"
+                          id="p_approved_amount"
+                          step="0.01"
+                          readonly
+                          style="background-color: #eef7ef; cursor: not-allowed"
+                          placeholder="Locked to payment value"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="p_remarks" id="p_remarks_label"
+                        >Decision Remarks & Directives (Mandatory for
+                        rejections)</label
+                      >
+                      <textarea
+                        id="p_remarks"
+                        rows="3"
+                        placeholder="Enter formal presidential directives, oversight notes, or rejection findings..."
+                      ></textarea>
+                    </div>
+
+                    <div
+                      style="
+                        display: flex;
+                        gap: 10px;
+                        justify-content: flex-end;
+                        margin-top: 15px;
+                      "
+                    >
+                      <button
+                        type="button"
+                        class="btn-brand btn-brand-secondary"
+                        onclick="clearPaymentApprovalSelection()"
+                      >
+                        Back to Dashboard
+                      </button>
+                      <button type="submit" class="btn-brand btn-brand-primary">
+                        Confirm Decision
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 3: AID REQUESTS & CLAIMS APPROVAL
+             ========================================================================== -->
+          <section
+            id="presidential-aid-requests"
+            class="dashboard-module module-fade-in"
+          >
+            <div class="audit-split-workspace">
+              <!-- Left Side: Pending Aid requests list -->
+              <div>
+                <div class="dashboard-panel" style="padding: 24px">
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">Claims Verification Queue</h3>
+                      <p class="panel-subtitle">
+                        Review verified claims to authorize Landbank
+                        disbursements
+                      </p>
+                    </div>
+                  </div>
+                  <div class="table-container">
+                    <table class="custom-table" id="pendingAidsTable">
+                      <thead>
+                        <tr>
+                          <th>Claim ID</th>
+                          <th>Member / Claimant</th>
+                          <th>Claim Type</th>
+                          <th>Expected Payout</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Side: Presidential Verification Desk and Forms -->
+              <div>
+                <div
+                  class="dashboard-panel"
+                  style="padding: 24px"
+                  id="aidAuditFormPanel"
+                >
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">
+                        Claims Executive Decision Desk
+                      </h3>
+                      <p class="panel-subtitle" id="selectedAidHeader">
+                        No claim file selected
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- 1. Wide-Range Data Access Panel (Read-Only) -->
+                  <div
+                    class="inspection-data-block"
+                    id="inspectionMedicalBlock"
+                    style="display: none"
+                  >
+                    <div class="inspection-data-title">
+                      Treasurer Medical Request Parameters
+                    </div>
+                    <div class="readonly-grid" style="margin-bottom: 15px">
+                      <div class="readonly-field">
+                        <label>Request Date</label>
+                        <div id="mReadDate">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Hospital / Clinic Name</label>
+                        <div id="mReadHospital">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Total Medical Bill</label>
+                        <div id="mReadBill">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Requested Payout Amount</label>
+                        <div id="mReadReqAmount" style="color: #1b5e20">—</div>
+                      </div>
+                    </div>
+                    <div>
+                      <label
+                        style="
+                          font-size: 0.75rem;
+                          color: #757575;
+                          font-weight: 500;
+                        "
+                        >Reason & Medical Case Justification</label
+                      >
+                      <div
+                        id="mReadCase"
+                        style="
+                          font-size: 0.88rem;
+                          font-weight: 600;
+                          color: #263238;
+                        "
+                      >
+                        —
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="inspection-data-block"
+                    id="inspectionDeathBlock"
+                    style="display: none"
+                  >
+                    <div class="inspection-data-title">
+                      Treasurer Death Claim Parameters
+                    </div>
+                    <div class="readonly-grid" style="margin-bottom: 15px">
+                      <div class="readonly-field">
+                        <label>Deceased Person</label>
+                        <div id="dReadDeceased">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Relationship to Member</label>
+                        <div id="dReadRelationship">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Claim Type</label>
+                        <div id="dReadClaimType">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Legal Claimant Name</label>
+                        <div id="dReadClaimantName">—</div>
+                      </div>
+                    </div>
+                    <div class="readonly-grid">
+                      <div class="readonly-field">
+                        <label>Claimant Contact</label>
+                        <div id="dReadClaimantContact">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Date of Death</label>
+                        <div id="dReadDateOfDeath">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Expected Payout Amount</label>
+                        <div id="dReadBenefit" style="color: #1b5e20">—</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Auditor Verification Summary Block -->
+                  <div
+                    class="inspection-data-block"
+                    style="border: 1px solid #1b5e20; background: #fbfdfb"
+                  >
+                    <div
+                      class="inspection-data-title"
+                      style="color: #1b5e20; border-bottom: 1px solid #dfe9df"
+                    >
+                      Auditor's Verification Summary
+                    </div>
+                    <div class="readonly-grid" style="margin-bottom: 12px">
+                      <div class="readonly-field">
+                        <label>Auditor Name / Identity</label>
+                        <div id="aAuditByText" style="color: #1b5e20">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Auditor Verification Date</label>
+                        <div id="aAuditDateText">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Attached Finding Evidence</label>
+                        <div id="aAuditEvidenceText">—</div>
+                      </div>
+                    </div>
+                    <div>
+                      <label
+                        style="
+                          font-size: 0.75rem;
+                          color: #757575;
+                          font-weight: 500;
+                        "
+                        >Auditor verification Notes & Remarks</label
+                      >
+                      <div
+                        id="aAuditRemarksText"
+                        style="
+                          font-size: 0.88rem;
+                          font-weight: 600;
+                          color: #263238;
+                          margin-top: 2px;
+                        "
+                      >
+                        —
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 2. System Logs & Audit Trail Component -->
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">
+                      System Logs & Audit Trail Component (Timeline View)
+                    </div>
+                    <div class="timeline-container">
+                      <table class="timeline-table" id="aTimelineTable">
+                        <thead>
+                          <tr>
+                            <th>Timestamp</th>
+                            <th>Role</th>
+                            <th>User</th>
+                            <th>Action Performed</th>
+                            <th>Changes Made / Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td
+                              colspan="5"
+                              style="text-align: center; color: #757575"
+                            >
+                              No tracking logs compiled. Select a transaction to
+                              generate path timelines.
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- 3. President Input Form (Writeable Fields) -->
+                  <form
+                    class="dashboard-form"
+                    id="aidApprovalForm"
+                    onsubmit="submitPresidentialAidDecision(event)"
+                  >
+                    {% csrf_token %}
+                    <input type="hidden" id="a_target_id" />
+
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="a_decision"
+                          >President's Executive Decision</label
+                        >
+                        <select
+                          id="a_decision"
+                          required
+                          onchange="
+                            handleDecisionChange('a_decision', 'a_remarks')
+                          "
+                        >
+                          <option value="">-- Choose Final Ruling --</option>
+                          <option value="Approved">
+                            Approved (Push to Landbank Disbursement)
+                          </option>
+                          <option value="Rejected">
+                            Rejected (Flag Rejection Notice to Treasurer)
+                          </option>
+                        </select>
+                      </div>
+
+                      <div class="form-group">
+                        <label for="a_approved_amount"
+                          >Approved Final Payout Amount (₱)</label
+                        >
+                        <input
+                          type="number"
+                          id="a_approved_amount"
+                          step="0.01"
+                          required
+                          placeholder="Verify amount limits"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="a_remarks" id="a_remarks_label"
+                        >Decision Remarks & Directives (Mandatory for
+                        rejections)</label
+                      >
+                      <textarea
+                        id="a_remarks"
+                        rows="3"
+                        placeholder="Explain the rationale behind final approved disbursements or missing claim prerequisites..."
+                      ></textarea>
+                    </div>
+
+                    <div
+                      style="
+                        display: flex;
+                        gap: 10px;
+                        justify-content: flex-end;
+                        margin-top: 15px;
+                      "
+                    >
+                      <button
+                        type="button"
+                        class="btn-brand btn-brand-secondary"
+                        onclick="clearAidApprovalSelection()"
+                      >
+                        Back to Dashboard
+                      </button>
+                      <button type="submit" class="btn-brand btn-brand-primary">
+                        Confirm Decision
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 4: EXECUTIVE APPROVED REGISTRY (LOG FEED)
+             ========================================================================== -->
+          <section
+            id="view-executive-ledger"
+            class="dashboard-module module-fade-in"
+          >
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title">Presidential Disbursement Ledger</h3>
+                  <p class="panel-subtitle">
+                    Comprehensive registry of executive actions, finalized
+                    payout figures, and historical audit loops
+                  </p>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table
+                  class="custom-table"
+                  id="executiveLogsTable"
+                  style="cursor: default"
+                >
+                  <thead>
+                    <tr>
+                      <th>Approval Date</th>
+                      <th>Target request ID</th>
+                      <th>Executive Decision</th>
+                      <th>Final Authorized Amount</th>
+                      <th>Audit Remarks / Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 5: REPORT COMPILER
+             ========================================================================== -->
+          <section
+            id="view-reports-compiler"
+            class="dashboard-module module-fade-in"
+          >
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                gap: 30px;
+              "
+            >
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">
+                    Generate Executive Compliance Reports
+                  </h3>
+                </div>
+                <form
+                  class="dashboard-form"
+                  id="reportForm"
+                  onsubmit="handleReportCompilerSubmit(event)"
+                >
+                  {% csrf_token %}
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="rep_start">Start Window Date</label>
+                      <input
+                        type="date"
+                        id="rep_start"
+                        name="rep_start"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="rep_end">End Window Date</label>
+                      <input type="date" id="rep_end" name="rep_end" required />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="rep_type">Executive Certification Model</label>
+                    <select id="rep_type" name="rep_type">
+                      <option
+                        value="Presidential Disbursement Authority Ledger"
+                      >
+                        Comprehensive Presidential Disbursement Sign-Off Ledger
+                      </option>
+                      <option
+                        value="Approved Claims Landbank Audit Reconciliation"
+                      >
+                        Approved Claims Landbank Bank Draft Reconciliaton
+                      </option>
+                      <option value="Treasurer Ledger Audit Reconciliation">
+                        Coop Member Fees & Monthly Dues Audit Reconciliation
+                      </option>
+                      <option value="Returned Claims Analysis">
+                        Deficiency & Rejection Ratio Report
+                      </option>
+                    </select>
+                  </div>
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="rep_by">Executive Admin Code</label>
+                      <input
+                        type="text"
+                        id="rep_by"
+                        name="rep_by"
+                        value="EXEC-PRES-VANCE-2026"
+                        required
+                        readonly
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="rep_export"
+                        >Compliance Supervisor Sign-off</label
+                      >
+                      <input
+                        type="text"
+                        id="rep_export"
+                        name="rep_export"
+                        value="President Arthur Vance, PhD"
+                        required
+                        readonly
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" class="btn-brand btn-brand-primary">
+                    Generate Executive Sign-Off Certificate
+                  </button>
+                </form>
+              </div>
+
+              <div class="dashboard-panel" style="flex: 2">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Generated Executive Reports</h3>
+                </div>
+                <div class="table-container">
+                  <table
+                    class="custom-table"
+                    id="reportTable"
+                    style="cursor: default"
+                  >
+                    <thead>
+                      <tr>
+                        <th>Compile Timestamp</th>
+                        <th>Oversight Type</th>
+                        <th>Date Window</th>
+                        <th>Authorized Seal</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- ==========================================================================
+       DJANGO-TO-FRONTEND JSON BRIDGES
+       ========================================================================== -->
+    <script id="django-members-data" type="application/json">
+      {% if django_members_json %}{{ django_members_json|safe }}{% else %}null{% endif %}
+    </script>
+    <script id="django-fees-data" type="application/json">
+      {% if django_fees_json %}{{ django_fees_json|safe }}{% else %}null{% endif %}
+    </script>
+    <script id="django-otc-dues-data" type="application/json">
+      {% if django_otc_dues_json %}{{ django_otc_dues_json|safe }}{% else %}null{% endif %}
+    </script>
+    <script id="django-salary-data" type="application/json">
+      {% if django_salary_json %}{{ django_salary_json|safe }}{% else %}null{% endif %}
+    </script>
+    <script id="django-medical-data" type="application/json">
+      {% if django_medical_json %}{{ django_medical_json|safe }}{% else %}null{% endif %}
+    </script>
+    <script id="django-death-data" type="application/json">
+      {% if django_death_json %}{{ django_death_json|safe }}{% else %}null{% endif %}
+    </script>
+
+    <!-- ==========================================================================
+       VANILLA SYSTEM ENGINE & STORAGE LOOPS (Presidential Workspace Edition)
+       ========================================================================== -->
+    <!-- SweetAlert2 (Sweet swal) -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+      function confirmLogout() {
+        const logoutUrl = "{% url 'logout' %}";
+        Swal.fire({
+          title: "Logout?",
+          text: "Do you want to log out of the system?",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Yes, logout",
+          cancelButtonText: "No, stay",
+          reverseButtons: true,
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = logoutUrl;
+          }
+        });
+      }
+      // Clean system database structure ready for backend payload mapping
+      const SEED_PENDING_AIDS = [];
+      const SEED_EXECUTIVE_LOGS = [];
+      const SEED_REPORTS = [];
+
+      let db = {
+        pendingPayments: [],
+        pendingAids: SEED_PENDING_AIDS,
+        executiveLogs: SEED_EXECUTIVE_LOGS,
+        reports: SEED_REPORTS,
+      };
+
+      window.addEventListener("DOMContentLoaded", () => {
+        // Initialize UI state first.
+        loadSystemDatabase();
+        setupFolders();
+        setupNavigation();
+        setupCollapsibleSidebar();
+
+        // Render only non-queue components immediately.
+        // Pending payments will be populated by loadPresidentialQueue().
+        updateKPICards();
+        renderPendingAidsTable();
+        renderExecutiveLogsTable();
+        renderReportsTable();
+      });
+
+      function safeGetDjangoData(elementId) {
+        const element = document.getElementById(elementId);
+        if (!element) return null;
+
+        const contentText = element.textContent.trim();
+        if (
+          contentText.includes("{%") ||
+          contentText.includes("{{") ||
+          !contentText
+        ) {
+          return null;
+        }
+
+        try {
+          return JSON.parse(contentText);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function loadSystemDatabase() {
+        const djMembers = safeGetDjangoData("django-members-data");
+        const djFees = safeGetDjangoData("django-fees-data");
+        const djOtcDues = safeGetDjangoData("django-otc-dues-data");
+        const djSalary = safeGetDjangoData("django-salary-data");
+        const djMedical = safeGetDjangoData("django-medical-data");
+        const djDeath = safeGetDjangoData("django-death-data");
+
+        // If backend already injected any JSON bridges, DO NOT use hardcoded seed pending objects.
+        // Keep pending inbox empty (for now) and let user select real items only once backend provides the queue.
+        // Approved blocks will still populate from injected payloads.
+        if (
+          djMembers ||
+          djFees ||
+          djOtcDues ||
+          djSalary ||
+          djMedical ||
+          djDeath
+        ) {
+          db = {
+            pendingPayments: [],
+            pendingAids: [],
+            executiveLogs: [...SEED_EXECUTIVE_LOGS],
+            reports: [...SEED_REPORTS],
+          };
+          saveSystemDatabase();
+          return;
+        }
+
+        const data = localStorage.getItem("coop_president_db");
+        if (data) {
+          try {
+            db = JSON.parse(data);
+          } catch (e) {
+            clearAndSeedDatabase();
+          }
+        } else {
+          clearAndSeedDatabase();
+        }
+      }
+
+      function saveSystemDatabase() {
+        localStorage.setItem("coop_president_db", JSON.stringify(db));
+      }
+
+      function clearAndSeedDatabase() {
+        db = {
+          pendingPayments: [],
+          pendingAids: [...SEED_PENDING_AIDS],
+          executiveLogs: [...SEED_EXECUTIVE_LOGS],
+          reports: [...SEED_REPORTS],
+        };
+        saveSystemDatabase();
+      }
+
+      function resetDatabaseWithWarning() {
+        document.getElementById("customConfirmModal").style.display = "flex";
+      }
+
+      function triggerConfirmYes() {
+        // Flush localStorage but also clear any backend-injected JSON bridges from UI state.
+        // This action intentionally falls back to seeded demo inbox.
+        clearAndSeedDatabase();
+        closeConfirmModal();
+        showToast(
+          "Compliance Database successfully flushed back to defaults.",
+          false,
+        );
+        renderAllComponents();
+        clearPaymentApprovalSelection();
+        clearAidApprovalSelection();
+      }
+
+      function closeConfirmModal() {
+        document.getElementById("customConfirmModal").style.display = "none";
+      }
+
+      function showToast(message, isError = false) {
+        const host = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
+        toast.className = `custom-toast ${isError ? "toast-error" : ""}`;
+        toast.innerHTML = `<span>💬</span> <p style="font-size:0.85rem;font-weight:500;">${message}</p>`;
+
+        host.appendChild(toast);
+        setTimeout(() => toast.classList.add("show"), 10);
+
+        setTimeout(() => {
+          toast.classList.remove("show");
+          setTimeout(() => toast.remove(), 300);
+        }, 4000);
+      }
+
+      function showCustomModal(title, text) {
+        document.getElementById("modalAlertTitle").innerText = title;
+        document.getElementById("modalAlertMessage").innerText = text;
+        document.getElementById("customAlertModal").style.display = "flex";
+      }
+
+      function closeCustomModal() {
+        document.getElementById("customAlertModal").style.display = "none";
+      }
+
+      function handleDecisionChange(selectId, remarksId) {
+        const decisionSelect = document.getElementById(selectId);
+        const remarksArea = document.getElementById(remarksId);
+        const remarksLabel = document.getElementById(
+          selectId === "p_decision" ? "p_remarks_label" : "a_remarks_label",
+        );
+
+        if (decisionSelect.value === "Rejected") {
+          remarksArea.setAttribute("required", "required");
+          remarksLabel.innerHTML = `Decision Remarks & Directives <span style="color:#e53935;">(Mandatory for Rejections)</span>`;
+        } else {
+          remarksArea.removeAttribute("required");
+          remarksLabel.innerHTML =
+            "Decision Remarks & Directives (Optional for Approvals)";
+        }
+      }
+
+      function renderAllComponents() {
+        updateKPICards();
+        renderPendingAidsTable();
+        renderExecutiveLogsTable();
+        renderReportsTable();
+      }
+
+      function updateKPICards() {
+        document.getElementById("kpi-pending-payments").innerText =
+          db.pendingPayments.length;
+        document.getElementById("kpi-pending-claims").innerText =
+          db.pendingAids.length;
+        document.getElementById("kpi-total-audits").innerText =
+          db.executiveLogs.length;
+      }
+
+      // ==========================================================================
+      // EXECUTIVE AID CLAIMS APPROVAL
+      // ==========================================================================
+      function renderPendingAidsTable() {
+        const tbody = document.querySelector("#pendingAidsTable tbody");
+        tbody.innerHTML = "";
+        if (db.pendingAids.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">All financial aid decisions cleared!</td></tr>`;
+          return;
+        }
+        db.pendingAids.forEach((a) => {
+          const tr = document.createElement("tr");
+          tr.setAttribute("onclick", `selectAidToAudit('${a.id}')`);
+          tr.id = `row-${a.id}`;
+          tr.innerHTML = `
+          <td style="font-weight:600;color:#1b5e20;">${a.id}</td>
+          <td>${a.memberName}</td>
+          <td><span class="badge-zero badge-yellow" style="font-size:0.75rem;">${a.type}</span></td>
+          <td style="font-weight:600;">₱${(a.reqAmount || a.benefit).toFixed(2)}</td>
+          <td><button class="btn-select-glow">Select</button></td>
+        `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function selectAidToAudit(id) {
+        document
+          .querySelectorAll("#pendingAidsTable tr")
+          .forEach((tr) => tr.classList.remove("selected-row"));
+        const selectedTr = document.getElementById(`row-${id}`);
+        if (selectedTr) selectedTr.classList.add("selected-row");
+
+        const item = db.pendingAids.find((a) => a.id === id);
+        if (!item) return;
+
+        document.getElementById("selectedAidHeader").innerText =
+          `Sign-off Claim: ${item.id}`;
+
+        // Toggle displays for medical vs death parameters
+        if (item.type === "Medical Aid Request") {
+          document.getElementById("inspectionMedicalBlock").style.display =
+            "block";
+          document.getElementById("inspectionDeathBlock").style.display =
+            "none";
+
+          document.getElementById("mReadDate").innerText = item.date;
+          document.getElementById("mReadHospital").innerText = item.hospital;
+          document.getElementById("mReadBill").innerText =
+            `₱${item.bill.toFixed(2)}`;
+          document.getElementById("mReadReqAmount").innerText =
+            `₱${item.reqAmount.toFixed(2)}`;
+          document.getElementById("mReadCase").innerText = item.reason;
+
+          document.getElementById("a_approved_amount").value = item.reqAmount;
+        } else {
+          document.getElementById("inspectionMedicalBlock").style.display =
+            "none";
+          document.getElementById("inspectionDeathBlock").style.display =
+            "block";
+
+          document.getElementById("dReadDeceased").innerText = item.deceased;
+          document.getElementById("dReadRelationship").innerText =
+            item.relationship;
+          document.getElementById("dReadClaimType").innerText = item.claimType;
+          document.getElementById("dReadClaimantName").innerText =
+            item.claimantName;
+          document.getElementById("dReadClaimantContact").innerText =
+            item.claimantContact;
+          document.getElementById("dReadDateOfDeath").innerText =
+            item.deathDate;
+          document.getElementById("dReadBenefit").innerText =
+            `₱${item.benefit.toFixed(2)}`;
+
+          document.getElementById("a_approved_amount").value = item.benefit;
+        }
+
+        // Populate Auditor Summary Notes
+        document.getElementById("aAuditByText").innerText = item.auditorName;
+        document.getElementById("aAuditDateText").innerText = item.auditorDate;
+        document.getElementById("aAuditEvidenceText").innerText =
+          `📁 ${item.auditorEvidence}`;
+        document.getElementById("aAuditRemarksText").innerText =
+          item.auditorRemarks;
+
+        // Load System logs Timeline Component
+        const timelineBody = document.querySelector("#aTimelineTable tbody");
+        timelineBody.innerHTML = "";
+        item.timeline.forEach((log) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+          <td><strong>${log.time}</strong></td>
+          <td><span class="badge-zero badge-green" style="font-size: 0.72rem;">${log.role}</span></td>
+          <td>${log.name}</td>
+          <td><strong>${log.action}</strong></td>
+          <td>${log.note}</td>
+        `;
+          timelineBody.appendChild(tr);
+        });
+
+        // Form Bindings
+        document.getElementById("a_target_id").value = item.id;
+      }
+
+      function clearAidApprovalSelection() {
+        document
+          .querySelectorAll("#pendingAidsTable tr")
+          .forEach((tr) => tr.classList.remove("selected-row"));
+        document.getElementById("selectedAidHeader").innerText =
+          "No claim file selected";
+
+        document.getElementById("inspectionMedicalBlock").style.display =
+          "none";
+        document.getElementById("inspectionDeathBlock").style.display = "none";
+
+        const resets = [
+          "aAuditByText",
+          "aAuditDateText",
+          "aAuditEvidenceText",
+          "aAuditRemarksText",
+        ];
+        resets.forEach((id) => (document.getElementById(id).innerText = "—"));
+
+        const timelineBody = document.querySelector("#aTimelineTable tbody");
+        timelineBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #757575;">No tracking logs compiled. Select a transaction to generate path timelines.</td></tr>`;
+
+        document.getElementById("aidApprovalForm").reset();
+        handleDecisionChange("a_decision", "a_remarks");
+      }
+
+      function submitPresidentialAidDecision(e) {
+        e.preventDefault();
+        const targetId = document.getElementById("a_target_id").value;
+        if (!targetId) {
+          showToast(
+            "Please select an active claims target from the inbox.",
+            true,
+          );
+          return;
+        }
+
+        const decision = document.getElementById("a_decision").value;
+        const approvedAmount = parseFloat(
+          document.getElementById("a_approved_amount").value,
+        );
+        const remarks = document.getElementById("a_remarks").value;
+
+        if (decision === "Rejected" && !remarks.trim()) {
+          showToast(
+            "A clear ruling reason must be entered in the remarks for all rejected items.",
+            true,
+          );
+          return;
+        }
+
+        if (isNaN(approvedAmount) || approvedAmount <= 0) {
+          showToast(
+            "Please verify payout parameters. Approved amount must be greater than zero.",
+            true,
+          );
+          return;
+        }
+
+        // Record findings inside executive logs
+        const logEntry = {
+          timestamp: new Date().toLocaleString(),
+          reqId: targetId,
+          remarks:
+            remarks ||
+            "Claim approved. Routed directly to cheque disbursement desk.",
+          result: decision,
+          amount: approvedAmount,
+        };
+
+        db.executiveLogs.push(logEntry);
+
+        // Update workflows: Clear from pending inbox list
+        db.pendingAids = db.pendingAids.filter((a) => a.id !== targetId);
+
+        saveSystemDatabase();
+        renderAllComponents();
+        clearAidApprovalSelection();
+
+        if (decision === "Approved") {
+          showCustomModal(
+            "Executive Disbursement Clearance Granted",
+            `Disbursement for Request ID ${targetId} authorized at ₱${approvedAmount.toFixed(2)}. Payout document routed to Landbank system draft.`,
+          );
+        } else {
+          showCustomModal(
+            "Rejection Notice Registered",
+            `Claim Deficiencies flagged. Claim file ${targetId} closed with negative ruling: "${remarks}"`,
+          );
+        }
+        showToast("Presidential decision saved.", false);
+      }
+
+      // ==========================================================================
+      // HISTORICAL DISBURSEMENT REGISTRY
+      // ==========================================================================
+      function renderExecutiveLogsTable() {
+        const tbody = document.querySelector("#executiveLogsTable tbody");
+        tbody.innerHTML = "";
+        if (db.executiveLogs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">No historical decisions logged in this session.</td></tr>`;
+          return;
+        }
+        db.executiveLogs
+          .slice()
+          .reverse()
+          .forEach((log) => {
+            const badgeStyle =
+              log.result === "Approved" ? "badge-green" : "badge-red";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+          <td style="color:#757575;font-size:0.8rem;">${log.timestamp}</td>
+          <td style="font-weight:600;color:#1b5e20;">${log.reqId}</td>
+          <td><span class="badge-zero ${badgeStyle}">${log.result}</span></td>
+          <td style="font-weight:700;">₱${log.amount.toFixed(2)}</td>
+          <td style="max-width:320px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${log.remarks}</td>
+        `;
+            tbody.appendChild(tr);
+          });
+      }
+
+      // ==========================================================================
+      // EXECUTIVE REPORT GENERATION
+      // ==========================================================================
+      function renderReportsTable() {
+        const tbody = document.querySelector("#reportTable tbody");
+        tbody.innerHTML = "";
+        if (db.reports.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">No executive reports generated in current session.</td></tr>`;
+          return;
+        }
+        db.reports.forEach((r) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+          <td style="color:#757575;font-size:0.8rem;">${r.timestamp}</td>
+          <td style="font-weight:600;color:#1b5e20;">${r.type}</td>
+          <td>${r.range}</td>
+          <td>${r.auditedBy}</td>
+          <td><button class="btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" onclick="showReportPreview('${r.id}')">View</button></td>
+        `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function handleReportCompilerSubmit(e) {
+        e.preventDefault();
+        const id = "CERT-EXEC-" + Date.now().toString().slice(-4);
+        const timestamp = new Date().toLocaleString();
+        const newReport = {
+          id: id,
+          timestamp: timestamp,
+          type: document.getElementById("rep_type").value,
+          range: `${document.getElementById("rep_start").value} to ${document.getElementById("rep_end").value}`,
+          auditedBy: "Dr. Arthur Vance",
+        };
+
+        db.reports.push(newReport);
+        saveSystemDatabase();
+        renderAllComponents();
+
+        document.getElementById("reportForm").reset();
+
+        // Default configurations
+        document.getElementById("rep_by").value = "EXEC-PRES-VANCE-2026";
+        document.getElementById("rep_export").value =
+          "President Arthur Vance, PhD";
+
+        showToast(`Executive Report ${id} compiled successfully.`, false);
+      }
+
+      function showReportPreview(id) {
+        const match = db.reports.find((r) => r.id === id);
+        if (!match) return;
+
+        const outputString = `
+        EXECUTIVE CERTIFICATION RECORD: ${match.id}
+        TIMESTAMP: ${match.timestamp}
+        OVERSIGHT TYPE: ${match.type}
+        DATE TIME WINDOW: ${match.range}
+        CERTIFYING OFFICER: ${match.auditedBy}
+        
+        Oversight Summary: This certificate verifies that all listed transactions in this period are fully reviewed and locked.
+        Disbursements align securely with treasurer entries and verified compliance checkpoints.
+      `;
+        showCustomModal(`Executive Certification File`, outputString);
+      }
+    </script>
+    <script src="{% static 'js/President/sidebarNav.js' %}"></script>
+    <script src="{% static 'js/President/payments_verification.js' %}"></script>
+  </body>
+</html>

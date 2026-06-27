@@ -1,0 +1,2498 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cooperative Auditor Verification Console</title>
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+
+      /* ==========================================================================
+       GLOBAL RESET & BRAND VARIABLE PATHS
+       ========================================================================== */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Poppins", sans-serif;
+      }
+
+      body,
+      html {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        background: #f6fbf6; /* Light Pale Mint Brand BG */
+        color: #263238; /* Dark Charcoal Text */
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      /* Master Layout Grid */
+      .app-container {
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* ==========================================================================
+       SIDEBAR COMPONENT
+       ========================================================================== */
+      .sidebar {
+        width: 280px;
+        height: 100%;
+        background: #1b5e20; /* Deep Institutional Green */
+        display: flex;
+        flex-direction: column;
+        transition: width 0.25s ease;
+        flex-shrink: 0;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        z-index: 1010;
+      }
+
+      /* Sidebar Header */
+      .sidebar-brand {
+        padding: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+
+      .brand-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .logo-mark {
+        background: #fbc02d; /* Gold Accent */
+        color: #1b5e20;
+        font-weight: 700;
+        font-size: 1.15rem;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .role-tag {
+        font-size: 0.72rem;
+        background: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.9);
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-top: 3px;
+      }
+
+      .collapse-toggle-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-size: 1.15rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px;
+        border-radius: 6px;
+        transition: 0.2s;
+      }
+
+      .collapse-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fbc02d;
+      }
+
+      /* Sidebar Scrollable Area */
+      .sidebar-scroller {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      .sidebar-scroller::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* Navigation Items Matrix */
+      .menu-item {
+        padding: 14px 24px;
+        color: rgba(255, 255, 255, 0.75);
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: 0.3s;
+        border-left: 4px solid transparent;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .menu-item:hover {
+        color: #fbc02d; /* Accent Gold Yellow hover */
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .menu-item.active {
+        color: #1b5e20;
+        background: #f6fbf6; /* Merges cleanly into content bg */
+        border-left: 4px solid #fbc02d;
+        font-weight: 600;
+      }
+
+      /* Nested Folders UI */
+      .nested-folder {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .folder-header {
+        padding: 14px 24px;
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        user-select: none;
+        transition: 0.3s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+      }
+
+      .folder-header:hover {
+        color: #fbc02d;
+      }
+
+      .folder-contents {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-in-out;
+        background: #144317; /* Darker green background tone inside folder dropdown */
+      }
+
+      .folder-contents.open {
+        max-height: 400px;
+      }
+
+      .folder-contents .menu-item {
+        padding-left: 36px;
+      }
+
+      .folder-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .chevron-icon {
+        font-size: 0.8rem;
+        transition: transform 0.25s ease;
+        display: flex;
+        align-items: center;
+      }
+
+      .sub-icon {
+        font-size: 0.95rem;
+        opacity: 0.8;
+      }
+
+      /* Collapsed state adjustments */
+      .sidebar.collapsed {
+        width: 75px;
+      }
+
+      .sidebar.collapsed .logo-mark,
+      .sidebar.collapsed .role-tag,
+      .sidebar.collapsed .menu-text,
+      .sidebar.collapsed .chevron-icon,
+      .sidebar.collapsed .folder-contents,
+      .sidebar.collapsed .brand-title-text {
+        display: none !important;
+      }
+
+      .sidebar.collapsed .sidebar-brand {
+        justify-content: center !important;
+        padding: 24px 0 !important;
+      }
+
+      .sidebar.collapsed .menu-item {
+        justify-content: center !important;
+        padding: 16px 0 !important;
+        border-left: none !important;
+        gap: 0 !important;
+      }
+
+      .sidebar.collapsed .folder-header {
+        justify-content: center !important;
+        padding: 16px 0 !important;
+      }
+
+      .sidebar.collapsed .folder-title-wrapper {
+        justify-content: center !important;
+        gap: 0 !important;
+      }
+
+      .sidebar-footer {
+        width: 100%;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 10px 0;
+      }
+
+      /* ==========================================================================
+       MAIN DASHBOARD WORKSPACE PANELS
+       ========================================================================== */
+      .main-viewport {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      /* Workspace Header Bar */
+      .viewport-header {
+        background: #ffffff;
+        height: 70px;
+        border-bottom: 1px solid #dfe9df;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+        z-index: 1000;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .toggle-sidebar-mobile {
+        display: none;
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        color: #1b5e20;
+        cursor: pointer;
+      }
+
+      .page-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1b5e20;
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .user-profile {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .user-avatar {
+        width: 38px;
+        height: 38px;
+        background: #e1eedf;
+        border: 2px solid #1b5e20;
+        color: #1b5e20;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .user-info {
+        text-align: right;
+      }
+
+      .user-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #263238;
+      }
+
+      .user-role {
+        font-size: 0.75rem;
+        color: #757575;
+      }
+
+      /* Main Content Wrapper Window */
+      .content-viewport {
+        flex: 1;
+        overflow-y: auto;
+        padding: 40px;
+        background: #eef7ef; /* Pale Mint Section Color */
+      }
+
+      /* Dynamic Module / Tab view states */
+      .dashboard-module {
+        display: none;
+      }
+
+      .dashboard-module.active {
+        display: block;
+      }
+
+      /* Modular Content Panel Containers */
+      .dashboard-panel {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 35px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        border: 1px solid #dfe9df;
+        margin-bottom: 30px;
+      }
+
+      .panel-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        border-bottom: 2px solid #f6fbf6;
+        padding-bottom: 15px;
+      }
+
+      .panel-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1b5e20;
+      }
+
+      .panel-subtitle {
+        font-size: 0.85rem;
+        color: #757575;
+      }
+
+      /* KPI Grid cards */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 24px;
+        margin-bottom: 30px;
+      }
+
+      .stat-card {
+        background: #ffffff;
+        border: 1px solid #dfe9df;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        transition: 0.2s;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+      }
+
+      .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: rgba(27, 94, 32, 0.1);
+        color: #1b5e20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+      }
+
+      .stat-icon.accent-yellow {
+        background: rgba(251, 192, 45, 0.15);
+        color: #fbc02d;
+      }
+
+      .stat-icon.accent-blue {
+        background: rgba(33, 150, 243, 0.1);
+        color: #2196f3;
+      }
+
+      .stat-info h4 {
+        font-size: 0.8rem;
+        color: #757575;
+        font-weight: 500;
+      }
+
+      .stat-info .stat-value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: #263238;
+        margin-top: 2px;
+      }
+
+      /* Table styles */
+      .table-container {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 12px;
+        border: 1px solid #dfe9df;
+      }
+
+      .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.88rem;
+      }
+
+      .custom-table th {
+        background: #f6fbf6;
+        color: #1b5e20;
+        font-weight: 600;
+        padding: 14px 18px;
+        border-bottom: 2px solid #dfe9df;
+      }
+
+      .custom-table td {
+        padding: 14px 18px;
+        border-bottom: 1px solid #f0f5f0;
+        color: #263238;
+        vertical-align: middle;
+      }
+
+      .custom-table tr:hover {
+        background: #fafdfa;
+        cursor: pointer;
+      }
+
+      .custom-table tr.selected-row {
+        background: #eef7ef;
+        border-left: 4px solid #fbc02d;
+      }
+
+      /* Inspection & Read-only visual layout panels */
+      .audit-split-workspace {
+        display: grid;
+        grid-template-columns: 1fr 1.1fr;
+        gap: 30px;
+      }
+
+      @media (max-width: 1200px) {
+        .audit-split-workspace {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .inspection-data-block {
+        background: #fdfdfd;
+        border: 1px solid #e2ece2;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+
+      .inspection-data-title {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #1b5e20;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #eef7ef;
+        padding-bottom: 6px;
+      }
+
+      .readonly-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 15px;
+      }
+
+      .readonly-field label {
+        font-size: 0.75rem;
+        color: #757575;
+        font-weight: 500;
+        display: block;
+        margin-bottom: 2px;
+      }
+
+      .readonly-field div {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #263238;
+      }
+
+      /* Interactive Digital Evidence Screen */
+      .digital-evidence-screen {
+        background: #101c12;
+        border-radius: 12px;
+        border: 2px solid #2e7d32;
+        padding: 16px;
+        color: #a5d6a7;
+        height: 240px;
+        min-height: 160px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        margin-bottom: 20px;
+        box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8);
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* === EDIT BELOW: Auto-fit container to media shape === */
+      /* These rules activate when evidence media is loaded. Adjust max dimensions here. */
+      .digital-evidence-screen.auto-fit-media {
+        height: auto !important;
+        min-height: unset !important;
+        max-width: 720px; /* EDIT: maximum width of evidence container */
+        max-height: 600px; /* EDIT: maximum height of evidence container */
+        margin-left: auto; /* EDIT: remove or change to change horizontal alignment */
+        margin-right: auto; /* EDIT: remove or change to change horizontal alignment */
+      }
+
+      /* === DO NOT EDIT BELOW: End of auto-fit section === */
+
+      .digital-evidence-screen svg {
+        width: 36px;
+        height: 36px;
+        fill: #fbc02d;
+        margin-bottom: 8px;
+      }
+
+      /* Form inputs & styling */
+      .dashboard-form {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      .form-grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .dashboard-form label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1b5e20;
+        margin-bottom: 8px;
+      }
+
+      .dashboard-form input,
+      .dashboard-form select,
+      .dashboard-form textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 12px;
+        border: 1px solid #cfdccc;
+        font: inherit;
+        background: #fbfdfb;
+        color: #263238;
+        transition: 0.2s;
+      }
+
+      .dashboard-form input:focus,
+      .dashboard-form select:focus,
+      .dashboard-form textarea:focus {
+        outline: none;
+        border-color: #1b5e20;
+        box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.1);
+      }
+
+      .dashboard-form input[readonly] {
+        background: #eef7ef;
+        border-color: #cfdccc;
+        cursor: not-allowed;
+        color: #546e7a;
+      }
+
+      /* Document upload widget */
+      .photo-upload-slot {
+        border: 2px dashed #cfdccc;
+        background: #fdfdfd;
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        position: relative;
+        transition: 0.2s;
+      }
+
+      .photo-upload-slot:hover {
+        border-color: #1b5e20;
+        background: #f6fbf6;
+      }
+
+      .photo-upload-slot p {
+        font-size: 0.85rem;
+        color: #546e7a;
+      }
+
+      .photo-upload-slot .req-badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-top: 8px;
+      }
+
+      .upload-preview-indicator {
+        display: none;
+        margin-top: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1b5e20;
+      }
+
+      /* Interactive Action Buttons */
+      .btn-brand {
+        padding: 14px 28px;
+        border-radius: 10px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: 0.3s;
+        font-family: "Poppins", sans-serif;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .btn-brand-primary {
+        background: #1b5e20;
+        color: white;
+      }
+
+      .btn-brand-primary:hover {
+        background: #2e7d32;
+        transform: translateY(-1px);
+      }
+
+      .btn-brand-secondary {
+        background: #fbc02d;
+        color: #1b1b1b;
+      }
+
+      .btn-brand-secondary:hover {
+        background: #ffd54f;
+        transform: translateY(-1px);
+      }
+
+      .btn-brand-danger {
+        background: #e53935;
+        color: white;
+      }
+
+      .btn-brand-danger:hover {
+        background: #d32f2f;
+      }
+
+      /* Badges for System State Loops */
+      .badge-zero {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+      }
+
+      .badge-green {
+        background-color: rgba(27, 94, 32, 0.1);
+        color: #1b5e20;
+      }
+
+      .badge-yellow {
+        background-color: rgba(251, 192, 45, 0.15);
+        color: #d89600;
+      }
+
+      .badge-red {
+        background-color: rgba(229, 57, 53, 0.1);
+        color: #e53935;
+      }
+
+      /* === Badge Status Styles - EDIT THESE AS NEEDED === */
+      /* Medical Aid */
+      .badge-medical-aid {
+        background-color: #ccfbf1;
+        color: #115e59;
+        border: 1px solid #2dd4bf;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-medical-aid:hover {
+        background-color: #99f6e4;
+        box-shadow: 0 2px 8px rgba(17, 94, 89, 0.15);
+      }
+
+      /* Death Aid */
+      .badge-death-aid {
+        background-color: #e0e7ff;
+        color: #4338ca;
+        border: 1px solid #a5b4fc;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-death-aid:hover {
+        background-color: #c7d2fe;
+        box-shadow: 0 2px 8px rgba(67, 56, 202, 0.15);
+      }
+
+      /* Monthly Dues (By Salary Deduction) */
+      .badge-monthly-dues-salary {
+        background-color: #e0f2fe;
+        color: #1e3a8a;
+        border: 1px solid #7dd3fc;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-monthly-dues-salary:hover {
+        background-color: #bae6fd;
+        box-shadow: 0 2px 8px rgba(30, 58, 138, 0.1);
+      }
+
+      /* Monthly Dues (By OTC Payment) */
+      .badge-monthly-dues-otc {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+        border: 1px solid #60a5fa;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-monthly-dues-otc:hover {
+        background-color: #bfdbfe;
+        box-shadow: 0 2px 8px rgba(29, 78, 216, 0.15);
+      }
+
+      /* Membership Fee */
+      .badge-membership-fee {
+        background-color: #fef3c7;
+        color: #78350f;
+        border: 1px solid #fbbf24;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-membership-fee:hover {
+        background-color: #fde68a;
+        box-shadow: 0 2px 8px rgba(120, 53, 15, 0.12);
+      }
+      /* === END BADGE STATUS STYLES === */
+
+      /* Smooth Navigation Animations */
+      .module-fade-in {
+        animation: fadeInSlide 0.3s ease-out;
+      }
+
+      @keyframes fadeInSlide {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Custom Switch Toggle CSS */
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 48px;
+        height: 24px;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.4s;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+      }
+
+      input:checked + .slider {
+        background-color: #1b5e20;
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(24px);
+      }
+
+      .slider.round {
+        border-radius: 34px;
+      }
+
+      .slider.round:before {
+        border-radius: 50%;
+      }
+
+      /* ==========================================================================
+       NOTIFICATIONS & CUSTOM TOAST SYSTEM
+       ========================================================================== */
+      .notification-host {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .custom-toast {
+        background: #ffffff;
+        border-left: 5px solid #1b5e20;
+        border-radius: 8px;
+        padding: 16px 24px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        min-width: 320px;
+        transform: translateX(120%);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      .custom-toast.show {
+        transform: translateX(0);
+      }
+
+      .custom-toast.toast-error {
+        border-left-color: #e53935;
+      }
+
+      /* Modal System */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 3000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .modal-card {
+        background: white;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 500px;
+        padding: 35px;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        text-align: center;
+      }
+
+      /* RESPONSIVE DESIGN TWEAKS */
+      @media (max-width: 900px) {
+        .sidebar {
+          position: absolute;
+          left: -280px;
+          top: 0;
+          bottom: 0;
+          box-shadow: 5px 0 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .sidebar.open-mobile {
+          left: 0;
+          width: 280px;
+        }
+
+        .toggle-sidebar-mobile {
+          display: block;
+        }
+
+        .content-viewport {
+          padding: 20px;
+        }
+      }
+
+      .btn-select-glow {
+        background: #1b5e20;
+        color: white;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 8px rgba(27, 94, 32, 0.4);
+        animation: selectPulseGlow 2s infinite alternate;
+      }
+
+      .btn-select-glow:hover {
+        background: #fbc02d;
+        color: #1b5e20;
+        box-shadow: 0 0 12px rgba(251, 192, 45, 0.8);
+      }
+
+      @keyframes selectPulseGlow {
+        0% {
+          box-shadow: 0 0 4px rgba(27, 94, 32, 0.3);
+        }
+        100% {
+          box-shadow: 0 0 14px rgba(27, 94, 32, 0.7);
+        }
+      }
+    </style>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body>
+    <!-- Custom Alert Modals -->
+    <div class="modal-overlay" id="customAlertModal">
+      <div class="modal-card">
+        <h3
+          style="color: #1b5e20; margin-bottom: 12px; font-size: 1.3rem"
+          id="modalAlertTitle"
+        >
+          Notice
+        </h3>
+        <p
+          style="
+            color: #546e7a;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+          "
+          id="modalAlertMessage"
+        >
+          Message text
+        </p>
+        <button
+          class="btn-brand btn-brand-primary"
+          onclick="closeCustomModal()"
+        >
+          Understood
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="customConfirmModal">
+      <div class="modal-card">
+        <h3 style="color: #e53935; margin-bottom: 12px; font-size: 1.3rem">
+          Destructive Action
+        </h3>
+        <p
+          style="
+            color: #546e7a;
+            margin-bottom: 24px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+          "
+        >
+          Are you completely sure you want to proceed with resetting database
+          parameters? All current auditor logs and feedback notes will be
+          deleted.
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center">
+          <button
+            class="btn-brand btn-brand-primary"
+            style="background: #e53935"
+            onclick="triggerConfirmYes()"
+          >
+            Reset Now
+          </button>
+          <button
+            class="btn-brand btn-brand-secondary"
+            onclick="closeConfirmModal()"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Toast Area -->
+    <div class="notification-host" id="toastContainer"></div>
+
+    <!-- Master Grid App Container -->
+    <div class="app-container">
+      <!-- ==========================================================================
+         SIDEBAR NAVIGATION COMPONENT (Subfolder categorizations)
+         ========================================================================== -->
+      <aside class="sidebar" id="appSidebar">
+        <div class="sidebar-top">
+          <!-- Sidebar Brand Header -->
+          <div class="sidebar-brand">
+            <div class="brand-title-wrapper">
+              <span class="logo-mark">A</span>
+              <div class="brand-title-text">
+                <h2 style="font-size: 0.95rem; line-height: 1.2">Auditor</h2>
+                <!--span class="role-tag">Complianc</span-->
+              </div>
+            </div>
+            <button
+              class="collapse-toggle-btn"
+              id="collapseBtn"
+              title="Toggle Sidebar Menu"
+            >
+              <svg
+                id="chevronLeftIcon"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+          </div>
+
+          <div class="sidebar-scroller">
+            <!-- Direct Home Dashboard Link -->
+            <a class="menu-item active" data-target="dashboard-overview">
+              <span class="menu-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+                  ></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+              </span>
+              <span class="menu-text">Auditor Dashboard</span>
+            </a>
+
+            <!-- FOLDER CATEGORY 1: WORKSPACE INSPECTOR -->
+            <div class="nested-folder">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-verification', this)"
+              >
+                <div class="folder-title-wrapper">
+                  <span class="menu-icon">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect
+                        x="3"
+                        y="4"
+                        width="18"
+                        height="18"
+                        rx="2"
+                        ry="2"
+                      ></rect>
+                      <line x1="9" y1="9" x2="15" y2="9"></line>
+                      <line x1="9" y1="13" x2="15" y2="13"></line>
+                      <line x1="9" y1="17" x2="15" y2="17"></line>
+                    </svg>
+                  </span>
+                  <span class="menu-text">AUDIT</span>
+                  <span
+                    id="audit-folder-dot"
+                    style="
+                      display: none;
+                      width: 8px;
+                      height: 8px;
+                      background: #e53935;
+                      border-radius: 50%;
+                      margin-left: 6px;
+                      vertical-align: middle;
+                    "
+                  ></span>
+                </div>
+                <span class="chevron-icon">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="folder-contents" id="folder-verification">
+                <a class="menu-item" data-target="audit-members-payments">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Payments Auditing</span>
+                  <span
+                    id="payments-audit-dot"
+                    style="
+                      display: none;
+                      width: 8px;
+                      height: 8px;
+                      background: #e53935;
+                      border-radius: 50%;
+                      margin-left: 6px;
+                      vertical-align: middle;
+                    "
+                  ></span>
+                </a>
+                <a class="menu-item" data-target="audit-aid-requests">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Aid Claims Auditing</span>
+                  <span
+                    id="aid-audit-dot"
+                    style="
+                      display: none;
+                      width: 8px;
+                      height: 8px;
+                      background: #e53935;
+                      border-radius: 50%;
+                      margin-left: 6px;
+                      vertical-align: middle;
+                    "
+                  ></span>
+                </a>
+              </div>
+            </div>
+
+            <!-- FOLDER CATEGORY 2: VERIFICATION REGISTRY -->
+            <div class="nested-folder">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-registry', this)"
+              >
+                <div class="folder-title-wrapper">
+                  <span class="menu-icon">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                      ></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                  </span>
+                  <span class="menu-text">Verified Registry</span>
+                </div>
+                <span class="chevron-icon">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="folder-contents" id="folder-registry">
+                <a class="menu-item" data-target="view-audit-ledger">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Audited Logs</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- FOLDER CATEGORY 3: REPORT COMPILER -->
+            <div class="nested-folder">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-reports', this)"
+              >
+                <div class="folder-title-wrapper">
+                  <span class="menu-icon">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <line x1="18" y1="20" x2="18" y2="10"></line>
+                      <line x1="12" y1="20" x2="12" y2="4"></line>
+                      <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                  </span>
+                  <span class="menu-text">Audit Reports</span>
+                </div>
+                <span class="chevron-icon">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="folder-contents" id="folder-reports">
+                <a class="menu-item" data-target="view-reports-compiler">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Generate Certifications</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sidebar Reset Footer -->
+          <div class="sidebar-footer">
+            <a class="menu-item" onclick="confirmLogout()" title="Logout">
+              <span class="menu-icon">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </span>
+              <span class="menu-text" style="font-size: 0.85rem">Logout</span>
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ==========================================================================
+         MAIN VIEWPORT COMPONENT
+         ========================================================================== -->
+      <main class="main-viewport">
+        <!-- Workspace Top Header Row -->
+        <header class="viewport-header">
+          <div class="header-left">
+            <button
+              class="toggle-sidebar-mobile"
+              id="mobileSidebarToggle"
+              title="Open Menu"
+            >
+              &#9776;
+            </button>
+            <h1 class="page-title" id="currentModuleTitle">
+              Auditor General Overview
+            </h1>
+          </div>
+          <div class="header-right">
+            <div class="user-profile">
+              <div class="user-info">
+                <p class="user-name">{{ officer_full_name|default:"" }}</p>
+                <p class="user-role">{{ officer_role }}</p>
+              </div>
+              <div class="user-avatar" title="{{ officer_full_name }}">
+                {{ officer_full_name|default:""|slice:"0:2" }}
+              </div>
+            </div>
+            <!--button
+              type="button"
+              class="btn-brand btn-brand-danger"
+              style="padding: 10px 16px; border-radius: 10px"
+              onclick="confirmLogout()"
+              title="Logout"
+            >
+              Logout
+            </button-->
+          </div>
+        </header>
+
+        <!-- Central Scrollable Dashboard Viewport Area -->
+        <div class="content-viewport" id="contentViewport">
+          <!-- ==========================================================================
+             TAB 1: AUDITOR OVERVIEW
+             ========================================================================== -->
+          <section
+            id="dashboard-overview"
+            class="dashboard-module active module-fade-in"
+          >
+            <!-- KPI Stats grid overview -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon">📥</div>
+                <div class="stat-info">
+                  <h4>Pending Payments to Audit</h4>
+                  <div class="stat-value" id="kpi-pending-payments">0</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon accent-yellow">📁</div>
+                <div class="stat-info">
+                  <h4>Pending Claims to Audit</h4>
+                  <div class="stat-value" id="kpi-pending-claims">0</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon accent-blue">🛡️</div>
+                <div class="stat-info">
+                  <h4>Total Verified Log Entries</h4>
+                  <div class="stat-value" id="kpi-total-audits">0</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title">Auditor Verification Directives</h3>
+                  <p class="panel-subtitle">
+                    Official compliance frameworks and inspection notices
+                  </p>
+                </div>
+                <span class="badge-zero badge-green" id="db-status-badge"
+                  >Audit Subsystem Online</span
+                >
+              </div>
+
+              <div
+                class="alert-box success"
+                style="
+                  background: rgba(27, 94, 32, 0.06);
+                  border-left: 5px solid #1b5e20;
+                  padding: 20px;
+                  border-radius: 12px;
+                  margin-bottom: 25px;
+                "
+              >
+                <h4
+                  style="color: #1b5e20; font-weight: 600; margin-bottom: 5px"
+                >
+                  Instruction: Evidence Verification Mandate
+                </h4>
+                <p style="font-size: 0.9rem; line-height: 1.5">
+                  Welcome to the Auditor Verification Console. All payments,
+                  monthly payroll deductions, medical aid requests, and death
+                  benefit claims submitted by the Treasurer are routed here.
+                  Click on "AUDIT" submenus to examine pending documentation and
+                  approve files for Presidential authorization.
+                </p>
+              </div>
+
+              <div style="margin-top: 20px">
+                <h4
+                  style="color: #1b5e20; font-weight: 600; margin-bottom: 10px"
+                >
+                  Quick Compliance Checklist
+                </h4>
+                <p style="font-size: 0.92rem; line-height: 1.6; color: #546e7a">
+                  1. Always crosscheck numerical fields on original bills with
+                  Treasurer inputs. <br />
+                  2. Review digital file metadata (attachments) in the **AUDIT**
+                  monitor.<br />
+                  3. If returning a request for correction, state the clear
+                  discrepancy reason in **Audit Remarks** and attach finding
+                  evidence if possible.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 2: MEMBER PROFILE & PAYMENTS AUDITING
+             ========================================================================== -->
+          <section
+            id="audit-members-payments"
+            class="dashboard-module module-fade-in"
+          >
+            <div class="audit-split-workspace">
+              <!-- Left Side: Pending payment ledger table -->
+              <div>
+                <div class="dashboard-panel" style="padding: 24px">
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">Payments Audit</h3>
+                      <p class="panel-subtitle">
+                        Select an entry below to review
+                      </p>
+                    </div>
+                  </div>
+                  <div class="table-container">
+                    <table class="custom-table" id="pendingPaymentsTable">
+                      <thead>
+                        <tr>
+                          <th>Reference Code</th>
+                          <th>Associated Member</th>
+                          <th>Amount Paid</th>
+                          <th>Data Source / Payment Type</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Side: Inspection & Auditing Room -->
+              <div>
+                <div
+                  class="dashboard-panel"
+                  style="padding: 24px"
+                  id="paymentAuditFormPanel"
+                >
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">Review</h3>
+                      <p class="panel-subtitle" id="selectedPaymentHeader">
+                        No item selected
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- 1. Data View Components (Read-Only Fields) -->
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">Member Profile</div>
+                    <div class="readonly-grid">
+                      <div class="readonly-field">
+                        <label>Member Name</label>
+                        <div id="pReadName">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Employee ID</label>
+                        <div id="pReadEmpId">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Department</label>
+                        <div id="pReadDept">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Position</label>
+                        <div id="pReadPos">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Contact Number</label>
+                        <div id="pReadContact">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Email Address</label>
+                        <div id="pReadEmail">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Membership Status</label>
+                        <div id="pReadStatus">—</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">Payment Details</div>
+                    <div class="readonly-grid">
+                      <div class="readonly-field">
+                        <label>Deduction Month / Covered Period</label>
+                        <div id="pReadCovered">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Expected Dues Amount</label>
+                        <div id="pReadExpected">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Actual Amount Paid</label>
+                        <div id="pReadPaid">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Payment Date</label>
+                        <div id="pReadDate">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Payment Method</label>
+                        <div id="pReadMethod">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Official Receipt / Ref Code</label>
+                        <div id="pReadRef">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Encoded By</label>
+                        <div id="pReadEncoder">—</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 2. Digital Evidence Viewer -->
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">Uploaded Proof</div>
+                    <div
+                      class="digital-evidence-screen"
+                      id="paymentEvidenceScreen"
+                    >
+                      <svg viewBox="0 0 24 24">
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <!-- 3. Auditor Input Form (Writeable fields) -->
+                  <form
+                    class="dashboard-form"
+                    id="paymentVerificationForm"
+                    onsubmit="submitPaymentVerification(event)"
+                  >
+                    {% csrf_token %}
+                    <input type="hidden" id="pAuditID" name="pAuditID" />
+                    <input
+                      type="hidden"
+                      id="pAuditFieldRemarks"
+                      name="pAuditFieldRemarks"
+                    />
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="pAuditBy">Verified By</label>
+                        <input
+                          type="text"
+                          id="pAuditBy"
+                          value="{{ officer_full_name }}"
+                          readonly
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label for="pAuditDate">Verification Date</label>
+                        <input
+                          type="text"
+                          id="pAuditDate"
+                          readonly
+                          placeholder="Auto-populated on action"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="pAuditRemarks">Review Findings</label>
+                      <textarea
+                        id="pAuditRemarks"
+                        rows="3"
+                        placeholder="Enter findings, document verification checkmarks, or feedback notes..."
+                        required
+                      ></textarea>
+                    </div>
+
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="pAuditResult"
+                          >Audit Verification Result</label
+                        >
+                        <select
+                          id="pAuditResult"
+                          required
+                          onchange="togglePaymentAuditEvidenceRequirement()"
+                        >
+                          <option value="Verified" selected>
+                            Verified (Commit to System Log)
+                          </option>
+                          <option value="Returned">
+                            Returned (Send back to Treasurer Correction Queue)
+                          </option>
+                        </select>
+                      </div>
+
+                      <div
+                        class="form-group"
+                        id="evidenceGroup"
+                        style="display: none"
+                      >
+                        <label>Auditor Findings Evidence</label>
+                        <div
+                          class="photo-upload-slot"
+                          onclick="triggerFileUpload('p_findings_file')"
+                        >
+                          <input
+                            type="file"
+                            id="p_findings_file"
+                            style="display: none"
+                            onchange="
+                              showAttachedPreview(this, 'p_findings_preview')
+                            "
+                          />
+                          <p>📸 Tap to upload finding evidence files</p>
+                          <span
+                            class="req-badge"
+                            id="p_findings_req_badge"
+                            style="
+                              background: rgba(27, 94, 32, 0.1);
+                              color: #1b5e20;
+                            "
+                            >Required documentation</span
+                          >
+                          <div
+                            class="upload-preview-indicator"
+                            id="p_findings_preview"
+                          >
+                            ✓ Evidence file attached!
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      class="form-group"
+                      id="pAuditReturnDetails"
+                      style="
+                        display: none;
+                        max-height: 280px;
+                        overflow-y: auto;
+                        background: #fbfdfb;
+                        border: 1px solid #cfdccc;
+                        border-radius: 12px;
+                        padding: 10px;
+                      "
+                    >
+                      <label
+                        style="
+                          margin-bottom: 6px;
+                          display: block;
+                          font-weight: 600;
+                          font-size: 0.85rem;
+                          color: #1b5e20;
+                        "
+                        >Fields Requiring Correction</label
+                      >
+                      <div id="pAuditFieldCheckboxes"></div>
+                    </div>
+
+                    <!-- 4. Navigation Actions (Buttons) -->
+                    <div
+                      style="
+                        display: flex;
+                        gap: 10px;
+                        justify-content: flex-end;
+                        margin-top: 15px;
+                      "
+                    >
+                      <button
+                        type="button"
+                        class="btn-brand btn-brand-secondary"
+                        onclick="clearPaymentVerificationSelection()"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-brand btn-brand-secondary"
+                        id="btnReturnPaymentForCorrection"
+                        style="display: none"
+                      >
+                        Return for Correction
+                      </button>
+                      <button
+                        type="submit"
+                        class="btn-brand btn-brand-primary"
+                        id="btnSubmitPaymentVerification"
+                      >
+                        Verify
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 3: AID REQUESTS & CLAIMS AUDITING
+             ========================================================================== -->
+          <section
+            id="audit-aid-requests"
+            class="dashboard-module module-fade-in"
+          >
+            <div class="audit-split-workspace">
+              <!-- Left Side: Pending Aid requests list -->
+              <div>
+                <div class="dashboard-panel" style="padding: 24px">
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">Claims</h3>
+                      <p class="panel-subtitle">
+                        Select an item to inspect medical or death claim
+                        entries.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="table-container">
+                    <table class="custom-table" id="pendingAidsTable">
+                      <thead>
+                        <tr>
+                          <th>Member / Claimant</th>
+                          <th>Claim Type</th>
+                          <th>Expected Benefit</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Side: Inspection Panel and Audit Form -->
+              <div>
+                <div
+                  class="dashboard-panel"
+                  style="padding: 24px"
+                  id="aidAuditFormPanel"
+                >
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">Claims Inspection</h3>
+                      <p class="panel-subtitle" id="selectedAidHeader">
+                        No claim file selected
+                        <span
+                          id="aidInspectionTypeLabel"
+                          style="
+                            margin-left: 8px;
+                            font-size: 0.72rem;
+                            opacity: 0.75;
+                          "
+                        ></span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- 1. Data View Components (Read-Only Fields) — configurable per aid type -->
+                  <div
+                    class="inspection-data-block"
+                    id="aidInspectionFields"
+                    style="display: none"
+                  >
+                    <div class="inspection-data-title" id="aidInspectionTitle">
+                      Claim Inspection
+                    </div>
+                    <div class="readonly-grid" id="aidInspectionGrid"></div>
+                  </div>
+
+                  <!-- 2. Digital Evidence Viewer -->
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">Uploaded Proof</div>
+                    <div class="digital-evidence-screen" id="aidEvidenceScreen">
+                      <svg viewBox="0 0 24 24">
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  <!-- 3. Auditor Input Form (Writeable fields) -->
+                  <form
+                    class="dashboard-form"
+                    id="aidVerificationForm"
+                    onsubmit="submitAidVerification(event)"
+                  >
+                    {% csrf_token %}
+                    <input type="hidden" id="aAuditID" name="aAuditID" />
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="aAuditBy">Verified By</label>
+                        <input
+                          type="text"
+                          id="aAuditBy"
+                          value="{{ officer_full_name }}"
+                          readonly
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label for="aAuditDate">Verification Date</label>
+                        <input
+                          type="text"
+                          id="aAuditDate"
+                          readonly
+                          placeholder="Auto-populated on action"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="aAuditRemarks">Review Findings</label>
+                      <textarea
+                        id="aAuditRemarks"
+                        rows="3"
+                        placeholder="Enter claims analysis, document crosscheck feedback, or missing certification lists..."
+                        required
+                      ></textarea>
+                    </div>
+
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="aAuditResult"
+                          >Audit Verification Result</label
+                        >
+                        <select
+                          id="aAuditResult"
+                          required
+                          onchange="toggleAidAuditEvidenceRequirement()"
+                        >
+                          <option value="Verified">Verified</option>
+                          <option value="Returned">Return</option>
+                        </select>
+                      </div>
+
+                      <div
+                        class="form-group"
+                        id="aEvidenceGroup"
+                        style="display: none"
+                      >
+                        <label>Auditor Findings Evidence</label>
+                        <div
+                          class="photo-upload-slot"
+                          onclick="triggerFileUpload('a_findings_file')"
+                        >
+                          <input
+                            type="file"
+                            id="a_findings_file"
+                            style="display: none"
+                            onchange="
+                              showAttachedPreview(this, 'a_findings_preview')
+                            "
+                          />
+                          <p>📸 Tap to upload finding evidence files</p>
+                          <span
+                            class="req-badge"
+                            id="a_findings_req_badge"
+                            style="
+                              background: rgba(27, 94, 32, 0.1);
+                              color: #1b5e20;
+                            "
+                            >Required documentation</span
+                          >
+                          <div
+                            class="upload-preview-indicator"
+                            id="a_findings_preview"
+                          >
+                            ✓ Evidence file attached!
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 4. Navigation Actions (Buttons) -->
+                    <div
+                      style="
+                        display: flex;
+                        gap: 10px;
+                        justify-content: flex-end;
+                        margin-top: 15px;
+                      "
+                    >
+                      <button
+                        type="button"
+                        class="btn-brand btn-brand-secondary"
+                        onclick="clearAidVerificationSelection()"
+                      >
+                        Cancel / Back
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-brand btn-brand-secondary"
+                        id="btnReturnAidForCorrection"
+                        style="display: none"
+                      >
+                        Return for Correction
+                      </button>
+                      <button
+                        type="submit"
+                        class="btn-brand btn-brand-primary"
+                        id="btnSubmitAidVerification"
+                      >
+                        Submit Verification
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 4: MEMBERSHIP FEE AUDIT
+             ========================================================================== -->
+          <section
+            id="Membership-Fee-Audit"
+            class="dashboard-module module-fade-in"
+          >
+            <div class="audit-split-workspace">
+              <!-- Left Side: Pending membership fee ledger table -->
+              <div>
+                <div class="dashboard-panel" style="padding: 24px">
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">Membership Fee Audit Inbox</h3>
+                      <p class="panel-subtitle">
+                        Select an entry below to verify membership fee
+                        submissions
+                      </p>
+                    </div>
+                  </div>
+                  <div class="table-container">
+                    <table class="custom-table" id="pendingMembershipFeesTable">
+                      <thead>
+                        <tr>
+                          <th>Receipt Number</th>
+                          <th>Member Name</th>
+                          <th>Amount Paid</th>
+                          <th>Payment Date</th>
+                          <th>Payment Status</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Side: Inspection & Auditing Room -->
+              <div>
+                <div
+                  class="dashboard-panel"
+                  style="padding: 24px"
+                  id="membershipFeeAuditFormPanel"
+                >
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">
+                        Membership Fee Inspection Desk
+                      </h3>
+                      <p
+                        class="panel-subtitle"
+                        id="selectedMembershipFeeHeader"
+                      >
+                        No fee submission selected
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- 1. Data View Components (Read-Only Fields) -->
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">Member Profile Data</div>
+                    <div class="readonly-grid">
+                      <div class="readonly-field">
+                        <label>Member Name</label>
+                        <div id="mfReadName">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Employee ID</label>
+                        <div id="mfReadEmpId">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Department</label>
+                        <div id="mfReadDept">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Position</label>
+                        <div id="mfReadPos">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Contact Number</label>
+                        <div id="mfReadContact">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Email Address</label>
+                        <div id="mfReadEmail">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Membership Status</label>
+                        <div id="mfReadStatus">—</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">
+                      Treasurer Membership Fee Parameters
+                    </div>
+                    <div class="readonly-grid">
+                      <div class="readonly-field">
+                        <label>Payment Receipt / Ref Code</label>
+                        <div id="mfReadRef">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Amount Paid</label>
+                        <div id="mfReadAmount">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Payment Date</label>
+                        <div id="mfReadDate">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Payment Status</label>
+                        <div id="mfReadStatusDetail">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Deposit Reference</label>
+                        <div id="mfReadDeposit">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Encoded By</label>
+                        <div id="mfReadEncoder">—</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 2. Digital Evidence Viewer -->
+                  <div class="inspection-data-block">
+                    <div class="inspection-data-title">
+                      Digital Evidence Viewer
+                    </div>
+                    <div
+                      class="digital-evidence-screen"
+                      id="membershipFeeEvidenceScreen"
+                    >
+                      <svg viewBox="0 0 24 24">
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <!-- 3. Auditor Input Form (Writeable fields) -->
+                  <form
+                    class="dashboard-form"
+                    id="membershipFeeVerificationForm"
+                    onsubmit="submitMembershipFeeVerification(event)"
+                  >
+                    <input type="hidden" id="mfAuditID" />
+                    <input
+                      type="hidden"
+                      id="mfAuditFieldRemarks"
+                      name="mfAuditFieldRemarks"
+                    />
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="mfAuditBy">Verified By</label>
+                        <input
+                          type="text"
+                          id="mfAuditBy"
+                          value="{{ officer_full_name }}"
+                          readonly
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label for="mfAuditDate">Verification Date</label>
+                        <input
+                          type="text"
+                          id="mfAuditDate"
+                          readonly
+                          placeholder="Auto-populated on action"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="mfAuditRemarks">Review Findings</label>
+                      <textarea
+                        id="mfAuditRemarks"
+                        rows="3"
+                        placeholder="Enter findings, document verification checkmarks, or feedback notes..."
+                        required
+                      ></textarea>
+                    </div>
+
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="mfAuditResult"
+                          >Audit Verification Result</label
+                        >
+                        <select
+                          id="mfAuditResult"
+                          required
+                          onchange="
+                            toggleMembershipFeeAuditEvidenceRequirement()
+                          "
+                        >
+                          <option value="Verified">
+                            Verified (Commit to System Log)
+                          </option>
+                          <option value="Returned">
+                            Returned (Send back to Treasurer Correction Queue)
+                          </option>
+                        </select>
+                      </div>
+
+                      <div
+                        class="form-group"
+                        id="mfEvidenceGroup"
+                        style="display: none"
+                      >
+                        <label>Auditor Findings Evidence</label>
+                        <div
+                          class="photo-upload-slot"
+                          onclick="triggerFileUpload('mf_findings_file')"
+                        >
+                          <input
+                            type="file"
+                            id="mf_findings_file"
+                            style="display: none"
+                            onchange="
+                              showAttachedPreview(this, 'mf_findings_preview')
+                            "
+                          />
+                          <p>📸 Tap to upload finding evidence files</p>
+                          <span
+                            class="req-badge"
+                            id="mf_findings_req_badge"
+                            style="
+                              background: rgba(27, 94, 32, 0.1);
+                              color: #1b5e20;
+                            "
+                            >Required documentation</span
+                          >
+                          <div
+                            class="upload-preview-indicator"
+                            id="mf_findings_preview"
+                          >
+                            ✓ Evidence file attached!
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      class="form-group"
+                      id="mfAuditReturnDetails"
+                      style="
+                        display: none;
+                        max-height: 280px;
+                        overflow-y: auto;
+                        background: #fbfdfb;
+                        border: 1px solid #cfdccc;
+                        border-radius: 12px;
+                        padding: 10px;
+                      "
+                    >
+                      <label
+                        style="
+                          margin-bottom: 6px;
+                          display: block;
+                          font-weight: 600;
+                          font-size: 0.85rem;
+                          color: #1b5e20;
+                        "
+                        >Fields Requiring Correction</label
+                      >
+                      <div id="mfAuditFieldCheckboxes"></div>
+                    </div>
+
+                    <!-- 4. Navigation Actions (Buttons) -->
+                    <div
+                      style="
+                        display: flex;
+                        gap: 10px;
+                        justify-content: flex-end;
+                        margin-top: 15px;
+                      "
+                    >
+                      <button
+                        type="button"
+                        class="btn-brand btn-brand-secondary"
+                        onclick="clearMembershipFeeVerificationSelection()"
+                      >
+                        Cancel / Back
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-brand btn-brand-secondary"
+                        id="btnReturnMembershipFeeForCorrection"
+                        style="display: none"
+                      >
+                        Return for Correction
+                      </button>
+                      <button
+                        type="submit"
+                        class="btn-brand btn-brand-primary"
+                        id="btnSubmitMembershipFeeVerification"
+                      >
+                        Submit Verification
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 4: AUDITED REGISTRY (LOG FEED)
+             ========================================================================== -->
+          <section
+            id="view-audit-ledger"
+            class="dashboard-module module-fade-in"
+          >
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title">Official Audited Logs</h3>
+                  <p class="panel-subtitle">
+                    Archived registry of all ledger items verified or returned
+                    by the Auditor Cabinet
+                  </p>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table
+                  class="custom-table"
+                  id="auditedLogsTable"
+                  style="cursor: default"
+                >
+                  <thead>
+                    <tr>
+                      <th>Verification Date</th>
+                      <th>Target request ID</th>
+                      <th>Audit Remarks / Findings</th>
+                      <th>Result Status</th>
+                      <th>Evidence File Status</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 5: REPORT COMPILER
+             ========================================================================== -->
+          <section
+            id="view-reports-compiler"
+            class="dashboard-module module-fade-in"
+          >
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                gap: 30px;
+              "
+            >
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Compile Official Auditor Reports</h3>
+                </div>
+                <form
+                  class="dashboard-form"
+                  id="reportForm"
+                  onsubmit="handleReportCompilerSubmit(event)"
+                >
+                  {% csrf_token %}
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="rep_start">Start Window Date</label>
+                      <input
+                        type="date"
+                        id="rep_start"
+                        name="rep_start"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="rep_end">End Window Date</label>
+                      <input type="date" id="rep_end" name="rep_end" required />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="rep_type">Auditor Certification Model</label>
+                    <select id="rep_type" name="rep_type">
+                      <option value="Comprehensive Compliance Ledger">
+                        Full Cabinet Comprehensive Compliance Ledger
+                      </option>
+                      <option value="Financial Disbursements Audit">
+                        Verified Aid & Claims Disbursement Report
+                      </option>
+                      <option value="Treasurer Ledger Audit Reconciliation">
+                        Coop Member Fees & Monthly Dues Audit Reconciliation
+                      </option>
+                      <option value="Returned Claims Analysis">
+                        Deficiency & Returned Action File Analysis
+                      </option>
+                    </select>
+                  </div>
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="rep_by">Lead Auditor Code</label>
+                      <input
+                        type="text"
+                        id="rep_by"
+                        name="rep_by"
+                        value="{{ officer_full_name }}"
+                        required
+                        readonly
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="rep_export"
+                        >Compliance Supervisor Sign-off</label
+                      >
+                      <input
+                        type="text"
+                        id="rep_export"
+                        name="rep_export"
+                        placeholder="e.g., Lead Auditor"
+                        value="{{ officer_full_name }}"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <div
+                      class="photo-upload-slot"
+                      style="opacity: 0.6; cursor: not-allowed"
+                      onclick="event.preventDefault()"
+                    >
+                      <p>
+                        🚫 No attachment documents are required for compiling
+                        system certification ledgers
+                      </p>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn-brand btn-brand-primary">
+                    Generate Compliance Certification
+                  </button>
+                </form>
+              </div>
+
+              <div class="dashboard-panel" style="flex: 2">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">
+                    Generated Compliance Certifications
+                  </h3>
+                </div>
+                <div class="table-container">
+                  <table
+                    class="custom-table"
+                    id="reportTable"
+                    style="cursor: default"
+                  >
+                    <thead>
+                      <tr>
+                        <th>Compile Timestamp</th>
+                        <th>Certification Type</th>
+                        <th>Date Window</th>
+                        <th>Auditor Assigned</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- ==========================================================================
+        AUDITOR DASHBOARD MODULES
+        ========================================================================== -->
+    <script src="{% static 'js/Auditor/auditor_dashboard.js' %}"></script>
+    <script src="{% static 'js/Auditor/aid_inspection_panel.js' %}"></script>
+    <script src="{% static 'js/Auditor/media_handler.js' %}"></script>
+  </body>
+</html>

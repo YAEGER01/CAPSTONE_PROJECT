@@ -4,3 +4,13 @@ __pycache__/
 db.sqlite3
 .env
 .vscode/
+
+media
+*.md
+.kilo
+resourcefromJas
+
+templates/Old
+templates\website\Treasurer\legacy_do_not_touch
+
+issue_list

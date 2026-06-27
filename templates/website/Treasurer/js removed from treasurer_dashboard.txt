@@ -1,0 +1,195 @@
+function renderSalaryTable() {
+  const tbody = document.querySelector("#salaryTable tbody");
+  tbody.innerHTML = "";
+  db.salary_deductions.forEach((s) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+              <td style="font-weight:600;color:#1b5e20;">${s.ref}</td>
+              <td>${s.name} <br><span style="font-size:0.75rem;color:#757575;">Code: ${s.memberId}</span></td>
+              <td><span class="badge-zero badge-green" style="font-size:0.75rem;">${s.month}</span></td>
+              <td style="font-weight:600;">${formatCurrencyPHP(s.amount)}</td>
+              <td><span style="font-size:0.8rem;color:#546e7a;">${s.remarks}</span></td>
+            `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderDeathTable() {
+  const tbody = document.querySelector("#deathTable tbody");
+  tbody.innerHTML = "";
+  db.death_aids.forEach((d) => {
+    const tr = document.createElement("tr");
+    let badgeStyle = "badge-yellow";
+    if (d.status === "Released") badgeStyle = "badge-green";
+    if (d.status === "Rejection Dispatched") badgeStyle = "badge-red";
+    tr.innerHTML = `
+              <td style="font-weight:600;color:#1b5e20;">${d.id}</td>
+              <td>${d.claimant} <br><span style="font-size:0.75rem;color:#757575;">Member: ${d.name}</span></td>
+              <td>Deceased: ${d.deceased} <br><span style="font-size:0.75rem;color:#757575;">Relationship: ${d.relationship}</span></td>
+              <td style="font-weight:600;">${formatCurrencyPHP(d.amount)}</td>
+              <td><span class="badge-zero ${badgeStyle}">${d.status}</span></td>
+            `;
+    tbody.appendChild(tr);
+  });
+}
+function handleFeePaymentSubmit(e) {
+  // Disabled: membership fee is handled by static/js/Treasurer/membership_fee.js (API-backed)
+  e.preventDefault();
+  return false;
+}
+
+function handleOtcDuesSubmit(e) {
+  // Deprecated: OTC dues must be recorded through monthly_dues_handle.js -> Django DB APIs.
+  e.preventDefault();
+  showToast(
+    "OTC dues must be recorded via DB-backed handler (refresh page).",
+    true,
+  );
+}
+
+function handleMemberSubmit(e) {
+  e.preventDefault();
+  const mId = "M-" + (db.members.length + 101);
+  const newMember = {
+    id: mId,
+    name: document.getElementById("prof_name").value,
+    facultyId: document.getElementById("prof_id").value,
+    department: document.getElementById("prof_dept").value,
+    position: document.getElementById("prof_pos").value,
+    contact: document.getElementById("prof_contact").value,
+    email: document.getElementById("prof_email").value,
+    status: document.getElementById("prof_status").value,
+  };
+
+  db.members.push(newMember);
+  renderAllComponents();
+
+  document.getElementById("memberForm").reset();
+  document.getElementById("prof_preview").style.display = "none";
+  showToast(`Member Account ${mId} provisioned into Directory!`, false);
+}
+
+// NOTE: membership fee submit handler is implemented in static/js/Treasurer/membership_fee.js (API-backed).
+// This legacy placeholder caused name collisions and prevented the API handler from running reliably.
+
+function handleAuditSubmit(e) {
+  e.preventDefault();
+  const targetId = document.getElementById("audit_req_id").value;
+  const remarksText = document.getElementById("audit_remarks").value;
+  const resultVal = document.getElementById("audit_result").value;
+
+  // Locate whether Medical or Death Request
+  let match = db.medical_aids.find((m) => m.id === targetId);
+  if (!match) match = db.death_aids.find((d) => d.id === targetId);
+
+  if (!match) {
+    showToast("Requested verification target ID not found in database.", true);
+    return;
+  }
+
+  // Update state
+  match.status = resultVal;
+
+  const newAudit = {
+    reqId: targetId,
+    by: document.getElementById("audit_by").value,
+    date: document.getElementById("audit_date").value,
+    remarks: remarksText,
+    result: resultVal,
+  };
+
+  db.audits.push(newAudit);
+  renderAllComponents();
+
+  document.getElementById("auditForm").reset();
+  document.getElementById("audit_preview").style.display = "none";
+  showToast(`Claim ${targetId} audited and marked [${resultVal}].`, false);
+}
+
+function handlePresSubmit(e) {
+  e.preventDefault();
+  const targetId = document.getElementById("pres_req_id").value;
+  const decisionVal = document.getElementById("pres_decision").value;
+  const remarksText = document.getElementById("pres_remarks").value;
+  const approvedAmount = parseFloat(
+    document.getElementById("pres_amount").value,
+  );
+
+  let match = db.medical_aids.find((m) => m.id === targetId);
+  if (!match) match = db.death_aids.find((d) => d.id === targetId);
+
+  if (!match) {
+    showToast("Claim file target not found.", true);
+    return;
+  }
+
+  match.status = decisionVal;
+  match.approvedAmount = approvedAmount;
+
+  const newDecision = {
+    reqId: targetId,
+    decision: decisionVal,
+    date: document.getElementById("pres_date").value,
+    remarks: remarksText,
+    amount: approvedAmount,
+  };
+
+  db.pres_decisions.push(newDecision);
+  renderAllComponents();
+
+  document.getElementById("presForm").reset();
+  showToast(
+    `Executive decision successfully saved to target ${targetId}.`,
+    false,
+  );
+}
+
+function populateReleaseFields(val) {
+  if (!val) {
+    document.getElementById("rel_payee").value = "";
+    document.getElementById("rel_amount").value = "";
+    return;
+  }
+  let match = db.medical_aids.find((m) => m.id === val);
+  if (!match) match = db.death_aids.find((d) => d.id === val);
+
+  if (match) {
+    document.getElementById("rel_payee").value = match.claimant || match.name;
+    document.getElementById("rel_amount").value =
+      match.approvedAmount || match.reqAmount || match.amount;
+  }
+}
+
+function handleReleaseSubmit(e) {
+  e.preventDefault();
+  const targetId = document.getElementById("rel_req_id").value;
+
+  let match = db.medical_aids.find((m) => m.id === targetId);
+  if (!match) match = db.death_aids.find((d) => d.id === targetId);
+
+  if (!match) {
+    showToast("Target approved disbursement entity missing.", true);
+    return;
+  }
+
+  match.status = "Released";
+
+  const newRelease = {
+    reqId: targetId,
+    payee: document.getElementById("rel_payee").value,
+    amount: parseFloat(document.getElementById("rel_amount").value),
+    chequeNum: document.getElementById("rel_cheque_num").value,
+    chequeDate: document.getElementById("rel_cheque_date").value,
+    branch: document.getElementById("rel_reference").value,
+    releaseDate: document.getElementById("rel_date").value,
+    releasedBy: document.getElementById("rel_by").value,
+    receivedBy: document.getElementById("rel_received_by").value,
+  };
+
+  db.releases.push(newRelease);
+  renderAllComponents();
+
+  document.getElementById("releaseForm").reset();
+  document.getElementById("release_preview").style.display = "none";
+  showToast(`Disbursement release documented. Landbank cheque issued!`, false);
+}

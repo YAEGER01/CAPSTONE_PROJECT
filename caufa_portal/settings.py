@@ -83,8 +83,43 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
+# Media upload configuration (receipts / supporting proofs)
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Authentication Redirect routing boundaries
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+# -------------------------
+# Gmail SMTP (for notifications)
+# -------------------------
+# Add these to your environment (recommended via .env + python-dotenv) or set them directly.
+# Expected values for Gmail SMTP:
+# - GMAIL_SMTP_HOST: smtp.gmail.com
+# - GMAIL_SMTP_PORT: 587
+# - GMAIL_SMTP_USER: your_gmail_address
+# - GMAIL_SMTP_PASSWORD: your Gmail App Password
+# - GMAIL_SMTP_USE_TLS: true (optional; default True)
+#
+# If you already set Django's EMAIL_* settings, we fall back to them.
+
+import os as _os
+
+# Host/port
+GMAIL_SMTP_HOST = _os.getenv("GMAIL_SMTP_HOST", _os.getenv("EMAIL_HOST", "smtp.gmail.com"))
+GMAIL_SMTP_PORT = int(_os.getenv("GMAIL_SMTP_PORT", _os.getenv("EMAIL_PORT", "587")))
+
+# Credentials
+GMAIL_SMTP_USER = _os.getenv("GMAIL_SMTP_USER", _os.getenv("EMAIL_HOST_USER", ""))
+GMAIL_SMTP_PASSWORD = _os.getenv("GMAIL_SMTP_PASSWORD", _os.getenv("EMAIL_HOST_PASSWORD", ""))
+
+# TLS
+GMAIL_SMTP_USE_TLS = _os.getenv(
+    "GMAIL_SMTP_USE_TLS",
+    _os.getenv("EMAIL_USE_TLS", "true"),
+).lower() in {"1", "true", "yes"}
+
+

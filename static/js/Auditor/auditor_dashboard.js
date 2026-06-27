@@ -1,0 +1,1250 @@
+(function () {
+  "use strict";
+
+  const CSRF_HEADER_NAME = "X-CSRFToken";
+
+  function getCSRFToken() {
+    const el = document.querySelector("input[name='csrfmiddlewaretoken']");
+    if (el && el.value) return el.value;
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : "";
+  }
+
+  function showToast(message, isError = false) {
+    const host = document.getElementById("toastContainer");
+    if (!host) {
+      alert(message);
+      return;
+    }
+    const toast = document.createElement("div");
+    toast.className = `custom-toast ${isError ? "toast-error" : ""}`;
+    toast.innerHTML = `<span>[MSG]</span> <p style="font-size:0.85rem;font-weight:500;">${message}</p>`;
+    host.appendChild(toast);
+    setTimeout(() => toast.classList.add("show"), 10);
+    setTimeout(() => {
+      toast.classList.remove("show");
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+
+  function formatMoneyPHP(num) {
+    const n = typeof num === "number" ? num : parseFloat(num || "0");
+    return new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+    }).format(n);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function getPaymentSourceLabel(p) {
+    return (
+      p.source_label ||
+      (p.type === "OTC Fee Payment" ? "Membership Fee" : "Monthly Dues")
+    );
+  }
+
+  function getPaymentTypeLabel(p) {
+    return (
+      p.payment_type ||
+      (p.type === "OTC Fee Payment" ? "OTC Payment" : "OTC Payment")
+    );
+  }
+
+  /* === EDIT: Map status text to badge CSS class === */
+  function getStatusBadgeClass(statusText) {
+    const text = (statusText || "").toLowerCase();
+    if (text.indexOf("medical") !== -1) return "badge-medical-aid";
+    if (text.indexOf("death") !== -1) return "badge-death-aid";
+    if (text.indexOf("salary deduction") !== -1) return "badge-monthly-dues-salary";
+    if (text.indexOf("otc") !== -1 || text.indexOf("monthly dues") !== -1) return "badge-monthly-dues-otc";
+    if (text.indexOf("membership") !== -1) return "badge-membership-fee";
+    return "badge-zero";
+  }
+  /* === END EDIT === */
+
+  const PAYMENT_VERIFICATION_FIELDS = {
+    membership_fee: [
+      { key: "amount", label: "Actual amount paid" },
+      { key: "ref", label: "Official receipt / ref code" },
+      { key: "month", label: "Deduction month / Covered Period" },
+      { key: "date", label: "Payment date" },
+      { key: "proof_status", label: "Uploaded proof" },
+      { key: "method", label: "Payment method" },
+      { key: "encoded_by", label: "Encoded by" },
+    ],
+    monthly_dues: [
+      { key: "amount", label: "Actual amount paid" },
+      { key: "ref", label: "Official receipt / ref code" },
+      { key: "month", label: "Deduction month / Covered Period" },
+      { key: "date", label: "Payment date" },
+      { key: "proof_status", label: "Uploaded proof" },
+      { key: "method", label: "Payment method" },
+      { key: "encoded_by", label: "Encoded by" },
+    ],
+  };
+
+  const MEMBERSHIP_FEE_VERIFICATION_FIELDS = [
+    { key: "amount", label: "Actual amount paid" },
+    { key: "ref", label: "Official receipt / ref code" },
+    { key: "month_covered", label: "Deduction month / Covered Period" },
+    { key: "payment_date", label: "Payment date" },
+    { key: "proof_status", label: "Uploaded proof" },
+    { key: "payment_status", label: "Payment method" },
+    { key: "encoded_by", label: "Encoded by" },
+  ];
+
+  function getFieldValue(item, fieldKey) {
+    if (fieldKey === "proof_status") {
+      return "Review evidence viewer above";
+    }
+    if (fieldKey.startsWith("member.")) {
+      const subKey = fieldKey.slice(7);
+      const member = item.member || {};
+      return member[subKey] || "";
+    }
+    return item[fieldKey] || "";
+  }
+
+  function renderPaymentFieldCheckboxes(item) {
+    const container = getEl("pAuditFieldCheckboxes");
+    if (!container) return;
+
+    const source = item.source || (item.type === "OTC Fee Payment" ? "membership_fee" : "monthly_dues");
+    const fields = PAYMENT_VERIFICATION_FIELDS[source] || PAYMENT_VERIFICATION_FIELDS.membership_fee;
+
+    container.innerHTML = "";
+    fields.forEach(function (f) {
+      const value = getFieldValue(item, f.key);
+      const uid = "chk_p_" + f.key.replace(/\./g, "_");
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "border:1px solid #dfe9df;border-radius:10px;margin-bottom:8px;background:#fff;overflow:hidden;";
+      wrapper.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;">' +
+        '<input type="checkbox" id="' +
+        uid +
+        '" data-field="' +
+        f.key +
+        '" style="flex-shrink:0;width:16px;height:16px;">' +
+        '<label for="' +
+        uid +
+        '" style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin:0;cursor:pointer;flex:1;">' +
+        escapeHtml(f.label) +
+        '</label>' +
+        "</div>" +
+        '<div class="chk-p-detail" style="display:none;padding:0 12px 12px 36px;">' +
+        '<div style="font-size:0.78rem;color:#757575;margin-bottom:6px;line-height:1.3;">' +
+        escapeHtml(value) +
+        '</div>' +
+        '<input type="text" data-remark-for="' +
+        f.key +
+        '" placeholder="Describe the issue..." style="width:100%;padding:6px 10px;border-radius:8px;border:1px solid #cfdccc;font-size:0.8rem;font-family:inherit;box-sizing:border-box;">' +
+        "</div>";
+      const chk = wrapper.querySelector('input[type="checkbox"]');
+      const detail = wrapper.querySelector(".chk-p-detail");
+      chk.addEventListener("change", function () {
+        detail.style.display = chk.checked ? "block" : "none";
+      });
+      container.appendChild(wrapper);
+    });
+  }
+
+  function renderMembershipFeeFieldCheckboxes(item) {
+    const container = getEl("mfAuditFieldCheckboxes");
+    if (!container) return;
+
+    container.innerHTML = "";
+    MEMBERSHIP_FEE_VERIFICATION_FIELDS.forEach(function (f) {
+      const value = getFieldValue(item, f.key);
+      const uid = "chk_mf_" + f.key.replace(/\./g, "_");
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "border:1px solid #dfe9df;border-radius:10px;margin-bottom:8px;background:#fff;overflow:hidden;";
+      wrapper.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;">' +
+        '<input type="checkbox" id="' +
+        uid +
+        '" data-field="' +
+        f.key +
+        '" style="flex-shrink:0;width:16px;height:16px;">' +
+        '<label for="' +
+        uid +
+        '" style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin:0;cursor:pointer;flex:1;">' +
+        escapeHtml(f.label) +
+        '</label>' +
+        "</div>" +
+        '<div class="chk-mf-detail" style="display:none;padding:0 12px 12px 36px;">' +
+        '<div style="font-size:0.78rem;color:#757575;margin-bottom:6px;line-height:1.3;">' +
+        escapeHtml(value) +
+        '</div>' +
+        '<input type="text" data-remark-for="' +
+        f.key +
+        '" placeholder="Describe the issue..." style="width:100%;padding:6px 10px;border-radius:8px;border:1px solid #cfdccc;font-size:0.8rem;font-family:inherit;box-sizing:border-box;">' +
+        "</div>";
+      const chk = wrapper.querySelector('input[type="checkbox"]');
+      const detail = wrapper.querySelector(".chk-mf-detail");
+      chk.addEventListener("change", function () {
+        detail.style.display = chk.checked ? "block" : "none";
+      });
+      container.appendChild(wrapper);
+    });
+  }
+
+  function buildRejectionDetailsJSON(containerId) {
+    const container = getEl(containerId);
+    if (!container) return null;
+
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    const details = [];
+
+    checkboxes.forEach(function (chk) {
+      if (!chk.checked) return;
+      const field = chk.getAttribute("data-field");
+      const remarkInput = container.querySelector('input[data-remark-for="' + field + '"]');
+      const remark = remarkInput ? remarkInput.value.trim() : "";
+      if (!field) return;
+      details.push({ field: field, remarks: remark });
+    });
+
+    if (details.length === 0) return null;
+    return JSON.stringify({ rejection_details: details });
+  }
+
+  function renderPaymentTypeCell(p) {
+    const sourceLabel = escapeHtml(getPaymentSourceLabel(p));
+    const typeLabel = escapeHtml(getPaymentTypeLabel(p));
+    return `
+      <span class="${getStatusBadgeClass(sourceLabel)}" style="font-size:0.72rem;">${sourceLabel}</span>
+      <br>
+      <span class="${getStatusBadgeClass(typeLabel)}" style="font-size:0.72rem;margin-top:4px;">${typeLabel}</span>
+    `;
+  }
+
+  function getEl(id) {
+    return document.getElementById(id);
+  }
+
+  let state = {
+    pendingPayments: [],
+    pendingAids: [],
+    pendingMembershipFees: [],
+    selectedPaymentId: "",
+    selectedAidId: "",
+    selectedMembershipFeeId: "",
+  };
+
+  async function getJSON(url) {
+    const resp = await fetch(url, {
+      method: "GET",
+      credentials: "same-origin",
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) {
+      throw new Error((data && data.error) || `Request failed: ${url}`);
+    }
+    return data;
+  }
+
+  async function postForm(url, fd) {
+    const csrf = getCSRFToken();
+    const headers = csrf ? { [CSRF_HEADER_NAME]: csrf } : {};
+
+    const resp = await fetch(url, {
+      method: "POST",
+      body: fd,
+      headers,
+      credentials: "same-origin",
+    });
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.ok) {
+      throw new Error((data && data.error) || "Server error while saving.");
+    }
+    return data;
+  }
+
+  function clearPaymentUI() {
+    state.selectedPaymentId = "";
+
+    const header = getEl("selectedPaymentHeader");
+    if (header) header.innerText = "No item selected";
+
+    const resets = [
+      "pReadName",
+      "pReadEmpId",
+      "pReadDept",
+      "pReadPos",
+      "pReadContact",
+      "pReadEmail",
+      "pReadStatus",
+      "pReadCovered",
+      "pReadExpected",
+      "pReadPaid",
+      "pReadDate",
+      "pReadMethod",
+      "pReadRef",
+      "pReadEncoder",
+    ];
+    resets.forEach((id) => {
+      const el = getEl(id);
+      if (el) el.innerText = "—";
+    });
+
+    const returnDetails = getEl("pAuditReturnDetails");
+    if (returnDetails) returnDetails.style.display = "none";
+
+    const pFieldContainer = getEl("pAuditFieldCheckboxes");
+    if (pFieldContainer) pFieldContainer.innerHTML = "";
+
+    if (window.renderEmptyState) {
+      window.renderEmptyState();
+    }
+
+    const form = getEl("paymentVerificationForm");
+    if (form) form.reset();
+    const auditId = getEl("pAuditID");
+    if (auditId) auditId.value = "";
+    const preview = getEl("p_findings_preview");
+    if (preview) preview.style.display = "none";
+  }
+
+  function clearAidUI() {
+    state.selectedAidId = "";
+
+    const header = getEl("selectedAidHeader");
+    if (header) header.innerText = "No claim file selected";
+
+    const fieldsContainer = getEl("aidInspectionFields");
+    if (fieldsContainer) fieldsContainer.style.display = "none";
+
+    if (window.renderEmptyState) {
+      window.renderEmptyState("aidEvidenceScreen");
+    }
+
+    const form = getEl("aidVerificationForm");
+    if (form) form.reset();
+    const auditId = getEl("aAuditID");
+    if (auditId) auditId.value = "";
+    const preview = getEl("a_findings_preview");
+    if (preview) preview.style.display = "none";
+
+    const typeLabel = getEl("aidInspectionTypeLabel");
+    if (typeLabel) typeLabel.innerText = "";
+
+    if (window.toggleAidAuditEvidenceRequirement) {
+      window.toggleAidAuditEvidenceRequirement();
+    }
+  }
+
+  function renderPaymentsTable() {
+    const tbody = document.querySelector("#pendingPaymentsTable tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    if (!state.pendingPayments || state.pendingPayments.length === 0) {
+      tbody.innerHTML =
+        '<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">All payment queues cleared!</td></tr>';
+      return;
+    }
+
+    state.pendingPayments.forEach((p) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight:600;color:#1b5e20;">${escapeHtml(p.ref || "")}</td>
+        <td>${escapeHtml(p.member && p.member.member_name ? p.member.member_name : "")}</td>
+        <td style="font-weight:600;">${escapeHtml(formatMoneyPHP(p.amount))}</td>
+        <td>${renderPaymentTypeCell(p)}</td>
+        <td><button class="btn-select-glow">Select</button></td>
+      `;
+      tr.onclick = () => selectPayment(p.id);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderAidsTable() {
+    const tbody = document.querySelector("#pendingAidsTable tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    if (!state.pendingAids || state.pendingAids.length === 0) {
+      tbody.innerHTML =
+        '<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">All claims verified!</td></tr>';
+      return;
+    }
+
+    state.pendingAids.forEach((a) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${a.member && a.member.member_name ? a.member.member_name : a.claimantName || ""}</td>
+        <td><span class="${getStatusBadgeClass(a.type)}" style="font-size:0.75rem;">${a.type || ""}</span></td>
+        <td style="font-weight:600;">${formatMoneyPHP(a.reqAmount || a.benefit || 0)}</td>
+        <td><button class="btn-select-glow">Select</button></td>
+      `;
+      tr.onclick = () => selectAid(a.id);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderMembershipFeesTable() {
+    const tbody = document.querySelector("#pendingMembershipFeesTable tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    if (
+      !state.pendingMembershipFees ||
+      state.pendingMembershipFees.length === 0
+    ) {
+      tbody.innerHTML =
+        '<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">No pending membership fees awaiting audit.</td></tr>';
+      return;
+    }
+
+    state.pendingMembershipFees.forEach((fee) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight:600;color:#1b5e20;">${fee.ref || ""}</td>
+        <td>${fee.member_name || ""}</td>
+        <td style="font-weight:600;">${formatMoneyPHP(fee.amount)}</td>
+        <td>${fee.payment_date || ""}</td>
+        <td><span class="${getStatusBadgeClass(fee.payment_status)}" style="font-size:0.75rem;">${fee.payment_status || "Pending"}</span></td>
+        <td><button class="btn-select-glow">Select</button></td>
+      `;
+      tr.onclick = () => selectMembershipFee(fee.fee_id);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function setEvidenceScreen({ badgeText, titleText, descText }) {
+    const badge = getEl("paymentEvidenceBadge");
+    const title = getEl("paymentEvidenceTitle");
+    const desc = getEl("paymentEvidenceDesc");
+    const screen = getEl("paymentEvidenceScreen");
+
+    if (badge) badge.innerText = badgeText;
+    if (title) title.innerText = titleText;
+    if (desc) desc.innerText = descText;
+    if (screen) screen.style.borderColor = "#fbc02d";
+  }
+
+  function selectPayment(id) {
+    state.selectedPaymentId = String(id);
+
+    const item = state.pendingPayments.find((p) => String(p.id) === String(id));
+    if (!item) return;
+
+    const header = getEl("selectedPaymentHeader");
+    if (header)
+      header.innerText = `Reviewing Entry: ${item.id} (${getPaymentSourceLabel(item)} · ${getPaymentTypeLabel(item)})`;
+
+    const m = item.member || {};
+    if (getEl("pReadName")) getEl("pReadName").innerText = m.member_name || "—";
+    if (getEl("pReadEmpId"))
+      getEl("pReadEmpId").innerText = m.employee_id || "—";
+    if (getEl("pReadDept")) getEl("pReadDept").innerText = m.department || "—";
+    if (getEl("pReadPos")) getEl("pReadPos").innerText = m.position || "—";
+    if (getEl("pReadContact"))
+      getEl("pReadContact").innerText = m.contact || "—";
+    if (getEl("pReadEmail")) getEl("pReadEmail").innerText = m.email || "—";
+    if (getEl("pReadStatus"))
+      getEl("pReadStatus").innerText = m.membership_status || "—";
+
+    if (getEl("pReadCovered"))
+      getEl("pReadCovered").innerText = item.month || "—";
+    if (getEl("pReadExpected"))
+      getEl("pReadExpected").innerText = formatMoneyPHP(item.expected);
+    if (getEl("pReadPaid"))
+      getEl("pReadPaid").innerText = formatMoneyPHP(item.amount);
+    if (getEl("pReadDate")) getEl("pReadDate").innerText = item.date || "—";
+    if (getEl("pReadMethod"))
+      getEl("pReadMethod").innerText = item.method || "—";
+    if (getEl("pReadRef")) getEl("pReadRef").innerText = item.ref || "—";
+    if (getEl("pReadEncoder"))
+      getEl("pReadEncoder").innerText = item.encoded_by || "—";
+
+    const auditId = getEl("pAuditID");
+    if (auditId) auditId.value = item.id;
+    const auditDate = getEl("pAuditDate");
+    if (auditDate) auditDate.value = new Date().toLocaleString();
+
+    const modelType =
+      item.source ||
+      (item.type === "OTC Fee Payment" ? "membership_fee" : "monthly_dues");
+    if (window.fetchMediaForRecord) {
+      window.fetchMediaForRecord(item.id, modelType).then((proof) => {
+        if (proof) {
+          window.renderMediaPreview(
+            proof.fileUrl,
+            proof.fileType,
+            proof.fileName,
+          );
+        }
+      });
+    }
+
+    renderPaymentFieldCheckboxes(item);
+  }
+
+  function selectAid(id) {
+    state.selectedAidId = String(id);
+
+    const item = state.pendingAids.find((a) => String(a.id) === String(id));
+    if (!item) return;
+
+    var numericId = String(item.aid_type === "medical_aid" || item.type === "Medical Aid Request" ? item.id : item.id).split("-").pop();
+    if (isNaN(numericId)) numericId = String(item.id);
+
+    const header = getEl("selectedAidHeader");
+    if (header) header.innerText = `Inspecting Claim: ${item.id}`;
+
+    if (window.renderAidInspectionFields) {
+      window.renderAidInspectionFields(item, "aidEvidenceScreen");
+    }
+
+    const fieldsContainer = getEl("aidInspectionFields");
+    if (fieldsContainer) fieldsContainer.style.display = "block";
+
+    const auditId = getEl("aAuditID");
+    if (auditId) auditId.value = item.id;
+    const auditDate = getEl("aAuditDate");
+    if (auditDate) auditDate.value = new Date().toLocaleString();
+
+    const aidType = item.aid_type ||
+      (item.type === "Medical Aid Request" ? "medical_aid" : "death_aid");
+
+    if (window.fetchMediaForRecord) {
+      window.fetchMediaForRecord(numericId, aidType, "aidEvidenceScreen").then((proof) => {
+        if (proof && window.renderMediaPreview) {
+          window.renderMediaPreview(proof.fileUrl, proof.fileType, proof.fileName, "aidEvidenceScreen");
+        }
+      });
+    }
+
+    if (window.toggleAidAuditEvidenceRequirement) {
+      window.toggleAidAuditEvidenceRequirement();
+    }
+  }
+
+  function clearMembershipFeeUI() {
+    state.selectedMembershipFeeId = "";
+
+    const header = getEl("selectedMembershipFeeHeader");
+    if (header) header.innerText = "No fee submission selected";
+
+    const resets = [
+      "mfReadName",
+      "mfReadEmpId",
+      "mfReadDept",
+      "mfReadPos",
+      "mfReadContact",
+      "mfReadEmail",
+      "mfReadStatus",
+      "mfReadRef",
+      "mfReadAmount",
+      "mfReadDate",
+      "mfReadStatusDetail",
+      "mfReadDeposit",
+      "mfReadEncoder",
+    ];
+    resets.forEach((id) => {
+      const el = getEl(id);
+      if (el) el.innerText = "—";
+    });
+
+    const returnDetails = getEl("mfAuditReturnDetails");
+    if (returnDetails) returnDetails.style.display = "none";
+
+    const mfFieldContainer = getEl("mfAuditFieldCheckboxes");
+    if (mfFieldContainer) mfFieldContainer.innerHTML = "";
+
+    if (window.renderEmptyState) {
+      window.renderEmptyState("membershipFeeEvidenceScreen");
+    }
+
+    const form = getEl("membershipFeeVerificationForm");
+    if (form) form.reset();
+    const auditId = getEl("mfAuditID");
+    if (auditId) auditId.value = "";
+    const preview = getEl("mf_findings_preview");
+    if (preview) preview.style.display = "none";
+  }
+
+  function selectMembershipFee(id) {
+    state.selectedMembershipFeeId = String(id);
+
+    const item = state.pendingMembershipFees.find(
+      (f) => String(f.fee_id) === String(id),
+    );
+    if (!item) return;
+
+    const header = getEl("selectedMembershipFeeHeader");
+    if (header) header.innerText = `Inspecting Fee: ${item.ref || item.fee_id}`;
+
+    const m = item.member || {};
+    if (getEl("mfReadName"))
+      getEl("mfReadName").innerText = item.member_name || m.member_name || "—";
+    if (getEl("mfReadEmpId"))
+      getEl("mfReadEmpId").innerText = m.employee_id || "—";
+    if (getEl("mfReadDept"))
+      getEl("mfReadDept").innerText = m.department || "—";
+    if (getEl("mfReadPos")) getEl("mfReadPos").innerText = m.position || "—";
+    if (getEl("mfReadContact"))
+      getEl("mfReadContact").innerText = m.contact || "—";
+    if (getEl("mfReadEmail")) getEl("mfReadEmail").innerText = m.email || "—";
+    if (getEl("mfReadStatus"))
+      getEl("mfReadStatus").innerText = m.membership_status || "—";
+
+    if (getEl("mfReadRef")) getEl("mfReadRef").innerText = item.ref || "—";
+    if (getEl("mfReadAmount"))
+      getEl("mfReadAmount").innerText = formatMoneyPHP(item.amount);
+    if (getEl("mfReadDate"))
+      getEl("mfReadDate").innerText = item.payment_date || "—";
+    if (getEl("mfReadStatusDetail"))
+      getEl("mfReadStatusDetail").innerText = item.payment_status || "—";
+    if (getEl("mfReadDeposit"))
+      getEl("mfReadDeposit").innerText = item.deposit_reference || "—";
+    if (getEl("mfReadEncoder"))
+      getEl("mfReadEncoder").innerText = item.encoded_by || "—";
+
+    const auditId = getEl("mfAuditID");
+    if (auditId) auditId.value = item.fee_id;
+    const auditDate = getEl("mfAuditDate");
+    if (auditDate) auditDate.value = new Date().toLocaleString();
+
+    if (window.fetchMediaForRecord) {
+      window
+        .fetchMediaForRecord(
+          item.fee_id,
+          "membership_fee",
+          "membershipFeeEvidenceScreen",
+        )
+        .then((proof) => {
+          if (proof) {
+            window.renderMediaPreview(
+              proof.fileUrl,
+              proof.fileType,
+              proof.fileName,
+              "membershipFeeEvidenceScreen",
+            );
+          }
+        });
+    }
+  }
+
+  function closeMembershipFeeAudit() {
+    clearMembershipFeeUI();
+  }
+
+  async function refreshAll() {
+    state.pendingPayments = [];
+    state.pendingAids = [];
+    state.pendingMembershipFees = [];
+
+    try {
+      const payments = await getJSON("/api/auditor/pending-payments/list/");
+      state.pendingPayments = payments.payments || [];
+    } catch (e) {
+      showToast(e.message || "Failed loading pending payments.", true);
+    }
+
+    try {
+      const aids = await getJSON("/api/auditor/pending-aids/list/");
+      state.pendingAids = aids.aids || [];
+    } catch (e) {
+      showToast(e.message || "Failed loading pending aids.", true);
+    }
+
+    try {
+      const fees = await getJSON("/api/auditor/pending-membership-fees/list/");
+      state.pendingMembershipFees = fees.fees || [];
+    } catch (e) {
+      showToast(e.message || "Failed loading pending membership fees.", true);
+    }
+
+    renderPaymentsTable();
+    renderAidsTable();
+    renderMembershipFeesTable();
+
+    const dot = getEl("audit-folder-dot");
+    if (dot) {
+      dot.style.display =
+        (state.pendingPayments.length > 0 || state.pendingAids.length > 0) ? "inline-block" : "none";
+    }
+
+    const pDot = getEl("payments-audit-dot");
+    if (pDot) {
+      pDot.style.display = state.pendingPayments.length > 0 ? "inline-block" : "none";
+    }
+
+    const aDot = getEl("aid-audit-dot");
+    if (aDot) {
+      aDot.style.display = state.pendingAids.length > 0 ? "inline-block" : "none";
+    }
+  }
+
+  async function handlePaymentSubmit(e) {
+    e.preventDefault();
+
+    const auditTargetId = (getEl("pAuditID") || {}).value;
+    if (!auditTargetId) {
+      showToast(
+        "Please select an active transaction log from the inbox first.",
+        true,
+      );
+      return;
+    }
+
+    const result = (getEl("pAuditResult") || {}).value || "";
+    let fieldRemarks = "";
+    if (result === "Returned") {
+      const json = buildRejectionDetailsJSON("pAuditFieldCheckboxes");
+      if (json) fieldRemarks = json;
+    }
+
+    const fd = new FormData();
+    fd.append("pAuditID", auditTargetId);
+    fd.append("pAuditRemarks", (getEl("pAuditRemarks") || {}).value || "");
+    fd.append("pAuditResult", result);
+    fd.append("pAuditFieldRemarks", fieldRemarks);
+
+    const fileInput = getEl("p_findings_file");
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      fd.append("p_findings_file", fileInput.files[0]);
+    }
+
+    try {
+      await postForm("/api/auditor/verify-payment/", fd);
+      showToast("Payment audit submitted to system log.", false);
+      clearPaymentUI();
+      await refreshAll();
+    } catch (err) {
+      showToast(err.message || "Failed submitting payment audit.", true);
+    }
+  }
+
+  async function handleAidSubmit(e) {
+    e.preventDefault();
+
+    const auditTargetId = (getEl("aAuditID") || {}).value;
+    if (!auditTargetId) {
+      showToast(
+        "Please select an active claim record from the inbox first.",
+        true,
+      );
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("aAuditID", auditTargetId);
+    fd.append("aAuditRemarks", (getEl("aAuditRemarks") || {}).value || "");
+    fd.append("aAuditResult", (getEl("aAuditResult") || {}).value || "");
+
+    const fileInput = getEl("a_findings_file");
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      fd.append("a_findings_file", fileInput.files[0]);
+    }
+
+    try {
+      await postForm("/api/auditor/verify-aid/", fd);
+      showToast("Aid audit submitted to system log.", false);
+      clearAidUI();
+      await refreshAll();
+    } catch (err) {
+      showToast(err.message || "Failed submitting aid audit.", true);
+    }
+  }
+
+  async function handleMembershipFeeSubmit(e) {
+    e.preventDefault();
+
+    const auditTargetId = (getEl("mfAuditID") || {}).value;
+    if (!auditTargetId) {
+      showToast(
+        "Please select a membership fee record from the inbox first.",
+        true,
+      );
+      return;
+    }
+
+    const result = (getEl("mfAuditResult") || {}).value || "";
+    let fieldRemarks = "";
+    if (result === "Returned") {
+      const json = buildRejectionDetailsJSON("mfAuditFieldCheckboxes");
+      if (json) fieldRemarks = json;
+    }
+
+    const fd = new FormData();
+    fd.append("mfAuditID", auditTargetId);
+    fd.append("mfAuditRemarks", (getEl("mfAuditRemarks") || {}).value || "");
+    fd.append("mfAuditResult", result);
+    fd.append("mfAuditFieldRemarks", fieldRemarks);
+
+    const fileInput = getEl("mf_findings_file");
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      fd.append("p_findings_file", fileInput.files[0]);
+    }
+
+    try {
+      await postForm("/api/auditor/verify-membership-fee/", fd);
+      showToast("Membership fee audit submitted to system log.", false);
+      clearMembershipFeeUI();
+      await refreshAll();
+    } catch (err) {
+      showToast(err.message || "Failed submitting membership fee audit.", true);
+    }
+  }
+
+  function bindForms() {
+    window.submitPaymentVerification = handlePaymentSubmit;
+    window.submitAidVerification = handleAidSubmit;
+    window.submitMembershipFeeVerification = handleMembershipFeeSubmit;
+
+    const paymentForm = getEl("paymentVerificationForm");
+    if (paymentForm) {
+      paymentForm.onsubmit = handlePaymentSubmit;
+      paymentForm.addEventListener("submit", handlePaymentSubmit);
+    }
+
+    const aidForm = getEl("aidVerificationForm");
+    if (aidForm) {
+      aidForm.onsubmit = handleAidSubmit;
+      aidForm.addEventListener("submit", handleAidSubmit);
+    }
+
+    const membershipFeeForm = getEl("membershipFeeVerificationForm");
+    if (membershipFeeForm) {
+      // Avoid double-binding: setting both `onsubmit` and `addEventListener('submit')`
+      // causes duplicate POSTs (and duplicate backend artifacts) on a single click.
+      membershipFeeForm.onsubmit = handleMembershipFeeSubmit;
+    }
+
+    const membershipFeeAuditForm = getEl("membershipFeeAuditForm");
+    if (membershipFeeAuditForm) {
+      membershipFeeAuditForm.onsubmit = handleMembershipFeeSubmit;
+      membershipFeeAuditForm.addEventListener(
+        "submit",
+        handleMembershipFeeSubmit,
+      );
+    }
+  }
+
+  function bindCancelButtons() {
+    window.clearPaymentVerificationSelection = clearPaymentUI;
+    window.clearAidVerificationSelection = clearAidUI;
+    window.clearMembershipFeeVerificationSelection = clearMembershipFeeUI;
+  }
+
+  function bindReturnForCorrectionButtons() {
+    const paymentBtn = getEl("btnReturnPaymentForCorrection");
+    if (paymentBtn) {
+      paymentBtn.addEventListener("click", () => {
+        if (paymentBtn.dataset.submitting === "1") return;
+        paymentBtn.dataset.submitting = "1";
+        paymentBtn.disabled = true;
+
+        const resultSelect = getEl("pAuditResult");
+        if (resultSelect) resultSelect.value = "Returned";
+        togglePaymentAuditEvidenceRequirement();
+        const form = getEl("paymentVerificationForm");
+        if (form) form.dispatchEvent(new Event("submit", { cancelable: true }));
+      });
+    }
+
+    const aidBtn = getEl("btnReturnAidForCorrection");
+    if (aidBtn) {
+      aidBtn.addEventListener("click", () => {
+        if (aidBtn.dataset.submitting === "1") return;
+        aidBtn.dataset.submitting = "1";
+        aidBtn.disabled = true;
+
+        const resultSelect = getEl("aAuditResult");
+        if (resultSelect) resultSelect.value = "Returned";
+        toggleAidAuditEvidenceRequirement();
+        const form = getEl("aidVerificationForm");
+        if (form) form.dispatchEvent(new Event("submit", { cancelable: true }));
+      });
+    }
+
+    const mfBtn = getEl("btnReturnMembershipFeeForCorrection");
+    if (mfBtn) {
+      mfBtn.addEventListener("click", () => {
+        if (mfBtn.dataset.submitting === "1") return;
+        mfBtn.dataset.submitting = "1";
+        mfBtn.disabled = true;
+
+        const resultSelect = getEl("mfAuditResult");
+        if (resultSelect) resultSelect.value = "Returned";
+        toggleMembershipFeeAuditEvidenceRequirement();
+        const form = getEl("membershipFeeVerificationForm");
+        if (form) form.dispatchEvent(new Event("submit", { cancelable: true }));
+      });
+    }
+
+    const mfAuditBtn = getEl("btnReturnMembershipFeeAuditForCorrection");
+    if (mfAuditBtn) {
+      mfAuditBtn.addEventListener("click", () => {
+        if (mfAuditBtn.dataset.submitting === "1") return;
+        mfAuditBtn.dataset.submitting = "1";
+        mfAuditBtn.disabled = true;
+
+        const resultSelect = getEl("mfAuditResult");
+        if (resultSelect) resultSelect.value = "Returned";
+        const form = getEl("membershipFeeAuditForm");
+        if (form) form.dispatchEvent(new Event("submit", { cancelable: true }));
+      });
+    }
+  }
+
+  function setupCollapsibleSidebar() {
+    const sidebar = getEl("appSidebar");
+    const collapseBtn = getEl("collapseBtn");
+    const chevronIcon = getEl("chevronLeftIcon");
+
+    if (collapseBtn) {
+      collapseBtn.addEventListener("click", () => {
+        sidebar.classList.toggle("collapsed");
+        if (sidebar.classList.contains("collapsed")) {
+          chevronIcon.innerHTML = `<polyline points="9 18 15 12 9 6"></polyline>`;
+          collapseBtn.setAttribute("title", "Expand Sidebar Menu");
+        } else {
+          chevronIcon.innerHTML = `<polyline points="15 18 9 12 15 6"></polyline>`;
+          collapseBtn.setAttribute("title", "Collapse Sidebar Menu");
+        }
+      });
+    }
+  }
+
+  function setupFolders() {
+    const activeLink = document.querySelector(".menu-item.active");
+    if (activeLink) {
+      const parentFolder = activeLink.closest(".nested-folder");
+      if (parentFolder) {
+        const contents = parentFolder.querySelector(".folder-contents");
+        const header = parentFolder.querySelector(".folder-header");
+        if (contents) contents.classList.add("open");
+        const chevron = header && header.querySelector(".chevron-icon");
+        if (chevron) chevron.style.transform = "rotate(180deg)";
+      }
+    }
+  }
+
+  function toggleFolder(folderId, headerElement) {
+    const sidebar = getEl("appSidebar");
+    if (sidebar && sidebar.classList.contains("collapsed")) {
+      sidebar.classList.remove("collapsed");
+      const chevronLeftIcon = getEl("chevronLeftIcon");
+      if (chevronLeftIcon)
+        chevronLeftIcon.innerHTML = `<polyline points="15 18 9 12 15 6"></polyline>`;
+    }
+
+    const contents = document.getElementById(folderId);
+    if (!contents) return;
+    const isOpen = contents.classList.contains("open");
+
+    document.querySelectorAll(".folder-contents").forEach((el) => {
+      el.classList.remove("open");
+      const parentHeader =
+        el.parentElement && el.parentElement.querySelector(".chevron-icon");
+      if (parentHeader) parentHeader.style.transform = "rotate(0deg)";
+    });
+
+    if (!isOpen) {
+      contents.classList.add("open");
+      const chevron =
+        headerElement && headerElement.querySelector(".chevron-icon");
+      if (chevron) chevron.style.transform = "rotate(180deg)";
+    }
+  }
+
+  function setActiveModule(targetId) {
+    const menuItems = document.querySelectorAll(".menu-item");
+    menuItems.forEach((mi) => {
+      mi.classList.remove("active");
+      if (mi.getAttribute("data-target") === targetId) {
+        mi.classList.add("active");
+      }
+    });
+
+    document.querySelectorAll(".dashboard-module").forEach((mod) => {
+      mod.classList.remove("active");
+      if (mod.id === targetId) {
+        mod.classList.add("active");
+      }
+    });
+
+    const sidebar = getEl("appSidebar");
+    if (sidebar) sidebar.classList.remove("open-mobile");
+
+    const activeItem = document.querySelector(
+      `.menu-item[data-target="${targetId}"]`,
+    );
+    if (activeItem) {
+      const titleEl = activeItem.querySelector(".menu-text");
+      if (titleEl) {
+        const currentModuleTitle = getEl("currentModuleTitle");
+        if (currentModuleTitle)
+          currentModuleTitle.innerText = titleEl.innerText;
+      }
+    }
+  }
+
+  function setupNavigation() {
+    const menuItems = document.querySelectorAll(".menu-item");
+    menuItems.forEach((item) => {
+      item.addEventListener("click", () => {
+        const target = item.getAttribute("data-target");
+        if (!target) return;
+
+        setActiveModule(target);
+
+        localStorage.setItem("auditor_active_tab", target);
+
+        const sidebar = getEl("appSidebar");
+        if (sidebar) sidebar.classList.remove("open-mobile");
+
+        const titleEl = item.querySelector(".menu-text");
+        if (titleEl) {
+          const currentModuleTitle = getEl("currentModuleTitle");
+          if (currentModuleTitle)
+            currentModuleTitle.innerText = titleEl.innerText;
+        }
+      });
+    });
+
+    const mobileToggle = getEl("mobileSidebarToggle");
+    if (mobileToggle) {
+      mobileToggle.addEventListener("click", () => {
+        const sidebar = getEl("appSidebar");
+        if (sidebar) sidebar.classList.add("open-mobile");
+      });
+    }
+  }
+
+  function init() {
+    window.triggerFileUpload =
+      window.triggerFileUpload ||
+      function (id) {
+        const el = getEl(id);
+        if (el) el.click();
+      };
+
+    window.showAttachedPreview =
+      window.showAttachedPreview ||
+      function (input, labelId) {
+        if (input.files && input.files.length > 0) {
+          const el = getEl(labelId);
+          if (el) el.style.display = "block";
+        }
+      };
+
+    window.togglePaymentAuditEvidenceRequirement =
+      window.togglePaymentAuditEvidenceRequirement ||
+      function () {
+        const select = getEl("pAuditResult");
+        const evidenceGroup = getEl("evidenceGroup");
+        const badge = getEl("p_findings_req_badge");
+        const fileInput = getEl("p_findings_file");
+        const btnReturn = getEl("btnReturnPaymentForCorrection");
+        const btnVerify = getEl("btnSubmitPaymentVerification");
+
+        if (!select || !badge || !fileInput) return;
+
+        if (select.value === "Returned") {
+          badge.innerText = "Required finding evidence";
+          badge.style.background = "rgba(229,57,53,0.1)";
+          badge.style.color = "#e53935";
+          fileInput.setAttribute("required", "");
+          if (evidenceGroup) evidenceGroup.style.display = "block";
+          if (btnReturn) btnReturn.style.display = "inline-flex";
+          if (btnVerify) btnVerify.style.display = "none";
+          const returnDetails = getEl("pAuditReturnDetails");
+          if (returnDetails) returnDetails.style.display = "block";
+        } else {
+          badge.innerText = "Required documentation";
+          badge.style.background = "rgba(27,94,32,0.1)";
+          badge.style.color = "#1b5e20";
+          fileInput.removeAttribute("required");
+          if (evidenceGroup) {
+            evidenceGroup.style.display = "none";
+            fileInput.value = "";
+            const previewIndicator = getEl("p_findings_preview");
+            if (previewIndicator) previewIndicator.style.display = "none";
+          }
+          if (btnReturn) btnReturn.style.display = "none";
+          if (btnVerify) btnVerify.style.display = "inline-flex";
+          const returnDetails = getEl("pAuditReturnDetails");
+          if (returnDetails) returnDetails.style.display = "none";
+        }
+      };
+
+    window.toggleAidAuditEvidenceRequirement =
+      window.toggleAidAuditEvidenceRequirement ||
+      function () {
+        const select = getEl("aAuditResult");
+        const evidenceGroup = getEl("aEvidenceGroup");
+        const badge = getEl("a_findings_req_badge");
+        const fileInput = getEl("a_findings_file");
+        const btnReturn = getEl("btnReturnAidForCorrection");
+        const btnSubmit = getEl("btnSubmitAidVerification");
+
+        if (!select || !badge || !fileInput) return;
+
+        if (select.value === "Returned") {
+          badge.innerText = "Required finding evidence";
+          badge.style.background = "rgba(229,57,53,0.1)";
+          badge.style.color = "#e53935";
+          fileInput.setAttribute("required", "");
+          if (evidenceGroup) evidenceGroup.style.display = "block";
+          if (btnReturn) btnReturn.style.display = "inline-flex";
+          if (btnSubmit) btnSubmit.style.display = "none";
+        } else {
+          badge.innerText = "Required documentation";
+          badge.style.background = "rgba(27,94,32,0.1)";
+          badge.style.color = "#1b5e20";
+          fileInput.removeAttribute("required");
+          if (evidenceGroup) {
+            evidenceGroup.style.display = "none";
+            fileInput.value = "";
+            const previewIndicator = getEl("a_findings_preview");
+            if (previewIndicator) previewIndicator.style.display = "none";
+          }
+          if (btnReturn) btnReturn.style.display = "none";
+          if (btnSubmit) btnSubmit.style.display = "inline-flex";
+        }
+      };
+
+    window.toggleMembershipFeeAuditEvidenceRequirement =
+      window.toggleMembershipFeeAuditEvidenceRequirement ||
+      function () {
+        const select = getEl("mfAuditResult");
+        const evidenceGroup = getEl("mfEvidenceGroup");
+        const badge = getEl("mf_findings_req_badge");
+        const fileInput = getEl("mf_findings_file");
+        const btnReturn = getEl("btnReturnMembershipFeeForCorrection");
+        const btnSubmit = getEl("btnSubmitMembershipFeeVerification");
+
+        if (!select || !badge || !fileInput) return;
+
+        if (select.value === "Returned") {
+          badge.innerText = "Required finding evidence";
+          badge.style.background = "rgba(229,57,53,0.1)";
+          badge.style.color = "#e53935";
+          fileInput.setAttribute("required", "");
+          if (evidenceGroup) evidenceGroup.style.display = "block";
+          if (btnReturn) btnReturn.style.display = "inline-flex";
+          if (btnSubmit) btnSubmit.style.display = "none";
+          const returnDetails = getEl("mfAuditReturnDetails");
+          if (returnDetails) returnDetails.style.display = "block";
+        } else {
+          badge.innerText = "Required documentation";
+          badge.style.background = "rgba(27,94,32,0.1)";
+          badge.style.color = "#1b5e20";
+          fileInput.removeAttribute("required");
+          if (evidenceGroup) {
+            evidenceGroup.style.display = "none";
+            fileInput.value = "";
+            const previewIndicator = getEl("mf_findings_preview");
+            if (previewIndicator) previewIndicator.style.display = "none";
+          }
+          if (btnReturn) btnReturn.style.display = "none";
+          if (btnSubmit) btnSubmit.style.display = "inline-flex";
+          const returnDetails = getEl("mfAuditReturnDetails");
+          if (returnDetails) returnDetails.style.display = "none";
+        }
+      };
+
+    bindForms();
+    bindCancelButtons();
+    bindReturnForCorrectionButtons();
+    setupNavigation();
+    setupFolders();
+    setupCollapsibleSidebar();
+
+    // Restore last selected tab (persists across refresh, cleared on logout).
+    const savedTab = localStorage.getItem("auditor_active_tab");
+    if (savedTab) {
+      setActiveModule(savedTab);
+    }
+
+    clearPaymentUI();
+    clearAidUI();
+    clearMembershipFeeUI();
+
+    togglePaymentAuditEvidenceRequirement();
+    toggleAidAuditEvidenceRequirement();
+    toggleMembershipFeeAuditEvidenceRequirement();
+
+    refreshAll();
+  }
+
+  // Global handlers for inline onclick attributes
+  window.confirmLogout = function () {
+    const logoutUrl = "/logout/";
+    Swal.fire({
+      title: "Logout?",
+      text: "Do you want to log out of the system?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, logout",
+      cancelButtonText: "No, stay",
+      reverseButtons: true,
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Clear persisted tab on logout
+        localStorage.removeItem("auditor_active_tab");
+        window.location.href = logoutUrl;
+      }
+    });
+  };
+
+  window.triggerConfirmYes = function () {
+    clearPaymentUI();
+    clearAidUI();
+    refreshAll();
+    const modal = getEl("customConfirmModal");
+    if (modal) modal.style.display = "none";
+    showToast(
+      "Compliance Database successfully flushed back to defaults.",
+      false,
+    );
+  };
+
+  window.closeConfirmModal = function () {
+    const modal = getEl("customConfirmModal");
+    if (modal) modal.style.display = "none";
+  };
+
+  window.showCustomModal = function (title, text) {
+    const titleEl = getEl("modalAlertTitle");
+    const textEl = getEl("modalAlertMessage");
+    if (titleEl) titleEl.innerText = title;
+    if (textEl) textEl.innerText = text;
+    const modal = getEl("customAlertModal");
+    if (modal) modal.style.display = "flex";
+  };
+
+  window.closeCustomModal = function () {
+    const modal = getEl("customAlertModal");
+    if (modal) modal.style.display = "none";
+  };
+
+  window.toggleFolder = toggleFolder;
+
+  window.handleReportCompilerSubmit = function (e) {
+    e.preventDefault();
+    showToast(
+      "Report compilation functionality requires backend implementation.",
+      false,
+    );
+  };
+
+  document.addEventListener("DOMContentLoaded", init);
+})();

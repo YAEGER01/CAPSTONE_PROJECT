@@ -59,46 +59,113 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ==========================================================================
+  // MODULE PERSISTENCE & RESTORE ENGINE
+  // ==========================================================================
+  const STORAGE_KEY = "caufa_treasurer_module";
+  const allMenuItems = document.querySelectorAll(".menu-item[data-target]");
+
+  function persistModule(moduleName) {
+    sessionStorage.setItem(STORAGE_KEY, moduleName);
+    if (history.replaceState) {
+      history.replaceState({ module: moduleName }, "", `#${moduleName}`);
+    }
+  }
+
+  function getPersistedModule() {
+    const hash = window.location.hash.replace("#", "");
+    const stored = sessionStorage.getItem(STORAGE_KEY);
+    return hash || stored || "home";
+  }
+
+  function setActiveMenuItem(targetModule) {
+    allMenuItems.forEach((item) => {
+      item.classList.toggle(
+        "active",
+        item.getAttribute("data-target") === targetModule,
+      );
+    });
+  }
+
+  function updateViewTitle(moduleName) {
+    if (!viewTitle) return;
+    const menuItem = document.querySelector(
+      `.menu-item[data-target="${moduleName}"]`,
+    );
+    if (menuItem) {
+      const text = menuItem.querySelector(".menu-text");
+      if (text) viewTitle.textContent = text.textContent.trim();
+    }
+  }
+
+  function loadModule(moduleName, pushState = true) {
+    if (!moduleName || moduleName === currentModule) return;
+    currentModule = moduleName;
+    persistModule(moduleName);
+    setActiveMenuItem(moduleName);
+
+    fetch(`${rolePrefix}/${moduleName}/`)
+      .then((response) => {
+        if (!response.ok)
+          throw new Error(
+            "Could not find requested subfolder module components.",
+          );
+        return response.text();
+      })
+      .then((htmlContent) => {
+        if (viewport) {
+          viewport.innerHTML = htmlContent;
+
+          // Re-bind module-specific behaviors after injecting HTML fragments.
+          // Inline <script> tags inside fragments are not reliable when using innerHTML.
+          // If a fragment defines a known init function, call it here.
+          try {
+            if (
+              moduleName === "medical_aid_request" &&
+              window.initMedicalAidRequestModule
+            ) {
+              window.initMedicalAidRequestModule();
+            }
+          } catch (e) {
+            console.error("Module init hook failed:", e);
+          }
+        }
+        updateViewTitle(moduleName);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (viewport)
+          viewport.innerHTML =
+            '<p style="color: red; padding: 20px;">Routing Error: Module layout swap failed.</p>';
+      });
+  }
+
+  // ==========================================================================
+  // INIT: RESTORE PERSISTED MODULE OR DEFAULT TO HOME
+  // ==========================================================================
+  const initialModule = getPersistedModule();
+  let currentModule = null;
+  loadModule(initialModule, false);
+
+  // ==========================================================================
   // SINGLE PAGE FRAGMENT CONTENT FETCH ROUTER ENGINE
   // ==========================================================================
-  menuItems.forEach((item) => {
+  allMenuItems.forEach((item) => {
     item.addEventListener("click", function (e) {
       const targetModule = this.getAttribute("data-target");
 
-      // CRITICAL: If item has no data-target (like the logout action button),
-      // let the browser process the natural href transition out of the app.
       if (!targetModule) return;
 
       e.preventDefault();
-
-      menuItems.forEach((el) => el.classList.remove("active"));
-      this.classList.add("active");
-
-      if (!viewport || !viewTitle) return;
-
-      const menuTextEl = this.querySelector(".menu-text");
-      if (menuTextEl) {
-        viewTitle.textContent = menuTextEl.textContent.trim();
-      }
-
-      // Hits the server using the dynamically resolved route path
-      fetch(`${rolePrefix}/${targetModule}/`)
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(
-              "Could not find requested subfolder module components.",
-            );
-          }
-          return response.text();
-        })
-        .then((htmlContent) => {
-          viewport.innerHTML = htmlContent;
-        })
-        .catch((err) => {
-          viewport.innerHTML = `<p style="color: red; padding: 20px;">Routing Error: Module layout swap failed.</p>`;
-          console.error(err);
-        });
+      loadModule(targetModule, true);
     });
+  });
+
+  // Handle browser back/forward buttons
+  window.addEventListener("popstate", (e) => {
+    const module =
+      e.state && e.state.module ? e.state.module : getPersistedModule();
+    currentModule = null;
+    loadModule(module, false);
   });
 });
 
