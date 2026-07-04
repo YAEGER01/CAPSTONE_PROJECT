@@ -1,126 +1,3 @@
-const SEED_PENDING_PAYMENTS = [
-  {
-    id: "PAY-901",
-    type: "OTC Fee Payment",
-    ref: "OR-23194-A",
-    amount: 500,
-    expected: 500,
-    date: "2026-05-10",
-    method: "Over-the-Counter Cash",
-    month: "N/A - Enrollment Fee",
-    encoder: "Assistant Treasurer Juan Dela Cruz",
-    memberName: "Dean Alistair Vance",
-    facultyId: "FAC-901",
-    department: "College of Science",
-    position: "Dean",
-    contact: "0917-882-1200",
-    email: "a.vance@univ.edu",
-    memberStatus: "Active",
-    auditorName: "Auditor General Maria Santos",
-    auditorDate: "2026-06-05 10:22:15",
-    auditorRemarks:
-      "All Over-the-counter payments crosschecked and verified correct with Landbank vault submissions. Stamp matches receipt details.",
-    auditorEvidence: "OFFICIAL_RECEIPT_OR23194A.jpg",
-    timeline: [
-      {
-        time: "2026-05-10 09:15",
-        role: "Treasurer",
-        name: "Juan Dela Cruz",
-        action: "Created Entry",
-        note: "Encoded OTC Fee Payment of ₱500.",
-      },
-      {
-        time: "2026-05-10 09:20",
-        role: "Treasurer",
-        name: "Juan Dela Cruz",
-        action: "Uploaded Attachment",
-        note: "Attached OFFICIAL_RECEIPT_OR23194A.jpg.",
-      },
-      {
-        time: "2026-05-10 09:21",
-        role: "System",
-        name: "Automated",
-        action: "Route to Auditor",
-        note: "Request automatically pushed to Auditor's queue.",
-      },
-      {
-        time: "2026-06-05 10:22",
-        role: "Auditor",
-        name: "Maria Santos",
-        action: "Marked Verified",
-        note: "Reviewed attachments. Remark: 'All Over-the-counter payments crosschecked and verified correct.'",
-      },
-      {
-        time: "2026-06-05 10:22",
-        role: "System",
-        name: "Automated",
-        action: "Route to President",
-        note: "Request pushed to President's queue.",
-      },
-    ],
-  },
-  {
-    id: "PAY-902",
-    type: "Monthly Dues - OTC",
-    ref: "OR-OTC-7411",
-    amount: 200,
-    expected: 200,
-    date: "2026-05-15",
-    method: "GCash QR",
-    month: "April 2026",
-    encoder: "Senior Treasurer Juan Dela Cruz",
-    memberName: "Prof. Evangeline Reyes",
-    facultyId: "FAC-552",
-    department: "College of Arts",
-    position: "Professor",
-    contact: "0920-771-4491",
-    email: "e.reyes@univ.edu",
-    memberStatus: "Active",
-    auditorName: "Auditor General Maria Santos",
-    auditorDate: "2026-06-05 11:15:30",
-    auditorRemarks:
-      "Checked GCash mobile transaction API log. Fully cleared and verified.",
-    auditorEvidence: "GCASH_TRANSFER_RECEIPT_OTC7411.png",
-    timeline: [
-      {
-        time: "2026-05-15 14:10",
-        role: "Treasurer",
-        name: "Juan Dela Cruz",
-        action: "Created Entry",
-        note: "Encoded Monthly Dues OTC payment of ₱200.",
-      },
-      {
-        time: "2026-05-15 14:12",
-        role: "Treasurer",
-        name: "Juan Dela Cruz",
-        action: "Uploaded Attachment",
-        note: "Attached GCASH_TRANSFER_RECEIPT_OTC7411.png.",
-      },
-      {
-        time: "2026-05-15 14:15",
-        role: "System",
-        name: "Automated",
-        action: "Route to Auditor",
-        note: "Request automatically pushed to Auditor's queue.",
-      },
-      {
-        time: "2026-06-05 11:15",
-        role: "Auditor",
-        name: "Maria Santos",
-        action: "Marked Verified",
-        note: "Reviewed GCash confirmation transaction reference. Remark: 'Checked GCash mobile transaction API log.'",
-      },
-      {
-        time: "2026-06-05 11:15",
-        role: "System",
-        name: "Automated",
-        action: "Route to President",
-        note: "Request pushed to President's queue.",
-      },
-    ],
-  },
-];
-
 function formatAuditEvidence(value) {
   const evidence = String(value || "").trim();
   return evidence ? `Evidence: ${evidence}` : "—";
@@ -134,18 +11,49 @@ function formatAuditRemarks(value) {
   );
 }
 
+function getEl(id) {
+  return document.getElementById(id);
+}
+
+function updatePresidentNotifDots() {
+  const dot = getEl("approval-desk-dot");
+  if (dot) {
+    const paymentsCount = presidentialQueueCache.length || 0;
+    const aidsCount =
+      (typeof db !== "undefined" && db.pendingAids && db.pendingAids.length) || 0;
+    const total = paymentsCount + aidsCount;
+    dot.style.display = total > 0 ? "inline-flex" : "none";
+    dot.textContent = total > 0 ? total : "";
+  }
+
+  const pDot = getEl("pres-payments-dot");
+  if (pDot) {
+    const count = presidentialQueueCache.length || 0;
+    pDot.style.display = count > 0 ? "inline-flex" : "none";
+    pDot.textContent = count > 0 ? count : "";
+  }
+
+  const aDot = getEl("pres-aid-dot");
+  if (aDot) {
+    const aidsCount =
+      (typeof db !== "undefined" && db.pendingAids && db.pendingAids.length) || 0;
+    aDot.style.display = aidsCount > 0 ? "inline-flex" : "none";
+    aDot.textContent = aidsCount > 0 ? aidsCount : "";
+  }
+}
+
 function renderPendingPaymentsTable() {
   const tbody = document.querySelector("#pendingPaymentsTable tbody");
   tbody.innerHTML = "";
   if (db.pendingPayments.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">All payment approvals completed!</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All payment approvals completed!</td></tr>`;
     return;
   }
   db.pendingPayments.forEach((p) => {
     const tr = document.createElement("tr");
-    tr.setAttribute("onclick", `selectPaymentToAudit('${p.id}')`);
     tr.id = `row-${p.id}`;
     tr.innerHTML = `
+      <td><input type="checkbox" class="pp-row-check" value="${p.id}"></td>
       <td style="font-weight:600;color:#1b5e20;">${p.ref}</td>
       <td>${p.memberName}</td>
       <td style="font-weight:600;">₱${p.amount.toFixed(2)}</td>
@@ -246,8 +154,6 @@ function selectPaymentToAudit(id) {
     );
   }
 
-
-
   document.getElementById("pAuditByText").innerText = item.auditorName;
   document.getElementById("pAuditDateText").innerText = item.auditorDate;
   document.getElementById("pAuditEvidenceText").innerText = formatAuditEvidence(
@@ -275,105 +181,37 @@ function selectPaymentToAudit(id) {
   document.getElementById("p_approved_amount").value = item.amount;
 }
 
-function clearPaymentApprovalSelection() {
-  document
-    .querySelectorAll("#pendingPaymentsTable tr")
-    .forEach((tr) => tr.classList.remove("selected-row"));
-  document.getElementById("selectedPaymentHeader").innerText =
-    "No item selected";
-
-  const resets = [
-    "pReadName",
-    "pReadEmpId",
-    "pReadDept",
-    "pReadStatus",
-    "pReadContact",
-    "pReadCovered",
-    "pReadExpected",
-    "pReadMethod",
-    "pReadRef",
-    "pReadEncoder",
-    "pAuditByText",
-    "pAuditDateText",
-    "pAuditEvidenceText",
-    "pAuditRemarksText",
-    "pApprovedMembershipTypeText",
-    "pApprovedMembershipRefText",
-    "pApprovedMembershipMonthText",
-    "pApprovedMembershipAmountText",
-  ];
-  resets.forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.innerText = "—";
-  });
-
-  const timelineBody = document.querySelector("#pTimelineTable tbody");
-  timelineBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #757575;">No tracking logs compiled. Select a transaction to generate path timelines.</td></tr>`;
-
-  document.getElementById("paymentApprovalForm").reset();
-  handleDecisionChange("p_decision", "p_remarks");
-}
-
-function submitPresidentialPaymentDecision(e) {
-  e.preventDefault();
-  const targetId = document.getElementById("p_target_id").value;
-  if (!targetId) {
-    showToast(
-      "Please select an active transaction reference from the inbox.",
-      true,
-    );
-    return;
-  }
-
-  const decision = document.getElementById("p_decision").value;
-  const amount = parseFloat(document.getElementById("p_approved_amount").value);
-  const remarks = document.getElementById("p_remarks").value;
-
-  if (decision === "Rejected" && !remarks.trim()) {
-    showToast(
-      "A clear ruling reason must be entered in the remarks for all rejected items.",
-      true,
-    );
-    return;
-  }
-
-  const logEntry = {
-    timestamp: new Date().toLocaleString(),
-    reqId: targetId,
-    remarks: remarks || "Approved without optional remarks.",
-    result: decision,
-    amount: amount,
-  };
-
-  db.executiveLogs.push(logEntry);
-
-  db.pendingPayments = db.pendingPayments.filter((p) => p.id !== targetId);
-
-  saveSystemDatabase();
-  renderAllComponents();
-  clearPaymentApprovalSelection();
-  loadPresidentialQueue();
-
-  if (decision === "Approved") {
-    showCustomModal(
-      "Executive Clearance Appended",
-      `Payment Reference ${targetId} verified. Approved amount ₱${amount.toFixed(2)} has been permanently saved to disbursement logs.`,
-    );
-  } else {
-    showCustomModal(
-      "Executive Rejection Logged",
-      `Deficiency flagged. Reference ${targetId} returned to Treasurer's revision queue with notes: "${remarks}"`,
-    );
-  }
-  showToast("Presidential decision saved.", false);
-}
-
-// Backend-driven Payments Verification Queue
-
 let presidentialQueueCache = [];
 
 document.addEventListener("DOMContentLoaded", function () {
+  updatePresidentNotifDots();
   loadPresidentialQueue();
+  loadPresidentialAidsQueue();
+
+  const ppSelectAll = document.getElementById("pp-select-all");
+  if (ppSelectAll) {
+    ppSelectAll.addEventListener("change", function () {
+      const checked = this.checked;
+      document.querySelectorAll("#pendingPaymentsTable .pp-row-check").forEach(cb => {
+        cb.checked = checked;
+        const id = cb.value;
+        if (checked) ppState.selectedIds.add(id);
+        else ppState.selectedIds.delete(id);
+        const row = cb.closest("tr");
+        if (row) row.classList.toggle("selected-row", checked);
+      });
+      updatePpBatchBar();
+    });
+  }
+  document.getElementById("pp-batch-approve")?.addEventListener("click", function () {
+    submitPpBatchVerify("Approved");
+  });
+  document.getElementById("pp-batch-reject")?.addEventListener("click", function () {
+    submitPpBatchVerify("Rejected");
+  });
+  document.getElementById("pp-batch-clear")?.addEventListener("click", function () {
+    clearPpSelection();
+  });
 });
 
 async function loadPresidentialQueue() {
@@ -382,42 +220,149 @@ async function loadPresidentialQueue() {
     const result = await response.json();
 
     if (result.success) {
-      presidentialQueueCache = result.payments;
+      presidentialQueueCache = result.payments || [];
       renderPendingTable(presidentialQueueCache);
     } else {
       console.error("Queue Retrieval Error:", result.message);
+      presidentialQueueCache = [];
     }
   } catch (error) {
     console.error("Failed to fetch executive data:", error);
+    presidentialQueueCache = [];
+  } finally {
+    updatePresidentNotifDots();
   }
 }
+
+let ppState = { selectedIds: new Set() };
 
 function renderPendingTable(payments) {
   const tbody = document.querySelector("#pendingPaymentsTable tbody");
   tbody.innerHTML = "";
 
   if (payments.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#757575;">No active entries found inside verification workspace.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#757575;">No active entries found inside verification workspace.</td></tr>`;
+    updatePpBatchBar();
     return;
   }
 
   payments.forEach((item) => {
     const row = document.createElement("tr");
     row.style.cursor = "pointer";
+    const ref = item.reference_code || "—";
+    const name = item.member_name || "—";
+    const amount =
+      item.amount_paid != null
+        ? `₱${Number(item.amount_paid).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+        : "—";
+    const method = item.payment_method || "—";
+    const id = item.id != null ? item.id : "";
+
+    if (ppState.selectedIds.has(String(id))) {
+      row.classList.add("selected-row");
+    }
+
+    let typeLabel = method;
+    let typeBadge = "badge badge-info";
+    if (item.type === "monthly_dues_salary") {
+      typeLabel = "Monthly Dues (Salary Deduction)";
+      typeBadge = "badge-monthly-dues-salary";
+    } else if (item.type === "monthly_dues_otc") {
+      typeLabel = "Monthly Dues (OTC)";
+      typeBadge = "badge-monthly-dues-otc";
+    } else if (item.type === "membership_fee") {
+      typeLabel = "Membership Fee";
+      typeBadge = "badge-membership-fee";
+    }
+
     row.innerHTML = `
-      <td><strong>${item.reference_code}</strong></td>
-      <td>${item.member_name}</td>
-      <td>₱${item.amount_paid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-      <td><span class="badge badge-info">${item.payment_method}</span></td>
+      <td><input type="checkbox" class="pp-row-check" value="${id}" ${ppState.selectedIds.has(String(id)) ? "checked" : ""}></td>
+      <td><strong>${ref}</strong></td>
+      <td>${name}</td>
+      <td>${amount}</td>
+      <td><span class="${typeBadge}" style="font-size:0.75rem;">${typeLabel}</span></td>
       <td>
-        <button class="btn-brand btn-brand-primary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="selectPaymentRow(event, ${item.id})">
-          Audit Entry
+        <button class="btn-brand btn-brand-primary" onclick="selectPaymentRow(event, ${id})">
+          Select
         </button>
       </td>
     `;
-    row.addEventListener("click", () => populateDecisionDesk(item));
+    const cb = row.querySelector(".pp-row-check");
+    cb.addEventListener("click", function (e) {
+      e.stopPropagation();
+      togglePpRowCheck(id, this.checked);
+    });
+    row.addEventListener("click", function (e) {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+      populateDecisionDesk(item);
+    });
     tbody.appendChild(row);
   });
+  updatePpBatchBar();
+}
+
+function togglePpRowCheck(id, checked) {
+  if (checked) {
+    ppState.selectedIds.add(String(id));
+  } else {
+    ppState.selectedIds.delete(String(id));
+  }
+  const row = document.querySelector(`#pendingPaymentsTable .pp-row-check[value="${id}"]`)?.closest("tr");
+  if (row) row.classList.toggle("selected-row", checked);
+  updatePpBatchBar();
+}
+
+function updatePpBatchBar() {
+  const bar = document.getElementById("pp-batch-bar");
+  const countEl = document.getElementById("pp-selected-count");
+  const count = ppState.selectedIds.size;
+  if (!bar || !countEl) return;
+  countEl.textContent = count + " selected";
+  bar.style.display = count > 0 ? "flex" : "none";
+}
+
+function clearPpSelection() {
+  ppState.selectedIds.clear();
+  document.querySelectorAll("#pendingPaymentsTable .pp-row-check").forEach(cb => cb.checked = false);
+  document.querySelectorAll("#pendingPaymentsTable tr").forEach(tr => tr.classList.remove("selected-row"));
+  const selectAll = document.getElementById("pp-select-all");
+  if (selectAll) selectAll.checked = false;
+  updatePpBatchBar();
+}
+
+async function submitPpBatchVerify(decision) {
+  const ids = Array.from(ppState.selectedIds).map(Number);
+  if (ids.length === 0) return;
+
+  const label = decision === "Approved" ? "Approve" : "Reject";
+  if (!confirm(`${label} ${ids.length} payment entr${ids.length === 1 ? "y" : "ies"}?`)) return;
+
+  try {
+    const resp = await fetch("/api/payments/presidential-decision/batch/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        ids: ids,
+        decision: decision,
+        remarks: decision === "Rejected" ? "Batch rejected." : "",
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+      showToast(data.message || "Batch operation failed.", true);
+      return;
+    }
+    showToast(`Processed ${data.processed} entr${data.processed === 1 ? "y" : "ies"} (${data.skipped} skipped).`, false);
+    clearPpSelection();
+    clearPaymentApprovalSelection();
+    await loadPresidentialQueue();
+  } catch (e) {
+    showToast("Network/server error during batch operation.", true);
+  }
 }
 
 function populateDecisionDesk(item) {
@@ -464,6 +409,11 @@ function populateDecisionDesk(item) {
     item?.auditorRemarks,
   );
 
+  document.getElementById("pReturnCountText").innerText =
+    item.return_count != null ? String(item.return_count) : "—";
+  document.getElementById("pReturnedReasonText").innerText =
+    item.returned_reason || "—";
+
   document.getElementById("p_target_id").value = item.id;
   document.getElementById("p_approved_amount").value =
     item.amount_paid.toFixed(2);
@@ -477,22 +427,49 @@ function selectPaymentRow(event, id) {
   if (targetItem) populateDecisionDesk(targetItem);
 }
 
+function diffObject(oldObj, newObj) {
+  if (!oldObj && !newObj) return "";
+  const changed = [];
+  const allKeys = new Set([
+    ...Object.keys(oldObj || {}),
+    ...Object.keys(newObj || {}),
+  ]);
+  allKeys.forEach((key) => {
+    if (key === "id" || key === "user_id_PK" || key === "member_id_PK") return;
+    const o = oldObj ? oldObj[key] : undefined;
+    const n = newObj ? newObj[key] : undefined;
+    if (String(o ?? "null") !== String(n ?? "null")) {
+      changed.push(
+        `<div style="margin:4px 0; border-bottom:1px solid #eee; padding:4px 0;">
+          <span style="color:#666; font-weight:600;">${escapeHtml(key)}</span><br>
+          <span style="color:#c62828;">− ${escapeHtml(String(o ?? "null"))}</span><br>
+          <span style="color:#2e7d32;">+ ${escapeHtml(String(n ?? "null"))}</span>
+        </div>`
+      );
+    }
+  });
+  return changed.join("");
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 function renderTimeline(timelineArray) {
   const tbody = document.querySelector("#pTimelineTable tbody");
-  // president_dashboard.html currently has the timeline block commented out.
-  // Prevent runtime crashes so desk population & submission still work.
-  if (!tbody) {
-    return;
-  }
+  if (!tbody) return;
 
   tbody.innerHTML = "";
 
   if (!timelineArray || timelineArray.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #757575">No history tracking points bound.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #757575">No history tracking points bound.</td></tr>`;
     return;
   }
 
-  timelineArray.forEach((log) => {
+  timelineArray.forEach((log, idx) => {
+    const hasSnapshot = log.old_values || log.new_values;
     const row = document.createElement("tr");
     row.innerHTML = `
       <td><small>${log.timestamp}</small></td>
@@ -500,9 +477,39 @@ function renderTimeline(timelineArray) {
       <td>${log.user}</td>
       <td><strong>${log.action}</strong></td>
       <td><span style="font-size:0.85rem; color:#555;">${log.notes}</span></td>
+      <td>${hasSnapshot ? `<button style="background:#1565c0;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;" onclick="openPaymentDiffModal(${idx})">View changes</button>` : '<span style="color:#999;">—</span>'}</td>
     `;
     tbody.appendChild(row);
   });
+
+  window.__paymentTimeline = timelineArray;
+}
+
+function openPaymentDiffModal(idx) {
+  const log = window.__paymentTimeline[idx];
+  if (!log) return;
+  openDiffModal(log.old_values, log.new_values, log.action);
+}
+
+function openDiffModal(oldValues, newValues, action) {
+  const body = document.getElementById("diffModalBody");
+  let html = "";
+  if (action === "CREATED" && newValues) {
+    const keys = Object.keys(newValues).filter((k) => k !== "id" && k !== "user_id_PK" && k !== "member_id_PK").slice(0, 10);
+    html = "<div style='margin-bottom:12px;'><strong>Initial Record Values</strong></div>" +
+      keys.map((k) => `<div style="margin:4px 0;"><span style="color:#666;font-weight:600;">${escapeHtml(k)}:</span> ${escapeHtml(String(newValues[k] ?? "null"))}</div>`).join("");
+  } else if (action === "RESUBMITTED" && (oldValues || newValues)) {
+    const diff = diffObject(oldValues, newValues);
+    html = diff ? `<div style='margin-bottom:12px;'><strong>Changes Made (Old → New)</strong></div>${diff}` : "<em>No field-level changes detected.</em>";
+  } else if ((action === "RETURNED" || action === "REJECTED") && newValues) {
+    const keys = Object.keys(newValues).filter((k) => k !== "id" && k !== "user_id_PK" && k !== "member_id_PK").slice(0, 10);
+    html = "<div style='margin-bottom:12px;'><strong>Snapshot at Time of Return</strong></div>" +
+      keys.map((k) => `<div style="margin:4px 0;"><span style="color:#666;font-weight:600;">${escapeHtml(k)}:</span> ${escapeHtml(String(newValues[k] ?? "null"))}</div>`).join("");
+  } else {
+    html = "<em>No change data available for this entry.</em>";
+  }
+  body.innerHTML = html;
+  document.getElementById("diffModal").style.display = "block";
 }
 
 function handleDecisionChange(selectId, remarksId) {
@@ -520,7 +527,10 @@ function handleDecisionChange(selectId, remarksId) {
 }
 
 function clearPaymentApprovalSelection() {
-  document.getElementById("paymentApprovalForm").reset();
+  const form = document.getElementById("paymentApprovalForm");
+  if (form) {
+    form.reset();
+  }
   document.getElementById("p_target_id").value = "";
   document.getElementById("selectedPaymentHeader").innerText =
     "No item selected";
@@ -544,15 +554,38 @@ function clearPaymentApprovalSelection() {
     "#pAuditDateText",
     "#pAuditEvidenceText",
     "#pAuditRemarksText",
+    "#pReturnCountText",
+    "#pReturnedReasonText",
   ];
   selectors.forEach((sel) => {
     const element = document.querySelector(sel);
     if (element) element.innerText = "—";
   });
 
-  document.querySelector("#pTimelineTable tbody").innerHTML = `
-    <tr><td colspan="5" style="text-align: center; color: #757575">No tracking logs compiled. Select a transaction to generate path timelines.</td></tr>
-  `;
+  const timelineBody = document.querySelector("#pTimelineTable tbody");
+  if (timelineBody) {
+    timelineBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #757575;">No tracking logs compiled. Select a transaction to generate path timelines.</td></tr>`;
+  }
+}
+
+async function loadPresidentialAidsQueue() {
+  try {
+    const response = await fetch("/api/president/auditor-approved-aids/list/");
+    const result = await response.json();
+
+    if (result.success) {
+      db.pendingAids = result.aids || [];
+    } else {
+      console.error("Aids Queue Retrieval Error:", result.message);
+      db.pendingAids = [];
+    }
+  } catch (error) {
+    console.error("Failed to fetch aids data:", error);
+    db.pendingAids = [];
+  } finally {
+    renderPendingAidsTable();
+    updatePresidentNotifDots();
+  }
 }
 
 async function submitPresidentialPaymentDecision(event) {
@@ -591,13 +624,27 @@ async function submitPresidentialPaymentDecision(event) {
 
     if (result.success) {
       alert(result.message);
-      clearPaymentApprovalSelection();
-      loadPresidentialQueue();
+      await loadPresidentialQueue();
+      try {
+        clearPaymentApprovalSelection();
+      } catch (clearErr) {
+        console.error("UI reset failed after successful submission:", clearErr);
+      }
     } else {
       alert("Execution Error: " + result.message);
     }
-  } catch (error) {
+    } catch (error) {
     console.error("Transmission layout communication interruption: ", error);
-    alert("Critical failure submitting transaction ruling updates.");
+    alert(
+      "Critical failure submitting transaction ruling updates.\n\nDetails: " +
+        (error.message || error),
+    );
   }
 }
+
+document.addEventListener("click", function (e) {
+  const modal = document.getElementById("diffModal");
+  if (modal && e.target === modal) {
+    modal.style.display = "none";
+  }
+});

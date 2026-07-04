@@ -237,6 +237,9 @@
     selectedPaymentId: "",
     selectedAidId: "",
     selectedMembershipFeeId: "",
+    selectedPaymentIds: new Set(),
+    selectedAidIds: new Set(),
+    paymentViewMode: "all",
   };
 
   async function getJSON(url) {
@@ -342,30 +345,438 @@
     }
   }
 
+  function getCurrentOfficerId() {
+    const el = document.getElementById("currentOfficerId");
+    return el ? parseInt(el.textContent, 10) : null;
+  }
+
+  async function submitPayBatchVerify(result) {
+    const ids = Array.from(state.selectedPaymentIds).map(Number);
+    if (ids.length === 0) return;
+
+    const items = state.pendingPayments
+      .filter(p => state.selectedPaymentIds.has(String(p.id)))
+      .map(p => ({ table_name: getPaymentTableName(p), record_id: p.entity_id }));
+
+    if (items.length === 0) return;
+
+    const label = result === "Verified" ? "Verify" : "Return";
+    if (!confirm(`${label} ${items.length} payment entr${items.length === 1 ? "y" : "ies"}?`)) return;
+
+    try {
+      const resp = await fetch("/api/auditor/verify-batch/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken(),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          items: items,
+          result: result,
+          remarks: result === "Returned" ? "Batch returned for revision." : "",
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        showToast(data.error || "Batch operation failed.", true);
+        return;
+      }
+      showToast(`Processed ${data.processed} entr${data.processed === 1 ? "y" : "ies"} (${data.skipped} skipped).`, false);
+      clearPaySelection();
+      await refreshAll();
+    } catch (e) {
+      showToast("Network/server error during batch operation.", true);
+    }
+  }
+
+  function togglePayRowCheck(pid, checked) {
+    if (checked) {
+      state.selectedPaymentIds.add(String(pid));
+    } else {
+      state.selectedPaymentIds.delete(String(pid));
+    }
+    const row = document.querySelector(`#pendingPaymentsTable .pay-row-check[value="${pid}"]`)?.closest("tr");
+    if (row) row.classList.toggle("selected-row", checked);
+    updatePayBatchBar();
+  }
+
+  function updatePayBatchBar() {
+    const bar = document.getElementById("pay-batch-bar");
+    const countEl = document.getElementById("pay-selected-count");
+    const count = state.selectedPaymentIds.size;
+    if (!bar || !countEl) return;
+    countEl.textContent = count + " selected";
+    bar.style.display = count > 0 ? "flex" : "none";
+  }
+
+  function clearPaySelection() {
+    state.selectedPaymentIds.clear();
+    document.querySelectorAll("#pendingPaymentsTable .pay-row-check").forEach(cb => cb.checked = false);
+    document.querySelectorAll("#pendingPaymentsTable tr").forEach(tr => tr.classList.remove("selected-row"));
+    const selectAll = document.getElementById("pay-select-all");
+    if (selectAll) selectAll.checked = false;
+    updatePayBatchBar();
+  }
+
+  function getPaymentTableName(p) {
+    return (p.source || "").toLowerCase() === "monthly_dues" ? "monthly_dues" : "membership_fee";
+  }
+
+  function createPaymentRow(p) {
+    const tr = document.createElement("tr");
+    const pid = p.id;
+    if (state.selectedPaymentIds.has(String(pid))) {
+      tr.classList.add("selected-row");
+    }
+    const currentId = getCurrentOfficerId();
+    const prevReturnedByYou = p.returned_by_auditor_id_FK && currentId && Number(p.returned_by_auditor_id_FK) === currentId;
+    const returnBadge = prevReturnedByYou ? ' <span style="color:#e53935;font-size:0.7rem;font-weight:600;">⚡ Previously returned by you</span>' : "";
+    tr.innerHTML = `
+      <td><input type="checkbox" class="pay-row-check" value="${pid}" ${state.selectedPaymentIds.has(String(pid)) ? "checked" : ""}></td>
+      <td style="font-weight:600;color:#1b5e20;">${escapeHtml(p.ref || "")}</td>
+      <td>${escapeHtml(p.member && p.member.member_name ? p.member.member_name : "")}${returnBadge}</td>
+      <td style="font-weight:600;">${escapeHtml(formatMoneyPHP(p.amount))}</td>
+      <td>${renderPaymentTypeCell(p)}</td>
+      <td><button class="btn-select-glow">Select</button></td>
+    `;
+    const cb = tr.querySelector(".pay-row-check");
+    cb.addEventListener("click", function (e) {
+      e.stopPropagation();
+      togglePayRowCheck(pid, this.checked);
+    });
+    tr.querySelector("button.btn-select-glow").addEventListener("click", function (e) {
+      e.stopPropagation();
+      selectPayment(pid);
+    });
+    tr.addEventListener("click", function (e) {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+      selectPayment(pid);
+    });
+    return tr;
+  }
+
+  function renderBatchDrawerItems(container, items) {
+    items.forEach((p) => {
+      const div = document.createElement("div");
+      div.className = "batch-drawer-list-item";
+      const pid = p.id;
+      if (state.selectedPaymentIds.has(String(pid))) {
+        div.classList.add("selected");
+      }
+      const currentId = getCurrentOfficerId();
+      const prevReturnedByYou = p.returned_by_auditor_id_FK && currentId && Number(p.returned_by_auditor_id_FK) === currentId;
+      const returnBadge = prevReturnedByYou ? '<span class="returned-badge">Previously returned by you</span>' : "";
+      const sourceLabel = escapeHtml(getPaymentSourceLabel(p));
+      const typeLabel = escapeHtml(getPaymentTypeLabel(p));
+      div.innerHTML = `
+        <label class="bdl-checkbox" onclick="event.stopPropagation()">
+          <input type="checkbox" class="pay-row-check" value="${pid}" ${state.selectedPaymentIds.has(String(pid)) ? "checked" : ""}>
+        </label>
+        <span class="bdl-ref">${escapeHtml(p.ref || "")}</span>
+        <span class="bdl-member">${escapeHtml(p.member && p.member.member_name ? p.member.member_name : "")}${returnBadge}</span>
+        <span class="bdl-amount">${formatMoneyPHP(p.amount)}</span>
+        <span class="bdl-type">
+          <span class="${getStatusBadgeClass(sourceLabel)}" style="font-size:0.72rem;">${sourceLabel}</span>
+          <span class="${getStatusBadgeClass(typeLabel)}" style="font-size:0.7rem;">${typeLabel}</span>
+        </span>
+        <button type="button" class="btn-select-glow" data-id="${pid}" style="flex-shrink:0;">Select</button>
+      `;
+      const cb = div.querySelector(".pay-row-check");
+      cb.addEventListener("click", function (e) {
+        e.stopPropagation();
+        togglePayRowCheck(pid, this.checked);
+      });
+      div.querySelector("button.btn-select-glow").addEventListener("click", function (e) {
+        e.stopPropagation();
+        selectPayment(pid);
+      });
+      div.addEventListener("click", function (e) {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON" || e.target.tagName === "LABEL") return;
+        selectPayment(pid);
+      });
+      container.appendChild(div);
+    });
+  }
+
+  function closeAllBatchDrawers() {
+    document.querySelectorAll("#pendingPaymentsTable tr.batch-drawer-header.expanded").forEach((header) => {
+      const icon = header.querySelector(".drawer-toggle-icon");
+      const panelRow = header.nextElementSibling;
+      if (panelRow && panelRow.classList.contains("batch-drawer-panel-row")) {
+        panelRow.style.display = "none";
+      }
+      if (icon) icon.textContent = "▶";
+      header.classList.remove("expanded");
+    });
+  }
+  window.closeAllBatchDrawers = closeAllBatchDrawers;
+
+  function renderPaymentsBatchView(tbody) {
+    tbody.innerHTML = "";
+
+    if (!state.pendingPayments || state.pendingPayments.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All payment queues cleared!</td></tr>';
+      updatePayBatchBar();
+      return;
+    }
+
+    const groups = {};
+    const ungrouped = [];
+    state.pendingPayments.forEach((p) => {
+      const br = (p.batch_reference || "").trim();
+      if (br) {
+        if (!groups[br]) groups[br] = { batch_ref: br, items: [] };
+        groups[br].items.push(p);
+      } else {
+        ungrouped.push(p);
+      }
+    });
+
+    if (ungrouped.length > 0) {
+      const headerTr = document.createElement("tr");
+      headerTr.className = "batch-drawer-header";
+      headerTr.innerHTML = `<td colspan="6" style="padding:0;">
+        <div class="batch-drawer-header-inner">
+          <div class="batch-drawer-summary">
+            <span class="drawer-toggle-icon">▶</span>
+            <strong class="batch-drawer-ref">Ungrouped</strong>
+            <span class="batch-drawer-meta">${ungrouped.length} item${ungrouped.length > 1 ? "s" : ""}</span>
+          </div>
+        </div>
+      </td>`;
+      headerTr.style.background = "var(--bg-card, #fff)";
+      tbody.appendChild(headerTr);
+
+      const detailTr = document.createElement("tr");
+      detailTr.className = "batch-drawer-panel-row";
+      detailTr.dataset.target = "ungrouped-payments";
+      detailTr.style.display = "none";
+      detailTr.innerHTML = `
+        <td colspan="6" style="padding:0 0 12px;">
+          <div class="batch-drawer-panel">
+            <div class="batch-drawer-list"></div>
+          </div>
+        </td>
+      `;
+      const listContainer = detailTr.querySelector(".batch-drawer-list");
+      renderBatchDrawerItems(listContainer, ungrouped);
+      tbody.appendChild(detailTr);
+
+      headerTr.addEventListener("click", function (e) {
+        if (e.target.closest("button")) return;
+        const icon = this.querySelector(".drawer-toggle-icon");
+        const isClosed = detailTr.style.display === "none" || !detailTr.style.display;
+        detailTr.style.display = isClosed ? "" : "none";
+        if (icon) icon.textContent = isClosed ? "▼" : "▶";
+        this.classList.toggle("expanded", isClosed);
+      });
+    }
+
+    const batchKeys = Object.keys(groups);
+    if (batchKeys.length === 0 && ungrouped.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All payment queues cleared!</td></tr>';
+      return;
+    }
+
+    batchKeys.forEach((br) => {
+      const group = groups[br];
+      const monthLabel = group.items[0]?.month || "";
+      const groupId = "batch-" + br.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const totalAmount = group.items.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
+      const headerTr = document.createElement("tr");
+      headerTr.className = "batch-drawer-header";
+      headerTr.dataset.target = groupId;
+      headerTr.innerHTML = `
+        <td colspan="6" style="padding:0;">
+          <div class="batch-drawer-header-inner">
+            <div class="batch-drawer-summary">
+              <span class="drawer-toggle-icon">▶</span>
+              <strong class="batch-drawer-ref">📦 ${escapeHtml(br)}</strong>
+              <span class="batch-drawer-meta">${escapeHtml(monthLabel)}</span>
+              <span class="batch-drawer-count">${group.items.length} item${group.items.length > 1 ? "s" : ""}</span>
+              <span class="batch-drawer-total">${formatMoneyPHP(totalAmount)}</span>
+            </div>
+            <div class="batch-drawer-actions">
+              <button type="button" class="batch-verify-btn btn-green" data-batch="${escapeHtml(br)}">Verify All</button>
+              <button type="button" class="batch-return-btn btn-red" data-batch="${escapeHtml(br)}">Return All</button>
+            </div>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(headerTr);
+
+      const detailTr = document.createElement("tr");
+      detailTr.className = "batch-drawer-panel-row";
+      detailTr.dataset.batchGroup = groupId;
+      detailTr.style.display = "none";
+      detailTr.innerHTML = `
+        <td colspan="6" style="padding:0 0 12px;">
+          <div class="batch-drawer-panel">
+            <div class="batch-drawer-list"></div>
+          </div>
+        </td>
+      `;
+      const listContainer = detailTr.querySelector(".batch-drawer-list");
+      renderBatchDrawerItems(listContainer, group.items);
+      tbody.appendChild(detailTr);
+
+      headerTr.addEventListener("click", function (e) {
+        if (e.target.closest("button")) return;
+        const icon = this.querySelector(".drawer-toggle-icon");
+        const isClosed = detailTr.style.display === "none" || !detailTr.style.display;
+        detailTr.style.display = isClosed ? "" : "none";
+        if (icon) icon.textContent = isClosed ? "▼" : "▶";
+        this.classList.toggle("expanded", isClosed);
+      });
+    });
+
+    tbody.querySelectorAll(".batch-verify-btn").forEach((btn) => {
+      btn.addEventListener("click", async function (e) {
+        e.stopPropagation();
+        const br = this.dataset.batch;
+        const items = state.pendingPayments
+          .filter(p => (p.batch_reference || "").trim() === br)
+          .map(p => ({ table_name: getPaymentTableName(p), record_id: p.entity_id }));
+        if (items.length === 0) return;
+        if (!confirm(`Verify ${items.length} items in batch "${br}"?`)) return;
+        await submitBatchItems(items, "Verified");
+      });
+    });
+    tbody.querySelectorAll(".batch-return-btn").forEach((btn) => {
+      btn.addEventListener("click", async function (e) {
+        e.stopPropagation();
+        const br = this.dataset.batch;
+        const items = state.pendingPayments
+          .filter(p => (p.batch_reference || "").trim() === br)
+          .map(p => ({ table_name: getPaymentTableName(p), record_id: p.entity_id }));
+        if (items.length === 0) return;
+        if (!confirm(`Return ${items.length} items in batch "${br}"?`)) return;
+        await submitBatchItems(items, "Returned");
+      });
+    });
+  }
+
   function renderPaymentsTable() {
     const tbody = document.querySelector("#pendingPaymentsTable tbody");
     if (!tbody) return;
+
+    if (state.paymentViewMode === "batch") {
+      return renderPaymentsBatchView(tbody);
+    }
 
     tbody.innerHTML = "";
 
     if (!state.pendingPayments || state.pendingPayments.length === 0) {
       tbody.innerHTML =
-        '<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">All payment queues cleared!</td></tr>';
+        '<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All payment queues cleared!</td></tr>';
+      updatePayBatchBar();
       return;
     }
 
     state.pendingPayments.forEach((p) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td style="font-weight:600;color:#1b5e20;">${escapeHtml(p.ref || "")}</td>
-        <td>${escapeHtml(p.member && p.member.member_name ? p.member.member_name : "")}</td>
-        <td style="font-weight:600;">${escapeHtml(formatMoneyPHP(p.amount))}</td>
-        <td>${renderPaymentTypeCell(p)}</td>
-        <td><button class="btn-select-glow">Select</button></td>
-      `;
-      tr.onclick = () => selectPayment(p.id);
+      const tr = createPaymentRow(p);
       tbody.appendChild(tr);
     });
+    updatePayBatchBar();
+  }
+
+  async function submitBatchItems(items, result) {
+    try {
+      const resp = await fetch("/api/auditor/verify-batch/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken(),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({ items, result, remarks: "" }),
+      });
+      const data = await resp.json();
+      if (!data.ok) {
+        showToast(data.error || "Batch operation failed.", true);
+        return;
+      }
+      showToast(`Batch ${result.toLowerCase()} completed: ${data.processed} processed, ${data.skipped} skipped.`, false);
+      await refreshAll();
+    } catch (err) {
+      showToast("Network error during batch operation.", true);
+    }
+  }
+
+  function toggleAidRowCheck(aid, checked) {
+    if (checked) {
+      state.selectedAidIds.add(String(aid));
+    } else {
+      state.selectedAidIds.delete(String(aid));
+    }
+    const row = document.querySelector(`#pendingAidsTable .aid-row-check[value="${aid}"]`)?.closest("tr");
+    if (row) row.classList.toggle("selected-row", checked);
+    updateAidBatchBar();
+  }
+
+  function updateAidBatchBar() {
+    const bar = document.getElementById("aid-batch-bar");
+    const countEl = document.getElementById("aid-selected-count");
+    const count = state.selectedAidIds.size;
+    if (!bar || !countEl) return;
+    countEl.textContent = count + " selected";
+    bar.style.display = count > 0 ? "flex" : "none";
+  }
+
+  function clearAidSelection() {
+    state.selectedAidIds.clear();
+    document.querySelectorAll("#pendingAidsTable .aid-row-check").forEach(cb => cb.checked = false);
+    document.querySelectorAll("#pendingAidsTable tr").forEach(tr => tr.classList.remove("selected-row"));
+    const selectAll = document.getElementById("aid-select-all");
+    if (selectAll) selectAll.checked = false;
+    updateAidBatchBar();
+  }
+
+  function getAidTableName(a) {
+    const t = (a.type || "").toLowerCase();
+    return t.includes("medical") ? "medical_aid" : "death_aid";
+  }
+
+  async function submitAidBatchVerify(result) {
+    const ids = Array.from(state.selectedAidIds).map(Number);
+    if (ids.length === 0) return;
+
+    const items = state.pendingAids
+      .filter(a => state.selectedAidIds.has(String(a.id)))
+      .map(a => ({ table_name: getAidTableName(a), record_id: a.entity_id }));
+
+    if (items.length === 0) return;
+
+    const label = result === "Verified" ? "Verify" : "Return";
+    if (!confirm(`${label} ${items.length} aid entr${items.length === 1 ? "y" : "ies"}?`)) return;
+
+    try {
+      const resp = await fetch("/api/auditor/verify-batch/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken(),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          items: items,
+          result: result,
+          remarks: result === "Returned" ? "Batch returned for revision." : "",
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        showToast(data.error || "Batch operation failed.", true);
+        return;
+      }
+      showToast(`Processed ${data.processed} entr${data.processed === 1 ? "y" : "ies"} (${data.skipped} skipped).`, false);
+      clearAidSelection();
+      await refreshAll();
+    } catch (e) {
+      showToast("Network/server error during batch operation.", true);
+    }
   }
 
   function renderAidsTable() {
@@ -377,20 +788,39 @@
     if (!state.pendingAids || state.pendingAids.length === 0) {
       tbody.innerHTML =
         '<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">All claims verified!</td></tr>';
+      updateAidBatchBar();
       return;
     }
 
     state.pendingAids.forEach((a) => {
+      const aid = a.id;
       const tr = document.createElement("tr");
+      if (state.selectedAidIds.has(String(aid))) {
+        tr.classList.add("selected-row");
+      }
       tr.innerHTML = `
+        <td><input type="checkbox" class="aid-row-check" value="${aid}" ${state.selectedAidIds.has(String(aid)) ? "checked" : ""}></td>
         <td>${a.member && a.member.member_name ? a.member.member_name : a.claimantName || ""}</td>
         <td><span class="${getStatusBadgeClass(a.type)}" style="font-size:0.75rem;">${a.type || ""}</span></td>
-        <td style="font-weight:600;">${formatMoneyPHP(a.reqAmount || a.benefit || 0)}</td>
+        <td style="font-weight:600;">${formatMoneyPHP(a.reqAmount || a.benefit || 0)} <span style="font-size:0.7rem;color:#90a4ae;font-weight:400;">/per member</span></td>
         <td><button class="btn-select-glow">Select</button></td>
       `;
-      tr.onclick = () => selectAid(a.id);
+      const cb = tr.querySelector(".aid-row-check");
+      cb.addEventListener("click", function (e) {
+        e.stopPropagation();
+        toggleAidRowCheck(aid, this.checked);
+      });
+      tr.querySelector("button.btn-select-glow").addEventListener("click", function (e) {
+        e.stopPropagation();
+        selectAid(aid);
+      });
+      tr.addEventListener("click", function (e) {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+        selectAid(aid);
+      });
       tbody.appendChild(tr);
     });
+    updateAidBatchBar();
   }
 
   function renderMembershipFeesTable() {
@@ -673,20 +1103,23 @@
     renderAidsTable();
     renderMembershipFeesTable();
 
+    const totalPending = state.pendingPayments.length + state.pendingAids.length;
     const dot = getEl("audit-folder-dot");
     if (dot) {
-      dot.style.display =
-        (state.pendingPayments.length > 0 || state.pendingAids.length > 0) ? "inline-block" : "none";
+      dot.textContent = totalPending;
+      dot.classList.toggle("show", totalPending > 0);
     }
 
     const pDot = getEl("payments-audit-dot");
     if (pDot) {
-      pDot.style.display = state.pendingPayments.length > 0 ? "inline-block" : "none";
+      pDot.textContent = state.pendingPayments.length;
+      pDot.classList.toggle("show", state.pendingPayments.length > 0);
     }
 
     const aDot = getEl("aid-audit-dot");
     if (aDot) {
-      aDot.style.display = state.pendingAids.length > 0 ? "inline-block" : "none";
+      aDot.textContent = state.pendingAids.length;
+      aDot.classList.toggle("show", state.pendingAids.length > 0);
     }
   }
 
@@ -1181,6 +1614,84 @@
     togglePaymentAuditEvidenceRequirement();
     toggleAidAuditEvidenceRequirement();
     toggleMembershipFeeAuditEvidenceRequirement();
+
+    // Payment view toggle — inject into panel header
+    const payHeader = document.querySelector("#pendingPaymentsTable")?.closest(".dashboard-panel")?.querySelector(".panel-header-row");
+    if (payHeader) {
+      const toggleDiv = document.createElement("div");
+      toggleDiv.className = "payment-view-toggle";
+      toggleDiv.style.cssText = "display:flex;gap:4px;margin-left:auto;";
+      toggleDiv.innerHTML = `
+        <button type="button" class="pay-view-btn btn-brand btn-brand-primary" data-view="all" style="padding:4px 10px;font-size:0.75rem;">All Items</button>
+        <button type="button" class="pay-view-btn btn-brand" data-view="batch" style="padding:4px 10px;font-size:0.75rem;opacity:0.7;">By Batch</button>
+      `;
+      payHeader.appendChild(toggleDiv);
+
+      toggleDiv.addEventListener("click", function (e) {
+        const btn = e.target.closest(".pay-view-btn");
+        if (!btn) return;
+        const view = btn.dataset.view;
+        state.paymentViewMode = view;
+        if (view !== "batch") closeAllBatchDrawers();
+        toggleDiv.querySelectorAll(".pay-view-btn").forEach((b) => {
+          b.classList.remove("btn-brand-primary");
+          b.style.opacity = "0.7";
+        });
+        btn.classList.add("btn-brand-primary");
+        btn.style.opacity = "1";
+        renderPaymentsTable();
+      });
+    }
+
+    const paySelectAll = document.getElementById("pay-select-all");
+    if (paySelectAll) {
+      paySelectAll.addEventListener("change", function () {
+        const checked = this.checked;
+        document.querySelectorAll("#pendingPaymentsTable .pay-row-check").forEach(cb => {
+          cb.checked = checked;
+          const pid = cb.value;
+          if (checked) state.selectedPaymentIds.add(pid);
+          else state.selectedPaymentIds.delete(pid);
+          const row = cb.closest("tr");
+          if (row) row.classList.toggle("selected-row", checked);
+        });
+        updatePayBatchBar();
+      });
+    }
+    document.getElementById("pay-batch-verify")?.addEventListener("click", function () {
+      submitPayBatchVerify("Verified");
+    });
+    document.getElementById("pay-batch-return")?.addEventListener("click", function () {
+      submitPayBatchVerify("Returned");
+    });
+    document.getElementById("pay-batch-clear")?.addEventListener("click", function () {
+      clearPaySelection();
+    });
+
+    const aidSelectAll = document.getElementById("aid-select-all");
+    if (aidSelectAll) {
+      aidSelectAll.addEventListener("change", function () {
+        const checked = this.checked;
+        document.querySelectorAll("#pendingAidsTable .aid-row-check").forEach(cb => {
+          cb.checked = checked;
+          const aid = cb.value;
+          if (checked) state.selectedAidIds.add(aid);
+          else state.selectedAidIds.delete(aid);
+          const row = cb.closest("tr");
+          if (row) row.classList.toggle("selected-row", checked);
+        });
+        updateAidBatchBar();
+      });
+    }
+    document.getElementById("aid-batch-verify")?.addEventListener("click", function () {
+      submitAidBatchVerify("Verified");
+    });
+    document.getElementById("aid-batch-return")?.addEventListener("click", function () {
+      submitAidBatchVerify("Returned");
+    });
+    document.getElementById("aid-batch-clear")?.addEventListener("click", function () {
+      clearAidSelection();
+    });
 
     refreshAll();
   }

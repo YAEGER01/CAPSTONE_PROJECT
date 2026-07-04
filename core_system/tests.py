@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -11,7 +12,22 @@ from django.test import TestCase
 from django.utils import timezone
 
 from core_system.auth_utils import create_access_session
-from core_system.models import Member, OfficerUser, MembershipFee, SupportingProof, MonthlyDues
+from core_system.models import (
+    AidTrackingPost,
+    Contribution,
+    DeathAid,
+    Claimant,
+    GlobalAuditTrail,
+    MedicalAid,
+    Member,
+    MembershipFee,
+    MonthlyDues,
+    Notification,
+    OfficerUser,
+    SupportingProof,
+    TransactionArchive,
+    TransactionVerification,
+)
 
 
 class TreasurerApiClientMixin:
@@ -169,3 +185,858 @@ class RowSignatureIntegrityTests(TestCase):
             self.assertEqual(len(sig1), 64)
         finally:
             os.unlink(tmp_path)
+
+
+# ==========================================================================
+# AID TRACKING POST TESTS
+# ==========================================================================
+
+class AuditorLoginMixin:
+    def _login_auditor(self):
+        officer = OfficerUser.objects.create(
+            full_name="Auditor Test",
+            username="auditor_test",
+            password_hash="unused",
+            role="Auditor",
+            account_status="Active",
+        )
+        session, token = create_access_session(
+            officer=officer,
+            ip_address="127.0.0.1",
+            device_info="tests",
+        )
+        test_session = self.client.session
+        test_session["access_token"] = token
+        test_session["officer_id"] = officer.user_id_PK
+        test_session["role"] = officer.role
+        test_session.save()
+        return officer
+
+
+class PresidentLoginMixin:
+    def _login_president(self):
+        officer = OfficerUser.objects.create(
+            full_name="President Test",
+            username="president_test",
+            password_hash="unused",
+            role="President",
+            account_status="Active",
+        )
+        session, token = create_access_session(
+            officer=officer,
+            ip_address="127.0.0.1",
+            device_info="tests",
+        )
+        test_session = self.client.session
+        test_session["access_token"] = token
+        test_session["officer_id"] = officer.user_id_PK
+        test_session["role"] = officer.role
+        test_session.save()
+        return officer
+
+
+class AidTrackingPostCreationTests(TestCase):
+    """Tests that posts and contributions are auto-created on presidential approval."""
+
+    def setUp(self):
+        self.president = PresidentLoginMixin()
+        self.president._login_president = lambda: None
+        self.president_officer = self.president._login_president() if hasattr(self.president, '_login_president') else None
+
+        self.member = Member.objects.create(
+            full_name="Aid Recipient",
+            employee_id="EMP-AID-001",
+            department="IT",
+            position="Staff",
+            membership_status="Active",
+            employment_status="Active",
+            member_type="REG",
+            date_joined=timezone.now().date(),
+        )
+        self.active_member = Member.objects.create(
+            full_name="Paying Member",
+            employee_id="EMP-PAY-001",
+            department="Finance",
+            position="Staff",
+            membership_status="Active",
+            employment_status="Active",
+            member_type="REG",
+            date_joined=timezone.now().date(),
+        )
+
+    def _login_president(self):
+        officer = OfficerUser.objects.create(
+            full_name="President Test",
+            username="pres_test_" + str(timezone.now().timestamp()),
+            password_hash="unused",
+            role="President",
+            account_status="Active",
+        )
+        session, token = create_access_session(
+            officer=officer,
+            ip_address="127.0.0.1",
+            device_info="tests",
+        )
+        test_session = self.client.session
+        test_session["access_token"] = token
+        test_session["officer_id"] = officer.user_id_PK
+        test_session["role"] = officer.role
+        test_session.save()
+        return officer
+
+    def test_medical_aid_approval_creates_post_and_contributions(self):
+        officer = self._login_president()
+
+        med = MedicalAid.objects.create(
+            member_id_FK=self.member,
+            request_date=timezone.now().date(),
+            requested_amount=20000,
+            hospital_name="Test Hospital",
+            hospital_bill_amount=25000,
+            claim_year=2026,
+            document_status="Complete",
+            policy_record_status="Verified",
+            validated_aid_amount=20000,
+            status="Auditor Verified",
+        )
+
+        response = self.client.post(
+            "/api/aids/presidential-decision/",
+            json.dumps({
+                "target_id": "medical-" + str(med.medical_aid_id_PK),
+                "decision": "Approved",
+                "approved_amount": 20000,
+                "remarks": "Approved",
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+
+        posts = AidTrackingPost.objects.filter(aid_type="medical_aid")
+        self.assertEqual(posts.count(), 1)
+
+        post = posts.first()
+        self.assertEqual(post.total_expected, 200)
+        self.assertEqual(post.total_collected, 0)
+
+        contributions = Contribution.objects.filter(aid_tracking_post_id_FK=post)
+        self.assertEqual(contributions.count(), 2)
+
+        for c in contributions:
+            self.assertEqual(float(c.expected_amount), 100)
+            self.assertEqual(c.status, "NOT_PAID")
+
+    def test_death_aid_approval_creates_post_with_correct_amount(self):
+        officer = self._login_president()
+
+        claimant = Claimant.objects.create(
+            member_id_FK=self.member,
+            full_name="Claimant Person",
+            contact_number="09170000001",
+            relationship_to_member="Spouse",
+            authorization_status="Authorized",
+        )
+
+        death = DeathAid.objects.create(
+            member_id_FK=self.member,
+            claimant_id_FK=claimant,
+            claim_date=timezone.now().date(),
+            claim_type="spouse",
+            deceased_name="Deceased Person",
+            relationship_to_member="spouse",
+            benefit_amount=50000,
+            document_status="Complete",
+            status="Auditor Verified",
+        )
+
+        response = self.client.post(
+            "/api/aids/presidential-decision/",
+            json.dumps({
+                "target_id": "death-" + str(death.death_aid_id_PK),
+                "decision": "Approved",
+                "approved_amount": 50000,
+                "remarks": "Approved",
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+        posts = AidTrackingPost.objects.filter(aid_type="death_aid")
+        self.assertEqual(posts.count(), 1)
+
+        contributions = Contribution.objects.filter(aid_tracking_post_id_FK=posts.first())
+        self.assertEqual(contributions.count(), 2)
+
+        for c in contributions:
+            self.assertEqual(float(c.expected_amount), 300)
+
+
+class AidTrackingReadTests(TestCase):
+    """Tests that auditor can view posts and member contributions."""
+
+    def setUp(self):
+        self.member = Member.objects.create(
+            full_name="Test Member",
+            employee_id="EMP-001",
+            department="IT",
+            position="Staff",
+            membership_status="Active",
+            employment_status="Active",
+            member_type="REG",
+            date_joined=timezone.now().date(),
+        )
+        self.archive = TransactionArchive.objects.create(
+            transaction_type="medical_aid",
+            record_id=1,
+            member_id_FK=self.member,
+            member_name=self.member.full_name,
+            amount=10000,
+            validated_amount=10000,
+            status="Approved",
+            verified_at=timezone.now(),
+        )
+        self.post = AidTrackingPost.objects.create(
+            archive_id_FK=self.archive,
+            aid_type="medical_aid",
+            target_month="2026-01",
+            total_expected=500,
+            total_collected=200,
+            is_active=True,
+        )
+        self.contribution = Contribution.objects.create(
+            aid_tracking_post_id_FK=self.post,
+            member_id_FK=self.member,
+            expected_amount=100,
+            paid_amount=100,
+            payment_date=timezone.now().date(),
+            status="PAID",
+        )
+
+    def _login_auditor(self):
+        officer = OfficerUser.objects.create(
+            full_name="Auditor Test",
+            username="aud_rd_" + str(timezone.now().timestamp()),
+            password_hash="unused",
+            role="Auditor",
+            account_status="Active",
+        )
+        session, token = create_access_session(
+            officer=officer,
+            ip_address="127.0.0.1",
+            device_info="tests",
+        )
+        test_session = self.client.session
+        test_session["access_token"] = token
+        test_session["officer_id"] = officer.user_id_PK
+        test_session["role"] = officer.role
+        test_session.save()
+        return officer
+
+    def test_list_posts(self):
+        self._login_auditor()
+        response = self.client.get("/api/auditor/approved-aid-posts/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(len(data["posts"]), 1)
+        self.assertEqual(data["posts"][0]["aid_type"], "medical_aid")
+        self.assertEqual(data["posts"][0]["member_name"], "Test Member")
+
+    def test_view_members_for_post(self):
+        self._login_auditor()
+        response = self.client.get(f"/api/auditor/aid-post-members/{self.post.post_id_PK}/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(len(data["members"]), 1)
+        self.assertEqual(data["members"][0]["status"], "PAID")
+        self.assertEqual(data["members"][0]["member_name"], "Test Member")
+
+    def test_inactive_post_not_returned(self):
+        self._login_auditor()
+        self.post.is_active = False
+        self.post.save()
+
+        response = self.client.get(f"/api/auditor/aid-post-members/{self.post.post_id_PK}/")
+        self.assertEqual(response.status_code, 404)
+
+
+class AidTrackingActionTests(TestCase):
+    """Tests that auditor can mark PAID, SKIPPED, and send notifications."""
+
+    def setUp(self):
+        self.member = Member.objects.create(
+            full_name="Test Member",
+            employee_id="EMP-002",
+            department="HR",
+            position="Staff",
+            membership_status="Active",
+            employment_status="Active",
+            member_type="REG",
+            date_joined=timezone.now().date(),
+        )
+        self.archive = TransactionArchive.objects.create(
+            transaction_type="death_aid",
+            record_id=1,
+            member_id_FK=self.member,
+            member_name=self.member.full_name,
+            amount=50000,
+            validated_amount=50000,
+            status="Approved",
+        )
+        self.post = AidTrackingPost.objects.create(
+            archive_id_FK=self.archive,
+            aid_type="death_aid",
+            target_month="2026-06",
+            total_expected=1000,
+            total_collected=0,
+            is_active=True,
+        )
+        self.contribution = Contribution.objects.create(
+            aid_tracking_post_id_FK=self.post,
+            member_id_FK=self.member,
+            expected_amount=500,
+            paid_amount=0,
+            status="NOT_PAID",
+        )
+
+    def _login_auditor(self):
+        officer = OfficerUser.objects.create(
+            full_name="Auditor Test",
+            username="aud_act_" + str(timezone.now().timestamp()),
+            password_hash="unused",
+            role="Auditor",
+            account_status="Active",
+        )
+        session, token = create_access_session(
+            officer=officer,
+            ip_address="127.0.0.1",
+            device_info="tests",
+        )
+        test_session = self.client.session
+        test_session["access_token"] = token
+        test_session["officer_id"] = officer.user_id_PK
+        test_session["role"] = officer.role
+        test_session.save()
+        return officer
+
+    def test_mark_as_paid(self):
+        self._login_auditor()
+        response = self.client.post(
+            "/api/auditor/aid-post-member-pay/",
+            {"contribution_id": str(self.contribution.contribution_id_PK)},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+
+        self.contribution.refresh_from_db()
+        self.assertEqual(self.contribution.status, "PAID")
+        self.assertEqual(float(self.contribution.paid_amount), 500)
+
+        self.post.refresh_from_db()
+        self.assertEqual(float(self.post.total_collected), 500)
+
+    def test_mark_as_skipped(self):
+        self._login_auditor()
+        response = self.client.post(
+            "/api/auditor/aid-post-member-skip/",
+            {"contribution_id": str(self.contribution.contribution_id_PK), "notes": "On leave"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+
+        self.contribution.refresh_from_db()
+        self.assertEqual(self.contribution.status, "SKIPPED")
+        self.assertTrue(self.contribution.is_manually_overridden)
+        self.assertEqual(self.contribution.notes, "On leave")
+
+    def test_send_notification(self):
+        self._login_auditor()
+        self.member.email = "member@example.com"
+        self.member.save()
+
+        response = self.client.post(
+            "/api/auditor/aid-post-member-notify/",
+            {"contribution_id": str(self.contribution.contribution_id_PK)},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["ok"])
+
+        notifs = Notification.objects.filter(recipient_id=self.member.member_id_PK)
+        self.assertGreaterEqual(notifs.count(), 1)
+
+    def test_unauthenticated_requests_rejected(self):
+        response = self.client.get("/api/auditor/approved-aid-posts/")
+        self.assertNotEqual(response.status_code, 200)
+
+
+class FullWorkflowSmokeTests(TestCase):
+    """End-to-end smoke tests for the complete CAUFA portal workflow."""
+
+    # ------------------------------------------------------------------
+    # shared helpers
+    # ------------------------------------------------------------------
+    def _create_officer(self, role, suffix=""):
+        return OfficerUser.objects.create(
+            full_name=f"{role} {suffix}",
+            username=f"{role.lower()}_{suffix}",
+            password_hash="unused",
+            role=role,
+            account_status="Active",
+        )
+
+    def _login(self, officer):
+        session, token = create_access_session(
+            officer=officer,
+            ip_address="127.0.0.1",
+            device_info="smoke_test",
+        )
+        s = self.client.session
+        s["access_token"] = token
+        s["officer_id"] = officer.user_id_PK
+        s["role"] = officer.role
+        s.save()
+        return officer
+
+    def _create_member(self, tag):
+        return Member.objects.create(
+            full_name=f"SmokeTest Member {tag}",
+            employee_id=f"SMK-{tag}-001",
+            department="College of Education",
+            position="Professor",
+            contact_number="09170000000",
+            email="smoketest@example.com",
+            employment_status="Active",
+            membership_status="Permanent",
+            member_type=f"SMK-{tag}-001",
+            date_joined=timezone.now().date(),
+        )
+
+    # ------------------------------------------------------------------
+    # 1) Full membership fee flow: Treasurer → Auditor → President
+    # ------------------------------------------------------------------
+    def test_membership_fee_full_flow(self):
+        trez = self._create_officer("Treasurer", "MF1")
+        self._login(trez)
+        member = self._create_member("MF1")
+
+        # Treasurer adds fee
+        resp = self.client.post("/api/treasurer/membership-fees/add/", {
+            "fee_member": str(member.member_id_PK),
+            "fee_amount": "500.00",
+            "fee_date": "2026-07-03",
+            "fee_month": "2026-07",
+            "fee_method": "OTC",
+            "fee_ref": "SMK-RECV-MF1",
+            "fee_encoder": "Encoder",
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        self.assertTrue(resp.json()["ok"])
+        fee = MembershipFee.objects.get(receipt_number="SMK-RECV-MF1")
+
+        # Auditor verifies
+        aud = self._create_officer("Auditor", "MF1")
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-membership-fee/", {
+            "mfAuditID": str(fee.fee_id_PK),
+            "mfAuditResult": "Verified",
+            "mfAuditRemarks": "Looks good",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        tv = TransactionVerification.objects.get(table_name="membership_fee", record_id=fee.fee_id_PK)
+        self.assertEqual(tv.verification_status, "Auditor Verified")
+
+        # President approves
+        prez = self._create_officer("President", "MF1")
+        self._login(prez)
+        resp = self.client.post("/api/payments/presidential-decision/",
+            {"target_id": str(tv.verification_id), "decision": "Approved", "remarks": "Approved"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        tv.refresh_from_db()
+        self.assertEqual(tv.verification_status, "Approved")
+
+        # Audit trail entry exists
+        self.assertTrue(
+            GlobalAuditTrail.objects.filter(table_name="membership_fee", record_id=fee.fee_id_PK).exists()
+        )
+
+    # ------------------------------------------------------------------
+    # 2) Full monthly dues flow: Treasurer → Auditor → President
+    # ------------------------------------------------------------------
+    def test_monthly_dues_full_flow(self):
+        trez = self._create_officer("Treasurer", "MD1")
+        self._login(trez)
+        member = self._create_member("MD1")
+
+        resp = self.client.post("/api/treasurer/monthly-dues/otc/add/", {
+            "otc_member": str(member.member_id_PK),
+            "otc_month": "2026-07",
+            "otc_amount": "50.00",
+            "otc_date": "2026-07-03",
+            "otc_method": "OTC",
+            "otc_ref": "SMK-MD1",
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        self.assertTrue(resp.json()["ok"])
+        dues = MonthlyDues.objects.get(receipt_number="SMK-MD1")
+
+        aud = self._create_officer("Auditor", "MD1")
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-payment/", {
+            "pAuditID": str(dues.dues_id_PK),
+            "pAuditResult": "Verified",
+            "pAuditRemarks": "OK",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
+        self.assertEqual(tv.verification_status, "Auditor Verified")
+
+        prez = self._create_officer("President", "MD1")
+        self._login(prez)
+        resp = self.client.post("/api/payments/presidential-decision/",
+            {"target_id": str(tv.verification_id), "decision": "Approved", "remarks": "OK"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        tv.refresh_from_db()
+        self.assertEqual(tv.verification_status, "Approved")
+
+    # ------------------------------------------------------------------
+    # 3) Full medical aid flow: Treasurer → Auditor → President
+    # ------------------------------------------------------------------
+    def test_medical_aid_full_flow(self):
+        trez = self._create_officer("Treasurer", "MA1")
+        self._login(trez)
+        member = self._create_member("MA1")
+
+        resp = self.client.post("/api/treasurer/medical-aid/add/", {
+            "med_member": str(member.member_id_PK),
+            "med_date": "2026-07-03",
+            "med_req_amount": "20000",
+            "med_hospital": "SmokeTest Hospital",
+            "med_bill": "25000",
+            "med_validation": "Verified",
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        self.assertTrue(resp.json()["ok"])
+        med = MedicalAid.objects.filter(member_id_FK=member).latest("medical_aid_id_PK")
+
+        aud = self._create_officer("Auditor", "MA1")
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-aid/", {
+            "aAuditID": f"medical-{med.medical_aid_id_PK}",
+            "aAuditResult": "Verified",
+            "aAuditRemarks": "OK",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        tv = TransactionVerification.objects.get(table_name="medical_aid", record_id=med.medical_aid_id_PK)
+        self.assertEqual(tv.verification_status, "Auditor Verified")
+
+        prez = self._create_officer("President", "MA1")
+        self._login(prez)
+        resp = self.client.post("/api/aids/presidential-decision/",
+            {"target_id": f"medical-{med.medical_aid_id_PK}", "decision": "Approved", "approved_amount": 20000, "remarks": "OK"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        tv.refresh_from_db()
+        self.assertEqual(tv.verification_status, "Approved")
+
+    # ------------------------------------------------------------------
+    # 4) Death aid full flow
+    # ------------------------------------------------------------------
+    def test_death_aid_full_flow(self):
+        trez = self._create_officer("Treasurer", "DA1")
+        self._login(trez)
+        member = self._create_member("DA1")
+
+        resp = self.client.post("/api/treasurer/death-aid/add/", {
+            "death_member": str(member.member_id_PK),
+            "death_deceased": "Deceased Spouse",
+            "death_rel": "spouse",
+            "death_rel_group": "immediate",
+            "death_type": "spouse",
+            "death_claimant": "Claimant Person",
+            "death_contact": "09170000001",
+            "death_date": "2026-07-03",
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        self.assertTrue(resp.json()["ok"])
+        death = DeathAid.objects.filter(member_id_FK=member).latest("death_aid_id_PK")
+        self.assertEqual(death.benefit_amount, 300)  # spouse maps to death_aid_spouse (₱300)
+        self.assertEqual(death.relationship_group, "immediate")
+
+        aud = self._create_officer("Auditor", "DA1")
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-aid/", {
+            "aAuditID": f"death-{death.death_aid_id_PK}",
+            "aAuditResult": "Verified",
+            "aAuditRemarks": "OK",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        tv = TransactionVerification.objects.get(table_name="death_aid", record_id=death.death_aid_id_PK)
+        self.assertEqual(tv.verification_status, "Auditor Verified")
+
+        prez = self._create_officer("President", "DA1")
+        self._login(prez)
+        resp = self.client.post("/api/aids/presidential-decision/",
+            {"target_id": f"death-{death.death_aid_id_PK}", "decision": "Approved", "approved_amount": 50000, "remarks": "OK"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        tv.refresh_from_db()
+        self.assertEqual(tv.verification_status, "Approved")
+
+    # ------------------------------------------------------------------
+    # 5) Resubmission loop: Treasurer → Auditor (Return) → Treasurer (Resubmit) → Auditor (Verify)
+    # ------------------------------------------------------------------
+    def test_resubmission_loop(self):
+        trez = self._create_officer("Treasurer", "RS1")
+        self._login(trez)
+        member = self._create_member("RS1")
+
+        resp = self.client.post("/api/treasurer/membership-fees/add/", {
+            "fee_member": str(member.member_id_PK),
+            "fee_amount": "500.00",
+            "fee_date": "2026-07-03",
+            "fee_month": "2026-07",
+            "fee_method": "OTC",
+            "fee_ref": "SMK-RECV-RS1",
+            "fee_encoder": "Encoder",
+        })
+        self.assertTrue(resp.json()["ok"])
+        fee = MembershipFee.objects.get(receipt_number="SMK-RECV-RS1")
+
+        # Auditor returns it
+        aud = self._create_officer("Auditor", "RS1")
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-membership-fee/", {
+            "mfAuditID": str(fee.fee_id_PK),
+            "mfAuditResult": "Returned",
+            "mfAuditRemarks": "Missing receipt",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        tv = TransactionVerification.objects.get(table_name="membership_fee", record_id=fee.fee_id_PK)
+        self.assertEqual(tv.verification_status, "Returned for Revision")
+        self.assertEqual(tv.returned_by_auditor_id_FK, aud)
+        self.assertEqual(tv.returned_reason, "Missing receipt")
+        self.assertEqual(tv.return_count, 1)
+
+        # Treasurer resubmits
+        self._login(trez)
+        resp = self.client.post(f"/api/treasurer/resubmit/membership_fee/{fee.fee_id_PK}/", {
+            "fee_ref": "SMK-RECV-RS1",
+            "fee_encoder": "Encoder",
+            "fee_method": "OTC",
+            "fee_date": "2026-07-03",
+            "fee_month": "2026-07",
+            "fee_status": "Pending",
+            "fee_amount": "500.00",
+            "same_auditor": "true",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        data = resp.json()
+        self.assertTrue(data.get("ok") or data.get("success"), data)
+        tv.refresh_from_db()
+        self.assertEqual(tv.verification_status, "Pending")
+
+        # Auditor verifies again
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-membership-fee/", {
+            "mfAuditID": str(fee.fee_id_PK),
+            "mfAuditResult": "Verified",
+            "mfAuditRemarks": "Now OK",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        tv.refresh_from_db()
+        self.assertEqual(tv.verification_status, "Auditor Verified")
+        # return_count should still be 1
+        self.assertEqual(tv.return_count, 1)
+
+    # ------------------------------------------------------------------
+    # 6) Batch operations
+    # ------------------------------------------------------------------
+    def test_auditor_batch_verify(self):
+        trez = self._create_officer("Treasurer", "BT1")
+        self._login(trez)
+        member = self._create_member("BT1")
+
+        # Create 3 fees
+        ids = []
+        for i in range(3):
+            resp = self.client.post("/api/treasurer/membership-fees/add/", {
+                "fee_member": str(member.member_id_PK),
+                "fee_amount": f"{500 + i * 100}.00",
+                "fee_date": "2026-07-03",
+                "fee_month": "2026-07",
+                "fee_method": "OTC",
+                "fee_ref": f"SMK-BATCH-{i}",
+                "fee_encoder": "Encoder",
+            })
+            self.assertTrue(resp.json()["ok"])
+            fee = MembershipFee.objects.get(receipt_number=f"SMK-BATCH-{i}")
+            ids.append(fee.fee_id_PK)
+
+        # Auditor batch verifies
+        aud = self._create_officer("Auditor", "BT1")
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-membership-fee/batch/",
+            json.dumps({"ids": ids, "result": "Verified", "remarks": "Batch OK"}),
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        data = resp.json()
+        self.assertTrue(data.get("ok") or data.get("success"), data)
+
+        # All 3 should be Auditor Verified
+        for fid in ids:
+            tv = TransactionVerification.objects.get(table_name="membership_fee", record_id=fid)
+            self.assertEqual(tv.verification_status, "Auditor Verified")
+
+        # President batch approves
+        prez = self._create_officer("President", "BT1")
+        self._login(prez)
+        tv_ids = list(
+            TransactionVerification.objects.filter(table_name="membership_fee", record_id__in=ids)
+            .values_list("verification_id", flat=True)
+        )
+        resp = self.client.post("/api/payments/presidential-decision/batch/",
+            {"ids": tv_ids, "decision": "Approved", "remarks": "Batch approve"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        for fid in ids:
+            tv = TransactionVerification.objects.get(table_name="membership_fee", record_id=fid)
+            self.assertEqual(tv.verification_status, "Approved")
+
+    # ------------------------------------------------------------------
+    # 7) Bulk salary deduction preview + process
+    # ------------------------------------------------------------------
+    def test_salary_bulk_preview(self):
+        trez = self._create_officer("Treasurer", "BP1")
+        self._login(trez)
+        m1 = self._create_member("BP1")
+        m2 = self._create_member("BP2")
+        m3 = self._create_member("BP3")
+        m3.membership_status = "retired"
+        m3.save()
+
+        resp = self.client.post("/api/treasurer/monthly-dues/salary/bulk-preview/",
+            {"sal_month": "2026-07"})
+        self.assertEqual(resp.status_code, 200, resp.json())
+        data = resp.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["month"], "2026-07")
+        self.assertEqual(data["total_active"], 2)
+        self.assertEqual(data["already_processed"], 0)
+        member_ids = [m["member_id"] for m in data["members"]]
+        self.assertIn(m1.member_id_PK, member_ids)
+        self.assertIn(m2.member_id_PK, member_ids)
+        self.assertNotIn(m3.member_id_PK, member_ids)
+        for m in data["members"]:
+            self.assertTrue(m["default_checked"])
+
+    def test_salary_bulk_process(self):
+        trez = self._create_officer("Treasurer", "BP2")
+        self._login(trez)
+        m1 = self._create_member("BP4")
+        m2 = self._create_member("BP5")
+
+        resp = self.client.post("/api/treasurer/monthly-dues/salary/bulk-process/", {
+            "sal_month": "2026-07",
+            "batch_ref": "TXN-BP2-0726",
+            "summary": "Payroll batch test",
+            "member_ids": json.dumps([m1.member_id_PK, m2.member_id_PK]),
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        data = resp.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["processed"], 2)
+        self.assertEqual(data["skipped"], 0)
+        self.assertEqual(data["batch_ref"], "TXN-BP2-0726")
+
+        for m in [m1, m2]:
+            dues = MonthlyDues.objects.get(member_id_FK=m, month_covered="2026-07")
+            self.assertEqual(dues.payment_method, "Salary Deduction")
+            self.assertEqual(dues.remittance_reference, "TXN-BP2-0726")
+            self.assertEqual(dues.deduction_batch_reference, "Payroll batch test")
+            tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
+            self.assertEqual(tv.verification_status, "Pending")
+
+    def test_salary_bulk_skips_duplicates(self):
+        trez = self._create_officer("Treasurer", "BP3")
+        self._login(trez)
+        m1 = self._create_member("BP6")
+        m2 = self._create_member("BP7")
+
+        # Process first time
+        resp = self.client.post("/api/treasurer/monthly-dues/salary/bulk-process/", {
+            "sal_month": "2026-07",
+            "batch_ref": "TXN-BP3A",
+            "member_ids": json.dumps([m1.member_id_PK, m2.member_id_PK]),
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        self.assertEqual(resp.json()["processed"], 2)
+
+        # Process same month again
+        resp = self.client.post("/api/treasurer/monthly-dues/salary/bulk-process/", {
+            "sal_month": "2026-07",
+            "batch_ref": "TXN-BP3B",
+            "member_ids": json.dumps([m1.member_id_PK, m2.member_id_PK]),
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        self.assertEqual(resp.json()["processed"], 0)
+        self.assertEqual(resp.json()["skipped"], 2)
+
+        # Still only 2 records total
+        self.assertEqual(MonthlyDues.objects.filter(month_covered="2026-07", payment_method="Salary Deduction").count(), 2)
+
+    def test_salary_bulk_full_workflow(self):
+        """Complete lifecycle: bulk create → auditor verify → president approve."""
+        trez = self._create_officer("Treasurer", "BP8")
+        self._login(trez)
+        m1 = self._create_member("BP8")
+
+        resp = self.client.post("/api/treasurer/monthly-dues/salary/bulk-process/", {
+            "sal_month": "2026-08",
+            "batch_ref": "TXN-BP8-0826",
+            "summary": "Full workflow test",
+            "member_ids": json.dumps([m1.member_id_PK]),
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        self.assertEqual(resp.json()["processed"], 1)
+
+        dues = MonthlyDues.objects.get(member_id_FK=m1, month_covered="2026-08")
+        self.assertEqual(dues.remittance_reference, "TXN-BP8-0826")
+
+        # Auditor verifies
+        aud = self._create_officer("Auditor", "BP8")
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-payment/", {
+            "pAuditID": str(dues.dues_id_PK),
+            "pAuditResult": "Verified",
+            "pAuditRemarks": "Bulk OK",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+        tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
+        self.assertEqual(tv.verification_status, "Auditor Verified")
+
+        # President approves
+        prez = self._create_officer("President", "BP8")
+        self._login(prez)
+        resp = self.client.post("/api/payments/presidential-decision/",
+            {"target_id": str(tv.verification_id), "decision": "Approved", "remarks": "OK"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        tv.refresh_from_db()
+        self.assertEqual(tv.verification_status, "Approved")

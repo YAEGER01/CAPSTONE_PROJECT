@@ -6,6 +6,8 @@ from django.urls import include, path
 from django.contrib.auth import views as auth_views
 from core_system.auth_views import officer_login
 
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+
 from django.views.generic import TemplateView  # Allows rendering your index directly
 
 urlpatterns = [
@@ -22,8 +24,9 @@ urlpatterns = [
     path("", include("core_system.urls")),
 ]
 
-# Serve uploaded media files during development
+# Serve uploaded media and static files during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += staticfiles_urlpatterns()
 
-handler403 = "core_system.views.permission_denied_view"
+handler403 = "core_system.president_views.permission_denied_view"

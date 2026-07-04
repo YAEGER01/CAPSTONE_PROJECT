@@ -1,0 +1,1291 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from typing import Any, Dict, List, Optional
+
+from django.contrib.contenttypes.models import ContentType
+from django.core.files.storage import default_storage
+from django.db import transaction
+from django.db.models import Sum
+from django.db.models import ForeignKey
+from django.http import HttpRequest, JsonResponse
+from django.shortcuts import render
+from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+from core_system.guards import require_role
+from core_system.models import (
+    AidTrackingPost,
+    Contribution,
+    DeathAid,
+    FinancialDocumentArchive,
+    GlobalAuditTrail,
+    MedicalAid,
+    Member,
+    MembershipFee,
+    MonthlyDues,
+    Notification,
+    OfficerUser,
+    SupportingProof,
+    TransactionVerification,
+)
+from core_system.services.notifications import queue_and_send_member_notification
+from core_system.shared_view_utils import (
+    MODEL_MAP,
+    PAYMENT_SOURCE_LABELS,
+    _payment_item_to_json,
+    _payment_type_label,
+    _broadcast_pending_counts,
+    _broadcast_to_group,
+)
+
+
+def _serialize_record(instance) -> Dict[str, Any]:
+    data = {}
+    for field in instance._meta.fields:
+        value = getattr(instance, field.name)
+        if isinstance(field, ForeignKey) and value is not None:
+            data[field.name] = value.pk
+        else:
+            if hasattr(value, "isoformat"):
+                data[field.name] = value.isoformat()
+            elif (
+                hasattr(value, "to_eng_string") or type(value).__name__ == "Decimal"
+            ):
+                data[field.name] = str(value)
+            else:
+                data[field.name] = value
+    return data
+
+
+def _get_officer_from_session(request: HttpRequest) -> Optional[OfficerUser]:
+    stored_officer_id = request.session.get("officer_id")
+    if stored_officer_id is None:
+        return None
+    try:
+        return OfficerUser.objects.get(user_id_PK=int(stored_officer_id))
+    except Exception:
+        return None
+
+
+def _file_upload_to_archive(
+    *,
+    request: HttpRequest,
+    related_module: str,
+    related_record_id: int,
+    document_type: str,
+    uploaded_file,
+    verification_status: str,
+) -> FinancialDocumentArchive:
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        raise ValueError("Officer session missing")
+
+    filename = uploaded_file.name
+    stored_name = default_storage.save(
+        f"evidence_uploads/{timezone.now().strftime('%Y%m%d')}_{filename}",
+        uploaded_file,
+    )
+
+    file_hash = ""
+    try:
+        hasher = hashlib.sha256()
+        data = uploaded_file.read()
+        hasher.update(data)
+        file_hash = hasher.hexdigest()
+    except Exception:
+        file_hash = ""
+
+    return FinancialDocumentArchive.objects.create(
+        related_module=related_module,
+        related_record_id=related_record_id,
+        document_type=document_type,
+        file_path=stored_name,
+        file_hash=file_hash or "",
+        verification_status=verification_status,
+        uploaded_by_user_id_FK=officer,
+    )
+
+
+def _create_placeholder_archive(
+    *,
+    request: HttpRequest,
+    related_module: str,
+    related_record_id: int,
+    document_type: str,
+    verification_status: str,
+) -> FinancialDocumentArchive:
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        raise ValueError("Officer session missing")
+
+    return FinancialDocumentArchive.objects.create(
+        related_module=related_module,
+        related_record_id=related_record_id,
+        document_type=document_type,
+        file_path="",
+        file_hash="",
+        verification_status=verification_status,
+        uploaded_by_user_id_FK=officer,
+    )
+
+
+# ==========================================================================
+# AUDITOR WORKSPACE VIEWS
+# ==========================================================================
+def auditor_dashboard(request):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer_full_name = ""
+    officer_role = "Auditor"
+
+    stored_officer_id = request.session.get("officer_id")
+    officer_user_id = None
+    if stored_officer_id is not None:
+        try:
+            officer = OfficerUser.objects.get(user_id_PK=int(stored_officer_id))
+            officer_full_name = getattr(officer, "full_name", "") or ""
+            officer_role = getattr(officer, "role", None) or officer_role
+            officer_user_id = officer.user_id_PK
+        except Exception:
+            pass
+
+    context = {
+        "officer_full_name": officer_full_name,
+        "officer_role": officer_role,
+        "officer_user_id": officer_user_id,
+    }
+
+    if not officer_full_name.strip():
+        context["officer_full_name"] = context["officer_role"]
+
+    return render(request, "website/Auditor/auditor_dashboard.html", context)
+
+
+@require_GET
+def auditor_pending_payments(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    pending_verifications = TransactionVerification.objects.filter(
+        verification_status="Pending",
+        auditor_id_FK__isnull=True,
+    )
+
+    pending_fee_ids = set()
+    pending_dues_ids = set()
+    tv_map = {}
+
+    for tv in pending_verifications:
+        tn = str(tv.table_name).lower()
+        if tn == "membership_fee":
+            pending_fee_ids.add(tv.record_id)
+            tv_map[("membership_fee", tv.record_id)] = tv
+        elif tn == "monthly_dues":
+            pending_dues_ids.add(tv.record_id)
+            tv_map[("monthly_dues", tv.record_id)] = tv
+
+    fees = MembershipFee.objects.select_related("member_id_FK", "recorded_by_user_id_FK").filter(
+        fee_id_PK__in=pending_fee_ids
+    ) if pending_fee_ids else []
+    dues = MonthlyDues.objects.select_related("member_id_FK", "recorded_by_user_id_FK").filter(
+        dues_id_PK__in=pending_dues_ids
+    ) if pending_dues_ids else []
+
+    items: List[Dict[str, Any]] = []
+
+    for f in fees:
+        item = _payment_item_to_json("membership_fee", f)
+        tv = tv_map.get(("membership_fee", f.fee_id_PK))
+        if tv:
+            item["returned_by_auditor_id_FK"] = tv.returned_by_auditor_id_FK_id
+            item["return_count"] = tv.return_count
+            item["returned_reason"] = tv.returned_reason or ""
+        items.append(item)
+
+    for d in dues:
+        item = _payment_item_to_json("monthly_dues", d)
+        tv = tv_map.get(("monthly_dues", d.dues_id_PK))
+        if tv:
+            item["returned_by_auditor_id_FK"] = tv.returned_by_auditor_id_FK_id
+            item["return_count"] = tv.return_count
+            item["returned_reason"] = tv.returned_reason or ""
+        items.append(item)
+
+    items.sort(key=lambda x: x.get("entity_id", 0), reverse=True)
+
+    return JsonResponse({"ok": True, "payments": items})
+
+
+@require_GET
+def auditor_pending_aids(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    medicals = MedicalAid.objects.select_related(
+        "member_id_FK",
+        "auditor_verified_by_user_id_FK",
+        "treasurer_validated_by_user_id_FK",
+        "president_decided_by_user_id_FK",
+    ).order_by("-medical_aid_id_PK")
+
+    deaths = DeathAid.objects.select_related(
+        "member_id_FK",
+        "claimant_id_FK",
+        "treasurer_validated_by_user_id_FK",
+        "auditor_verified_by_user_id_FK",
+        "president_decided_by_user_id_FK",
+    ).order_by("-death_aid_id_PK")
+
+    items: List[Dict[str, Any]] = []
+
+    pending_aid_statuses = {
+        "Pending",
+        "Pending Verification",
+        "Pending Treasurer Check",
+    }
+
+    for m in medicals:
+        if str(m.status) in pending_aid_statuses:
+            member = m.member_id_FK
+            items.append(
+                {
+                    "id": "medical-" + str(m.medical_aid_id_PK),
+                    "entity_id": int(m.medical_aid_id_PK),
+                    "aid_type": "medical_aid",
+                    "type": "Medical Aid Request",
+                    "request_date": str(m.request_date),
+                    "medical_case": m.document_status or m.policy_record_status or "",
+                    "requested_amount": str(m.requested_amount),
+                    "hospital": m.hospital_name or (member.full_name if member else ""),
+                    "total_hospital_bill": str(m.hospital_bill_amount),
+                    "validated_aid_amount": str(m.validated_aid_amount),
+                    "treasurer_validation": m.document_status or m.policy_record_status or "",
+                    "date": str(m.request_date),
+                    "reqAmount": str(m.validated_aid_amount or m.requested_amount),
+                    "bill": str(m.hospital_bill_amount),
+                    "reason": m.document_status or m.policy_record_status or "",
+                    "validation": m.document_status or m.policy_record_status or "",
+                    "member": {
+                        "member_id": member.member_id_PK,
+                        "member_name": member.full_name,
+                        "employee_id": member.employee_id or "",
+                        "department": member.department or "",
+                        "position": member.position or "",
+                        "contact": member.contact_number or "",
+                        "email": member.email or "",
+                    },
+                }
+            )
+
+    for d in deaths:
+        if str(d.status) in pending_aid_statuses:
+            member = d.member_id_FK
+            claimant = d.claimant_id_FK
+            items.append(
+                {
+                    "id": "death-" + str(d.death_aid_id_PK),
+                    "entity_id": int(d.death_aid_id_PK),
+                    "aid_type": "death_aid",
+                    "type": "Death Aid Claim",
+                    "claim_date": str(d.claim_date),
+                    "deceased_name": d.deceased_name,
+                    "relationship": d.relationship_to_member,
+                    "relationshipGroup": d.relationship_group,
+                    "claim_type": d.claim_type,
+                    "claimant_name": claimant.full_name if claimant else "",
+                    "claimant_contact": claimant.contact_number if claimant else "",
+                    "bill_amount": str(d.bill_amount) if d.bill_amount else "",
+                    "benefit_amount": str(d.benefit_amount),
+                    "date_of_death": str(d.claim_date),
+                    "date": str(d.claim_date),
+                    "deceased": d.deceased_name,
+                    "claimType": d.claim_type,
+                    "claimantName": claimant.full_name if claimant else "",
+                    "claimantContact": claimant.contact_number if claimant else "",
+                    "benefit": str(d.benefit_amount),
+                    "dateOfDeath": str(d.claim_date),
+                    "member": {
+                        "member_id": member.member_id_PK if member else None,
+                        "member_name": member.full_name if member else "",
+                        "employee_id": member.employee_id or "" if member else "",
+                        "department": member.department or "" if member else "",
+                        "position": member.position or "" if member else "",
+                    },
+                }
+            )
+
+    return JsonResponse({"ok": True, "aids": items})
+
+
+@require_POST
+@transaction.atomic
+def auditor_verify_payment(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    target_id = (request.POST.get("pAuditID") or "").strip()
+    remarks = (request.POST.get("pAuditRemarks") or "").strip()
+    field_remarks = (request.POST.get("pAuditFieldRemarks") or "").strip()
+    result = (request.POST.get("pAuditResult") or "").strip()
+
+    if field_remarks:
+        if remarks:
+            remarks = remarks + "\n\n" + field_remarks
+        else:
+            remarks = field_remarks
+
+    if not target_id:
+        return JsonResponse({"ok": False, "error": "Missing pAuditID."}, status=400)
+
+    if result not in {"Verified", "Returned"}:
+        return JsonResponse({"ok": False, "error": "Invalid pAuditResult."}, status=400)
+
+    entity = None
+    related_module = None
+
+    try:
+        as_int = int(target_id)
+    except ValueError:
+        as_int = None
+
+    fee = None
+    dues = None
+    if as_int is not None:
+        fee = MembershipFee.objects.filter(fee_id_PK=as_int).first()
+        dues = MonthlyDues.objects.filter(dues_id_PK=as_int).first()
+
+    if fee is not None:
+        entity_type = "MembershipFee"
+        entity = fee
+        related_module = "MEMBERSHIP_FEE"
+        related_record_id = fee.fee_id_PK
+    elif dues is not None:
+        entity_type = "MonthlyDues"
+        entity = dues
+        related_module = "MONTHLY_DUES"
+        related_record_id = dues.dues_id_PK
+    else:
+        return JsonResponse({"ok": False, "error": "Payment record not found."}, status=404)
+
+    audit_result_text = "Auditor Verified" if result == "Verified" else "Returned for Revision"
+    verification_now = timezone.now()
+
+    tv_table = "membership_fee" if isinstance(entity, MembershipFee) else "monthly_dues"
+    tv_qs = TransactionVerification.objects.select_for_update().filter(
+        table_name=tv_table,
+        record_id=related_record_id,
+    )
+    tv = tv_qs.first()
+
+    if tv is not None and str(tv.verification_status) != "Pending":
+        return JsonResponse({"ok": True})
+
+    uploaded = request.FILES.get("p_findings_file")
+
+    if uploaded and getattr(uploaded, "size", 0) > 0:
+        _file_upload_to_archive(
+            request=request,
+            related_module=related_module,
+            related_record_id=related_record_id,
+            document_type="auditor_finding",
+            uploaded_file=uploaded,
+            verification_status=audit_result_text,
+        )
+    else:
+        _create_placeholder_archive(
+            request=request,
+            related_module=related_module,
+            related_record_id=related_record_id,
+            document_type="auditor_finding",
+            verification_status=audit_result_text,
+        )
+
+    evidence_file_path = ""
+    evidence_file_hash = ""
+
+    if uploaded and getattr(uploaded, "size", 0) > 0:
+        filename = uploaded.name
+        evidence_file_path = default_storage.save(
+            f"auditor_payment_evidence/{timezone.now().strftime('%Y%m%d')}_{filename}",
+            uploaded,
+        )
+
+        try:
+            hasher = hashlib.sha256()
+            data = uploaded.read()
+            hasher.update(data)
+            evidence_file_hash = hasher.hexdigest()
+        except Exception:
+            evidence_file_hash = ""
+
+    tv_update = {
+        "verification_status": audit_result_text,
+        "auditor_id_FK": officer,
+        "verified_at": verification_now,
+        "auditor_remarks": remarks or "",
+        "evidence_file_path": evidence_file_path,
+        "evidence_file_hash": evidence_file_hash,
+    }
+
+    snapshot = None
+    if result == "Returned":
+        snapshot = _serialize_record(entity)
+        tv_update["returned_by_auditor_id_FK"] = officer
+        tv_update["returned_reason"] = remarks or ""
+
+    if tv is None:
+        tv_update["table_name"] = tv_table
+        tv_update["record_id"] = related_record_id
+        TransactionVerification.objects.create(**tv_update)
+    else:
+        for fname, val in tv_update.items():
+            setattr(tv, fname, val)
+        tv.save()
+
+    if result == "Returned":
+        from django.db.models import F
+        TransactionVerification.objects.filter(
+            table_name=tv_table,
+            record_id=related_record_id,
+        ).update(return_count=F("return_count") + 1)
+
+    audit_action = "VERIFIED" if result == "Verified" else "RETURNED"
+    audit_actor_type = getattr(officer, "role", "Auditor")
+
+    GlobalAuditTrail.objects.create(
+        table_name=tv_table,
+        record_id=related_record_id,
+        action=audit_action,
+        actor_type=audit_actor_type,
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        ip_address=request.META.get("REMOTE_ADDR"),
+        notes=remarks or None,
+        new_values=snapshot,
+    )
+
+    _broadcast_pending_counts()
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+@transaction.atomic
+def auditor_verify_aid(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    target_id = (request.POST.get("aAuditID") or "").strip()
+    remarks = (request.POST.get("aAuditRemarks") or "").strip()
+    result = (request.POST.get("aAuditResult") or "").strip()
+
+    if not target_id:
+        return JsonResponse({"ok": False, "error": "Missing aAuditID."}, status=400)
+
+    if result not in {"Verified", "Returned"}:
+        return JsonResponse({"ok": False, "error": "Invalid aAuditResult."}, status=400)
+
+    table_hint = None
+    raw_id = target_id
+    if "-" in target_id:
+        parts = target_id.split("-", 1)
+        table_hint = parts[0]
+        raw_id = parts[1]
+
+    try:
+        as_int = int(raw_id)
+    except (ValueError, TypeError):
+        as_int = None
+
+    med = None
+    dth = None
+    if as_int is not None:
+        if table_hint == "medical":
+            med = MedicalAid.objects.filter(medical_aid_id_PK=as_int).first()
+        elif table_hint == "death":
+            dth = DeathAid.objects.filter(death_aid_id_PK=as_int).first()
+        else:
+            med = MedicalAid.objects.filter(medical_aid_id_PK=as_int).first()
+            dth = DeathAid.objects.filter(death_aid_id_PK=as_int).first()
+
+    entity = None
+    if med is not None:
+        entity_type = "MedicalAid"
+        related_module = "MEDICAL_AID"
+        related_record_id = med.medical_aid_id_PK
+        audit_result_text = "Auditor Verified" if result == "Verified" else "Returned for Revision"
+        entity = med
+        med.status = audit_result_text
+        med.auditor_verified_by_user_id_FK = officer
+        med.save(update_fields=["status", "auditor_verified_by_user_id_FK"])
+        _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+
+    elif dth is not None:
+        entity_type = "DeathAid"
+        related_module = "DEATH_AID"
+        related_record_id = dth.death_aid_id_PK
+        audit_result_text = "Auditor Verified" if result == "Verified" else "Returned for Revision"
+        entity = dth
+        dth.status = audit_result_text
+        dth.auditor_verified_by_user_id_FK = officer
+        dth.save(update_fields=["status", "auditor_verified_by_user_id_FK"])
+        _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+
+    else:
+        return JsonResponse({"ok": False, "error": "Aid record not found."}, status=404)
+
+    snapshot = None
+    if result == "Returned":
+        snapshot = _serialize_record(entity)
+
+    uploaded = request.FILES.get("a_findings_file")
+
+    evidence_file_path = ""
+    evidence_file_hash = ""
+
+    if uploaded and getattr(uploaded, "size", 0) > 0:
+
+        filename = uploaded.name
+        evidence_file_path = default_storage.save(
+            f"auditor_aid_evidence/{timezone.now().strftime('%Y%m%d')}_{filename}",
+            uploaded,
+        )
+
+        try:
+            hasher = hashlib.sha256()
+            data = uploaded.read()
+            hasher.update(data)
+            evidence_file_hash = hasher.hexdigest()
+        except Exception:
+            evidence_file_hash = ""
+
+    target_table = "medical_aid" if entity_type == "MedicalAid" else "death_aid"
+
+    now = timezone.now()
+
+    tv_defaults = {
+        "verification_status": audit_result_text,
+        "auditor_id_FK": officer,
+        "verified_at": now,
+        "auditor_remarks": remarks or "",
+        "evidence_file_path": evidence_file_path,
+        "evidence_file_hash": evidence_file_hash,
+    }
+
+    if result == "Returned":
+        tv_defaults["returned_by_auditor_id_FK"] = officer
+        tv_defaults["returned_reason"] = remarks or ""
+
+    TransactionVerification.objects.update_or_create(
+        table_name=target_table,
+        record_id=related_record_id,
+        defaults=tv_defaults,
+    )
+
+    from django.db.models import F
+    if result == "Returned":
+        TransactionVerification.objects.filter(
+            table_name=target_table,
+            record_id=related_record_id,
+        ).update(return_count=F("return_count") + 1)
+
+    audit_action = "VERIFIED" if result == "Verified" else "RETURNED"
+    GlobalAuditTrail.objects.create(
+        table_name=target_table,
+        record_id=related_record_id,
+        action=audit_action,
+        actor_type=getattr(officer, "role", "Auditor"),
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        ip_address=request.META.get("REMOTE_ADDR"),
+        notes=remarks or None,
+        new_values=snapshot,
+    )
+
+    _broadcast_pending_counts()
+    return JsonResponse({"ok": True})
+
+
+@require_GET
+def auditor_pending_membership_fees(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    all_fees = MembershipFee.objects.select_related("member_id_FK", "recorded_by_user_id_FK").all()
+    items: List[Dict[str, Any]] = []
+    tv_cache: Dict[int, TransactionVerification] = {}
+
+    for f in all_fees:
+        tv = tv_cache.get(f.fee_id_PK)
+        if tv is None:
+            tv = TransactionVerification.objects.filter(
+                table_name="membership_fee",
+                record_id=f.fee_id_PK,
+            ).first()
+            if tv:
+                tv_cache[f.fee_id_PK] = tv
+
+        verification_status = tv.verification_status if tv else None
+
+        if verification_status is None or verification_status == "Pending":
+            member = f.member_id_FK
+            encoder_name = ""
+            if f.recorded_by_user_id_FK:
+                encoder_name = getattr(f.recorded_by_user_id_FK, "full_name", "") or str(f.recorded_by_user_id_FK.user_id_PK)
+
+            items.append({
+                "fee_id": f.fee_id_PK,
+                "ref": f.receipt_number or "",
+                "member_id": member.member_id_PK if member else None,
+                "member_name": member.full_name if member else "",
+                "amount": str(f.amount),
+                "month_covered": f.month_covered or "",
+                "payment_date": str(f.payment_date),
+                "payment_status": f.payment_status,
+                "deposit_reference": f.deposit_reference or "",
+                "encoded_by": encoder_name,
+                "returned_by_auditor_id_FK": tv.returned_by_auditor_id_FK_id if tv else None,
+                "return_count": tv.return_count if tv else 0,
+                "returned_reason": tv.returned_reason or "" if tv else "",
+            })
+
+    items.sort(key=lambda x: x["fee_id"], reverse=True)
+    return JsonResponse({"ok": True, "fees": items})
+
+
+@require_POST
+@transaction.atomic
+def auditor_verify_membership_fee(request: HttpRequest):
+    data = request.POST.copy()
+    for mf_key, p_key in [("mfAuditID", "pAuditID"), ("mfAuditRemarks", "pAuditRemarks"),
+                          ("mfAuditFieldRemarks", "pAuditFieldRemarks"), ("mfAuditResult", "pAuditResult")]:
+        if mf_key in data:
+            data[p_key] = data[mf_key]
+    request.POST = data
+    return auditor_verify_payment(request)
+
+
+@require_POST
+@transaction.atomic
+def auditor_verify_membership_fee_batch(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    try:
+        body_data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid JSON body."}, status=400)
+
+    ids = body_data.get("ids", [])
+    result = (body_data.get("result") or "").strip()
+    remarks = (body_data.get("remarks") or "").strip()
+
+    if not ids or not isinstance(ids, list):
+        return JsonResponse({"ok": False, "error": "ids must be a non-empty array."}, status=400)
+    if result not in {"Verified", "Returned"}:
+        return JsonResponse({"ok": False, "error": "Invalid result."}, status=400)
+
+    items = [{"table_name": "membership_fee", "record_id": fid} for fid in ids]
+    return _batch_verify_core(request, officer, items, result, remarks)
+
+
+VALID_BATCH_TABLES = {"membership_fee", "monthly_dues", "medical_aid", "death_aid"}
+
+
+def _batch_verify_core(request, officer, items, result, remarks):
+    if not items or not isinstance(items, list):
+        return JsonResponse({"ok": False, "error": "items must be a non-empty array of {table_name, record_id}."}, status=400)
+    if result not in {"Verified", "Returned"}:
+        return JsonResponse({"ok": False, "error": "Invalid result."}, status=400)
+
+    seen = set()
+    deduped = []
+    for item in items:
+        tn = (item.get("table_name") or "").strip()
+        rid = item.get("record_id")
+        if tn not in VALID_BATCH_TABLES:
+            return JsonResponse({"ok": False, "error": f"Invalid table_name '{tn}'. Must be one of: {', '.join(sorted(VALID_BATCH_TABLES))}"}, status=400)
+        if not isinstance(rid, int):
+            return JsonResponse({"ok": False, "error": "record_id must be an integer."}, status=400)
+        key = (tn, rid)
+        if key not in seen:
+            seen.add(key)
+            deduped.append(key)
+
+    audit_result_text = "Auditor Verified" if result == "Verified" else "Returned for Revision"
+    audit_action = "VERIFIED" if result == "Verified" else "RETURNED"
+    verification_now = timezone.now()
+
+    from collections import defaultdict
+    from itertools import chain
+    table_ids = defaultdict(list)
+    for tn, rid in deduped:
+        table_ids[tn].append(rid)
+
+    tvs_qs = TransactionVerification.objects.select_for_update().filter(
+        table_name__in=list(table_ids.keys()),
+        record_id__in=set(chain.from_iterable(table_ids.values())),
+    )
+    existing_tv_map = {(tv.table_name, tv.record_id): tv for tv in tvs_qs}
+
+    processed = 0
+    skipped = 0
+    audit_entries = []
+
+    for tn, rid in deduped:
+        key = (tn, rid)
+        tv = existing_tv_map.get(key)
+        if tv is not None and str(tv.verification_status) != "Pending":
+            skipped += 1
+            continue
+
+        tv_defaults = {
+            "verification_status": audit_result_text,
+            "auditor_id_FK": officer,
+            "verified_at": verification_now,
+            "auditor_remarks": remarks or "",
+        }
+
+        if result == "Returned":
+            tv_defaults["returned_by_auditor_id_FK"] = officer
+            tv_defaults["returned_reason"] = remarks or ""
+
+        if tv is None:
+            tv_defaults["table_name"] = tn
+            tv_defaults["record_id"] = rid
+            TransactionVerification.objects.create(**tv_defaults)
+        else:
+            for field_name, val in tv_defaults.items():
+                setattr(tv, field_name, val)
+            if result == "Returned":
+                tv.return_count = (tv.return_count or 0) + 1
+            tv.save()
+
+        audit_entries.append(GlobalAuditTrail(
+            table_name=tn,
+            record_id=rid,
+            action=audit_action,
+            actor_type=getattr(officer, "role", "Auditor"),
+            actor_id=officer.user_id_PK,
+            actor_name=getattr(officer, "full_name", ""),
+            ip_address=request.META.get("REMOTE_ADDR"),
+            notes=remarks or None,
+        ))
+        processed += 1
+
+    if audit_entries:
+        GlobalAuditTrail.objects.bulk_create(audit_entries)
+
+    _broadcast_pending_counts()
+    return JsonResponse({"ok": True, "processed": processed, "skipped": skipped})
+
+
+@require_POST
+@transaction.atomic
+def auditor_verify_batch(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    try:
+        body = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid JSON body."}, status=400)
+
+    items = body.get("items", [])
+    result = (body.get("result") or "").strip()
+    remarks = (body.get("remarks") or "").strip()
+
+    return _batch_verify_core(request, officer, items, result, remarks)
+
+
+@require_POST
+@transaction.atomic
+def reject_transaction(request: HttpRequest):
+
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    table_name = (request.POST.get("table_name") or "").strip()
+    record_id = (request.POST.get("record_id") or "").strip()
+    rejection_reason = (request.POST.get("rejection_reason") or "").strip()
+
+    if table_name not in MODEL_MAP:
+        return JsonResponse({"ok": False, "error": "Invalid table_name."}, status=400)
+    if not record_id:
+        return JsonResponse({"ok": False, "error": "Missing record_id."}, status=400)
+
+    Model = MODEL_MAP[table_name]
+    try:
+        record = Model.objects.get(pk=int(record_id))
+    except (ValueError, Model.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Record not found."}, status=404)
+
+    tv_qs = TransactionVerification.objects.select_for_update().filter(
+        table_name=table_name,
+        record_id=int(record_id),
+    )
+
+    tv = tv_qs.first()
+    if tv is not None and str(tv.verification_status) == "Returned for Revision":
+        return JsonResponse({"ok": True}, status=200)
+
+    snapshot = _serialize_record(record)
+
+    if tv is None:
+        TransactionVerification.objects.create(
+            table_name=table_name,
+            record_id=int(record_id),
+            verification_status="Returned for Revision",
+            auditor_id_FK=officer,
+            auditor_remarks=rejection_reason or "",
+            returned_by_auditor_id_FK=officer,
+            returned_reason=rejection_reason or "",
+            return_count=1,
+        )
+    else:
+        tv.verification_status = "Returned for Revision"
+        tv.auditor_id_FK = officer
+        tv.auditor_remarks = rejection_reason or ""
+        tv.returned_by_auditor_id_FK = officer
+        tv.returned_reason = rejection_reason or ""
+        tv.return_count = (tv.return_count or 0) + 1
+        tv.save(update_fields=[
+            "verification_status", "auditor_id_FK", "auditor_remarks",
+            "returned_by_auditor_id_FK", "returned_reason", "return_count",
+        ])
+
+    GlobalAuditTrail.objects.create(
+        table_name=table_name,
+        record_id=int(record_id),
+        action="RETURNED",
+        actor_type=getattr(officer, "role", "Auditor"),
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        ip_address=request.META.get("REMOTE_ADDR"),
+        notes=rejection_reason or None,
+        new_values=snapshot,
+    )
+
+    _broadcast_pending_counts()
+    return JsonResponse({"ok": True})
+
+
+@require_GET
+def auditor_supporting_proof(request: HttpRequest, model_type: str, record_id: int):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    if model_type not in MODEL_MAP:
+        return JsonResponse({"ok": False, "error": "Invalid model type."}, status=400)
+
+    Model = MODEL_MAP[model_type]
+    try:
+        record = Model.objects.get(pk=record_id)
+    except (ValueError, Model.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Record not found."}, status=404)
+
+    content_type = ContentType.objects.get_for_model(record)
+    proof = SupportingProof.objects.filter(
+        content_type=content_type,
+        object_id=record.pk
+    ).first()
+
+    if not proof:
+        return JsonResponse({"ok": True, "proof": None})
+
+    file_url = proof.file.url if proof.file else None
+
+    return JsonResponse({
+        "ok": True,
+        "proof": {
+            "file_url": file_url,
+            "file_type": proof.file_type,
+            "file_name": proof.file_name
+        }
+    })
+
+
+# ==========================================================================
+# AID TRACKING POSTS — Auditor Dashboard
+# ==========================================================================
+
+@require_GET
+def auditor_approved_aid_posts(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    posts = AidTrackingPost.objects.filter(is_active=True).select_related(
+        "archive_id_FK",
+        "archive_id_FK__member_id_FK",
+        "created_by_user_id_FK",
+    ).all()
+
+    items = []
+    for post in posts:
+        archive = post.archive_id_FK
+        member = archive.member_id_FK if archive else None
+        aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+        collection_rate = 0
+        if post.total_expected > 0:
+            collection_rate = round(float(post.total_collected) / float(post.total_expected) * 100, 1)
+
+        items.append({
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "aid_label": aid_label,
+            "member_name": archive.member_name if archive else "",
+            "member_id": member.member_id_PK if member else None,
+            "target_month": post.target_month,
+            "total_expected": str(post.total_expected),
+            "total_collected": str(post.total_collected),
+            "collection_rate": collection_rate,
+            "status": archive.status if archive else "",
+            "amount": str(archive.amount) if archive else "0",
+            "created_at": post.created_at.isoformat() if post.created_at else "",
+            "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
+        })
+
+    return JsonResponse({"ok": True, "posts": items})
+
+
+@require_GET
+def auditor_aid_post_members(request: HttpRequest, post_id: int):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    try:
+        post = AidTrackingPost.objects.select_related("archive_id_FK").get(
+            post_id_PK=post_id
+        )
+    except AidTrackingPost.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+
+    contributions = Contribution.objects.filter(
+        aid_tracking_post_id_FK=post,
+    ).select_related("member_id_FK").order_by("member_id_FK__full_name")
+
+    members_data = []
+    for c in contributions:
+        member = c.member_id_FK
+        members_data.append({
+            "contribution_id": c.contribution_id_PK,
+            "member_id": member.member_id_PK,
+            "member_name": member.full_name,
+            "employee_id": member.employee_id or "",
+            "department": member.department or "",
+            "expected_amount": str(c.expected_amount),
+            "paid_amount": str(c.paid_amount),
+            "payment_date": str(c.payment_date) if c.payment_date else None,
+            "status": c.status,
+            "is_manually_overridden": c.is_manually_overridden,
+            "notes": c.notes,
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "post": {
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "target_month": post.target_month,
+            "total_expected": str(post.total_expected),
+            "total_collected": str(post.total_collected),
+        },
+        "members": members_data,
+    })
+
+
+@require_POST
+@transaction.atomic
+def auditor_aid_post_member_pay(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    contribution_id = (request.POST.get("contribution_id") or "").strip()
+    if not contribution_id:
+        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
+
+    try:
+        contribution = Contribution.objects.select_related(
+            "aid_tracking_post_id_FK"
+        ).get(contribution_id_PK=int(contribution_id))
+    except (ValueError, Contribution.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
+
+    contribution.paid_amount = contribution.expected_amount
+    contribution.payment_date = timezone.now().date()
+    contribution.status = "PAID"
+    contribution.is_manually_overridden = False
+    contribution.updated_by_user_id_FK = officer
+    contribution.save()
+
+    post = contribution.aid_tracking_post_id_FK
+    totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
+        total_collected=Sum("paid_amount"),
+    )
+    post.total_collected = totals["total_collected"] or 0
+    post.save(update_fields=["total_collected"])
+
+    GlobalAuditTrail.objects.create(
+        table_name="contribution",
+        record_id=contribution.contribution_id_PK,
+        action="PAID",
+        actor_type=getattr(officer, "role", "Auditor"),
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {
+            "type": "contribution_updated",
+            "post_id": post.post_id_PK,
+            "contribution_id": contribution.contribution_id_PK,
+            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+            "status": "PAID",
+            "paid_amount": float(contribution.expected_amount),
+        },
+    )
+
+    return JsonResponse({"ok": True, "status": "PAID"})
+
+
+@require_POST
+@transaction.atomic
+def auditor_aid_post_member_skip(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    contribution_id = (request.POST.get("contribution_id") or "").strip()
+    notes = (request.POST.get("notes") or "").strip()
+
+    if not contribution_id:
+        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
+
+    try:
+        contribution = Contribution.objects.get(contribution_id_PK=int(contribution_id))
+    except (ValueError, Contribution.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
+
+    contribution.status = "SKIPPED"
+    contribution.is_manually_overridden = True
+    contribution.paid_amount = 0
+    contribution.notes = notes or contribution.notes
+    contribution.updated_by_user_id_FK = officer
+    contribution.save()
+
+    GlobalAuditTrail.objects.create(
+        table_name="contribution",
+        record_id=contribution.contribution_id_PK,
+        action="SKIPPED",
+        actor_type=getattr(officer, "role", "Auditor"),
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        notes=notes or None,
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {
+            "type": "contribution_updated",
+            "post_id": contribution.aid_tracking_post_id_FK_id,
+            "contribution_id": contribution.contribution_id_PK,
+            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+            "status": "SKIPPED",
+            "paid_amount": 0,
+        },
+    )
+
+    return JsonResponse({"ok": True, "status": "SKIPPED"})
+
+
+@require_POST
+def auditor_aid_post_member_notify(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    contribution_id = (request.POST.get("contribution_id") or "").strip()
+
+    if not contribution_id:
+        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
+
+    try:
+        contribution = Contribution.objects.select_related(
+            "aid_tracking_post_id_FK",
+            "member_id_FK",
+        ).get(contribution_id_PK=int(contribution_id))
+    except (ValueError, Contribution.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
+
+    member = contribution.member_id_FK
+    post = contribution.aid_tracking_post_id_FK
+    aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+
+    message = (
+        f"Dear {member.full_name},\n\n"
+        f"This is a reminder regarding your contribution for the {aid_label} claim "
+        f"for {post.archive_id_FK.member_name if post.archive_id_FK else 'a member'} "
+        f"(Month: {post.target_month}).\n\n"
+        f"Expected Amount: PHP {contribution.expected_amount}\n"
+        f"Status: {contribution.status}\n\n"
+        f"Please settle your contribution at the Treasurer's office at your earliest convenience."
+    )
+
+    queue_and_send_member_notification(
+        member=member,
+        message=message,
+        notification_type=f"{aid_label} Contribution Reminder",
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "message": f"Notification sent to {member.full_name}.",
+    })
+
+
+@require_POST
+@transaction.atomic
+def auditor_aid_post_finish(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    skip_remaining = (request.POST.get("skip_remaining") or "").strip().lower() == "true"
+
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id), is_active=True)
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Active post not found."}, status=404)
+
+    if skip_remaining:
+        Contribution.objects.filter(
+            aid_tracking_post_id_FK=post,
+            status="NOT_PAID",
+        ).update(
+            status="SKIPPED",
+            is_manually_overridden=True,
+            paid_amount=0,
+        )
+        totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
+            total_collected=Sum("paid_amount"),
+        )
+        post.total_collected = totals["total_collected"] or 0
+
+    post.is_active = False
+    post.save(update_fields=["is_active", "total_collected"])
+
+    archive = post.archive_id_FK
+    if archive is not None:
+        if archive.transaction_type == "death_aid":
+            DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
+        elif archive.transaction_type == "medical_aid":
+            MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {
+            "type": "aid_post_finished",
+            "post_id": post.post_id_PK,
+            "member_name": post.archive_id_FK.member_name if post.archive_id_FK else "",
+        },
+    )
+    _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+
+    return JsonResponse({"ok": True, "message": "Post marked as finished."})
+
+
+@require_GET
+def auditor_aid_post_history(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    posts = AidTrackingPost.objects.filter(is_active=False).select_related(
+        "archive_id_FK",
+        "archive_id_FK__member_id_FK",
+        "created_by_user_id_FK",
+    ).all()
+
+    items = []
+    for post in posts:
+        archive = post.archive_id_FK
+        member = archive.member_id_FK if archive else None
+        aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+        collection_rate = 0
+        if post.total_expected > 0:
+            collection_rate = round(float(post.total_collected) / float(post.total_expected) * 100, 1)
+
+        items.append({
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "aid_label": aid_label,
+            "member_name": archive.member_name if archive else "",
+            "member_id": member.member_id_PK if member else None,
+            "target_month": post.target_month,
+            "total_expected": str(post.total_expected),
+            "total_collected": str(post.total_collected),
+            "collection_rate": collection_rate,
+            "status": archive.status if archive else "",
+            "amount": str(archive.amount) if archive else "0",
+            "created_at": post.created_at.isoformat() if post.created_at else "",
+            "updated_at": post.updated_at.isoformat() if post.updated_at else "",
+            "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
+        })
+
+    return JsonResponse({"ok": True, "posts": items})

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import smtplib
+import threading
 from dataclasses import dataclass
 from email.message import EmailMessage
 from typing import Optional
@@ -8,8 +9,12 @@ from typing import Optional
 from django.conf import settings
 from django.utils import timezone
 
-from core_system.models import Notification
+from core_system.models import Member, Notification
 
+
+# ==========================================================================
+# LOW-LEVEL — notification_handler.py merged here
+# ==========================================================================
 
 @dataclass(frozen=True)
 class GmailSMTPConfig:
@@ -21,18 +26,6 @@ class GmailSMTPConfig:
 
 
 def get_gmail_smtp_config() -> Optional[GmailSMTPConfig]:
-    """Read Gmail SMTP configuration from Django settings.
-
-    Add these to `caufa_portal/settings.py`:
-      - GMAIL_SMTP_HOST
-      - GMAIL_SMTP_PORT
-      - GMAIL_SMTP_USER
-      - GMAIL_SMTP_PASSWORD
-      - GMAIL_SMTP_USE_TLS (optional, default True)
-
-    Returns None if required vars are missing.
-    """
-
     host = getattr(settings, "GMAIL_SMTP_HOST", None)
     port = getattr(settings, "GMAIL_SMTP_PORT", None)
     user = getattr(settings, "GMAIL_SMTP_USER", None)
@@ -51,11 +44,6 @@ def get_gmail_smtp_config() -> Optional[GmailSMTPConfig]:
 
 
 def send_email_gmail_smtp(*, to_email: str, subject: str, body: str) -> None:
-    """Send an email via Gmail SMTP.
-
-    If SMTP settings are not configured, this function becomes a no-op.
-    """
-
     config = get_gmail_smtp_config()
     if config is None:
         return
@@ -88,12 +76,6 @@ def queue_and_send_member_notification(
     message: str,
     notification_type: str,
 ) -> Notification:
-    """Create Notification row and optionally send email (best-effort).
-
-    - Uses `member.email` as recipient_contact.
-    - If email not present, it will still create the Notification row.
-    """
-
     to_email = getattr(member, "email", None) or None
 
     notif = Notification.objects.create(
@@ -107,18 +89,53 @@ def queue_and_send_member_notification(
     )
 
     if to_email:
-        try:
-            send_email_gmail_smtp(
-                to_email=to_email,
-                subject=notification_type,
-                body=message,
-            )
-            notif.delivery_status = "Sent"
-        except Exception:
-            notif.delivery_status = "Failed"
+        notif_pk = notif.notification_id_PK
 
-        notif.save(update_fields=["delivery_status"])
+        def _send_async():
+            try:
+                send_email_gmail_smtp(
+                    to_email=to_email,
+                    subject=notification_type,
+                    body=message,
+                )
+                Notification.objects.filter(notification_id_PK=notif_pk).update(
+                    delivery_status="Sent"
+                )
+            except Exception:
+                Notification.objects.filter(notification_id_PK=notif_pk).update(
+                    delivery_status="Failed"
+                )
+
+        threading.Thread(target=_send_async, daemon=True).start()
 
     return notif
 
 
+# ==========================================================================
+# HIGH-LEVEL WRAPPERS — notifications_membership_fee.py merged here
+# ==========================================================================
+
+def notify_membership_fee_policy_exception(*, member: Member, reason: str) -> None:
+    queue_and_send_member_notification(
+        member=member,
+        notification_type="Membership Fee Policy Exception",
+        message=f"Membership fee entry was not required for your account. Reason: {reason}",
+    )
+
+
+def notify_membership_fee_correction_required(*, member: Member) -> None:
+    queue_and_send_member_notification(
+        member=member,
+        notification_type="Membership Fee Correction Required",
+        message="Your membership fee payment requires correction. Please review and resubmit via the Treasurer workflow.",
+    )
+
+
+def notify_membership_fee_confirmed(*, member: Member) -> None:
+    queue_and_send_member_notification(
+        member=member,
+        notification_type="Membership Fee Payment Confirmed",
+        message=(
+            "Your membership fee payment has been received and submitted for audit verification."
+        ),
+    )

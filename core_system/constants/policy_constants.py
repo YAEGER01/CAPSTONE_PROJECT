@@ -69,3 +69,24 @@ def get_accidental_sickness_aid_threshold() -> float:
 
 def get_accidental_sickness_aid_benefit() -> float:
     return POLICY.accidental_sickness_aid_benefit
+
+
+def get_medical_aid_contribution_amount() -> float:
+    return POLICY.accidental_sickness_aid_benefit
+
+
+def get_contribution_amount_for_aid(aid_type: str, relationship: str = "") -> float:
+    if aid_type == "death_aid":
+        return get_death_aid_amount(relationship)
+    return get_medical_aid_contribution_amount()
+
+
+def check_medical_aid_once_per_year(member, year: int) -> str | None:
+    """Return an error message if the member already has a MedicalAid record this year, or None."""
+    from core_system.models import MedicalAid
+    if MedicalAid.objects.filter(member_id_FK=member, claim_year=year).exclude(status__in=["Rejected", "Returned"]).exists():
+        return (
+            f"Member already has a Medical Aid record for {year}. "
+            "Per ARTICLE XI Section 1.b, accidental/sickness aid is limited to once a year."
+        )
+    return None

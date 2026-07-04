@@ -1,10 +1,16 @@
+import os as _os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-change-me-for-production"
+load_dotenv(BASE_DIR / ".env")
+
+SECRET_KEY = _os.getenv("SECRET_KEY", "django-insecure-change-me-for-production")
 DEBUG = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver", "angeline-unprotuberant-vanita.ngrok-free.dev"]
+
+CSRF_TRUSTED_ORIGINS = ["https://angeline-unprotuberant-vanita.ngrok-free.dev"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -13,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "channels",
     "core_system",
 ]
 
@@ -51,15 +58,29 @@ TEMPLATES = [
 WSGI_APPLICATION = "caufa_portal.wsgi.application"
 ASGI_APPLICATION = "caufa_portal.asgi.application"
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "caufa-cache",
+        "TIMEOUT": 300,
+    }
+}
+
 # Replace your old DATABASES dictionary with this:
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": "capstone_project_db",
-        "USER": "root",
-        "PASSWORD": "new_password",
-        "HOST": "127.0.0.1",
-        "PORT": "3307",
+        "NAME": _os.getenv("DB_NAME", "capstone_project_db"),
+        "USER": _os.getenv("DB_USER", "root"),
+        "PASSWORD": _os.getenv("DB_PASSWORD", ""),
+        "HOST": _os.getenv("DB_HOST", "127.0.0.1"),
+        "PORT": _os.getenv("DB_PORT", "3307"),
         "OPTIONS": {
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
         },
@@ -106,8 +127,6 @@ LOGOUT_REDIRECT_URL = "login"
 #
 # If you already set Django's EMAIL_* settings, we fall back to them.
 
-import os as _os
-
 # Host/port
 GMAIL_SMTP_HOST = _os.getenv("GMAIL_SMTP_HOST", _os.getenv("EMAIL_HOST", "smtp.gmail.com"))
 GMAIL_SMTP_PORT = int(_os.getenv("GMAIL_SMTP_PORT", _os.getenv("EMAIL_PORT", "587")))
@@ -121,5 +140,11 @@ GMAIL_SMTP_USE_TLS = _os.getenv(
     "GMAIL_SMTP_USE_TLS",
     _os.getenv("EMAIL_USE_TLS", "true"),
 ).lower() in {"1", "true", "yes"}
+
+# -------------------------
+# Web Push (VAPID) Settings
+# -------------------------
+VAPID_PUBLIC_KEY = _os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = _os.getenv("VAPID_PRIVATE_KEY", "")
 
 

@@ -2,24 +2,12 @@
   "use strict";
 
   const FORM_ID = "memberForm";
-  const TABLE_BODY_SELECTOR = "#memberTable tbody";
 
   function getCSRFToken() {
     const el = document.querySelector("input[name='csrfmiddlewaretoken']");
     if (el && el.value) return el.value;
-    // fallback (common pattern)
     const m = document.cookie.match(/csrftoken=([^;]+)/);
     return m ? m[1] : "";
-  }
-
-  function showToast(message, isError = false) {
-    // Reuse existing global helper if present
-    if (typeof window.showToast === "function") {
-      window.showToast(message, isError);
-      return;
-    }
-
-    alert(message);
   }
 
   function getFormValue(id) {
@@ -33,6 +21,9 @@
     const form = document.getElementById(FORM_ID);
     if (!form) return;
 
+    // ==========================================
+    // MODULE 1: EXTRACT CORE MEMBER VALUES
+    // ==========================================
     const fullName = getFormValue("prof_name").trim();
     const empId = getFormValue("prof_id").trim();
     const dept = getFormValue("prof_dept").trim();
@@ -41,8 +32,7 @@
     const email = getFormValue("prof_email").trim();
     const status = getFormValue("prof_status").trim();
 
-    // Prevent duplicates on the client (fast UX) using what we already have.
-    // True enforcement must still be done server-side in /api/treasurer/members/add/.
+    // Client-side duplicate check
     const dupKey = empId;
     if (
       dupKey &&
@@ -63,13 +53,14 @@
         ? photoInput.files[0]
         : null;
 
-    // Minimal validation
+    // Profile Validations
     if (!fullName) return showToast("Full Legal Name is required.", true);
     if (!empId) return showToast("Employee/Faculty ID is required.", true);
     if (!status) return showToast("Membership Status is required.", true);
     if (email && !email.includes("@"))
       return showToast("Institutional Email looks invalid.", true);
 
+    // Instantiate Unified Payload
     const fd = new FormData();
     fd.append("prof_name", fullName);
     fd.append("prof_id", empId);
@@ -80,9 +71,86 @@
     fd.append("prof_status", status);
     if (photoFile) fd.append("prof_photo_file", photoFile);
 
+    // ==========================================
+    // MODULE 2: DYNAMIC STREAMLINED PAYMENT PARSING
+    // ==========================================
+    const paymentRequired = document.getElementById(
+      "enroll_payment_required_toggle",
+    ).checked;
+    fd.append("payment_required", paymentRequired ? "true" : "false");
+
+    if (paymentRequired) {
+      const feeMethod = getFormValue("enroll_fee_method").trim();
+      const feeDate = getFormValue("enroll_fee_date").trim();
+      let feeAmount = getFormValue("enroll_fee_amount").trim();
+
+      // If field is left empty by encoder, fall back to standard 500.00 base constraint
+      if (!feeAmount) {
+        feeAmount = "500.00";
+      }
+
+      if (!feeMethod)
+        return showToast(
+          "Payment Method is required when logging a payment.",
+          true,
+        );
+      if (!feeDate)
+        return showToast(
+          "Payment Date is required when logging a payment.",
+          true,
+        );
+      if (parseFloat(feeAmount) <= 0 || isNaN(parseFloat(feeAmount))) {
+        return showToast(
+          "Payment Amount must be a positive numeric value.",
+          true,
+        );
+      }
+
+      fd.append("fee_method", feeMethod);
+      fd.append("fee_date", feeDate);
+      fd.append("fee_amount", feeAmount);
+
+      // ==========================================
+      // MODULE 3: GRANULAR RECEIPT AUDIT PARSING
+      // ==========================================
+      const receiptRequired = document.getElementById(
+        "enroll_receipt_required_toggle",
+      ).checked;
+      fd.append("receipt_required", receiptRequired ? "true" : "false");
+
+      if (receiptRequired) {
+        const feeRef = getFormValue("enroll_fee_ref").trim();
+        const feeEncoder = getFormValue("enroll_fee_encoder").trim();
+
+        const receiptInput = document.getElementById("enroll_fee_photo_file");
+        const receiptFile =
+          receiptInput && receiptInput.files && receiptInput.files.length
+            ? receiptInput.files[0]
+            : null;
+
+        if (!feeRef)
+          return showToast("Receipt / Reference Number is required.", true);
+        if (!feeEncoder)
+          return showToast("Encoder description identity is required.", true);
+        if (!receiptFile)
+          return showToast(
+            "Please upload an official photo proof of the payment receipt.",
+            true,
+          );
+
+        fd.append("fee_ref", feeRef);
+        fd.append("fee_encoder", feeEncoder);
+        fd.append("fee_photo_file", receiptFile);
+      }
+    }
+
     const csrf = getCSRFToken();
 
+    // ==========================================
+    // MODULE 4: UNIFIED NETWORK AJAX DESTINATION
+    // ==========================================
     try {
+      // Pointing directly to our incoming combined views endpoint mapping
       const resp = await fetch("/api/treasurer/members/add/", {
         method: "POST",
         body: fd,
@@ -94,13 +162,14 @@
 
       if (!resp.ok || !data.ok) {
         const err =
-          data && data.error ? data.error : "Failed to enroll member.";
+          data && data.error
+            ? data.error
+            : "Failed to execute streamlined directory registration.";
         showToast(err, true);
         return;
       }
 
-      // Optional: update UI if the page uses localStorage-based rendering.
-      // Prefer: if the page already defines db + renderMembersTable, push there too.
+      // Sync window database matrix structure if context array is present
       if (window.db && Array.isArray(window.db.members)) {
         const newMember = {
           id: `M-${data.member.member_id}`,
@@ -119,17 +188,30 @@
         if (typeof window.renderAllComponents === "function")
           window.renderAllComponents();
       } else if (typeof window.renderMembersTable === "function") {
-        // If no local db, do a soft reload of table.
         window.renderMembersTable();
       }
 
+      // Clean up interactive template flags post successfully completing save execution
       form.reset();
-      const preview = document.getElementById("prof_preview");
-      if (preview) preview.style.display = "none";
 
-      showToast("Member account provisioned into Directory!", false);
+      const profPreview = document.getElementById("prof_preview");
+      if (profPreview) profPreview.style.display = "none";
+
+      const feePreview = document.getElementById("enroll_fee_preview");
+      if (feePreview) feePreview.style.display = "none";
+
+      // Re-trigger view display driver functions to enforce default structural hiding layout rules
+      if (typeof window.togglePaymentSectionVisibility === "function")
+        window.togglePaymentSectionVisibility();
+      if (typeof window.toggleReceiptFieldsVisibility === "function")
+        window.toggleReceiptFieldsVisibility();
+
+      showToast("Streamlined Member Profile logged successfully!", false);
     } catch (err) {
-      showToast("Network/server error while enrolling member.", true);
+      showToast(
+        "Network/server error while handling your execution request.",
+        true,
+      );
     }
   }
 
@@ -137,13 +219,55 @@
     const form = document.getElementById(FORM_ID);
     if (!form) return;
 
-    // Override inline handler if it exists by redefining global function name.
-    // This ensures form uses our processor even if template still has onsubmit="handleMemberSubmit(event)".
     window.handleMemberSubmit = handleSubmit;
-
-    // Also attach explicit listener in case inline handler is removed later.
     form.addEventListener("submit", handleSubmit);
   }
 
   document.addEventListener("DOMContentLoaded", init);
+
+  // Expose visibility handlers globally for the HTML onchange attributes
+  window.togglePaymentSectionVisibility = function () {
+    const isChecked = document.getElementById(
+      "enroll_payment_required_toggle",
+    ).checked;
+    const container = document.getElementById("enroll_corePaymentContainer");
+    const fields = ["enroll_fee_method", "enroll_fee_date", "enroll_fee_amount"];
+
+    if (isChecked) {
+      container.style.display = "block";
+      fields.forEach((id) =>
+        document.getElementById(id).setAttribute("required", "true"),
+      );
+    } else {
+      container.style.display = "none";
+      fields.forEach((id) =>
+        document.getElementById(id).removeAttribute("required"),
+      );
+      document.getElementById("enroll_receipt_required_toggle").checked = false;
+      window.toggleReceiptFieldsVisibility();
+    }
+  };
+
+  window.toggleReceiptFieldsVisibility = function () {
+    const isChecked = document.getElementById(
+      "enroll_receipt_required_toggle",
+    ).checked;
+    const container = document.getElementById("enroll_auditFieldsContainer");
+    const fields = ["enroll_fee_ref", "enroll_fee_encoder"];
+
+    if (
+      isChecked &&
+      document.getElementById("enroll_payment_required_toggle").checked
+    ) {
+      container.style.display = "block";
+      fields.forEach((id) =>
+        document.getElementById(id).setAttribute("required", "true"),
+      );
+    } else {
+      container.style.display = "none";
+      fields.forEach((id) =>
+        document.getElementById(id).removeAttribute("required"),
+      );
+    }
+  };
 })();

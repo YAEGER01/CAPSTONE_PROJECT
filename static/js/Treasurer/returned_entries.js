@@ -32,14 +32,6 @@
     return m ? m[1] : "";
   }
 
-  function showToast(message, isError = false) {
-    if (typeof window.showToast === "function") {
-      window.showToast(message, isError);
-      return;
-    }
-    alert(message);
-  }
-
   function getEl(id) {
     return document.getElementById(id);
   }
@@ -168,15 +160,36 @@
       const tr = document.createElement("tr");
       tr.dataset.recordId = String(r.fee_id_PK);
       tr.dataset.receipt = String(r.receipt_number || "");
-      tr.innerHTML = `
-        <td style="font-weight:600;color:#1b5e20;">${r.receipt_number || ""}</td>
-        <td>${r.member_name || ""}<br><span style="font-size:0.75rem;color:#757575;">Code: ${r.member_id_PK || ""}</span></td>
-        <td style="font-weight:600;">${r.amount || "0"}</td>
-        <td>${r.month_covered || "N/A"}<br><span style="font-size:0.75rem;color:#757575;">Date: ${r.payment_date || ""}</span></td>
-        <td>${r.payment_status || ""}<br><span style="font-size:0.75rem;color:#757575;">Method: ${r.payment_method || ""}</span></td>
-        <td>${escapeHtml(cleanRejectionReason(r.rejection_reason || "")) || "—"}</td>
-        <td><button type="button" class="btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" onclick="window.__selectReturnedFee('${r.fee_id_PK}')">Edit</button></td>
-      `;
+      tr.innerHTML = [
+        '<td style="font-weight:600;color:#1b5e20;">',
+        escapeHtml(r.receipt_number || ""),
+        '</td>',
+        '<td>',
+        escapeHtml(r.member_name || ""),
+        '<br><span style="font-size:0.75rem;color:#757575;">Code: ',
+        escapeHtml(r.member_id_PK || ""),
+        '</span></td>',
+        '<td style="font-weight:600;">',
+        escapeHtml(r.amount || "0"),
+        '</td>',
+        '<td>',
+        escapeHtml(r.month_covered || "N/A"),
+        '<br><span style="font-size:0.75rem;color:#757575;">Date: ',
+        escapeHtml(r.payment_date || ""),
+        '</span></td>',
+        '<td>',
+        escapeHtml(r.payment_status || ""),
+        '<br><span style="font-size:0.75rem;color:#757575;">Method: ',
+        escapeHtml(r.payment_method || ""),
+        '</span></td>',
+        '<td>',
+        escapeHtml(cleanRejectionReason(r.rejection_reason || "")) || "—",
+        '</td>',
+        '<td>',
+        '<button type="button" class="btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" onclick="window.__selectReturnedFee(\'', r.fee_id_PK, '\')">Edit</button>',
+        '<button type="button" class="btn-audit-trail btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;margin-left:4px;" data-audit-table="membership_fee" data-audit-record-id="', r.fee_id_PK, '">Audit</button>',
+        '</td>',
+      ].join("");
       tbody.appendChild(tr);
     });
   }
@@ -343,6 +356,9 @@
       fd.append("fee_amount", fullAmount);
       fd.append("fee_partial_amount", "");
     }
+
+    const mfSameAuditor = document.getElementById("mf_same_auditor");
+    fd.append("same_auditor", mfSameAuditor ? mfSameAuditor.checked : false);
 
     // Attach photo file if selected
     const photoInput = document.getElementById("re_fee_photo_file");

@@ -45,29 +45,29 @@
       .sidebar {
         width: 280px;
         height: 100%;
-        background: #1b5e20; /* Deep Institutional Green */
+        background: #ffffff;
         display: flex;
         flex-direction: column;
         transition: width 0.25s ease;
         flex-shrink: 0;
-        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        box-shadow: 2px 0 12px rgba(0, 0, 0, 0.06);
         z-index: 1010;
       }
 
       /* Sidebar Header */
       .sidebar-brand {
-        padding: 24px;
+        padding: 18px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        color: white;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        color: #263238;
       }
 
       .brand-title-wrapper {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
       }
 
       .logo-mark {
@@ -85,8 +85,8 @@
 
       .role-tag {
         font-size: 0.72rem;
-        background: rgba(255, 255, 255, 0.15);
-        color: rgba(255, 255, 255, 0.9);
+        background: rgba(0, 0, 0, 0.05);
+        color: rgba(0, 0, 0, 0.7);
         padding: 2px 8px;
         border-radius: 4px;
         display: inline-block;
@@ -96,7 +96,7 @@
       .collapse-toggle-btn {
         background: transparent;
         border: none;
-        color: white;
+        color: #263238;
         cursor: pointer;
         font-size: 1.15rem;
         display: flex;
@@ -108,8 +108,8 @@
       }
 
       .collapse-toggle-btn:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: #fbc02d;
+        background: rgba(0, 0, 0, 0.04);
+        color: #1b5e20;
       }
 
       /* Sidebar Scrollable Area */
@@ -124,14 +124,14 @@
 
       /* Navigation Items Matrix */
       .menu-item {
-        padding: 14px 24px;
-        color: rgba(255, 255, 255, 0.75);
+        padding: 12px 18px;
+        color: #263238;
         text-decoration: none;
         font-weight: 500;
         font-size: 0.95rem;
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 12px;
         transition: 0.3s;
         border-left: 4px solid transparent;
         white-space: nowrap;
@@ -139,14 +139,15 @@
       }
 
       .menu-item:hover {
-        color: #fbc02d; /* Accent Gold Yellow hover */
-        background: rgba(255, 255, 255, 0.05);
+        color: #1b5e20;
+        text-shadow: 0 0 6px rgba(0, 230, 118, 0.4), 0 0 12px rgba(0, 230, 118, 0.2);
+        background: rgba(0, 0, 0, 0.02);
       }
 
       .menu-item.active {
         color: #1b5e20;
-        background: #f6fbf6; /* Merges cleanly into content bg */
-        border-left: 4px solid #fbc02d;
+        background: #e8f5e9;
+        border-left: 4px solid #00e676;
         font-weight: 600;
       }
 
@@ -157,8 +158,8 @@
       }
 
       .folder-header {
-        padding: 14px 24px;
-        color: rgba(255, 255, 255, 0.9);
+        padding: 12px 18px;
+        color: #263238;
         font-weight: 600;
         font-size: 0.85rem;
         text-transform: uppercase;
@@ -172,14 +173,15 @@
       }
 
       .folder-header:hover {
-        color: #fbc02d;
+        color: #1b5e20;
+        text-shadow: 0 0 6px rgba(0, 230, 118, 0.3), 0 0 12px rgba(0, 230, 118, 0.15);
       }
 
       .folder-contents {
         max-height: 0;
         overflow: hidden;
         transition: max-height 0.3s ease-in-out;
-        background: #144317; /* Darker green background tone inside folder dropdown */
+        background: #f5f5f5;
       }
 
       .folder-contents.open {
@@ -187,13 +189,13 @@
       }
 
       .folder-contents .menu-item {
-        padding-left: 36px;
+        padding-left: 28px;
       }
 
       .folder-title-wrapper {
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 12px;
       }
 
       .chevron-icon {
@@ -206,6 +208,22 @@
       .sub-icon {
         font-size: 0.95rem;
         opacity: 0.8;
+      }
+
+      .notif-dot {
+        min-width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: #e53935;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0 5px;
+        flex-shrink: 0;
+        line-height: 1;
       }
 
       /* Collapsed state adjustments */
@@ -224,19 +242,19 @@
 
       .sidebar.collapsed .sidebar-brand {
         justify-content: center !important;
-        padding: 24px 0 !important;
+        padding: 18px 0 !important;
       }
 
       .sidebar.collapsed .menu-item {
         justify-content: center !important;
-        padding: 16px 0 !important;
+        padding: 12px 0 !important;
         border-left: none !important;
         gap: 0 !important;
       }
 
       .sidebar.collapsed .folder-header {
         justify-content: center !important;
-        padding: 16px 0 !important;
+        padding: 12px 0 !important;
       }
 
       .sidebar.collapsed .folder-title-wrapper {
@@ -246,7 +264,7 @@
 
       .sidebar-footer {
         width: 100%;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
         padding: 10px 0;
       }
 
@@ -264,19 +282,19 @@
       /* Workspace Header Bar */
       .viewport-header {
         background: #ffffff;
-        height: 70px;
+        height: 60px;
         border-bottom: 1px solid #dfe9df;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 40px;
+        padding: 0 24px;
         z-index: 1000;
       }
 
       .header-left {
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 12px;
       }
 
       .toggle-sidebar-mobile {
@@ -289,7 +307,7 @@
       }
 
       .page-title {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 700;
         color: #1b5e20;
       }
@@ -297,18 +315,18 @@
       .header-right {
         display: flex;
         align-items: center;
-        gap: 20px;
+        gap: 14px;
       }
 
       .user-profile {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
       }
 
       .user-avatar {
-        width: 38px;
-        height: 38px;
+        width: 34px;
+        height: 34px;
         background: #e1eedf;
         border: 2px solid #1b5e20;
         color: #1b5e20;
@@ -339,7 +357,7 @@
       .content-viewport {
         flex: 1;
         overflow-y: auto;
-        padding: 40px;
+        padding: 24px;
         background: #eef7ef; /* Pale Mint Section Color */
       }
 
@@ -355,24 +373,24 @@
       /* Modular Content Panel Containers */
       .dashboard-panel {
         background: #ffffff;
-        border-radius: 20px;
-        padding: 35px;
+        border-radius: 14px;
+        padding: 24px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
         border: 1px solid #dfe9df;
-        margin-bottom: 30px;
+        margin-bottom: 20px;
       }
 
       .panel-header-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 25px;
+        margin-bottom: 16px;
         border-bottom: 2px solid #f6fbf6;
-        padding-bottom: 15px;
+        padding-bottom: 10px;
       }
 
       .panel-title {
-        font-size: 1.2rem;
+        font-size: 1rem;
         font-weight: 700;
         color: #1b5e20;
       }
@@ -385,20 +403,20 @@
       /* KPI Grid cards */
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-        gap: 24px;
-        margin-bottom: 30px;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
       }
 
       .stat-card {
         background: #ffffff;
         border: 1px solid #dfe9df;
-        border-radius: 16px;
-        padding: 24px;
+        border-radius: 12px;
+        padding: 16px;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
         display: flex;
         align-items: center;
-        gap: 20px;
+        gap: 12px;
         transition: 0.2s;
       }
 
@@ -408,15 +426,15 @@
       }
 
       .stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
         background: rgba(27, 94, 32, 0.1);
         color: #1b5e20;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.3rem;
+        font-size: 1.1rem;
       }
 
       .stat-icon.accent-yellow {
@@ -430,13 +448,13 @@
       }
 
       .stat-info h4 {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: #757575;
         font-weight: 500;
       }
 
       .stat-info .stat-value {
-        font-size: 1.35rem;
+        font-size: 1.1rem;
         font-weight: 700;
         color: #263238;
         margin-top: 2px;
@@ -446,7 +464,7 @@
       .table-container {
         width: 100%;
         overflow-x: auto;
-        border-radius: 12px;
+        border-radius: 8px;
         border: 1px solid #dfe9df;
       }
 
@@ -454,22 +472,23 @@
         width: 100%;
         border-collapse: collapse;
         text-align: left;
-        font-size: 0.88rem;
+        font-size: 0.78rem;
       }
 
       .custom-table th {
         background: #f6fbf6;
         color: #1b5e20;
         font-weight: 600;
-        padding: 14px 18px;
+        padding: 8px 10px;
         border-bottom: 2px solid #dfe9df;
       }
 
       .custom-table td {
-        padding: 14px 18px;
+        padding: 8px 10px;
         border-bottom: 1px solid #f0f5f0;
         color: #263238;
         vertical-align: middle;
+        word-break: break-word;
       }
 
       .custom-table tr:hover {
@@ -486,7 +505,7 @@
       .audit-split-workspace {
         display: grid;
         grid-template-columns: 1fr 1.2fr;
-        gap: 30px;
+        gap: 20px;
       }
 
       @media (max-width: 1200px) {
@@ -499,17 +518,17 @@
         background: #fdfdfd;
         border: 1px solid #e2ece2;
         border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
+        padding: 16px;
+        margin-bottom: 16px;
       }
 
       .inspection-data-title {
-        font-size: 0.82rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
         font-weight: 700;
         color: #1b5e20;
         letter-spacing: 0.5px;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         border-bottom: 1px solid #eef7ef;
         padding-bottom: 6px;
       }
@@ -517,11 +536,11 @@
       .readonly-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 15px;
+        gap: 12px;
       }
 
       .readonly-field label {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: #757575;
         font-weight: 500;
         display: block;
@@ -529,7 +548,7 @@
       }
 
       .readonly-field div {
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         font-weight: 600;
         color: #263238;
       }
@@ -543,20 +562,20 @@
       .timeline-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
       }
 
       .timeline-table th {
         background: #eef7ef;
         color: #1b5e20;
         font-weight: 600;
-        padding: 10px;
+        padding: 8px;
         text-align: left;
         border-bottom: 2px solid #dfe9df;
       }
 
       .timeline-table td {
-        padding: 10px;
+        padding: 8px;
         border-bottom: 1px solid #f0f5f0;
         color: #37474f;
       }
@@ -565,13 +584,13 @@
       .dashboard-form {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 20px;
+        gap: 16px;
       }
 
       .form-grid-2 {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
       }
 
       .form-group {
@@ -581,18 +600,18 @@
 
       .dashboard-form label {
         display: block;
-        font-size: 13px;
+        font-size: 0.8rem;
         font-weight: 600;
         color: #1b5e20;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       }
 
       .dashboard-form input,
       .dashboard-form select,
       .dashboard-form textarea {
         width: 100%;
-        padding: 14px 16px;
-        border-radius: 12px;
+        padding: 10px 14px;
+        border-radius: 8px;
         border: 1px solid #cfdccc;
         font: inherit;
         background: #fbfdfb;
@@ -615,19 +634,22 @@
         color: #546e7a;
       }
 
-      /* Interactive Action Buttons */
+      /* Action Buttons */
       .btn-brand {
-        padding: 14px 28px;
-        border-radius: 10px;
+        padding: 8px 18px;
+        border-radius: 8px;
         font-weight: 600;
         border: none;
         cursor: pointer;
-        transition: 0.3s;
+        transition: all 0.25s ease;
         font-family: "Poppins", sans-serif;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 8px;
+        font-size: 0.82rem;
+        letter-spacing: 0.01em;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
       }
 
       .btn-brand-primary {
@@ -638,6 +660,7 @@
       .btn-brand-primary:hover {
         background: #2e7d32;
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(27, 94, 32, 0.35);
       }
 
       .btn-brand-secondary {
@@ -648,6 +671,7 @@
       .btn-brand-secondary:hover {
         background: #ffd54f;
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(251, 192, 45, 0.45);
       }
 
       .btn-brand-danger {
@@ -657,13 +681,33 @@
 
       .btn-brand-danger:hover {
         background: #d32f2f;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(229, 57, 53, 0.35);
       }
 
-      /* Badges for System State Loops */
+      .btn-select-glow {
+        background: #1b5e20;
+        color: white;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: 0 2px 8px rgba(27, 94, 32, 0.35);
+      }
+
+      .btn-select-glow:hover {
+        background: #fbc02d;
+        color: #1b1b1b;
+        box-shadow: 0 4px 14px rgba(251, 192, 45, 0.7);
+        transform: translateY(-1px);
+      }
       .badge-zero {
-        padding: 6px 12px;
+        padding: 4px 10px;
         border-radius: 8px;
-        font-size: 0.8rem;
+        font-size: 0.72rem;
         font-weight: 600;
         display: inline-block;
       }
@@ -682,6 +726,101 @@
         background-color: rgba(229, 57, 53, 0.1);
         color: #e53935;
       }
+
+      /* === Badge Status Styles === */
+      .badge-medical-aid {
+        background-color: #ccfbf1;
+        color: #115e59;
+        border: 1px solid #2dd4bf;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-medical-aid:hover {
+        background-color: #99f6e4;
+        box-shadow: 0 2px 8px rgba(17, 94, 89, 0.15);
+      }
+
+      .badge-death-aid {
+        background-color: #e0e7ff;
+        color: #4338ca;
+        border: 1px solid #a5b4fc;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-death-aid:hover {
+        background-color: #c7d2fe;
+        box-shadow: 0 2px 8px rgba(67, 56, 202, 0.15);
+      }
+
+      /* Monthly Dues (By Salary Deduction) */
+      .badge-monthly-dues-salary {
+        background-color: #e0f2fe;
+        color: #1e3a8a;
+        border: 1px solid #7dd3fc;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-monthly-dues-salary:hover {
+        background-color: #bae6fd;
+        box-shadow: 0 2px 8px rgba(30, 58, 138, 0.1);
+      }
+
+      /* Monthly Dues (By OTC Payment) */
+      .badge-monthly-dues-otc {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+        border: 1px solid #60a5fa;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-monthly-dues-otc:hover {
+        background-color: #bfdbfe;
+        box-shadow: 0 2px 8px rgba(29, 78, 216, 0.15);
+      }
+
+      /* Membership Fee */
+      .badge-membership-fee {
+        background-color: #fef3c7;
+        color: #78350f;
+        border: 1px solid #fbbf24;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        display: inline-block;
+        transition:
+          background-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .badge-membership-fee:hover {
+        background-color: #fde68a;
+        box-shadow: 0 2px 8px rgba(120, 53, 15, 0.12);
+      }
+      /* === END BADGE STATUS STYLES === */
 
       /* Smooth Navigation Animations */
       .module-fade-in {
@@ -711,15 +850,18 @@
       }
 
       .custom-toast {
-        background: #ffffff;
-        border-left: 5px solid #1b5e20;
-        border-radius: 8px;
-        padding: 16px 24px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        background: rgba(27, 94, 32, 0.85);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        padding: 10px 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
         display: flex;
         align-items: center;
-        gap: 15px;
-        min-width: 320px;
+        gap: 10px;
+        min-width: 280px;
+        color: #fff;
         transform: translateX(120%);
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
@@ -729,7 +871,8 @@
       }
 
       .custom-toast.toast-error {
-        border-left-color: #e53935;
+        background: rgba(229, 57, 53, 0.85);
+        border-color: rgba(255, 255, 255, 0.15);
       }
 
       /* Modal System */
@@ -748,10 +891,10 @@
 
       .modal-card {
         background: white;
-        border-radius: 20px;
+        border-radius: 14px;
         width: 90%;
-        max-width: 600px;
-        padding: 35px;
+        max-width: 520px;
+        padding: 24px;
         box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
         text-align: center;
       }
@@ -776,73 +919,17 @@
         }
 
         .content-viewport {
-          padding: 20px;
+          padding: 16px;
+        }
+
+        .dashboard-panel {
+          padding: 18px;
         }
       }
 
-      /* Glowing Select Button */
-      .btn-select-glow {
-        background: #1b5e20;
-        color: white;
-        padding: 6px 14px;
-        border-radius: 8px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        border: none;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 0 8px rgba(27, 94, 32, 0.4);
-        animation: selectPulseGlow 2s infinite alternate;
-      }
-
-      .btn-select-glow:hover {
-        background: #fbc02d;
-        color: #1b5e20;
-        box-shadow: 0 0 12px rgba(251, 192, 45, 0.8);
-      }
-
-      @keyframes selectPulseGlow {
-        0% {
-          box-shadow: 0 0 4px rgba(27, 94, 32, 0.3);
-        }
-        100% {
-          box-shadow: 0 0 14px rgba(27, 94, 32, 0.7);
-        }
-      }
     </style>
   </head>
   <body>
-    <!-- Custom Alert Modals -->
-    <div class="modal-overlay" id="customAlertModal">
-      <div class="modal-card">
-        <h3
-          style="color: #1b5e20; margin-bottom: 12px; font-size: 1.3rem"
-          id="modalAlertTitle"
-        >
-          Notice
-        </h3>
-        <p
-          style="
-            color: #546e7a;
-            margin-bottom: 24px;
-            font-size: 0.95rem;
-            line-height: 1.5;
-            text-align: left;
-            white-space: pre-line;
-          "
-          id="modalAlertMessage"
-        >
-          Message text
-        </p>
-        <button
-          class="btn-brand btn-brand-primary"
-          onclick="closeCustomModal()"
-        >
-          Close Document
-        </button>
-      </div>
-    </div>
-
     <div class="modal-overlay" id="customConfirmModal">
       <div class="modal-card">
         <h3 style="color: #e53935; margin-bottom: 12px; font-size: 1.3rem">
@@ -878,6 +965,14 @@
       </div>
     </div>
 
+    <div class="modal-overlay" id="customAlertModal" style="display:none;">
+      <div class="modal-card">
+        <h3 id="modalAlertTitle" style="color:#1b5e20;margin-bottom:12px;font-size:1.3rem;"></h3>
+        <p id="modalAlertMessage" style="color:#546e7a;margin-bottom:24px;font-size:0.95rem;line-height:1.5;white-space:pre-wrap;"></p>
+        <button class="btn-brand btn-brand-primary" onclick="closeCustomAlert()">Close</button>
+      </div>
+    </div>
+
     <!-- Notification Toast Area -->
     <div class="notification-host" id="toastContainer"></div>
 
@@ -890,15 +985,13 @@
         <div class="sidebar-top">
           <!-- Sidebar Brand Header -->
           <div class="sidebar-brand">
-            <div class="brand-title-wrapper">
+            <!--div class="brand-title-wrapper">
               <span class="logo-mark">P</span>
               <div class="brand-title-text">
-                <h2 style="font-size: 0.95rem; line-height: 1.2">
-                  President HQ
-                </h2>
+                <h2 style="font-size: 0.95rem; line-height: 1.2">///</h2>
                 <span class="role-tag">Executive Office</span>
               </div>
-            </div>
+            </div-->
             <button
               class="collapse-toggle-btn"
               id="collapseBtn"
@@ -974,7 +1067,11 @@
                       <line x1="9" y1="17" x2="15" y2="17"></line>
                     </svg>
                   </span>
-                  <span class="menu-text">Approval Desk</span>
+                  <span class="menu-text">Disbursement</span>
+                  <span
+                    id="approval-desk-dot"
+                    class="notif-dot"
+                  ></span>
                 </div>
                 <span class="chevron-icon">
                   <svg
@@ -995,10 +1092,18 @@
                 <a class="menu-item" data-target="presidential-payments">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Payments Verification</span>
+                  <span
+                    id="pres-payments-dot"
+                    class="notif-dot"
+                  ></span>
                 </a>
                 <a class="menu-item" data-target="presidential-aid-requests">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Aid & Claims Approval</span>
+                  <span
+                    id="pres-aid-dot"
+                    class="notif-dot"
+                  ></span>
                 </a>
               </div>
             </div>
@@ -1030,7 +1135,7 @@
                       <polyline points="10 9 9 9 8 9"></polyline>
                     </svg>
                   </span>
-                  <span class="menu-text">Executive Registry</span>
+                  <span class="menu-text">History</span>
                 </div>
                 <span class="chevron-icon">
                   <svg
@@ -1106,11 +1211,7 @@
 
           <!-- Sidebar Reset Footer -->
           <div class="sidebar-footer">
-            <a
-              class="menu-item"
-              onclick="resetDatabaseWithWarning()"
-              style="color: rgba(255, 255, 255, 0.5)"
-            >
+            <a class="menu-item" onclick="confirmLogout()" title="Logout">
               <span class="menu-icon">
                 <svg
                   width="18"
@@ -1122,14 +1223,12 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
-                  <path
-                    d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"
-                  ></path>
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
                 </svg>
               </span>
-              <span class="menu-text" style="font-size: 0.85rem"
-                >Flush Console DB</span
-              >
+              <span class="menu-text" style="font-size: 0.85rem">Logout</span>
             </a>
           </div>
         </div>
@@ -1156,20 +1255,10 @@
           <div class="header-right">
             <div class="user-profile">
               <div class="user-info">
-                <p class="user-name">President Arthur Vance, PhD</p>
-                <p class="user-role">Chief Executive Officer</p>
+                <p class="user-name">{{ officer_full_name|default:"" }}</p>
+                <p class="user-role">{{ officer_role }}</p>
               </div>
-              <div class="user-avatar">AV</div>
             </div>
-            <button
-              type="button"
-              class="btn-brand btn-brand-danger"
-              style="padding: 10px 16px; border-radius: 10px"
-              onclick="confirmLogout()"
-              title="Logout"
-            >
-              Logout
-            </button>
           </div>
         </header>
 
@@ -1206,18 +1295,17 @@
                 </div>
               </div>
             </div>
-
             <div class="dashboard-panel">
               <div class="panel-header-row">
                 <div>
-                  <h3 class="panel-title">Presidential Executive Directives</h3>
+                  <h3 class="panel-title">Lorem Ipsum Dolor</h3>
                   <p class="panel-subtitle">
-                    Final compliance verification, disbursement release
-                    authorization, and audit logs tracking
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed
+                    do eiusmod tempor incididunt
                   </p>
                 </div>
                 <span class="badge-zero badge-green" id="db-status-badge"
-                  >Executive Console Online</span
+                  >Lorem Ipsum Dolor</span
                 >
               </div>
 
@@ -1234,16 +1322,15 @@
                 <h4
                   style="color: #1b5e20; font-weight: 600; margin-bottom: 5px"
                 >
-                  Executive Sign-off Framework
+                  Lorem Ipsum Dolor Sit Amet
                 </h4>
                 <p style="font-size: 0.9rem; line-height: 1.5">
-                  Welcome to the Presidential Approval Console. Financial
-                  objects present here have been first formatted by the
-                  Treasurer, then rigorously checked and verified as secure by
-                  compliance Auditors. You are authorized to approve payouts,
-                  reject deficient requests, modify approved disbursement
-                  amounts, and examine granular system audit trails prior to
-                  confirming decisions.
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
+                  do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                  Ut enim ad minim veniam, quis nostrud exercitation ullamco
+                  laboris nisi ut aliquip ex ea commodo consequat. Duis aute
+                  irure dolor in reprehenderit in voluptate velit esse cillum
+                  dolore eu fugiat nulla pariatur.
                 </p>
               </div>
 
@@ -1251,17 +1338,15 @@
                 <h4
                   style="color: #1b5e20; font-weight: 600; margin-bottom: 10px"
                 >
-                  Executive Sign-Off Protocol
+                  Lorem Ipsum Dolor Sit
                 </h4>
                 <p style="font-size: 0.92rem; line-height: 1.6; color: #546e7a">
-                  1. Review the read-only wide-range data access panel detailing
-                  original Treasurer inputs & verified Auditor summary notes.<br />
-                  2. Analyze the chronological audit trails in the system logs
-                  to identify user footprints.<br />
-                  3. Finalize decision results. Approved claims automatically
-                  proceed to Landbank Cheque release. Rejected entries close and
-                  trigger immediate correction notifications back to the
-                  Treasurer.
+                  1. Lorem ipsum dolor sit amet, consectetur adipiscing elit,
+                  sed do.<br />
+                  2. Ut enim ad minim veniam, quis nostrud exercitation
+                  ullamco.<br />
+                  3. Duis aute irure dolor in reprehenderit in voluptate velit
+                  esse cillum.
                 </p>
               </div>
             </div>
@@ -1291,6 +1376,7 @@
                     <table class="custom-table" id="pendingPaymentsTable">
                       <thead>
                         <tr>
+                          <th style="width:36px;"><input type="checkbox" id="pp-select-all" title="Select all"></th>
                           <th>Reference Code</th>
                           <th>Associated Member</th>
                           <th>Amount Paid</th>
@@ -1300,6 +1386,12 @@
                       </thead>
                       <tbody></tbody>
                     </table>
+                    <div id="pp-batch-bar" style="display:none;margin-top:12px;padding:10px 16px;background:#f5f5f5;border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap;">
+                      <span id="pp-selected-count" style="font-weight:600;color:#333;">0 selected</span>
+                      <button class="btn-brand-primary" id="pp-batch-approve" style="padding:6px 18px;font-size:0.85rem;">Approve Selected</button>
+                      <button class="btn-red" id="pp-batch-reject" style="padding:6px 18px;font-size:0.85rem;">Reject Selected</button>
+                      <button class="btn-outline" id="pp-batch-clear" style="padding:6px 18px;font-size:0.85rem;">Clear</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1313,7 +1405,7 @@
                 >
                   <div class="panel-header-row" style="margin-bottom: 15px">
                     <div>
-                      <h3 class="panel-title">Executive Decision Desk</h3>
+                      <h3 class="panel-title">Decision Panel</h3>
                       <p class="panel-subtitle" id="selectedPaymentHeader">
                         No item selected
                       </p>
@@ -1399,8 +1491,6 @@
                     </div>
                   </div>
 
-
-
                   <!-- Auditor Verification Summary Card -->
                   <div
                     class="inspection-data-block"
@@ -1424,6 +1514,14 @@
                       <div class="readonly-field">
                         <label>Attached Finding Evidence</label>
                         <div id="pAuditEvidenceText">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Return Count</label>
+                        <div id="pReturnCountText">—</div>
+                      </div>
+                      <div class="readonly-field" style="grid-column: span 2;">
+                        <label>Returned Reason</label>
+                        <div id="pReturnedReasonText">—</div>
                       </div>
                     </div>
                     <div>
@@ -1450,7 +1548,7 @@
                   </div>
 
                   <!-- 2. System Logs & Audit Trail Component -->
-                  <!--div class="inspection-data-block">
+                  <div class="inspection-data-block">
                     <div class="inspection-data-title">
                       System Logs & Audit Trail Component (Timeline View)
                     </div>
@@ -1463,22 +1561,19 @@
                             <th>User</th>
                             <th>Action Performed</th>
                             <th>Changes Made / Notes</th>
+                            <th>Diff</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
-                            <td
-                              colspan="5"
-                              style="text-align: center; color: #757575"
-                            >
-                              No tracking logs compiled. Select a transaction to
-                              generate path timelines.
+                            <td colspan="6" style="text-align: center; color: #757575">
+                              No tracking logs compiled. Select a transaction to generate path timelines.
                             </td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
-                  </div-->
+                  </div>
 
                   <!-- 3. President Input Form (Writeable Fields) -->
                   <form
@@ -1587,6 +1682,7 @@
                     <table class="custom-table" id="pendingAidsTable">
                       <thead>
                         <tr>
+                          <th style="width:36px;"><input type="checkbox" id="pa-select-all" title="Select all"></th>
                           <th>Claim ID</th>
                           <th>Member / Claimant</th>
                           <th>Claim Type</th>
@@ -1596,6 +1692,12 @@
                       </thead>
                       <tbody></tbody>
                     </table>
+                    <div id="pa-batch-bar" style="display:none;margin-top:12px;padding:10px 16px;background:#f5f5f5;border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap;">
+                      <span id="pa-selected-count" style="font-weight:600;color:#333;">0 selected</span>
+                      <button class="btn-brand-primary" id="pa-batch-approve" style="padding:6px 18px;font-size:0.85rem;">Approve Selected</button>
+                      <button class="btn-red" id="pa-batch-reject" style="padding:6px 18px;font-size:0.85rem;">Reject Selected</button>
+                      <button class="btn-outline" id="pa-batch-clear" style="padding:6px 18px;font-size:0.85rem;">Clear</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1609,9 +1711,7 @@
                 >
                   <div class="panel-header-row" style="margin-bottom: 15px">
                     <div>
-                      <h3 class="panel-title">
-                        Claims Executive Decision Desk
-                      </h3>
+                      <h3 class="panel-title">Claims Decision Panel</h3>
                       <p class="panel-subtitle" id="selectedAidHeader">
                         No claim file selected
                       </p>
@@ -1625,7 +1725,7 @@
                     style="display: none"
                   >
                     <div class="inspection-data-title">
-                      Treasurer Medical Request Parameters
+                      Lorem Ipsum Medical Request Parameters
                     </div>
                     <div class="readonly-grid" style="margin-bottom: 15px">
                       <div class="readonly-field">
@@ -1703,6 +1803,10 @@
                         <div id="dReadDateOfDeath">—</div>
                       </div>
                       <div class="readonly-field">
+                        <label>Total Bill Amount</label>
+                        <div id="dReadBill" style="color: #b71c1c">—</div>
+                      </div>
+                      <div class="readonly-field">
                         <label>Expected Payout Amount</label>
                         <div id="dReadBenefit" style="color: #1b5e20">—</div>
                       </div>
@@ -1732,6 +1836,14 @@
                       <div class="readonly-field">
                         <label>Attached Finding Evidence</label>
                         <div id="aAuditEvidenceText">—</div>
+                      </div>
+                      <div class="readonly-field">
+                        <label>Return Count</label>
+                        <div id="aReturnCountText">—</div>
+                      </div>
+                      <div class="readonly-field" style="grid-column: span 2;">
+                        <label>Returned Reason</label>
+                        <div id="aReturnedReasonText">—</div>
                       </div>
                     </div>
                     <div>
@@ -1771,16 +1883,13 @@
                             <th>User</th>
                             <th>Action Performed</th>
                             <th>Changes Made / Notes</th>
+                            <th>Diff</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr>
-                            <td
-                              colspan="5"
-                              style="text-align: center; color: #757575"
-                            >
-                              No tracking logs compiled. Select a transaction to
-                              generate path timelines.
+                            <td colspan="6" style="text-align: center; color: #757575">
+                              No tracking logs compiled. Select a transaction to generate path timelines.
                             </td>
                           </tr>
                         </tbody>
@@ -1919,8 +2028,8 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel">
@@ -2057,36 +2166,18 @@
     <!-- ==========================================================================
        VANILLA SYSTEM ENGINE & STORAGE LOOPS (Presidential Workspace Edition)
        ========================================================================== -->
-    <!-- SweetAlert2 (Sweet swal) -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
     <script>
       function confirmLogout() {
-        const logoutUrl = "{% url 'logout' %}";
-        Swal.fire({
-          title: "Logout?",
-          text: "Do you want to log out of the system?",
-          icon: "question",
-          showCancelButton: true,
-          confirmButtonText: "Yes, logout",
-          cancelButtonText: "No, stay",
-          reverseButtons: true,
-        }).then((result) => {
-          if (result.isConfirmed) {
-            window.location.href = logoutUrl;
-          }
-        });
+        if (confirm("Do you want to log out of the system?")) {
+          window.location.href = "{% url 'logout' %}";
+        }
       }
       // Clean system database structure ready for backend payload mapping
-      const SEED_PENDING_AIDS = [];
-      const SEED_EXECUTIVE_LOGS = [];
-      const SEED_REPORTS = [];
-
       let db = {
         pendingPayments: [],
-        pendingAids: SEED_PENDING_AIDS,
-        executiveLogs: SEED_EXECUTIVE_LOGS,
-        reports: SEED_REPORTS,
+        pendingAids: [],
+        executiveLogs: [],
+        reports: [],
       };
 
       window.addEventListener("DOMContentLoaded", () => {
@@ -2099,9 +2190,36 @@
         // Render only non-queue components immediately.
         // Pending payments will be populated by loadPresidentialQueue().
         updateKPICards();
-        renderPendingAidsTable();
+        loadPresidentialAidsQueue();
+        updatePresidentNotifDots();
         renderExecutiveLogsTable();
         renderReportsTable();
+
+        // Aids batch bar wiring
+        const paSelectAll = document.getElementById("pa-select-all");
+        if (paSelectAll) {
+          paSelectAll.addEventListener("change", function () {
+            const checked = this.checked;
+            document.querySelectorAll("#pendingAidsTable .pa-row-check").forEach(cb => {
+              cb.checked = checked;
+              const id = cb.value;
+              if (checked) paState.selectedIds.add(id);
+              else paState.selectedIds.delete(id);
+              const row = cb.closest("tr");
+              if (row) row.classList.toggle("selected-row", checked);
+            });
+            updatePaBatchBar();
+          });
+        }
+        document.getElementById("pa-batch-approve")?.addEventListener("click", function () {
+          submitPaBatchVerify("Approved");
+        });
+        document.getElementById("pa-batch-reject")?.addEventListener("click", function () {
+          submitPaBatchVerify("Rejected");
+        });
+        document.getElementById("pa-batch-clear")?.addEventListener("click", function () {
+          clearPaSelection();
+        });
       });
 
       function safeGetDjangoData(elementId) {
@@ -2125,58 +2243,12 @@
       }
 
       function loadSystemDatabase() {
-        const djMembers = safeGetDjangoData("django-members-data");
-        const djFees = safeGetDjangoData("django-fees-data");
-        const djOtcDues = safeGetDjangoData("django-otc-dues-data");
-        const djSalary = safeGetDjangoData("django-salary-data");
-        const djMedical = safeGetDjangoData("django-medical-data");
-        const djDeath = safeGetDjangoData("django-death-data");
-
-        // If backend already injected any JSON bridges, DO NOT use hardcoded seed pending objects.
-        // Keep pending inbox empty (for now) and let user select real items only once backend provides the queue.
-        // Approved blocks will still populate from injected payloads.
-        if (
-          djMembers ||
-          djFees ||
-          djOtcDues ||
-          djSalary ||
-          djMedical ||
-          djDeath
-        ) {
-          db = {
-            pendingPayments: [],
-            pendingAids: [],
-            executiveLogs: [...SEED_EXECUTIVE_LOGS],
-            reports: [...SEED_REPORTS],
-          };
-          saveSystemDatabase();
-          return;
-        }
-
-        const data = localStorage.getItem("coop_president_db");
-        if (data) {
-          try {
-            db = JSON.parse(data);
-          } catch (e) {
-            clearAndSeedDatabase();
-          }
-        } else {
-          clearAndSeedDatabase();
-        }
-      }
-
-      function saveSystemDatabase() {
-        localStorage.setItem("coop_president_db", JSON.stringify(db));
-      }
-
-      function clearAndSeedDatabase() {
         db = {
           pendingPayments: [],
-          pendingAids: [...SEED_PENDING_AIDS],
-          executiveLogs: [...SEED_EXECUTIVE_LOGS],
-          reports: [...SEED_REPORTS],
+          pendingAids: [],
+          executiveLogs: [],
+          reports: [],
         };
-        saveSystemDatabase();
       }
 
       function resetDatabaseWithWarning() {
@@ -2184,9 +2256,12 @@
       }
 
       function triggerConfirmYes() {
-        // Flush localStorage but also clear any backend-injected JSON bridges from UI state.
-        // This action intentionally falls back to seeded demo inbox.
-        clearAndSeedDatabase();
+        db = {
+          pendingPayments: [],
+          pendingAids: [],
+          executiveLogs: [],
+          reports: [],
+        };
         closeConfirmModal();
         showToast(
           "Compliance Database successfully flushed back to defaults.",
@@ -2201,19 +2276,34 @@
         document.getElementById("customConfirmModal").style.display = "none";
       }
 
-      function showToast(message, isError = false) {
-        const host = document.getElementById("toastContainer");
-        const toast = document.createElement("div");
-        toast.className = `custom-toast ${isError ? "toast-error" : ""}`;
-        toast.innerHTML = `<span>💬</span> <p style="font-size:0.85rem;font-weight:500;">${message}</p>`;
-
+      function showToast(message, isError) {
+        var host = document.getElementById("toastContainer");
+        if (!host) {
+          alert(message);
+          return;
+        }
+        var toast = document.createElement("div");
+        toast.className = "custom-toast" + (isError ? " toast-error" : "");
+        toast.innerHTML = '<p style="margin:0;font-size:0.85rem;font-weight:500;">' + escapeHtml(message) + "</p>";
         host.appendChild(toast);
-        setTimeout(() => toast.classList.add("show"), 10);
-
-        setTimeout(() => {
+        setTimeout(function () {
+          toast.classList.add("show");
+        }, 10);
+        setTimeout(function () {
           toast.classList.remove("show");
-          setTimeout(() => toast.remove(), 300);
+          setTimeout(function () {
+            toast.remove();
+          }, 300);
         }, 4000);
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
       }
 
       function showCustomModal(title, text) {
@@ -2222,7 +2312,7 @@
         document.getElementById("customAlertModal").style.display = "flex";
       }
 
-      function closeCustomModal() {
+      function closeCustomAlert() {
         document.getElementById("customAlertModal").style.display = "none";
       }
 
@@ -2248,40 +2338,140 @@
         renderPendingAidsTable();
         renderExecutiveLogsTable();
         renderReportsTable();
+        updatePresidentNotifDots();
       }
 
-      function updateKPICards() {
-        document.getElementById("kpi-pending-payments").innerText =
-          db.pendingPayments.length;
-        document.getElementById("kpi-pending-claims").innerText =
-          db.pendingAids.length;
-        document.getElementById("kpi-total-audits").innerText =
-          db.executiveLogs.length;
+      async function updateKPICards() {
+        try {
+          var resp = await fetch("/api/president/kpi-counts/");
+          var data = await resp.json();
+          if (data.ok) {
+            document.getElementById("kpi-pending-payments").innerText =
+              data.verified_dues_count;
+            document.getElementById("kpi-pending-claims").innerText =
+              data.verified_claims_count;
+            document.getElementById("kpi-total-audits").innerText =
+              data.total_approvals_count;
+          }
+        } catch (e) {
+          console.error("KPI fetch failed:", e);
+        }
       }
 
       // ==========================================================================
       // EXECUTIVE AID CLAIMS APPROVAL
       // ==========================================================================
+      let paState = { selectedIds: new Set() };
+
       function renderPendingAidsTable() {
         const tbody = document.querySelector("#pendingAidsTable tbody");
         tbody.innerHTML = "";
         if (db.pendingAids.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">All financial aid decisions cleared!</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All financial aid decisions cleared!</td></tr>`;
+          updatePaBatchBar();
           return;
         }
         db.pendingAids.forEach((a) => {
           const tr = document.createElement("tr");
-          tr.setAttribute("onclick", `selectAidToAudit('${a.id}')`);
           tr.id = `row-${a.id}`;
+          const badgeClass =
+            a.aid_type === "medical_aid"
+              ? "badge-medical-aid"
+              : "badge-death-aid";
+          if (paState.selectedIds.has(String(a.id))) {
+            tr.classList.add("selected-row");
+          }
           tr.innerHTML = `
+          <td><input type="checkbox" class="pa-row-check" value="${a.id}" ${paState.selectedIds.has(String(a.id)) ? "checked" : ""}></td>
           <td style="font-weight:600;color:#1b5e20;">${a.id}</td>
           <td>${a.memberName}</td>
-          <td><span class="badge-zero badge-yellow" style="font-size:0.75rem;">${a.type}</span></td>
+          <td><span class="${badgeClass}" style="font-size:0.75rem;">${a.type}</span></td>
           <td style="font-weight:600;">₱${(a.reqAmount || a.benefit).toFixed(2)}</td>
-          <td><button class="btn-select-glow">Select</button></td>
+          <td>
+            <button
+              type="button"
+              class="btn-select-glow"
+              onclick="event.stopPropagation(); selectAidToAudit('${a.id}')"
+            >
+              Select
+            </button>
+          </td>
         `;
+          const cb = tr.querySelector(".pa-row-check");
+          cb.addEventListener("click", function (e) {
+            e.stopPropagation();
+            togglePaRowCheck(a.id, this.checked);
+          });
+          tr.addEventListener("click", function (e) {
+            if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON") return;
+            selectAidToAudit(a.id);
+          });
           tbody.appendChild(tr);
         });
+        updatePaBatchBar();
+      }
+
+      function togglePaRowCheck(id, checked) {
+        if (checked) {
+          paState.selectedIds.add(String(id));
+        } else {
+          paState.selectedIds.delete(String(id));
+        }
+        const row = document.querySelector(`#pendingAidsTable .pa-row-check[value="${id}"]`)?.closest("tr");
+        if (row) row.classList.toggle("selected-row", checked);
+        updatePaBatchBar();
+      }
+
+      function updatePaBatchBar() {
+        const bar = document.getElementById("pa-batch-bar");
+        const countEl = document.getElementById("pa-selected-count");
+        const count = paState.selectedIds.size;
+        if (!bar || !countEl) return;
+        countEl.textContent = count + " selected";
+        bar.style.display = count > 0 ? "flex" : "none";
+      }
+
+      function clearPaSelection() {
+        paState.selectedIds.clear();
+        document.querySelectorAll("#pendingAidsTable .pa-row-check").forEach(cb => cb.checked = false);
+        document.querySelectorAll("#pendingAidsTable tr").forEach(tr => tr.classList.remove("selected-row"));
+        const selectAll = document.getElementById("pa-select-all");
+        if (selectAll) selectAll.checked = false;
+        updatePaBatchBar();
+      }
+
+      async function submitPaBatchVerify(decision) {
+        const ids = Array.from(paState.selectedIds);
+        if (ids.length === 0) return;
+
+        const label = decision === "Approved" ? "Approve" : "Reject";
+        if (!confirm(`${label} ${ids.length} aid entr${ids.length === 1 ? "y" : "ies"}?`)) return;
+
+        try {
+          const resp = await fetch("/api/aids/presidential-decision/batch/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+            },
+            credentials: "same-origin",
+            body: JSON.stringify({
+              ids: ids,
+              decision: decision,
+              remarks: decision === "Rejected" ? "Batch rejected." : "",
+            }),
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.success) {
+            showToast(data.message || "Batch operation failed.", true);
+            return;
+          }
+          showToast(`Processed ${data.processed} entr${data.processed === 1 ? "y" : "ies"} (${data.skipped} skipped).`, false);
+          clearPaSelection();
+          await loadPresidentialAidsQueue();
+        } catch (e) {
+          showToast("Network/server error during batch operation.", true);
+        }
       }
 
       function selectAidToAudit(id) {
@@ -2329,6 +2519,8 @@
             item.claimantContact;
           document.getElementById("dReadDateOfDeath").innerText =
             item.deathDate;
+          document.getElementById("dReadBill").innerText =
+            item.bill_amount ? `₱${parseFloat(item.bill_amount).toFixed(2)}` : "—";
           document.getElementById("dReadBenefit").innerText =
             `₱${item.benefit.toFixed(2)}`;
 
@@ -2342,24 +2534,46 @@
           `📁 ${item.auditorEvidence}`;
         document.getElementById("aAuditRemarksText").innerText =
           item.auditorRemarks;
+        document.getElementById("aReturnCountText").innerText =
+          item.return_count != null ? String(item.return_count) : "—";
+        document.getElementById("aReturnedReasonText").innerText =
+          item.returned_reason || "—";
 
-        // Load System logs Timeline Component
-        const timelineBody = document.querySelector("#aTimelineTable tbody");
-        timelineBody.innerHTML = "";
-        item.timeline.forEach((log) => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-          <td><strong>${log.time}</strong></td>
-          <td><span class="badge-zero badge-green" style="font-size: 0.72rem;">${log.role}</span></td>
-          <td>${log.name}</td>
-          <td><strong>${log.action}</strong></td>
-          <td>${log.note}</td>
-        `;
-          timelineBody.appendChild(tr);
-        });
+        // Load System logs Timeline Component (may be absent in template)
+        const aidsTimelineBody = document.querySelector("#aTimelineTable tbody");
+        if (aidsTimelineBody) {
+          aidsTimelineBody.innerHTML = "";
+          if (!item.timeline || item.timeline.length === 0) {
+            aidsTimelineBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #757575">No history tracking points bound.</td></tr>`;
+          } else {
+            window.__aidTimeline = item.timeline;
+            item.timeline.forEach((log, idx) => {
+              const hasSnapshot = log.old_values || log.new_values;
+              const tr = document.createElement("tr");
+              tr.innerHTML = `
+                <td><small>${log.timestamp}</small></td>
+                <td><span class="badge">${log.role}</span></td>
+                <td>${log.user}</td>
+                <td><strong>${log.action}</strong></td>
+                <td><span style="font-size:0.85rem; color:#555;">${log.notes}</span></td>
+                <td>${hasSnapshot ? `<button style="background:#1565c0;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;" onclick="openAidDiffModal(${idx})">View changes</button>` : '<span style="color:#999;">—</span>'}</td>
+              `;
+              aidsTimelineBody.appendChild(tr);
+            });
+          }
+        }
 
         // Form Bindings
-        document.getElementById("a_target_id").value = item.id;
+        const aTargetEl = document.getElementById("a_target_id");
+        if (aTargetEl) {
+          aTargetEl.value = item.id;
+        }
+
+        // Debug: verify binding is successful at selection time
+        console.debug("selectAidToAudit bound a_target_id:", {
+          itemId: item.id,
+          a_target_id_value: aTargetEl ? aTargetEl.value : undefined,
+        });
       }
 
       function clearAidApprovalSelection() {
@@ -2378,24 +2592,52 @@
           "aAuditDateText",
           "aAuditEvidenceText",
           "aAuditRemarksText",
+          "aReturnCountText",
+          "aReturnedReasonText",
         ];
         resets.forEach((id) => (document.getElementById(id).innerText = "—"));
 
         const timelineBody = document.querySelector("#aTimelineTable tbody");
-        timelineBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #757575;">No tracking logs compiled. Select a transaction to generate path timelines.</td></tr>`;
+        if (timelineBody) {
+          timelineBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #757575;">No tracking logs compiled. Select a transaction to generate path timelines.</td></tr>`;
+        }
 
         document.getElementById("aidApprovalForm").reset();
         handleDecisionChange("a_decision", "a_remarks");
       }
 
-      function submitPresidentialAidDecision(e) {
+      function openAidDiffModal(idx) {
+        const log = window.__aidTimeline ? window.__aidTimeline[idx] : null;
+        if (!log) return;
+        openDiffModal(log.old_values, log.new_values, log.action);
+      }
+
+      async function submitPresidentialAidDecision(e) {
         e.preventDefault();
-        const targetId = document.getElementById("a_target_id").value;
+        const targetIdEl = document.getElementById("a_target_id");
+        let targetId = targetIdEl ? targetIdEl.value : "";
         if (!targetId) {
+          // Fallback: extract from selected header text like "Sign-off Claim: medical-1"
+          const headerText =
+            document.getElementById("selectedAidHeader")?.innerText || "";
+          const match = headerText.match(/Sign-off Claim:\s*(.+)$/i);
+          if (match && match[1]) {
+            targetId = match[1].trim();
+          }
+        }
+        if (!targetId) {
+          // Helpful runtime diagnostics when the UI selection binding fails.
+          const header =
+            document.getElementById("selectedAidHeader")?.innerText || "";
           showToast(
-            "Please select an active claims target from the inbox.",
+            `Please select an active claims target from the inbox. (Missing target_id)\nSelected header: ${header}`,
             true,
           );
+          console.warn("submitPresidentialAidDecision: missing a_target_id", {
+            targetId,
+            header,
+            selectedAidHeaderText: header,
+          });
           return;
         }
 
@@ -2421,38 +2663,66 @@
           return;
         }
 
-        // Record findings inside executive logs
-        const logEntry = {
-          timestamp: new Date().toLocaleString(),
-          reqId: targetId,
-          remarks:
-            remarks ||
-            "Claim approved. Routed directly to cheque disbursement desk.",
-          result: decision,
-          amount: approvedAmount,
+        const csrfToken = document.querySelector(
+          "[name=csrfmiddlewaretoken]",
+        ).value;
+
+        const payload = {
+          target_id: targetId,
+          decision: decision,
+          approved_amount: approvedAmount,
+          remarks: remarks,
         };
 
-        db.executiveLogs.push(logEntry);
+        try {
+          const response = await fetch("/api/aids/presidential-decision/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(payload),
+          });
 
-        // Update workflows: Clear from pending inbox list
-        db.pendingAids = db.pendingAids.filter((a) => a.id !== targetId);
+          const result = await response.json();
 
-        saveSystemDatabase();
-        renderAllComponents();
-        clearAidApprovalSelection();
+          if (result.success) {
+            const logEntry = {
+              timestamp: new Date().toLocaleString(),
+              reqId: targetId,
+              remarks:
+                remarks ||
+                "Claim approved. Routed directly to cheque disbursement desk.",
+              result: decision,
+              amount: approvedAmount,
+            };
+            db.executiveLogs.push(logEntry);
 
-        if (decision === "Approved") {
-          showCustomModal(
-            "Executive Disbursement Clearance Granted",
-            `Disbursement for Request ID ${targetId} authorized at ₱${approvedAmount.toFixed(2)}. Payout document routed to Landbank system draft.`,
-          );
-        } else {
-          showCustomModal(
-            "Rejection Notice Registered",
-            `Claim Deficiencies flagged. Claim file ${targetId} closed with negative ruling: "${remarks}"`,
+            await loadPresidentialAidsQueue();
+            clearAidApprovalSelection();
+
+            if (decision === "Approved") {
+              showCustomModal(
+                "Executive Disbursement Clearance Granted",
+                `Disbursement for Request ID ${targetId} authorized at ₱${approvedAmount.toFixed(2)}. Payout document routed to Landbank system draft.`,
+              );
+            } else {
+              showCustomModal(
+                "Rejection Notice Registered",
+                `Claim Deficiencies flagged. Claim file ${targetId} closed with negative ruling: "${remarks}"`,
+              );
+            }
+            showToast("Presidential decision saved.", false);
+          } else {
+            alert("Execution Error: " + result.message);
+          }
+        } catch (error) {
+          console.error("Error submitting aid decision:", error);
+          alert(
+            "Critical failure submitting claim ruling updates.\n\nDetails: " +
+              (error.message || error),
           );
         }
-        showToast("Presidential decision saved.", false);
       }
 
       // ==========================================================================
@@ -2500,7 +2770,7 @@
           <td style="font-weight:600;color:#1b5e20;">${r.type}</td>
           <td>${r.range}</td>
           <td>${r.auditedBy}</td>
-          <td><button class="btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" onclick="showReportPreview('${r.id}')">View</button></td>
+          <td><button class="btn-brand btn-brand-secondary" onclick="showReportPreview('${r.id}')">View</button></td>
         `;
           tbody.appendChild(tr);
         });
@@ -2519,7 +2789,6 @@
         };
 
         db.reports.push(newReport);
-        saveSystemDatabase();
         renderAllComponents();
 
         document.getElementById("reportForm").reset();
@@ -2549,7 +2818,23 @@
         showCustomModal(`Executive Certification File`, outputString);
       }
     </script>
+    <!-- Diff View Modal -->
+    <div id="diffModal" class="modal" style="display:none; position:fixed; z-index:10000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5);">
+      <div style="background:#fff; margin:5% auto; padding:24px; width:700px; max-width:90%; border-radius:8px; max-height:80vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h3 style="margin:0;">Changes Overview</h3>
+          <span onclick="document.getElementById('diffModal').style.display='none'" style="cursor:pointer; font-size:24px; line-height:1;">&times;</span>
+        </div>
+        <div id="diffModalBody" style="font-family:monospace; font-size:13px; line-height:1.6;"></div>
+        <div style="margin-top:16px; text-align:right;">
+          <button onclick="document.getElementById('diffModal').style.display='none'" style="background:#757575;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;">Close</button>
+        </div>
+      </div>
+    </div>
+    <script>window.VAPID_PUBLIC_KEY = "BH_OcUmir3ilJ-ysc_ZWUISngSKIWg2LqLbOQQFwFZPcMTY1iKLS-Kwm6hfAHOH9Tj6CvJ8IDYVMTaQmXQhTbEg";</script>
     <script src="{% static 'js/President/sidebarNav.js' %}"></script>
     <script src="{% static 'js/President/payments_verification.js' %}"></script>
+    <script src="{% static 'js/President/websocket.js' %}"></script>
+    <script src="{% static 'js/push-init.js' %}"></script>
   </body>
 </html>

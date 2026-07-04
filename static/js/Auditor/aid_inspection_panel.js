@@ -22,31 +22,6 @@
     }).format(n);
   }
 
-  function showToast(message, isError) {
-    if (isError === undefined) isError = false;
-    const host = document.getElementById("toastContainer");
-    if (!host) {
-      alert(message);
-      return;
-    }
-    const toast = document.createElement("div");
-    toast.className = "custom-toast" + (isError ? " toast-error" : "");
-    toast.innerHTML =
-      '<span>[MSG]</span> <p style="font-size:0.85rem;font-weight:500;">' +
-      message +
-      "</p>";
-    host.appendChild(toast);
-    setTimeout(function () {
-      toast.classList.add("show");
-    }, 10);
-    setTimeout(function () {
-      toast.classList.remove("show");
-      setTimeout(function () {
-        toast.remove();
-      }, 300);
-    }, 4000);
-  }
-
   function postForm(url, fd) {
     const csrf = getCSRFToken();
     const headers = {};
@@ -202,11 +177,19 @@
       },
     },
     {
-      key: "benefit_amount",
-      label: "Assigned Benefit Amount",
+      key: "bill_amount",
+      label: "Total Bill Amount",
       icon: "",
       value: function (item) {
-        return formatMoneyPHP(item.benefit_amount || item.benefit || 0);
+        return formatMoneyPHP(item.bill_amount || 0);
+      },
+    },
+    {
+      key: "benefit_amount",
+      label: "Assigned Contribution Amount",
+      icon: "",
+      value: function (item) {
+        return formatMoneyPHP(item.benefit_amount || item.benefit || 0) + " /per member";
       },
     },
     {
@@ -311,13 +294,20 @@
       var isMissing = rawValue === "\u2014";
       if (!isMissing) {
         try {
-          var asNum = parseFloat(rawValue.replace(/[^0-9.\-]/g, ""));
+          var suffix = "";
+          var clean = rawValue;
+          var parts = rawValue.split(" /per member");
+          if (parts.length > 1) {
+            clean = parts[0];
+            suffix = " /per member";
+          }
+          var asNum = parseFloat(clean.replace(/[^0-9.\-]/g, ""));
           if (
             (field.key.indexOf("amount") !== -1 ||
               field.key.indexOf("bill") !== -1) &&
             !isNaN(asNum)
           ) {
-            displayValue = formatMoneyPHP(asNum);
+            displayValue = formatMoneyPHP(asNum) + suffix;
           }
         } catch (e) {
           displayValue = rawValue;

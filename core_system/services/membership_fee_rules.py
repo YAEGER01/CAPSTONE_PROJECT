@@ -1,9 +1,117 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
-from core_system.models import Member, MembershipFee
+from django.contrib.contenttypes.models import ContentType
 
+from core_system.models import (
+    FinancialDocumentArchive,
+    GlobalAuditTrail,
+    Member,
+    MembershipFee,
+    OfficerUser,
+    TransactionVerification,
+)
+
+
+# ==========================================================================
+# POLICY — membership_fee_policy.py merged here
+# ==========================================================================
+
+@dataclass(frozen=True)
+class MembershipFeePolicyResult:
+    required_to_pay: bool
+    exception_reason: str | None = None
+
+
+def check_membership_fee_requirement(member: Member) -> MembershipFeePolicyResult:
+    status = (getattr(member, "membership_status", None) or "").strip()
+
+    if status.casefold() == "retired":
+        return MembershipFeePolicyResult(
+            required_to_pay=False,
+            exception_reason="Exempt per ARTICLE XI Section 2 (Retired members are not required to pay).",
+        )
+
+    if status in ("Permanent", "Temporary"):
+        return MembershipFeePolicyResult(required_to_pay=True)
+
+    reason = f"Membership fee not required for membership_status='{status}'"
+    return MembershipFeePolicyResult(required_to_pay=False, exception_reason=reason)
+
+
+def is_member_in_good_standing(member: Member) -> bool:
+    status = (getattr(member, "membership_status", None) or "").strip()
+    return status.casefold() != "retired" and status in ("Permanent", "Temporary")
+
+
+# ==========================================================================
+# VALIDATION — membership_fee_validation.py merged here
+# ==========================================================================
+
+@dataclass(frozen=True)
+class ValidationResult:
+    valid: bool
+    errors: list[str] = field(default_factory=list)
+    normalized: dict[str, Any] = field(default_factory=dict)
+
+
+def validate_membership_fee_payment(*, payload: dict[str, Any]) -> ValidationResult:
+    errors: list[str] = []
+
+    fee_status = (payload.get("fee_status") or "").strip()
+    fee_ref = (payload.get("fee_ref") or "").strip()
+
+    fee_amount = payload.get("fee_amount")
+    fee_partial_amount = payload.get("fee_partial_amount")
+
+    normalized: dict[str, Any] = {}
+
+    if not fee_ref:
+        errors.append("Receipt / Reference Number is required.")
+
+    def _to_float(value: Any) -> float | None:
+        if value is None:
+            return None
+        s = str(value).strip()
+        if not s:
+            return None
+        try:
+            return float(s)
+        except Exception:
+            return None
+
+    if fee_status not in ("", "Full Payment", "Partial"):
+        errors.append("Payment status must be Full Payment or Partial.")
+
+    if fee_status == "Partial":
+        partial = _to_float(fee_partial_amount)
+        if partial is None:
+            errors.append("Partial Payment Amount is required when status is Partial.")
+        else:
+            if partial <= 0:
+                errors.append("Partial Payment Amount must be greater than 0.")
+            normalized["fee_amount"] = partial
+
+    else:
+        amt = _to_float(fee_amount)
+        if amt is None:
+            errors.append("Amount Paid is required.")
+        else:
+            if amt <= 0:
+                errors.append("Amount Paid must be greater than 0.")
+            normalized["fee_amount"] = amt
+
+    if errors:
+        return ValidationResult(valid=False, errors=errors, normalized=normalized)
+
+    return ValidationResult(valid=True, errors=[], normalized=normalized)
+
+
+# ==========================================================================
+# RULES — membership_fee_rules.py content (duplicate check)
+# ==========================================================================
 
 @dataclass(frozen=True)
 class MembershipFeeDuplicateCheckResult:
@@ -16,17 +124,6 @@ def has_duplicate_membership_fee(
     member: Member,
     receipt_number: str,
 ) -> MembershipFeeDuplicateCheckResult:
-    """Implements pseudo-code: CheckMembershipFeeAlreadyPosted(member_id)
-
-    Current interpretation:
-    - Duplicate is defined as an existing MembershipFee row for the same member
-      with the same receipt_number.
-
-    Note:
-    - For stronger guarantees under concurrency, add a DB constraint for
-      (member_id_FK, receipt_number).
-    """
-
     rcpt = (receipt_number or "").strip()
     if not rcpt:
         return MembershipFeeDuplicateCheckResult(is_duplicate=False, existing_fee_id=None)
@@ -45,3 +142,92 @@ def has_duplicate_membership_fee(
         existing_fee_id=int(existing.fee_id_PK),
     )
 
+
+# ==========================================================================
+# CORRECTION — membership_fee_correction_service.py merged here
+# ==========================================================================
+
+@dataclass(frozen=True)
+class MembershipFeeCorrectionContext:
+    fee: MembershipFee
+    officer: OfficerUser
+    validation_errors: list[str]
+
+
+def create_correction_artifacts_for_membership_fee(
+    *,
+    fee: MembershipFee,
+    officer: OfficerUser,
+    validation_errors: list[str],
+    request,
+) -> None:
+    TransactionVerification.objects.filter(
+        table_name="membership_fee",
+        record_id=fee.fee_id_PK,
+    ).update(
+        verification_status="Returned for Revision",
+    )
+
+    snapshot: dict[str, Any] = {
+        "fee_id": fee.fee_id_PK,
+        "member_id_FK": fee.member_id_FK_id,
+        "receipt_number": fee.receipt_number,
+        "amount": str(fee.amount),
+        "month_covered": fee.month_covered,
+        "payment_date": str(fee.payment_date),
+        "payment_method": fee.payment_method,
+        "payment_status": fee.payment_status,
+        "deposit_reference": fee.deposit_reference,
+    }
+
+    archive = FinancialDocumentArchive.objects.create(
+        related_module="MEMBERSHIP_FEE",
+        related_record_id=fee.fee_id_PK,
+        document_type="treasurer_validation_correction",
+        file_path="",
+        file_hash="",
+        verification_status="Returned for Revision",
+        uploaded_by_user_id_FK=officer,
+    )
+
+    GlobalAuditTrail.objects.create(
+        table_name="membership_fee",
+        record_id=fee.fee_id_PK,
+        action="CORRECTION_REQUIRED",
+        actor_type="Treasurer",
+        actor_id=officer.user_id_PK,
+        actor_name=officer.full_name or "",
+        ip_address=request.META.get("REMOTE_ADDR", "0.0.0.0"),
+        notes="Payment requires correction: " + "; ".join(validation_errors),
+        new_values=snapshot,
+    )
+
+
+# ==========================================================================
+# POLICY EXCEPTION — membership_fee_policy_exception_service.py merged here
+# ==========================================================================
+
+def record_membership_fee_policy_exception(*, member: Member, reason: str, officer: OfficerUser, request) -> None:
+    archive = FinancialDocumentArchive.objects.create(
+        related_module="MEMBERSHIP_FEE",
+        related_record_id=member.member_id_PK,
+        document_type="treasurer_policy_exception",
+        file_path="",
+        file_hash="",
+        verification_status="Policy Exception",
+        uploaded_by_user_id_FK=officer,
+    )
+
+    GlobalAuditTrail.objects.create(
+        table_name="membership_fee",
+        record_id=member.member_id_PK,
+        action="POLICY_EXCEPTION",
+        actor_type="Treasurer",
+        actor_id=officer.user_id_PK,
+        actor_name=officer.full_name or "",
+        ip_address=request.META.get("REMOTE_ADDR", "0.0.0.0"),
+        notes=f"Membership fee policy exception: {reason}",
+    )
+
+    from core_system.services.notifications import notify_membership_fee_policy_exception
+    notify_membership_fee_policy_exception(member=member, reason=reason)

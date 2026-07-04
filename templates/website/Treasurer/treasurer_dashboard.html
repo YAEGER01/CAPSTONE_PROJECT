@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cooperative Executive Management Console</title>
 
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+    />
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
 
@@ -44,30 +49,29 @@
       .sidebar {
         width: 280px;
         height: 100%;
-        background: #1b5e20;
-        /* Deep Institutional Green */
+        background: #ffffff;
         display: flex;
         flex-direction: column;
         transition: width 0.25s ease;
         flex-shrink: 0;
-        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        box-shadow: 2px 0 12px rgba(0, 0, 0, 0.06);
         z-index: 1010;
       }
 
       /* Sidebar Header */
       .sidebar-brand {
-        padding: 24px;
+        padding: 18px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        color: white;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        color: #263238;
       }
 
       .brand-title-wrapper {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
       }
 
       .logo-mark {
@@ -86,8 +90,8 @@
 
       .role-tag {
         font-size: 0.72rem;
-        background: rgba(255, 255, 255, 0.15);
-        color: rgba(255, 255, 255, 0.9);
+        background: rgba(0, 0, 0, 0.05);
+        color: rgba(0, 0, 0, 0.7);
         padding: 2px 8px;
         border-radius: 4px;
         display: inline-block;
@@ -97,7 +101,7 @@
       .collapse-toggle-btn {
         background: transparent;
         border: none;
-        color: white;
+        color: #263238;
         cursor: pointer;
         font-size: 1.15rem;
         display: flex;
@@ -109,8 +113,8 @@
       }
 
       .collapse-toggle-btn:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: #fbc02d;
+        background: rgba(0, 0, 0, 0.04);
+        color: #1b5e20;
       }
 
       /* Sidebar Scrollable Area */
@@ -126,14 +130,14 @@
 
       /* Navigation Items Matrix */
       .menu-item {
-        padding: 14px 24px;
-        color: rgba(255, 255, 255, 0.75);
+        padding: 12px 18px;
+        color: #263238;
         text-decoration: none;
         font-weight: 500;
         font-size: 0.95rem;
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 12px;
         transition: 0.3s;
         border-left: 4px solid transparent;
         white-space: nowrap;
@@ -141,16 +145,15 @@
       }
 
       .menu-item:hover {
-        color: #fbc02d;
-        /* Accent Gold Yellow hover */
-        background: rgba(255, 255, 255, 0.05);
+        color: #1b5e20;
+        text-shadow: 0 0 6px rgba(0, 230, 118, 0.4), 0 0 12px rgba(0, 230, 118, 0.2);
+        background: rgba(0, 0, 0, 0.02);
       }
 
       .menu-item.active {
         color: #1b5e20;
-        background: #f6fbf6;
-        /* Merges cleanly into content bg */
-        border-left: 4px solid #fbc02d;
+        background: #e8f5e9;
+        border-left: 4px solid #00e676;
         font-weight: 600;
       }
 
@@ -161,8 +164,8 @@
       }
 
       .folder-header {
-        padding: 14px 24px;
-        color: rgba(255, 255, 255, 0.9);
+        padding: 12px 18px;
+        color: #263238;
         font-weight: 600;
         font-size: 0.85rem;
         text-transform: uppercase;
@@ -176,15 +179,15 @@
       }
 
       .folder-header:hover {
-        color: #fbc02d;
+        color: #1b5e20;
+        text-shadow: 0 0 6px rgba(0, 230, 118, 0.3), 0 0 12px rgba(0, 230, 118, 0.15);
       }
 
       .folder-contents {
         max-height: 0;
         overflow: hidden;
         transition: max-height 0.3s ease-in-out;
-        background: #144317;
-        /* Darker green background tone inside the folder dropdown */
+        background: #f5f5f5;
       }
 
       .folder-contents.open {
@@ -192,13 +195,13 @@
       }
 
       .folder-contents .menu-item {
-        padding-left: 36px;
+        padding-left: 28px;
       }
 
       .folder-title-wrapper {
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 12px;
       }
 
       .chevron-icon {
@@ -229,19 +232,19 @@
 
       .sidebar.collapsed .sidebar-brand {
         justify-content: center !important;
-        padding: 24px 0 !important;
+        padding: 18px 0 !important;
       }
 
       .sidebar.collapsed .menu-item {
         justify-content: center !important;
-        padding: 16px 0 !important;
+        padding: 12px 0 !important;
         border-left: none !important;
         gap: 0 !important;
       }
 
       .sidebar.collapsed .folder-header {
         justify-content: center !important;
-        padding: 16px 0 !important;
+        padding: 12px 0 !important;
       }
 
       .sidebar.collapsed .folder-title-wrapper {
@@ -251,7 +254,7 @@
 
       .sidebar-footer {
         width: 100%;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
         padding: 10px 0;
       }
 
@@ -269,19 +272,19 @@
       /* Workspace Header Bar */
       .viewport-header {
         background: #ffffff;
-        height: 70px;
+        height: 60px;
         border-bottom: 1px solid #dfe9df;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 40px;
+        padding: 0 24px;
         z-index: 1000;
       }
 
       .header-left {
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 12px;
       }
 
       .toggle-sidebar-mobile {
@@ -294,7 +297,7 @@
       }
 
       .page-title {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 700;
         color: #1b5e20;
       }
@@ -302,18 +305,18 @@
       .header-right {
         display: flex;
         align-items: center;
-        gap: 20px;
+        gap: 14px;
       }
 
       .user-profile {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
       }
 
       .user-avatar {
-        width: 38px;
-        height: 38px;
+        width: 34px;
+        height: 34px;
         background: #e1eedf;
         border: 2px solid #1b5e20;
         color: #1b5e20;
@@ -344,7 +347,7 @@
       .content-viewport {
         flex: 1;
         overflow-y: auto;
-        padding: 40px;
+        padding: 24px;
         background: #eef7ef;
         /* Pale Mint Section Color */
       }
@@ -362,24 +365,24 @@
       /* Modular Content Panel Containers */
       .dashboard-panel {
         background: #ffffff;
-        border-radius: 20px;
-        padding: 35px;
+        border-radius: 14px;
+        padding: 24px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
         border: 1px solid #dfe9df;
-        margin-bottom: 30px;
+        margin-bottom: 20px;
       }
 
       .panel-header-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 25px;
+        margin-bottom: 16px;
         border-bottom: 2px solid #f6fbf6;
-        padding-bottom: 15px;
+        padding-bottom: 10px;
       }
 
       .panel-title {
-        font-size: 1.2rem;
+        font-size: 1rem;
         font-weight: 700;
         color: #1b5e20;
       }
@@ -392,20 +395,20 @@
       /* KPI Grid cards */
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-        gap: 24px;
-        margin-bottom: 30px;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
       }
 
       .stat-card {
         background: #ffffff;
         border: 1px solid #dfe9df;
-        border-radius: 16px;
-        padding: 24px;
+        border-radius: 12px;
+        padding: 16px;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
         display: flex;
         align-items: center;
-        gap: 20px;
+        gap: 12px;
         transition: 0.2s;
       }
 
@@ -415,15 +418,15 @@
       }
 
       .stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
         background: rgba(27, 94, 32, 0.1);
         color: #1b5e20;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.3rem;
+        font-size: 1.1rem;
       }
 
       .stat-icon.accent-yellow {
@@ -437,13 +440,13 @@
       }
 
       .stat-info h4 {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: #757575;
         font-weight: 500;
       }
 
       .stat-info .stat-value {
-        font-size: 1.35rem;
+        font-size: 1.1rem;
         font-weight: 700;
         color: #263238;
         margin-top: 2px;
@@ -453,13 +456,13 @@
       .dashboard-form {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 20px;
+        gap: 16px;
       }
 
       .form-grid-2 {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
       }
 
       .form-group {
@@ -469,18 +472,18 @@
 
       .dashboard-form label {
         display: block;
-        font-size: 13px;
+        font-size: 0.8rem;
         font-weight: 600;
         color: #1b5e20;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       }
 
       .dashboard-form input,
       .dashboard-form select,
       .dashboard-form textarea {
         width: 100%;
-        padding: 14px 16px;
-        border-radius: 12px;
+        padding: 10px 14px;
+        border-radius: 8px;
         border: 1px solid #cfdccc;
         font: inherit;
         background: #fbfdfb;
@@ -500,8 +503,8 @@
       .photo-upload-slot {
         border: 2px dashed #cfdccc;
         background: #fdfdfd;
-        border-radius: 12px;
-        padding: 20px;
+        border-radius: 8px;
+        padding: 14px;
         text-align: center;
         cursor: pointer;
         position: relative;
@@ -537,8 +540,8 @@
 
       /* Interactive Action Buttons */
       .btn-brand {
-        padding: 14px 28px;
-        border-radius: 10px;
+        padding: 10px 20px;
+        border-radius: 8px;
         font-weight: 600;
         border: none;
         cursor: pointer;
@@ -547,7 +550,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 8px;
       }
 
       .btn-brand-primary {
@@ -581,9 +584,9 @@
 
       /* Badges for System State Loops */
       .badge-zero {
-        padding: 6px 12px;
+        padding: 4px 10px;
         border-radius: 8px;
-        font-size: 0.8rem;
+        font-size: 0.72rem;
         font-weight: 600;
         display: inline-block;
       }
@@ -676,7 +679,7 @@
       .table-container {
         width: 100%;
         overflow-x: auto;
-        border-radius: 12px;
+        border-radius: 8px;
         border: 1px solid #dfe9df;
       }
 
@@ -684,7 +687,7 @@
         width: 100%;
         border-collapse: collapse;
         text-align: left;
-        font-size: 0.88rem;
+        font-size: 0.78rem;
         table-layout: auto;
       }
 
@@ -692,13 +695,12 @@
         background: #f6fbf6;
         color: #1b5e20;
         font-weight: 600;
-        padding: 14px 18px;
+        padding: 8px 10px;
         border-bottom: 2px solid #dfe9df;
-        white-space: nowrap;
       }
 
       .custom-table td {
-        padding: 14px 18px;
+        padding: 8px 10px;
         border-bottom: 1px solid #f0f5f0;
         color: #263238;
         vertical-align: middle;
@@ -729,17 +731,20 @@
       }
 
       .custom-toast {
-        background: #ffffff;
-        border-left: 5px solid #1b5e20;
-        border-radius: 8px;
-        padding: 16px 24px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        background: rgba(27, 94, 32, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 10px;
+        padding: 10px 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
         display: flex;
         align-items: center;
-        gap: 15px;
-        min-width: 320px;
+        gap: 10px;
+        min-width: 280px;
+        color: #ffffff;
         transform: translateX(120%);
-        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       }
 
       .custom-toast.show {
@@ -747,7 +752,8 @@
       }
 
       .custom-toast.toast-error {
-        border-left-color: #e53935;
+        background: rgba(229, 57, 53, 0.85);
+        border-color: rgba(255, 200, 200, 0.25);
       }
 
       /* Modal System */
@@ -766,12 +772,87 @@
 
       .modal-card {
         background: white;
-        border-radius: 20px;
+        border-radius: 14px;
         width: 90%;
-        max-width: 500px;
-        padding: 35px;
+        max-width: 460px;
+        padding: 24px;
         box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
         text-align: center;
+      }
+
+      #batchDetailModal .modal-card {
+        max-width: 720px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      #batchDetailContent {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .batch-detail-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .batch-detail-summary-card {
+        background: #f5f5f5;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      .batch-detail-table-wrap {
+        max-height: 300px;
+        overflow: auto;
+        border: 1px solid #dfe9df;
+        border-radius: 10px;
+      }
+
+      .batch-detail-table {
+        width: 100%;
+        table-layout: fixed;
+      }
+
+      .batch-detail-table th,
+      .batch-detail-table td {
+        white-space: nowrap;
+      }
+
+      .batch-detail-table td:nth-child(2) {
+        white-space: normal;
+      }
+
+      #salaryTable tbody tr.salary-batch-row td {
+        background: #ffffff;
+      }
+
+      #salaryTable tbody tr.salary-batch-row td:first-child {
+        border-left: 1px solid #dfe9df;
+        border-top-left-radius: 10px;
+        border-bottom-left-radius: 10px;
+      }
+
+      #salaryTable tbody tr.salary-batch-row td:last-child {
+        border-right: 1px solid #dfe9df;
+        border-top-right-radius: 10px;
+        border-bottom-right-radius: 10px;
+      }
+
+      #salaryTable tbody tr.salary-batch-row:hover {
+        background: transparent;
+      }
+
+      #salaryTable tbody tr.salary-batch-row td {
+        border-top: 1px solid #dfe9df;
+        border-bottom: 1px solid #dfe9df;
       }
 
       /* RESPONSIVE DESIGN TWEAKS */
@@ -794,7 +875,11 @@
         }
 
         .content-viewport {
-          padding: 20px;
+          padding: 16px;
+        }
+
+        .dashboard-panel {
+          padding: 18px;
         }
       }
 
@@ -829,6 +914,24 @@
         color: #c62828;
         /* Deep destructive red */
         background-color: #ffffff;
+      }
+
+      .notif-dot {
+        min-width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: #e53935;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0 5px;
+        flex-shrink: 0;
+        line-height: 1;
+        margin-left: 6px;
+        vertical-align: middle;
       }
     </style>
 
@@ -920,7 +1023,7 @@
         <div class="form-group" style="margin-bottom: 18px; text-align: left">
           <label
             for="addOptionName"
-            style="font-size: 13px; font-weight: 600; color: #1b5e20"
+            style="font-size: 0.8rem; font-weight: 600; color: #1b5e20"
           >
             Option Name
           </label>
@@ -930,8 +1033,8 @@
             placeholder="e.g., College of Nursing"
             style="
               width: 100%;
-              padding: 14px 16px;
-              border-radius: 12px;
+              padding: 10px 14px;
+              border-radius: 8px;
               border: 1px solid #cfdccc;
               background: #fbfdfb;
             "
@@ -956,6 +1059,18 @@
       </div>
     </div>
 
+    <!-- Batch Detail Modal -->
+    <div class="modal-overlay" id="batchDetailModal">
+      <div class="modal-card" style="max-width: 680px; text-align: left;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="color:#1b5e20;margin:0;" id="batchDetailTitle">Batch Details</h3>
+          <button type="button" onclick="closeBatchDetailModal()" style="background:none;border:none;font-size:1.8rem;cursor:pointer;color:#666;line-height:1;">&times;</button>
+        </div>
+        <div id="batchDetailContent"></div>
+        <button type="button" class="btn-brand btn-brand-primary" onclick="closeBatchDetailModal()" style="margin-top:16px;width:100%;">Close</button>
+      </div>
+    </div>
+
     <!-- Notification Toast Area -->
     <div class="notification-host" id="toastContainer"></div>
 
@@ -968,13 +1083,13 @@
         <div class="sidebar-top">
           <!-- Sidebar Brand Header -->
           <div class="sidebar-brand">
-            <div class="brand-title-wrapper">
+            <!--div class="brand-title-wrapper">
               <span class="logo-mark">C</span>
               <div class="brand-title-text">
                 <h2 style="font-size: 0.95rem; line-height: 1.2">Terasurer</h2>
-                <!--span class="role-tag">Executive Space</span-->
+                <span class="role-tag">Executive Space</span>
               </div>
-            </div>
+            </div-->
             <button
               class="collapse-toggle-btn"
               id="collapseBtn"
@@ -1047,16 +1162,7 @@
                   </span>
                   <span class="menu-text">Membership</span>
                   {% if returned_entries_count %}
-                  <span
-                    style="
-                      width: 8px;
-                      height: 8px;
-                      background: #e53935;
-                      border-radius: 50%;
-                      display: inline-block;
-                      margin-left: 6px;
-                    "
-                  ></span>
+                  <span class="notif-dot" style="display:inline-flex">{{ returned_entries_count }}</span>
                   {% endif %}
                 </div>
                 <span class="chevron-icon">
@@ -1075,33 +1181,25 @@
                 </span>
               </div>
               <div class="folder-contents" id="folder-membership">
-                <a class="menu-item" data-target="view-fee-payment">
+                <a class="menu-item" data-target="view-member-profile">
                   <span class="menu-icon sub-icon">&#8226;</span>
-                  <span class="menu-text">Membership Fee Payment</span>
+                  <span class="menu-text">Add Member Profile</span>
                 </a>
                 <a class="menu-item" data-target="view-returned-entries">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Returned Entries</span>
                   {% if returned_entries_count %}
-                  <span
-                    style="
-                      width: 8px;
-                      height: 8px;
-                      background: #e53935;
-                      border-radius: 50%;
-                      display: inline-block;
-                      margin-left: 6px;
-                    "
-                  ></span>
+                  <span class="notif-dot" style="display:inline-flex">{{ returned_entries_count }}</span>
                   {% endif %}
                 </a>
                 <a class="menu-item" data-target="view-treasurer-fee-entries">
                   <span class="menu-icon sub-icon">&#8226;</span>
-                  <span class="menu-text">Membership Fee History</span>
+                  <span class="menu-text">Membership History</span>
                 </a>
-                <a class="menu-item" data-target="view-member-profile">
+              
+                <a class="menu-item" data-target="view-fee-payment">
                   <span class="menu-icon sub-icon">&#8226;</span>
-                  <span class="menu-text">Add Member Profile</span>
+                  <span class="menu-text">Membership Fee Payment</span>
                 </a>
               </div>
             </div>
@@ -1137,16 +1235,7 @@
                   </span>
                   <span class="menu-text">Monthly Dues</span>
                   {% if monthly_dues_returned_count %}
-                  <span
-                    style="
-                      width: 8px;
-                      height: 8px;
-                      background: #e53935;
-                      border-radius: 50%;
-                      display: inline-block;
-                      margin-left: 6px;
-                    "
-                  ></span>
+                  <span class="notif-dot" style="display:inline-flex">{{ monthly_dues_returned_count }}</span>
                   {% endif %}
                 </div>
                 <span class="chevron-icon">
@@ -1177,16 +1266,7 @@
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Returned Entries</span>
                   {% if monthly_dues_returned_count %}
-                  <span
-                    style="
-                      width: 8px;
-                      height: 8px;
-                      background: #e53935;
-                      border-radius: 50%;
-                      display: inline-block;
-                      margin-left: 6px;
-                    "
-                  ></span>
+                  <span class="notif-dot" style="display:inline-flex">{{ monthly_dues_returned_count }}</span>
                   {% endif %}
                 </a>
               </div>
@@ -1216,6 +1296,9 @@
                     </svg>
                   </span>
                   <span class="menu-text">Aid & Claims</span>
+                  {% if medical_aid_returned_count or death_aid_returned_count %}
+                  <span class="notif-dot" style="display:inline-flex">{{ medical_aid_returned_count|add:death_aid_returned_count }}</span>
+                  {% endif %}
                 </div>
                 <span class="chevron-icon">
                   <svg
@@ -1237,9 +1320,24 @@
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Medical Aid Request</span>
                 </a>
+             
+                <a class="menu-item" data-target="view-medical-aid-returned">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Returned Medical Aid</span>
+                  {% if medical_aid_returned_count %}
+                  <span class="notif-dot" style="display:inline-flex">{{ medical_aid_returned_count }}</span>
+                  {% endif %}
+                </a>
                 <a class="menu-item" data-target="view-death-aid">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Death Aid Claim</span>
+                </a>
+                <a class="menu-item" data-target="view-death-aid-returned">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Returned Death Aid</span>
+                  {% if death_aid_returned_count %}
+                  <span class="notif-dot" style="display:inline-flex">{{ death_aid_returned_count }}</span>
+                  {% endif %}
                 </a>
               </div>
             </div>
@@ -1248,7 +1346,7 @@
             <!--REMOVED-->
 
             <!-- FOLDER CATEGORY 5: REPORTING -->
-            <div class="nested-folder">
+            <!--div class="nested-folder">
               <div
                 class="folder-header"
                 onclick="toggleFolder('folder-reports', this)"
@@ -1294,15 +1392,11 @@
                 </a>
               </div>
             </div>
-          </div>
+          </div-->
 
           <!-- Sidebar Reset Footer -->
           <div class="sidebar-footer">
-            <a
-              class="menu-item"
-              onclick="resetDatabaseWithWarning()"
-              style="color: rgba(255, 255, 255, 0.5)"
-            >
+            <a class="menu-item" onclick="confirmLogout()" title="Logout">
               <span class="menu-icon">
                 <svg
                   width="18"
@@ -1314,14 +1408,12 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
-                  <path
-                    d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"
-                  ></path>
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
                 </svg>
               </span>
-              <span class="menu-text" style="font-size: 0.85rem"
-                >Flush System DB</span
-              >
+              <span class="menu-text" style="font-size: 0.85rem">Logout</span>
             </a>
           </div>
         </div>
@@ -1342,7 +1434,7 @@
               &#9776;
             </button>
             <h1 class="page-title" id="currentModuleTitle">
-              Executive Overview
+              Overview
             </h1>
           </div>
           <div class="header-right">
@@ -1351,19 +1443,8 @@
                 <p class="user-name">{{ officer_full_name|default:"" }}</p>
                 <p class="user-role">{{ officer_role }}</p>
               </div>
-              <div class="user-avatar" title="{{ officer_full_name }}">
-                {{ officer_full_name|default:""|slice:"0:2" }}
-              </div>
+             
             </div>
-            <button
-              type="button"
-              class="btn-brand btn-brand-danger"
-              style="padding: 10px 16px; border-radius: 10px"
-              onclick="confirmLogout()"
-              title="Logout"
-            >
-              Logout
-            </button>
           </div>
         </header>
 
@@ -1383,6 +1464,28 @@
                 <div class="stat-info">
                   <h4>Total Active Members</h4>
                   <div class="stat-value" id="kpi-total-members">0</div>
+                  <div
+                    style="
+                      margin-top: 2px;
+                      font-size: 0.75rem;
+                      color: #757575;
+                      display: flex;
+                      gap: 12px;
+                    "
+                  >
+                    <span
+                      >Permanent:
+                      <strong id="kpi-permanent" style="color: #1b5e20"
+                        >0</strong
+                      ></span
+                    >
+                    <span
+                      >Temporary:
+                      <strong id="kpi-temporary" style="color: #fbc02d"
+                        >0</strong
+                      ></span
+                    >
+                  </div>
                 </div>
               </div>
               <div class="stat-card">
@@ -1390,6 +1493,33 @@
                 <div class="stat-info">
                   <h4>Funds</h4>
                   <div class="stat-value" id="kpi-funds">₱0.00</div>
+                  <div
+                    style="
+                      margin-top: 2px;
+                      font-size: 0.75rem;
+                      color: #757575;
+                      display: flex;
+                      flex-direction: column;
+                      gap: 2px;
+                    "
+                  >
+                    <span
+                      >+Funds:
+                      <strong id="kpi-funds-in" style="color: #1b5e20"
+                        >₱0.00</strong
+                      ></span
+                    >
+                    <span
+                      >-Releases:
+                      <strong id="kpi-funds-out" style="color: #e53935"
+                        >₱0.00</strong
+                      ></span
+                    >
+                    <span
+                      >Total Remaining:
+                      <strong id="kpi-funds-remaining">₱0.00</strong></span
+                    >
+                  </div>
                 </div>
               </div>
               <div class="stat-card">
@@ -1400,14 +1530,13 @@
                 </div>
               </div>
             </div>
-
             <div class="dashboard-panel">
               <div class="panel-header-row">
                 <div>
-                  <h3 class="panel-title">Tings</h3>
+                  <h3 class="panel-title">Lorem Ipsum</h3>
                   <p class="panel-subtitle">
-                    Official administrative orders, system messages and live
-                    feeds
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed
+                    do eiusmod
                   </p>
                 </div>
               </div>
@@ -1425,13 +1554,13 @@
                 <h4
                   style="color: #1b5e20; font-weight: 600; margin-bottom: 5px"
                 >
-                  Notifications: Annual Audit Approaching
+                  Lorem Ipsum: Dolor Sit Amet
                 </h4>
                 <p style="font-size: 0.9rem; line-height: 1.5">
-                  Welcome to the Executive Admin Workspace. You can access
-                  individual administrative ledgers, personnel registries, and
-                  configurations using the sidebar folders. Sub-directories
-                  expand dynamically.
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
+                  do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                  Ut enim ad minim veniam, quis nostrud exercitation ullamco
+                  laboris nisi ut aliquip ex ea commodo consequat.
                 </p>
               </div>
 
@@ -1439,14 +1568,13 @@
                 <h4
                   style="color: #1b5e20; font-weight: 600; margin-bottom: 10px"
                 >
-                  Quick System Guide
+                  Lorem Ipsum Dolor
                 </h4>
                 <p style="font-size: 0.92rem; line-height: 1.6; color: #546e7a">
-                  This workspace organizes your management actions into discrete
-                  modules. Modify lists dynamically within the tabs, and track
-                  how metrics instantly adjust on the fly. Collapsing the
-                  sidebar optimizes structural workspaces when performing
-                  intense administrative procedures.
+                  Duis aute irure dolor in reprehenderit in voluptate velit esse
+                  cillum dolore eu fugiat nulla pariatur. Excepteur sint
+                  occaecat cupidatat non proident, sunt in culpa qui officia
+                  deserunt mollit anim id est laborum.
                 </p>
               </div>
             </div>
@@ -1462,8 +1590,8 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel">
@@ -1471,165 +1599,232 @@
                   <h3 class="panel-title">Enroll New Profile</h3>
                 </div>
                 <form
-                  class="dashboard-form"
-                  id="memberForm"
-                  method="POST"
-                  action=""
-                  enctype="multipart/form-data"
-                >
-                  {% csrf_token %}
+                class="dashboard-form"
+                id="memberForm"
+                method="POST"
+                action=""
+                enctype="multipart/form-data"
+              >
+                {% csrf_token %}
+                
+                <div class="form-group">
+                  <label for="prof_name">Full Legal Name</label>
+                  <input
+                    type="text"
+                    id="prof_name"
+                    name="prof_name"
+                    placeholder="e.g., Senator Evelyn Vance"
+                    required
+                  />
+                </div>
+              
+                <div class="form-grid-2">
                   <div class="form-group">
-                    <label for="prof_name">Full Legal Name</label>
+                    <label for="prof_id">Employee/Faculty ID</label>
                     <input
                       type="text"
-                      id="prof_name"
-                      name="prof_name"
-                      placeholder="e.g., Senator Evelyn Vance"
+                      id="prof_id"
+                      name="prof_id"
+                      placeholder="e.g., EMP-2026-99"
                       required
                     />
                   </div>
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="prof_id">Employee/Faculty ID</label>
-                      <input
-                        type="text"
-                        id="prof_id"
-                        name="prof_id"
-                        placeholder="e.g., EMP-2026-99"
-                        required
-                      />
-                    </div>
-                    <div class="form-group">
-                      <label for="prof_dept">Department / College</label>
-                      <select id="prof_dept" name="prof_dept" required>
-                        <option value="">
-                          -- Select Department / College --
-                        </option>
-                        <option value="College of Education">
-                          College of Education
-                        </option>
-                        <option value="College of Agriculture">
-                          College of Agriculture
-                        </option>
-                        <option value="College of Information Technology">
-                          Information Technology
-                        </option>
-                        <option value="College of Criminology">
-                          Criminology
-                        </option>
-                        <option value="College of Business Management">
-                          Business Management
-                        </option>
-                        <option value="Add Option">Add Option</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="prof_pos">Position</label>
-                      <select id="prof_pos" name="prof_pos" required>
-                        <option value="">-- Select Position --</option>
-                        <option value="Professor">Professor</option>
-                        <option value="Associate Professor">
-                          Associate Professor
-                        </option>
-                        <option value="Assistant Professor">
-                          Assistant Professor
-                        </option>
-                        <option value="Senior Associate Professor">
-                          Senior Associate Professor
-                        </option>
-                        <option value="Dean">Dean</option>
-                        <option value="Coordinator">Coordinator</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label for="prof_contact">Contact Number</label>
-                      <input
-                        type="tel"
-                        id="prof_contact"
-                        name="prof_contact"
-                        placeholder="e.g., 0917-123-4567"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="prof_email">Institutional Email</label>
-                      <input
-                        type="email"
-                        id="prof_email"
-                        name="prof_email"
-                        placeholder="e.g., evelyn.v@government.gov"
-                        required
-                      />
-                    </div>
-                    <div class="form-group">
-                      <label for="prof_status">Membership Status</label>
-                      <select id="prof_status" name="prof_status" required>
-                        <option value="" disabled selected>
-                          Select Membership Category
-                        </option>
-                        <option value="Permanent">Permanent</option>
-                        <option value="Temporary">Temporary</option>
-                        <option value="Retired">Retired</option>
-                      </select>
-                    </div>
-                  </div>
-                  <!--Photo / ID Requirement-->
                   <div class="form-group">
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        margin-bottom: 8px;
-                      "
-                    >
-                      <label style="margin: 0">Is Required?</label>
+                    <label for="prof_dept">Department / College</label>
+                    <select id="prof_dept" name="prof_dept" required>
+                      <option value="">-- Select Department / College --</option>
+                      <option value="College of Education">College of Education</option>
+                      <option value="College of Agriculture">College of Agriculture</option>
+                      <option value="College of Information Technology">Information Technology</option>
+                      <option value="College of Criminology">Criminology</option>
+                      <option value="College of Business Management">Business Management</option>
+                      <option value="Add Option">Add Option</option>
+                    </select>
+                  </div>
+                </div>
+              
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="prof_pos">Position</label>
+                    <select id="prof_pos" name="prof_pos" required>
+                      <option value="">-- Select Position --</option>
+                      <option value="Professor">Professor</option>
+                      <option value="Associate Professor">Associate Professor</option>
+                      <option value="Assistant Professor">Assistant Professor</option>
+                      <option value="Senior Associate Professor">Senior Associate Professor</option>
+                      <option value="Dean">Dean</option>
+                      <option value="Coordinator">Coordinator</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="prof_contact">Contact Number</label>
+                    <input
+                      type="tel"
+                      id="prof_contact"
+                      name="prof_contact"
+                      placeholder="e.g., 0917-123-4567"
+                      required
+                    />
+                  </div>
+                </div>
+              
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="prof_email">Institutional Email</label>
+                    <input
+                      type="email"
+                      id="prof_email"
+                      name="prof_email"
+                      placeholder="e.g., evelyn.v@government.gov"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="prof_status">Membership Status</label>
+                    <select id="prof_status" name="prof_status" required>
+                      <option value="" disabled selected>Select Membership Category</option>
+                      <option value="Permanent">Permanent</option>
+                      <option value="Temporary">Temporary</option>
+                      <option value="Retired">Retired</option>
+                    </select>
+                  </div>
+                </div>
+              
+                <div class="form-group">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <label style="margin: 0">Is Profile Attachment Required?</label>
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        id="prof_receipt_required_toggle"
+                        checked
+                        onchange="toggleOtcRequiredStatus('prof')"
+                      />
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                  <div class="photo-upload-slot" onclick="triggerFileUpload('prof_photo_file')">
+                    <input
+                      type="file"
+                      id="prof_photo_file"
+                      name="prof_photo_file"
+                      style="display: none"
+                      onchange="showAttachedPreview(this, 'prof_preview')"
+                    />
+                    <p>Click here to upload Membership Form or ID card scan</p>
+                    <span class="req-badge" id="prof_req_badge" style="background: rgba(27, 94, 32, 0.1); color: #1b5e20;">
+                      Optional attachment
+                    </span>
+                    <div class="upload-preview-indicator" id="prof_preview">✓ File attached!</div>
+                  </div>
+                </div>
+              
+                <hr style="border: 0; border-top: 1px dashed rgba(0,0,0,0.15); margin: 25px 0;">
+                
+                <div class="form-group">
+                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                    <label style="margin: 0; font-weight: bold; font-size: 1.05rem;">Is Onboarding Payment Required?</label>
+                    <label class="switch">
+                      <input
+                        type="checkbox"
+                        id="enroll_payment_required_toggle"
+                        onchange="togglePaymentSectionVisibility()"
+                      />
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+              
+                <div id="enroll_corePaymentContainer" style="display: none;">
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="enroll_fee_method">Payment Method</label>
+                      <select id="enroll_fee_method" name="fee_method">
+                        <option value="OTC Cash">OTC Cash</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="GCash">GCash Transfer</option>
+                        <option value="Maya">Maya Wallet</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="enroll_fee_date">Payment Date</label>
+                      <input type="date" id="enroll_fee_date" name="fee_date" />
+                    </div>
+                  </div>
+              
+                  <div class="form-group">
+                    <label for="enroll_fee_amount">Amount Paid (₱)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="enroll_fee_amount"
+                      name="fee_amount"
+                      placeholder="500.00"
+                    />
+                  </div>
+              
+                  <div class="form-group" style="margin-top: 15px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                      <label style="margin: 0; font-style: italic;">Is Reference / Receipt Document Required?</label>
                       <label class="switch">
                         <input
                           type="checkbox"
-                          id="prof_receipt_required_toggle"
-                          checked
-                          onchange="toggleOtcRequiredStatus('prof')"
+                          id="enroll_receipt_required_toggle"
+                          onchange="toggleReceiptFieldsVisibility()"
                         />
                         <span class="slider round"></span>
                       </label>
                     </div>
-                    <div
-                      class="photo-upload-slot"
-                      onclick="triggerFileUpload('prof_photo_file')"
-                    >
-                      <input
-                        type="file"
-                        id="prof_photo_file"
-                        name="prof_photo_file"
-                        style="display: none"
-                        onchange="showAttachedPreview(this, 'prof_preview')"
-                      />
-                      <p>
-                        Click here to upload Membership Form or ID card scan
-                      </p>
-                      <span
-                        class="req-badge"
-                        id="prof_req_badge"
-                        style="
-                          background: rgba(27, 94, 32, 0.1);
-                          color: #1b5e20;
-                        "
-                        >Optional attachment</span
-                      >
-                      <div class="upload-preview-indicator" id="prof_preview">
-                        ✓ File attached!
+                  </div>
+              
+                  <div id="enroll_auditFieldsContainer" style="display: none;">
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label for="enroll_fee_ref">Receipt / Reference Number</label>
+                        <input
+                          type="text"
+                          id="enroll_fee_ref"
+                          name="fee_ref"
+                          placeholder="e.g., OR-23194-A"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label for="enroll_fee_encoder">Encoded By</label>
+                        <input
+                          type="text"
+                          id="enroll_fee_encoder"
+                          name="fee_encoder"
+                          placeholder="e.g., Asst. Treasurer"
+                        />
+                      </div>
+                    </div>
+              
+                    <div class="form-group">
+                      <label>Required Photo of Receipt / Proof of Payment</label>
+                      <div class="photo-upload-slot" onclick="triggerFileUpload('enroll_fee_photo_file')">
+                        <input
+                          type="file"
+                          id="enroll_fee_photo_file"
+                          name="fee_photo_file"
+                          style="display: none"
+                          onchange="showAttachedPreview(this, 'enroll_fee_preview')"
+                        />
+                        <p>📸 Tap to upload official reference receipt</p>
+                        <span class="req-badge" style="background: rgba(229, 57, 53, 0.1); color: #e53935;">
+                          Required field
+                        </span>
+                        <div class="upload-preview-indicator" id="enroll_fee_preview">
+                          ✓ Receipt Document Attached!
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <button type="submit" class="btn-brand btn-brand-primary">
-                    Enroll Profile
-                  </button>
-                </form>
+                </div>
+              
+                <button type="submit" class="btn-brand btn-brand-primary" style="margin-top: 20px;">
+                  Enroll Profile & Process Payment
+                </button>
+              </form>
               </div>
 
               <div class="dashboard-panel" style="flex: 2">
@@ -1640,11 +1835,11 @@
                   <table class="custom-table" id="memberTable">
                     <thead>
                       <tr>
-                        <th>Employee ID</th>
-                        <th>Name</th>
-                        <th>Department & Position</th>
-                        <th>Status</th>
-                        <th>Action</th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-id-card" title="Employee ID" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Name" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-briefcase" title="Department & Position" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-flag" title="Status" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-gears" title="Action" style="cursor: pointer;"></i></th>
                       </tr>
                     </thead>
                     <tbody></tbody>
@@ -1657,177 +1852,178 @@
           <!-- ==========================================================================
              TAB 3: MEMBERSHIP FEE PAYMENT
              ========================================================================== -->
-          <section
-            id="view-fee-payment"
-            class="dashboard-module module-fade-in"
-          >
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
-              "
+            <section
+              id="view-fee-payment"
+              class="dashboard-module module-fade-in"
             >
-              <div class="dashboard-panel">
-                <div class="panel-header-row">
-                  <h3 class="panel-title">Record Membership Fee Payment</h3>
-                </div>
-                <form
-                  class="dashboard-form"
-                  id="feePaymentForm"
-                  method="POST"
-                  action=""
-                  enctype="multipart/form-data"
-                >
-                  {% csrf_token %}
-                  <div class="form-group">
-                    <label for="fee_member">Member ID</label>
-                    <select id="fee_member" name="fee_member" required></select>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                  gap: 20px;
+                "
+              >
+                <div class="dashboard-panel">
+                  <div class="panel-header-row">
+                    <h3 class="panel-title">Record Membership Fee Payment</h3>
                   </div>
-                  <div class="form-grid-2">
+                  <form
+                    class="dashboard-form"
+                    id="feePaymentForm"
+                    method="POST"
+                    action=""
+                    enctype="multipart/form-data"
+                  >
+                    {% csrf_token %}
                     <div class="form-group">
-                      <label for="fee_method">Payment Method</label>
-                      <select id="fee_method" name="fee_method">
-                        <option value="OTC Cash">OTC Cash</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                        <option value="GCash">GCash Transfer</option>
-                        <option value="Maya">Maya Wallet</option>
-                      </select>
+                      <label for="fee_member">Member ID</label>
+                      <select id="fee_member" name="fee_member" required></select>
                     </div>
-                    <div class="form-group">
-                      <label for="fee_status">Payment Status</label>
-                      <select id="fee_status" name="fee_status">
-                        <option value="Full Payment">Full Payment</option>
-                        <option value="Partial">Partial</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div id="fullAmountGroup">
                     <div class="form-grid-2">
                       <div class="form-group">
-                        <label for="fee_amount">Amount Paid (₱)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          id="fee_amount"
-                          name="fee_amount"
-                          placeholder="100.00"
-                          required
-                        />
+                        <label for="fee_method">Payment Method</label>
+                        <select id="fee_method" name="fee_method">
+                          <option value="OTC Cash">OTC Cash</option>
+                          <option value="Bank Transfer">Bank Transfer</option>
+                          <option value="GCash">GCash Transfer</option>
+                          <option value="Maya">Maya Wallet</option>
+                        </select>
                       </div>
                       <div class="form-group">
-                        <label for="fee_date">Payment Date</label>
-                        <input
-                          type="date"
-                          id="fee_date"
-                          name="fee_date"
-                          required
-                        />
+                        <label for="fee_status">Payment Status</label>
+                        <select id="fee_status" name="fee_status">
+                          <option value="Full Payment">Full Payment</option>
+                          <option value="Partial">Partial</option>
+                        </select>
                       </div>
                     </div>
-                  </div>
-                  <div id="partialAmountGroup" style="display: none">
-                    <div class="form-grid-2">
-                      <div class="form-group">
-                        <label for="fee_partial_amount"
-                          >Partial Payment Amount (₱)</label
-                        >
-                        <input
-                          type="number"
-                          step="0.01"
-                          id="fee_partial_amount"
-                          name="fee_partial_amount"
-                          placeholder="Enter partial amount paid"
-                        />
+                    <div id="fullAmountGroup">
+                      <div class="form-grid-2">
+                        <div class="form-group">
+                          <label for="fee_amount">Amount Paid (₱)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            id="fee_amount"
+                            name="fee_amount"
+                            placeholder="100.00"
+                            required
+                          />
+                        </div>
+                        <div class="form-group">
+                          <label for="fee_date">Payment Date</label>
+                          <input
+                            type="date"
+                            id="fee_date"
+                            name="fee_date"
+                            required
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div class="form-group">
-                    <label for="fee_month"
-                      >Deduction Month / Covered Period</label
-                    >
-                    <input
-                      type="month"
-                      id="fee_month"
-                      name="fee_month"
-                      placeholder="YYYY-MM"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="fee_ref">Receipt / Reference Number</label>
-                    <input
-                      type="text"
-                      id="fee_ref"
-                      name="fee_ref"
-                      placeholder="e.g., OR-23194-A"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="fee_encoder">Encoded By</label>
-                    <input
-                      type="text"
-                      id="fee_encoder"
-                      name="fee_encoder"
-                      placeholder="e.g., Asst. Treasurer"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>Required Photo of Receipt / Proof of Payment</label>
-                    <div
-                      class="photo-upload-slot"
-                      onclick="triggerFileUpload('fee_photo_file')"
-                    >
-                      <input
-                        type="file"
-                        id="fee_photo_file"
-                        name="fee_photo_file"
-                        style="display: none"
-                        onchange="showAttachedPreview(this, 'fee_preview')"
-                      />
-                      <p>📸 Tap to upload official reference receipt</p>
-                      <span
-                        class="req-badge"
-                        style="
-                          background: rgba(229, 57, 53, 0.1);
-                          color: #e53935;
-                        "
-                        >Required field</span
+                    <div id="partialAmountGroup" style="display: none">
+                      <div class="form-grid-2">
+                        <div class="form-group">
+                          <label for="fee_partial_amount"
+                            >Partial Payment Amount (₱)</label
+                          >
+                          <input
+                            type="number"
+                            step="0.01"
+                            id="fee_partial_amount"
+                            name="fee_partial_amount"
+                            placeholder="Enter partial amount paid"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="fee_month"
+                        >Deduction Month / Covered Period</label
                       >
-                      <div class="upload-preview-indicator" id="fee_preview">
-                        ✓ Receipt Document Attached!
+                      <input
+                        type="month"
+                        id="fee_month"
+                        name="fee_month"
+                        placeholder="YYYY-MM"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="fee_ref">Receipt / Reference Number</label>
+                      <input
+                        type="text"
+                        id="fee_ref"
+                        name="fee_ref"
+                        placeholder="e.g., OR-23194-A"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="fee_encoder">Encoded By</label>
+                      <input
+                        type="text"
+                        id="fee_encoder"
+                        name="fee_encoder"
+                        placeholder="e.g., Asst. Treasurer"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label>Required Photo of Receipt / Proof of Payment</label>
+                      <div
+                        class="photo-upload-slot"
+                        onclick="triggerFileUpload('fee_photo_file')"
+                      >
+                        <input
+                          type="file"
+                          id="fee_photo_file"
+                          name="fee_photo_file"
+                          style="display: none"
+                          onchange="showAttachedPreview(this, 'fee_preview')"
+                        />
+                        <p>📸 Tap to upload official reference receipt</p>
+                        <span
+                          class="req-badge"
+                          style="
+                            background: rgba(229, 57, 53, 0.1);
+                            color: #e53935;
+                          "
+                          >Required field</span
+                        >
+                        <div class="upload-preview-indicator" id="fee_preview">
+                          ✓ Receipt Document Attached!
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <button type="submit" class="btn-brand btn-brand-primary">
-                    Record Membership Fee
-                  </button>
-                </form>
-              </div>
+                    <button type="submit" class="btn-brand btn-brand-primary">
+                      Record Membership Fee
+                    </button>
+                  </form>
+                </div>
 
-              <div class="dashboard-panel" style="flex: 2">
-                <div class="panel-header-row">
-                  <h3 class="panel-title">History</h3>
-                </div>
-                <div class="table-container">
-                  <table class="custom-table" id="feePaymentTable">
-                    <thead>
-                      <tr>
-                        <th>Ref Number</th>
-                        <th>Member</th>
-                        <th>Amount</th>
-                        <th>Method, Covered Period & Date</th>
-                        <th>Encoded By</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+                <div class="dashboard-panel" style="flex: 2">
+                  <div class="panel-header-row">
+                    <h3 class="panel-title">History</h3>
+                  </div>
+                  <div class="table-container">
+                    <table class="custom-table" id="feePaymentTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Ref Number" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Amount" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Method, Covered Period & Date" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-pen" title="Encoded By" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Audit" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
           <!-- ==========================================================================
               TAB 4: RETURNED ENTRIES / CORRECT & RESUBMIT MEMBERSHIP FEES
@@ -1839,8 +2035,8 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel">
@@ -2039,6 +2235,10 @@
                       </div>
                     </div>
                   </div>
+                  <label style="display:flex;align-items:center;gap:8px;margin:12px 0;font-size:0.85rem;cursor:pointer;">
+                    <input type="checkbox" name="same_auditor" id="mf_same_auditor" value="true">
+                    Send back to same auditor
+                  </label>
                   <button type="submit" class="btn-brand btn-brand-primary">
                     Resubmit Corrected Fee
                   </button>
@@ -2050,20 +2250,20 @@
                   <h3 class="panel-title">Returned Entries</h3>
                 </div>
                 <div class="table-container">
-                  <table class="custom-table" id="returnedFeesTable">
-                    <thead>
-                      <tr>
-                        <th>Ref Number</th>
-                        <th>Member</th>
-                        <th>Amount</th>
-                        <th>Month Covered & Date</th>
-                        <th>Status & Method</th>
-                        <th>Rejection Detail</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+                    <table class="custom-table" id="returnedFeesTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Ref Number" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Amount" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Month Covered & Date" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-regular fa-circle-check" title="Status & Method" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-triangle-exclamation" title="Rejection Detail" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-gears" title="Action" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
                 </div>
               </div>
             </div>
@@ -2079,32 +2279,33 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel" style="grid-column: 1 / -1">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Membership Fee Entries</h3>
+                  <h3 class="panel-title">Membership Entries</h3>
                   <p class="panel-subtitle">
-                    Showing all membership fee records encoded by the Treasurer.
+                    Showing all membership records encoded by the Treasurer.
                   </p>
                 </div>
 
                 <div class="table-container">
-                  <table class="custom-table" id="treasurerFeesTable">
-                    <thead>
-                      <tr>
-                        <th>Ref Number</th>
-                        <th>Member</th>
-                        <th>Amount</th>
-                        <th>Method, Covered Period & Date</th>
-                        <th>Payment Status</th>
-                        <th>Encoded By</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+                    <table class="custom-table" id="treasurerFeesTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Ref Number" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Amount" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Method, Covered Period & Date" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-regular fa-circle-check" title="Payment Status" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-pen" title="Encoded By" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Audit" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
                 </div>
               </div>
             </div>
@@ -2120,8 +2321,8 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel">
@@ -2253,18 +2454,19 @@
                   <h3 class="panel-title">History</h3>
                 </div>
                 <div class="table-container">
-                  <table class="custom-table" id="otcTable">
-                    <thead>
-                      <tr>
-                        <th>Receipt #</th>
-                        <th>Member</th>
-                        <th>Month</th>
-                        <th>Amount</th>
-                        <th>Method & Date</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+                    <table class="custom-table" id="otcTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Receipt #" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Month" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Amount" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-regular fa-calendar-check" title="Method & Date" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Audit" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
                 </div>
               </div>
             </div>
@@ -2277,14 +2479,50 @@
             id="view-salary-deduction"
             class="dashboard-module module-fade-in"
           >
+            <style>
+              .salary-tab-btn.premium-active {
+                position: relative;
+                z-index: 1;
+                border: 2px solid transparent !important;
+                background-clip: padding-box !important;
+              }
+              .salary-tab-btn.premium-active::before {
+                content: '';
+                position: absolute;
+                top: -2px; left: -2px; right: -2px; bottom: -2px;
+                border-radius: inherit;
+                background: linear-gradient(135deg, #ffd700, #fff8dc, #ffd700, #fff8dc, #ffd700);
+                background-size: 400% 400%;
+                animation: borderGlide 2s ease-in-out forwards;
+                z-index: -1;
+                pointer-events: none;
+                -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                -webkit-mask-composite: xor;
+                mask-composite: exclude;
+                padding: 2px;
+              }
+              @keyframes borderGlide {
+                0%   { background-position: 0% 50%; }
+                50%  { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+              }
+              .swal-rounded { border-radius: 20px !important; }
+            </style>
+            <div class="panel-header-row" style="margin-bottom: 12px;">
+              <h3 class="panel-title" style="margin: 0;">Salary Deductions</h3>
+              <div class="salary-tabs premium-tabs" style="display: flex; gap: 4px;">
+                <button type="button" class="salary-tab-btn btn-brand" data-tab="individual" data-premium="1" style="padding: 6px 16px; font-size: 0.85rem; opacity: 0.7;">Individual Entry</button>
+                <button type="button" class="salary-tab-btn btn-brand btn-brand-primary" data-tab="bulk" data-premium="2" style="padding: 6px 16px; font-size: 0.85rem;">Bulk</button>
+              </div>
+            </div>
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
-              <div class="dashboard-panel">
+              <div class="dashboard-panel salary-tab-panel" id="salary-individual-panel" style="display: none;">
                 <div class="panel-header-row">
                   <h3 class="panel-title">Record Salary Deduction</h3>
                 </div>
@@ -2400,23 +2638,82 @@
                 </form>
               </div>
 
+              <div class="dashboard-panel salary-tab-panel" id="salary-bulk-panel">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Bulk Process Salary Deductions</h3>
+                </div>
+                <div class="dashboard-form">
+                  <div class="form-group">
+                    <label for="bulk_sal_month">Deduction Month</label>
+                    <input type="month" id="bulk_sal_month" name="bulk_sal_month" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="bulk_batch_ref">Batch Reference</label>
+                    <div style="display: flex; gap: 8px;">
+                      <input type="text" id="bulk_batch_ref" name="bulk_batch_ref" placeholder="e.g., TXN-BATCH-0726" required style="flex: 1;" />
+                      <button type="button" id="bulk_autogen_ref" class="btn-brand" style="padding: 6px 12px; font-size: 0.8rem; white-space: nowrap;">🔄 Auto-gen</button>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="bulk_summary">Accounting Deduction Summary Remarks</label>
+                    <textarea id="bulk_summary" name="bulk_summary" rows="2" placeholder="e.g., Payroll deductions for July 2026"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label for="bulk_photo_file">Payroll Summary Document (optional)</label>
+                    <div class="photo-upload-slot" onclick="document.getElementById('bulk_photo_file').click()">
+                      <input type="file" id="bulk_photo_file" name="bulk_photo_file" style="display: none" onchange="showAttachedPreview(this, 'bulk_preview')" />
+                      <p>📂 Click to upload payroll summary file</p>
+                      <div class="upload-preview-indicator" id="bulk_preview" style="display: none;">✓ File Attached!</div>
+                    </div>
+                  </div>
+                  <button type="button" id="bulk_preview_btn" class="btn-brand btn-brand-primary" style="width: 100%; margin-bottom: 12px;">
+                    Preview Members
+                  </button>
+
+                  <div id="bulk-member-section" style="display: none;">
+                    <hr style="margin: 12px 0; border-color: var(--border, #333);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                      <strong id="bulk-member-count">0 members</strong>
+                      <div style="display: flex; gap: 6px;">
+                        <button type="button" id="bulk_select_all" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;">☑ All</button>
+                        <button type="button" id="bulk_select_none" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;">☐ None</button>
+                        <button type="button" id="bulk_select_invert" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;">⇄ Invert</button>
+                      </div>
+                    </div>
+                    <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                      <table class="custom-table" id="bulk-member-table">
+                        <thead>
+                          <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Member</th>
+                            <th>Department</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody id="bulk-member-tbody"></tbody>
+                      </table>
+                    </div>
+                    <div id="bulk-status-msg" style="margin-top: 8px; font-size: 0.85rem; color: var(--text-muted, #aaa);"></div>
+                    <button type="button" id="bulk_process_btn" class="btn-brand btn-brand-primary" disabled style="width: 100%; margin-top: 12px;">
+                      Process Members
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div class="dashboard-panel" style="flex: 2">
                 <div class="panel-header-row">
                   <h3 class="panel-title">History</h3>
                 </div>
+                <div style="display:flex;gap:4px;margin-bottom:8px;">
+                  <button type="button" class="history-view-toggle btn-brand btn-brand-primary" data-view="batch" style="padding:4px 12px;font-size:0.8rem;">Batch View</button>
+                  <button type="button" class="history-view-toggle btn-brand" data-view="list" style="padding:4px 12px;font-size:0.8rem;opacity:0.7;">List View</button>
+                </div>
                 <div class="table-container">
-                  <table class="custom-table" id="salaryTable">
-                    <thead>
-                      <tr>
-                        <th>Reference #</th>
-                        <th>Member</th>
-                        <th>Month</th>
-                        <th>Expected Dues</th>
-                        <th>Accounting Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+                    <table class="custom-table" id="salaryTable">
+                      <thead id="salaryTableHead"></thead>
+                      <tbody></tbody>
+                    </table>
                 </div>
               </div>
             </div>
@@ -2432,13 +2729,15 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Correct & Resubmit Monthly Dues</h3>
+                  <h3 class="panel-title" id="returnedFormTitle">
+                    Correct & Resubmit Monthly Dues
+                  </h3>
                 </div>
                 <form
                   class="dashboard-form"
@@ -2455,7 +2754,21 @@
                     value=""
                   />
                   <div class="form-grid-2">
-                    <div class="form-group">
+                    <div class="form-group salary-only" style="display: none">
+                      <label>Payment Method</label>
+                      <div
+                        style="
+                          padding: 14px;
+                          background: #f6fbf6;
+                          border-radius: 12px;
+                          font-weight: 600;
+                          color: #1b5e20;
+                        "
+                      >
+                        Salary Deduction
+                      </div>
+                    </div>
+                    <div class="form-group otc-only" style="display: none">
                       <label for="md_returned_method">Payment Method</label>
                       <select id="md_returned_method" name="payment_method">
                         <option value="Cash OTC">
@@ -2465,16 +2778,6 @@
                         <option value="Cashier Handover">
                           Direct Handover
                         </option>
-                        <option value="Salary Deduction">
-                          Salary Deduction
-                        </option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label for="md_returned_status">Payment Status</label>
-                      <select id="md_returned_status" name="payment_status">
-                        <option value="Paid">Paid</option>
-                        <option value="Partial">Partial</option>
                       </select>
                     </div>
                   </div>
@@ -2520,30 +2823,6 @@
                         name="receipt_number"
                         placeholder="e.g., OR-OTC-7411"
                         required
-                      />
-                    </div>
-                  </div>
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="md_returned_remittance"
-                        >Remittance Reference (Salary Deduction)</label
-                      >
-                      <input
-                        type="text"
-                        id="md_returned_remittance"
-                        name="remittance_reference"
-                        placeholder="e.g., REM-2024-001"
-                      />
-                    </div>
-                    <div class="form-group">
-                      <label for="md_returned_summary"
-                        >Accounting Summary / Batch Ref</label
-                      >
-                      <input
-                        type="text"
-                        id="md_returned_summary"
-                        name="deduction_batch_reference"
-                        placeholder="e.g., Batch-June-2024"
                       />
                     </div>
                   </div>
@@ -2633,7 +2912,15 @@
                       </div>
                     </div>
                   </div>
-                  <button type="submit" class="btn-brand btn-brand-primary">
+                  <label style="display:flex;align-items:center;gap:8px;margin:12px 0;font-size:0.85rem;cursor:pointer;">
+                    <input type="checkbox" name="same_auditor" id="md_same_auditor" value="true">
+                    Send back to same auditor
+                  </label>
+                  <button
+                    type="submit"
+                    class="btn-brand btn-brand-primary"
+                    id="returnedSubmitBtn"
+                  >
                     Resubmit Corrected Monthly Dues
                   </button>
                 </form>
@@ -2644,20 +2931,21 @@
                   <h3 class="panel-title">Returned Monthly Dues Entries</h3>
                 </div>
                 <div class="table-container">
-                  <table class="custom-table" id="monthlyDuesReturnedTable">
-                    <thead>
-                      <tr>
-                        <th>Member</th>
-                        <th>Month Covered</th>
-                        <th>Amount</th>
-                        <th>Method & Status</th>
-                        <th>Receipt / Ref</th>
-                        <th>Rejection Detail</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+                    <table class="custom-table" id="monthlyDuesReturnedTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Month Covered" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Amount" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-regular fa-circle-check" title="Method & Status" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Receipt / Ref" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-location-dot" title="Source" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-triangle-exclamation" title="Rejection Detail" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-gears" title="Action" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
                 </div>
               </div>
             </div>
@@ -2673,8 +2961,8 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel">
@@ -2686,6 +2974,7 @@
                   id="medicalForm"
                   method="POST"
                   action=""
+                  novalidate
                   onsubmit="handleMedicalSubmit(event)"
                 >
                   {% csrf_token %}
@@ -2696,104 +2985,31 @@
                   <div class="form-grid-2">
                     <div class="form-group">
                       <label for="med_date">Request Date</label>
-                      <input
-                        type="date"
-                        id="med_date"
-                        name="med_date"
-                        required
-                      />
+                      <input type="date" id="med_date" name="med_date" required />
                     </div>
                     <div class="form-group">
                       <label for="med_reason">Reason / Medical Case</label>
-                      <input
-                        type="text"
-                        id="med_reason"
-                        name="med_reason"
-                        placeholder="e.g., Surgery, Acute Pneumonia"
-                        required
-                      />
+                      <input type="text" id="med_reason" name="med_reason" placeholder="e.g., Surgery, Acute Pneumonia" required />
                     </div>
-                  </div>
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="med_req_amount">Requested Amount (₱)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        id="med_req_amount"
-                        name="med_req_amount"
-                        placeholder="10000.00"
-                        required
-                      />
-                    </div>
-                    <div class="form-group">
-                      <label for="med_hospital">Hospital / Clinic Name</label>
-                      <input
-                        type="text"
-                        id="med_hospital"
-                        name="med_hospital"
-                        placeholder="e.g., Metro Medical Center"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="med_bill">Total Bill Amount (₱)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        id="med_bill"
-                        name="med_bill"
-                        placeholder="18500.00"
-                        required
-                      />
-                    </div>
-                    <!--div class="form-group">
-                      <label for="med_validation">Treasurer Validation</label>
-                      <select id="med_validation" name="med_validation">
-                        <option value="Pending Treasurer Check">
-                          Pending Treasurer Assessment
-                        </option>
-                        <option value="Valid & Recommended">
-                          Validated & High Recommendation
-                        </option>
-                      </select>
-                    </div-->
                   </div>
                   <div class="form-group">
-                    <label
-                      >Required Support Documents (Hospital Bill / Medical Cert
-                      / Official Receipt)</label
-                    >
-                    <div
-                      class="photo-upload-slot"
-                      onclick="triggerFileUpload('med_photo_file')"
-                    >
-                      <input
-                        type="file"
-                        id="med_photo_file"
-                        name="med_photo_file"
-                        style="display: none"
-                        onchange="showAttachedPreview(this, 'med_preview')"
-                      />
-                      <p>📸 Tap to upload Medical proof documents</p>
-                      <span
-                        class="req-badge"
-                        style="
-                          background: rgba(27, 94, 32, 0.1);
-                          color: #1b5e20;
-                        "
-                        >Optional documentation</span
-                      >
-                      <div class="upload-preview-indicator" id="med_preview">
-                        ✓ Support Docs Attached!
-                      </div>
-                    </div>
+                    <label for="med_hospital">Hospital / Clinic Name</label>
+                    <input type="text" id="med_hospital" name="med_hospital" placeholder="e.g., Metro Medical Center" required />
                   </div>
-                  <button type="submit" class="btn-brand btn-brand-primary">
-                    Record Medical Aid Request
-                  </button>
+                  <div class="form-group">
+                    <label for="med_bill">Total Hospital Bill Amount (₱)</label>
+                    <input type="number" step="0.01" id="med_bill" name="med_bill" placeholder="18500.00" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Supporting Documents (Photos, PDF, DOCX)</label>
+                    <div class="photo-upload-slot" id="med_upload_zone" onclick="document.getElementById('med_photo_files').click()">
+                      <input type="file" id="med_photo_files" name="med_photo_files" multiple accept="image/*,.pdf,.docx" style="display:none" />
+                      <p>📎 Tap to upload multiple documents</p>
+                      <span class="req-badge" style="background:rgba(229,57,53,0.1);color:#e53935">Required</span>
+                    </div>
+                    <div id="med_file_list" style="margin-top:8px"></div>
+                  </div>
+                  <button type="submit" class="btn-brand btn-brand-primary">Record Medical Aid Request</button>
                 </form>
               </div>
 
@@ -2802,14 +3018,380 @@
                   <h3 class="panel-title">History</h3>
                 </div>
                 <div class="table-container">
-                  <table class="custom-table" id="medicalTable">
+                    <table class="custom-table" id="medicalTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Claim ID" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-hospital" title="Case & Hospital" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Requested Amount" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Audit" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 7: DEATH AID CLAIM
+             ========================================================================== -->
+          <section id="view-death-aid" class="dashboard-module module-fade-in">
+            <div id="deathAidScenarioArea" style="display:grid">
+              <div class="dashboard-panel" style="flex:2">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Death Aid Claims</h3>
+                  <button type="button" class="btn-brand btn-brand-primary" style="padding:4px 14px;font-size:0.85rem;" onclick="openDeathAidScenarioPicker()">+ New Claim</button>
+                </div>
+                <div class="table-container">
+                  <table class="custom-table" id="deathTable"><thead><tr>
+                    <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Claim ID"></i></th>
+                    <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-user" title="Member"></i></th>
+                    <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-users" title="Deceased & Relationship"></i></th>
+                    <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-coins" title="Benefit Amount"></i></th>
+                    <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Bill Amount"></i></th>
+                    <th style="padding:4px 8px;text-align:center"><i class="fa-regular fa-circle-check" title="Claims Status"></i></th>
+                    <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-file-lines" title="Audit"></i></th>
+                  </tr></thead><tbody></tbody></table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form area (hidden until scenario chosen) -->
+            <div id="deathAidFormArea" style="display:none">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+                <div>
+                  <div class="panel-header-row">
+                    <h3 class="panel-title">Death Aid Claim</h3>
+                    <button type="button" class="btn-brand btn-brand-secondary" style="padding:4px 12px;font-size:0.8rem" onclick="resetDeathAidForm()">Change</button>
+                  </div>
+                  <form class="dashboard-form" id="deathForm" method="POST" action="" novalidate onsubmit="handleDeathSubmit(event)">
+                    {% csrf_token %}
+                    <input type="hidden" id="death_scenario" name="death_scenario" value="">
+
+                    <!-- Card 1: Deceased & Claimant Info -->
+                    <div class="dashboard-panel" style="margin-bottom:16px">
+
+                      <!-- Member variant -->
+                      <div id="deathCard1Member" style="display:none" data-scenario="member">
+                        <h4 style="margin:0 0 12px 0;color:#1b5e20">Deceased Member &amp; Claimant</h4>
+                        <div class="form-group">
+                          <label>Deceased Member</label>
+                          <div id="death_member_name_display" style="padding:8px 12px;background:#e8f5e9;border-radius:6px;font-weight:600"></div>
+                        </div>
+                        <div class="form-grid-2">
+                          <div class="form-group">
+                            <label for="death_claimant">Claimant Name (Surviving Relative)</label>
+                            <input type="text" id="death_claimant" name="death_claimant" placeholder="Full name of claimant" required>
+                          </div>
+                          <div class="form-group">
+                            <label for="death_contact">Claimant Contact</label>
+                            <input type="tel" id="death_contact" name="death_contact" placeholder="Claimant's mobile number" required>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label>Claimant's Relationship to the Deceased</label>
+                          <select class="death-rel-group" onchange="updateDeathRelOptions()" required>
+                            <option value="" disabled selected>Select relationship type</option>
+                            <option value="immediate">Immediate Family</option>
+                            <option value="extended">Extended Relative</option>
+                          </select>
+                          <select class="death-rel-select" style="display:none;margin-top:6px" required>
+                            <option value="" disabled selected>Select relationship</option>
+                          </select>
+                          <input type="text" class="death-rel-text" style="display:none;margin-top:6px" placeholder="Specify relationship (e.g. cousin, uncle)">
+                        </div>
+                      </div>
+
+                      <!-- Dependent variant -->
+                      <div id="deathCard1Dependent" style="display:none" data-scenario="dependent">
+                        <h4 style="margin:0 0 12px 0;color:#1b5e20">Deceased Dependent</h4>
+                        <div class="form-grid-2">
+                          <div class="form-group">
+                            <label for="death_member_select">Associated Member</label>
+                            <select id="death_member_select" required></select>
+                          </div>
+                          <div class="form-group">
+                            <label for="death_claimant_dep">Claimant Name (Surviving Relative)</label>
+                            <input type="text" id="death_claimant_dep" name="death_claimant" placeholder="Full name of claimant" required>
+                          </div>
+                        </div>
+                        <div class="form-grid-2">
+                          <div class="form-group">
+                            <label for="death_deceased">Deceased Dependent's Name</label>
+                            <input type="text" id="death_deceased" name="death_deceased" placeholder="Full legal name of deceased" required>
+                          </div>
+                          <div class="form-group">
+                            <label for="death_contact_dep">Claimant Contact</label>
+                            <input type="tel" id="death_contact_dep" name="death_contact" placeholder="Claimant's mobile number">
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label>Deceased's Relationship to the Member</label>
+                          <select class="death-rel-group" onchange="updateDeathRelOptions()" required>
+                            <option value="" disabled selected>Select relationship type</option>
+                            <option value="immediate">Immediate Family</option>
+                            <option value="extended">Extended Relative</option>
+                          </select>
+                          <select class="death-rel-select" style="display:none;margin-top:6px" required>
+                            <option value="" disabled selected>Select relationship</option>
+                          </select>
+                          <input type="text" class="death-rel-text" style="display:none;margin-top:6px" placeholder="Specify relationship (e.g. cousin, uncle)">
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <!-- Card 2: Funeral & Interment -->
+                    <div class="dashboard-panel" style="margin-bottom:16px">
+                      <h4 style="margin:0 0 12px 0;color:#1b5e20">Funeral &amp; Interment Details</h4>
+                      <div class="form-grid-2">
+                        <div class="form-group">
+                          <label for="death_funeral_location">Funeral / Interment Location</label>
+                          <input type="text" id="death_funeral_location" name="death_funeral_location" placeholder="e.g. St. Peter Memorial Chapel">
+                        </div>
+                        <div class="form-group">
+                          <label for="death_interment_date">Interment / Burial Date</label>
+                          <input type="date" id="death_interment_date" name="death_interment_date">
+                        </div>
+                      </div>
+                      <div class="form-group">
+                        <label for="death_date">Date of Death</label>
+                        <input type="date" id="death_date" name="death_date" required>
+                      </div>
+                    </div>
+
+                    <!-- Card 3: Bill & Documents -->
+                    <div class="dashboard-panel" style="margin-bottom:16px">
+                      <h4 style="margin:0 0 12px 0;color:#1b5e20">Bill &amp; Supporting Documents</h4>
+                      <div class="form-group">
+                        <label for="death_bill">Total Bill Amount (₱) <span style="color:#757575;font-weight:400">(optional)</span></label>
+                        <input type="number" step="0.01" id="death_bill" name="death_bill" placeholder="e.g. funeral/burial cost">
+                      </div>
+                      <div class="form-group">
+                        <label>Required Documents (Death Certificate or equivalent)</label>
+                        <div class="photo-upload-slot" onclick="document.getElementById('death_photo_files').click()">
+                          <input type="file" id="death_photo_files" name="death_photo_files" multiple accept="image/*,.pdf,.docx" style="display:none">
+                          <p>📎 Tap to upload supporting documents</p>
+                          <span class="req-badge" style="background:rgba(229,57,53,0.1);color:#e53935">Required</span>
+                        </div>
+                        <div id="death_file_list" style="margin-top:8px"></div>
+                      </div>
+                    </div>
+
+                    <button type="submit" class="btn-brand btn-brand-primary">Record Death Claim</button>
+                  </form>
+                </div>
+
+                <div class="dashboard-panel" style="flex:2">
+                  <div class="panel-header-row"><h3 class="panel-title">History</h3></div>
+                  <div class="table-container">
+                    <table class="custom-table" id="deathTableMember" style="display:none"><thead><tr>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Claim ID"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-user" title="Member"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-users" title="Deceased & Relationship"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-coins" title="Benefit Amount"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Bill Amount"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-regular fa-circle-check" title="Claims Status"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-file-lines" title="Audit"></i></th>
+                    </tr></thead><tbody></tbody></table>
+                    <table class="custom-table" id="deathTableDependent" style="display:none"><thead><tr>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Claim ID"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-user" title="Member"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-users" title="Deceased & Relationship"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-coins" title="Benefit Amount"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Bill Amount"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-regular fa-circle-check" title="Claims Status"></i></th>
+                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-file-lines" title="Audit"></i></th>
+                    </tr></thead><tbody></tbody></table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB 7b: RETURNED MEDICAL AID ENTRIES
+             ========================================================================== -->
+          <section
+            id="view-medical-aid-returned"
+            class="dashboard-module module-fade-in"
+          >
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
+              "
+            >
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Correct & Resubmit Medical Aid</h3>
+                </div>
+                <form
+                  class="dashboard-form"
+                  id="medicalAidReturnedEditForm"
+                  method="POST"
+                  action=""
+                  enctype="multipart/form-data"
+                >
+                  {% csrf_token %}
+                  <input
+                    type="hidden"
+                    id="medical_aid_returned_record_id"
+                    name="medical_aid_returned_record_id"
+                    value=""
+                  />
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="ma_returned_request_date">Request Date</label>
+                      <input type="date" id="ma_returned_request_date" name="request_date" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="ma_returned_requested_amount">Requested Amount (₱)</label>
+                      <input type="number" step="0.01" id="ma_returned_requested_amount" name="requested_amount" required />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="ma_returned_hospital">Hospital / Clinic Name</label>
+                    <input type="text" id="ma_returned_hospital" name="hospital_name" placeholder="e.g., Isabela Sanitation Hospital" />
+                  </div>
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="ma_returned_hospital_bill">Hospital Bill Amount (₱)</label>
+                      <input type="number" step="0.01" id="ma_returned_hospital_bill" name="hospital_bill_amount" required />
+                    </div>
+                    <div class="form-group">
+                      <label for="ma_returned_claim_year">Claim Year</label>
+                      <input type="number" id="ma_returned_claim_year" name="claim_year" placeholder="e.g., 2026" />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="ma_returned_document_status">Document Status</label>
+                    <input type="text" id="ma_returned_document_status" name="document_status" placeholder="e.g., Complete" />
+                  </div>
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="ma_returned_status">Status</label>
+                      <input type="text" id="ma_returned_status" name="status" placeholder="e.g., Pending" />
+                    </div>
+                    <div class="form-group">
+                      <label for="ma_returned_validated_amount">Validated Aid Amount (₱)</label>
+                      <input type="number" step="0.01" id="ma_returned_validated_amount" name="validated_aid_amount" />
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Rejection Detail (Read-only)</label>
+                    <div
+                      id="ma_rejection_reason_display"
+                      style="
+                        padding: 14px;
+                        background: #f6fbf6;
+                        border-radius: 12px;
+                        color: #e53935;
+                        font-weight: 500;
+                      "
+                    >
+                      Select a record to view Rejection Detail
+                    </div>
+                    <div
+                      id="ma_rejection_details_container"
+                      style="margin-top: 10px"
+                    ></div>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Required Supporting Document</label>
+                    <div style="display: flex; gap: 16px; align-items: flex-start">
+                      <div
+                        id="ma_returned_thumbnail_container"
+                        style="
+                          display: none;
+                          flex-shrink: 0;
+                          width: 80px;
+                          height: 80px;
+                        "
+                      >
+                        <a
+                          href=""
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          id="ma_returned_thumbnail_link"
+                        >
+                          <img
+                            id="ma_returned_thumbnail"
+                            src=""
+                            style="
+                              width: 80px;
+                              height: 80px;
+                              object-fit: cover;
+                              border-radius: 8px;
+                              border: 1px solid #cfdccc;
+                              cursor: pointer;
+                            "
+                          />
+                        </a>
+                      </div>
+                      <div style="flex: 1; min-width: 0">
+                        <div
+                          class="photo-upload-slot"
+                          onclick="triggerFileUpload('ma_returned_photo_file')"
+                        >
+                          <input
+                            type="file"
+                            id="ma_returned_photo_file"
+                            name="ma_returned_photo_file"
+                            style="display: none"
+                            onchange="
+                              showAttachedPreview(this, 'ma_returned_preview')
+                            "
+                          />
+                          <p>Tap to upload supporting document</p>
+                          <span
+                            class="req-badge"
+                            style="
+                              background: rgba(229, 57, 53, 0.1);
+                              color: #e53935;
+                            "
+                            >Required field</span
+                          >
+                          <div
+                            class="upload-preview-indicator"
+                            id="ma_returned_preview"
+                          >
+                            Document Attached!
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <label style="display:flex;align-items:center;gap:8px;margin:12px 0;font-size:0.85rem;cursor:pointer;">
+                    <input type="checkbox" name="same_auditor" id="ma_same_auditor" value="true">
+                    Send back to same auditor
+                  </label>
+                  <button type="submit" class="btn-brand btn-brand-primary">
+                    Resubmit Corrected Medical Aid
+                  </button>
+                </form>
+              </div>
+
+              <div class="dashboard-panel" style="flex: 2; padding: 14px; border-radius: 14px; margin-bottom: 18px;">
+                <div class="panel-header-row" style="margin-bottom: 10px; padding-bottom: 8px;">
+                  <h3 class="panel-title" style="font-size: 0.95rem;">Returned Medical Aid Entries</h3>
+                </div>
+                <div class="table-container" style="border-radius: 8px;">
+                  <table class="custom-table" id="medicalAidReturnedTable" style="font-size: 0.73rem;">
                     <thead>
                       <tr>
-                        <th>Claim ID</th>
-                        <th>Member</th>
-                        <th>Case & Hospital</th>
-                        <th>Requested Amount</th>
-                        <!--th>Status / Validation</th-->
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Ref Number & Request Date" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Requested Amount" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-hospital" title="Hospital & Bill" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-triangle-exclamation" title="Rejection Detail" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-gears" title="Action" style="cursor: pointer;"></i></th>
                       </tr>
                     </thead>
                     <tbody></tbody>
@@ -2820,187 +3402,187 @@
           </section>
 
           <!-- ==========================================================================
-             TAB 7: DEATH AID CLAIM
+             TAB 7c: RETURNED DEATH AID ENTRIES
              ========================================================================== -->
-          <section id="view-death-aid" class="dashboard-module module-fade-in">
+          <section
+            id="view-death-aid-returned"
+            class="dashboard-module module-fade-in"
+          >
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">File Death Aid Claim</h3>
+                  <h3 class="panel-title">Correct & Resubmit Death Aid</h3>
                 </div>
                 <form
                   class="dashboard-form"
-                  id="deathForm"
+                  id="deathAidReturnedEditForm"
                   method="POST"
                   action=""
-                  onsubmit="handleDeathSubmit(event)"
+                  enctype="multipart/form-data"
                 >
                   {% csrf_token %}
-                  <div class="form-group">
-                    <label for="death_member">Associated Member ID</label>
-                    <select
-                      id="death_member"
-                      name="death_member"
-                      required
-                    ></select>
-                  </div>
+                  <input
+                    type="hidden"
+                    id="death_aid_returned_record_id"
+                    name="death_aid_returned_record_id"
+                    value=""
+                  />
                   <div class="form-grid-2">
                     <div class="form-group">
-                      <label for="death_deceased">Deceased Person's Name</label>
-                      <input
-                        type="text"
-                        id="death_deceased"
-                        name="death_deceased"
-                        placeholder="Full legal name of deceased"
-                        required
-                      />
+                      <label for="da_returned_claim_date">Claim Date</label>
+                      <input type="date" id="da_returned_claim_date" name="claim_date" required />
                     </div>
                     <div class="form-group">
-                      <label for="death_rel">Relationship to Member</label>
-                      <select id="death_rel" name="death_rel" required>
-                        <option value="" disabled selected>
-                          Select relationship
-                        </option>
-                        <option value="member">Member</option>
-                        <option value="spouse">Spouse</option>
-                        <option value="husband">Husband</option>
-                        <option value="wife">Wife</option>
-                        <option value="parent">Parent</option>
-                        <option value="child">Child</option>
-                        <option value="father">Father</option>
-                        <option value="mother">Mother</option>
-                        <option value="son">Son</option>
-                        <option value="daughter">Daughter</option>
-                        <option value="full-blood brother">
-                          Full-blood Brother
-                        </option>
-                        <option value="full-blood sister">
-                          Full-blood Sister
-                        </option>
-                        <option value="brother">Brother</option>
-                        <option value="sister">Sister</option>
-                      </select>
+                      <label for="da_returned_claim_type">Claim Type</label>
+                      <input type="text" id="da_returned_claim_type" name="claim_type" placeholder="e.g., Death of Member" />
                     </div>
                   </div>
                   <div class="form-grid-2">
                     <div class="form-group">
-                      <label for="death_type">Claim Type</label>
-                      <select id="death_type" name="death_type">
-                        <option value="Immediate Family">
-                          Immediate Family Member
-                        </option>
-                        <option value="Secondary Beneficiary">
-                          Secondary Beneficiary
-                        </option>
-                        <option value="Extended Relative">
-                          Extended Relative (Special Case)
-                        </option>
-                      </select>
+                      <label for="da_returned_deceased">Deceased Name</label>
+                      <input type="text" id="da_returned_deceased" name="deceased_name" placeholder="Full name of deceased" />
                     </div>
                     <div class="form-group">
-                      <label for="death_claimant">Claimant Name</label>
-                      <input
-                        type="text"
-                        id="death_claimant"
-                        name="death_claimant"
-                        placeholder="Full name of claimant"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="death_contact">Claimant Contact</label>
-                      <input
-                        type="tel"
-                        id="death_contact"
-                        name="death_contact"
-                        placeholder="Claimant's mobile number"
-                        required
-                      />
-                    </div>
-                    <div class="form-group">
-                      <label for="death_benefit">Benefit Amount (₱)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        id="death_benefit"
-                        name="death_benefit"
-                        placeholder="50000.00"
-                        required
-                      />
+                      <label for="da_returned_relationship">Relationship to Member</label>
+                      <input type="text" id="da_returned_relationship" name="relationship_to_member" placeholder="e.g., Spouse" />
                     </div>
                   </div>
                   <div class="form-group">
-                    <label for="death_date">Date of Death</label>
-                    <input
-                      type="date"
-                      id="death_date"
-                      name="death_date"
-                      required
-                    />
+                    <label for="da_returned_benefit_amount">Benefit Amount (₱)</label>
+                    <input type="number" step="0.01" id="da_returned_benefit_amount" name="benefit_amount" required />
                   </div>
                   <div class="form-group">
-                    <label
-                      >Required Claim Support Files (Death Certificate, Claimant
-                      ID, Authorization Letter)</label
-                    >
+                    <label for="da_returned_bill_amount">Total Bill Amount (₱) <span style="color:#757575;font-weight:400">(optional)</span></label>
+                    <input type="number" step="0.01" id="da_returned_bill_amount" name="bill_amount" placeholder="e.g. funeral/burial cost" />
+                  </div>
+                  <div class="form-group">
+                    <label for="da_returned_document_status">Document Status</label>
+                    <input type="text" id="da_returned_document_status" name="document_status" placeholder="e.g., Complete" />
+                  </div>
+                  <div class="form-group">
+                    <label for="da_returned_status">Status</label>
+                    <input type="text" id="da_returned_status" name="status" placeholder="e.g., Pending Verification" />
+                  </div>
+
+                  <div class="form-group">
+                    <label>Rejection Detail (Read-only)</label>
                     <div
-                      class="photo-upload-slot"
-                      onclick="triggerFileUpload('death_photo_file')"
+                      id="da_rejection_reason_display"
+                      style="
+                        padding: 14px;
+                        background: #f6fbf6;
+                        border-radius: 12px;
+                        color: #e53935;
+                        font-weight: 500;
+                      "
                     >
-                      <input
-                        type="file"
-                        id="death_photo_file"
-                        name="death_photo_file"
-                        style="display: none"
-                        onchange="showAttachedPreview(this, 'death_preview')"
-                        required
-                      />
-                      <p>
-                        📸 Tap to upload official Death Certificate /
-                        Relationship Proofs
-                      </p>
-                      <span
-                        class="req-badge"
+                      Select a record to view Rejection Detail
+                    </div>
+                    <div
+                      id="da_rejection_details_container"
+                      style="margin-top: 10px"
+                    ></div>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Required Supporting Document</label>
+                    <div style="display: flex; gap: 16px; align-items: flex-start">
+                      <div
+                        id="da_returned_thumbnail_container"
                         style="
-                          background: rgba(229, 57, 53, 0.1);
-                          color: #e53935;
+                          display: none;
+                          flex-shrink: 0;
+                          width: 80px;
+                          height: 80px;
                         "
-                        >Required documentation</span
                       >
-                      <div class="upload-preview-indicator" id="death_preview">
-                        ✓ Supporting Documentation Uploaded!
+                        <a
+                          href=""
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          id="da_returned_thumbnail_link"
+                        >
+                          <img
+                            id="da_returned_thumbnail"
+                            src=""
+                            style="
+                              width: 80px;
+                              height: 80px;
+                              object-fit: cover;
+                              border-radius: 8px;
+                              border: 1px solid #cfdccc;
+                              cursor: pointer;
+                            "
+                          />
+                        </a>
+                      </div>
+                      <div style="flex: 1; min-width: 0">
+                        <div
+                          class="photo-upload-slot"
+                          onclick="triggerFileUpload('da_returned_photo_file')"
+                        >
+                          <input
+                            type="file"
+                            id="da_returned_photo_file"
+                            name="da_returned_photo_file"
+                            style="display: none"
+                            onchange="
+                              showAttachedPreview(this, 'da_returned_preview')
+                            "
+                          />
+                          <p>Tap to upload supporting document</p>
+                          <span
+                            class="req-badge"
+                            style="
+                              background: rgba(229, 57, 53, 0.1);
+                              color: #e53935;
+                            "
+                            >Required field</span
+                          >
+                          <div
+                            class="upload-preview-indicator"
+                            id="da_returned_preview"
+                          >
+                            Document Attached!
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  <label style="display:flex;align-items:center;gap:8px;margin:12px 0;font-size:0.85rem;cursor:pointer;">
+                    <input type="checkbox" name="same_auditor" id="da_same_auditor" value="true">
+                    Send back to same auditor
+                  </label>
                   <button type="submit" class="btn-brand btn-brand-primary">
-                    Record Death Claim
+                    Resubmit Corrected Death Aid
                   </button>
                 </form>
               </div>
 
               <div class="dashboard-panel" style="flex: 2">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">History</h3>
+                  <h3 class="panel-title">Returned Death Aid Entries</h3>
                 </div>
                 <div class="table-container">
-                  <table class="custom-table" id="deathTable">
-                    <thead>
-                      <tr>
-                        <th>Claim ID</th>
-                        <th>Member</th>
-                        <th>Deceased & Relationship</th>
-                        <th>Benefit Amount</th>
-                        <th>Claims Status</th>
-                      </tr>
-                    </thead>
+                    <table class="custom-table" id="deathAidReturnedTable" style="font-size: 0.73rem;">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Ref Number & Claim Date" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-users" title="Deceased & Relationship" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Benefit Amount" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Bill Amount" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-regular fa-calendar-check" title="Claim Date & Type" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-triangle-exclamation" title="Rejection Detail" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-gears" title="Action" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
                     <tbody></tbody>
                   </table>
                 </div>
@@ -3027,8 +3609,8 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-                gap: 30px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
               "
             >
               <div class="dashboard-panel">
@@ -3123,18 +3705,18 @@
                   <h3 class="panel-title">Compiled System Ledgers</h3>
                 </div>
                 <div class="table-container">
-                  <table class="custom-table" id="reportTable">
-                    <thead>
-                      <tr>
-                        <th>Generation Timestamp</th>
-                        <th>Model Type</th>
-                        <th>Date Ranges</th>
-                        <th>Executed By</th>
-                        <th>Data Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+                    <table class="custom-table" id="reportTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-clock" title="Generation Timestamp" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Model Type" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar-range" title="Date Ranges" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Executed By" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-gears" title="Data Actions" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
                 </div>
               </div>
             </div>
@@ -3168,11 +3750,14 @@
     <!-- ==========================================================================
        VANILLA SYSTEM ENGINE & STORAGE LOOPS
        ========================================================================== -->
+    <script src="{% static 'js/Treasurer/toast.js' %}"></script>
     <script src="{% static 'js/Treasurer/add_member.js' %}"></script>
     <script src="{% static 'js/Treasurer/membership_fee.js' %}"></script>
     <script src="{% static 'js/Treasurer/monthly_dues_handle.js' %}"></script>
     <script src="{% static 'js/Treasurer/returned_entries.js' %}"></script>
     <script src="{% static 'js/Treasurer/monthly_dues_returned.js' %}"></script>
+    <script src="{% static 'js/Treasurer/medical_aid_returned.js' %}"></script>
+    <script src="{% static 'js/Treasurer/death_aid_returned.js' %}"></script>
 
     <script>
       // Local Storage Master State
@@ -3186,10 +3771,16 @@
         setupNavigation();
         setupCollapsibleSidebar();
 
+        var initialModule = getPersistedModuleTarget();
+        if (initialModule && initialModule !== "dashboard-overview") {
+          setActiveModule(initialModule);
+        }
+
         renderMembersFromBackend();
-        fetchTotalActiveMembers();
+        fetchMemberBreakdown();
         fetchMembershipFeeTotal();
         fetchApprovedTransactionsTotal();
+        fetchReleases();
 
         // Start lightweight auto-update for the Enrolled table.
         // This only updates the #memberTable block (no full page refresh).
@@ -3206,6 +3797,14 @@
         }
 
         renderAllComponents();
+
+        // Restore persisted dashboard state (active module, form values)
+        setTimeout(restoreDashboardState, 100);
+      });
+
+      window.addEventListener("beforeunload", saveDashboardState);
+      document.addEventListener("change", function (e) {
+        if (e.target.closest("form.dashboard-form")) saveDashboardState();
       });
 
       function setupCollapsibleSidebar() {
@@ -3223,6 +3822,23 @@
             collapseBtn.setAttribute("title", "Collapse Sidebar Menu");
           }
         });
+      }
+
+      function getPersistedModuleTarget() {
+        var hashTarget = (window.location.hash || "").replace(/^#/, "").trim();
+        if (hashTarget) return hashTarget;
+
+        try {
+          var sessionTarget = window.sessionStorage.getItem("td_active_module");
+          if (sessionTarget) return sessionTarget;
+        } catch (e) {}
+
+        try {
+          var storageTarget = window.localStorage.getItem("td_active_module");
+          if (storageTarget) return storageTarget;
+        } catch (e) {}
+
+        return "dashboard-overview";
       }
 
       function setupFolders() {
@@ -3286,6 +3902,110 @@
           if (title)
             document.getElementById("currentModuleTitle").innerText = title;
         }
+
+        try {
+          localStorage.setItem("td_active_module", target);
+        } catch (e) {}
+        try {
+          sessionStorage.setItem("td_active_module", target);
+        } catch (e) {}
+        try {
+          history.replaceState(null, "", "#" + target);
+        } catch (e) {}
+      }
+
+      function saveDashboardState() {
+        try {
+          var state = {
+            module: localStorage.getItem("td_active_module") || "dashboard-overview",
+            deathScenario: "",
+            deathMemberId: "",
+            deathFormVisible: false,
+          };
+          var ds = document.getElementById("death_scenario");
+          if (ds) {
+            state.deathScenario = ds.value || "";
+            state.deathMemberId = ds.getAttribute("data-member-id") || "";
+          }
+          var dfa = document.getElementById("deathAidFormArea");
+          if (dfa) state.deathFormVisible = dfa.style.display !== "none";
+          state.forms = {};
+          document.querySelectorAll("form.dashboard-form").forEach(function (f) {
+            var fd = {};
+            Array.from(f.querySelectorAll("input, select, textarea")).forEach(function (el) {
+              var isVisible = !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+              if (el.name && el.type !== "file" && el.type !== "hidden" && isVisible) {
+                fd[el.name] = el.value;
+              }
+            });
+            state.forms[f.id] = fd;
+          });
+          localStorage.setItem("td_dashboard_state", JSON.stringify(state));
+        } catch (e) {}
+      }
+
+      function restoreDashboardState() {
+        var raw = localStorage.getItem("td_dashboard_state");
+        try {
+          var state = raw ? JSON.parse(raw) : null;
+          var moduleTarget = getPersistedModuleTarget();
+          if (state && state.module && state.module !== "dashboard-overview") {
+            moduleTarget = state.module;
+          }
+          if (moduleTarget && moduleTarget !== "dashboard-overview") {
+            setActiveModule(moduleTarget);
+          }
+          if (state && state.deathFormVisible && state.deathScenario) {
+            if (typeof window.showDeathForm === "function") {
+              window.showDeathForm(state.deathScenario, state.deathMemberId || "");
+            } else {
+              var deathScenarioArea = document.getElementById("deathAidScenarioArea");
+              var deathFormArea = document.getElementById("deathAidFormArea");
+              if (deathScenarioArea && deathFormArea) {
+                if (state.deathScenario === "member") {
+                  document.getElementById("deathCard1Member").style.display = "block";
+                  document.getElementById("deathCard1Dependent").style.display = "none";
+                  document.getElementById("deathTableMember").style.display = "";
+                  document.getElementById("deathTableDependent").style.display = "none";
+                  document.getElementById("death_scenario").value = "member";
+                  document.getElementById("death_scenario").setAttribute("data-member-id", state.deathMemberId || "");
+                } else if (state.deathScenario === "dependent") {
+                  document.getElementById("deathCard1Member").style.display = "none";
+                  document.getElementById("deathCard1Dependent").style.display = "block";
+                  document.getElementById("deathTableMember").style.display = "none";
+                  document.getElementById("deathTableDependent").style.display = "";
+                  document.getElementById("death_scenario").value = "dependent";
+                }
+                deathScenarioArea.style.display = "none";
+                deathFormArea.style.display = "block";
+                if (typeof filterDeathTableByScenario === "function") {
+                  filterDeathTableByScenario(state.deathScenario);
+                }
+              }
+            }
+          }
+          if (state.forms) {
+            Object.keys(state.forms).forEach(function (formId) {
+              var form = document.getElementById(formId);
+              if (!form) return;
+              Object.keys(state.forms[formId]).forEach(function (fieldName) {
+                var candidates = form.querySelectorAll("[name='" + fieldName + "']");
+                var el = null;
+                for (var i = 0; i < candidates.length; i++) {
+                  var candidate = candidates[i];
+                  if (candidate.offsetWidth || candidate.offsetHeight || candidate.getClientRects().length) {
+                    el = candidate;
+                    break;
+                  }
+                }
+                if (!el && candidates.length > 0) {
+                  el = candidates[0];
+                }
+                if (el) el.value = state.forms[formId][fieldName];
+              });
+            });
+          }
+        } catch (e) {}
       }
 
       function setupNavigation() {
@@ -3427,21 +4147,6 @@
         return cookieValue;
       }
 
-      function showToast(message, isError = false) {
-        const host = document.getElementById("toastContainer");
-        const toast = document.createElement("div");
-        toast.className = `custom-toast ${isError ? "toast-error" : ""}`;
-        toast.innerHTML = `<span>💬</span> <p style="font-size:0.85rem;font-weight:500;">${message}</p>`;
-
-        host.appendChild(toast);
-        setTimeout(() => toast.classList.add("show"), 10);
-
-        setTimeout(() => {
-          toast.classList.remove("show");
-          setTimeout(() => toast.remove(), 300);
-        }, 4000);
-      }
-
       function showCustomModal(title, text) {
         document.getElementById("modalAlertTitle").innerText = title;
         document.getElementById("modalAlertMessage").innerText = text;
@@ -3495,25 +4200,41 @@
 
         renderAuditorTable();
         renderPresidentTable();
-        renderReleaseTable();
+        fetchReleases();
         renderReportsTable();
       }
 
-      async function fetchTotalActiveMembers() {
+      async function fetchMemberBreakdown() {
         try {
-          const res = await fetch("/api/treasurer/members/active-count/", {
+          const res = await fetch("/api/treasurer/members/list/", {
             method: "GET",
             credentials: "same-origin",
           });
           const data = await res.json();
-          if (data && data.ok && typeof data.active_count === "number") {
-            document.getElementById("kpi-total-members").innerText =
-              data.active_count;
-          }
+          if (!data || !data.ok || !Array.isArray(data.members)) return;
+
+          let permanent = 0;
+          let temporary = 0;
+          let active = 0;
+
+          data.members.forEach((m) => {
+            const status = m.membership_status || m.status || "";
+            if (status === "Permanent") permanent++;
+            else if (status === "Temporary") temporary++;
+            else if (status === "Active") active++;
+          });
+
+          const total = permanent + temporary + active;
+
+          document.getElementById("kpi-total-members").innerText = total;
+
+          const permanentEl = document.getElementById("kpi-permanent");
+          const temporaryEl = document.getElementById("kpi-temporary");
+          if (permanentEl) permanentEl.innerText = permanent;
+          if (temporaryEl) temporaryEl.innerText = temporary;
+          populateDropdowns();
         } catch (e) {
-          // ignore errors; keep current UI
-        } finally {
-          memberListPollInFlight = false;
+          // keep current UI
         }
       }
 
@@ -3557,17 +4278,59 @@
         updateKPICards();
       }
 
+      async function fetchReleases() {
+        try {
+          const res = await fetch("/api/treasurer/releases/list/", {
+            method: "GET",
+            credentials: "same-origin",
+          });
+          const data = await res.json();
+          if (data && data.ok && Array.isArray(data.releases)) {
+            db.releases = data.releases;
+          } else {
+            db.releases = [];
+          }
+        } catch (e) {
+          db.releases = [];
+        }
+        updateKPICards();
+        renderReleaseTable();
+      }
+
       // Update system counters and sum aggregates
       function updateKPICards() {
-        // Default/fallback (overwritten by fetchTotalActiveMembers())
-        document.getElementById("kpi-total-members").innerText =
-          db.members.filter((m) => m.status === "Active").length;
+        const permanent = db.members.filter(
+          (m) => m.status === "Permanent",
+        ).length;
+        const temporary = db.members.filter(
+          (m) => m.status === "Temporary",
+        ).length;
+        const active = db.members.filter((m) => m.status === "Active").length;
+        const totalMembers = permanent + temporary + active;
 
-        let sum = approvedTransactionsTotal;
+        document.getElementById("kpi-total-members").innerText = totalMembers;
 
-        db.releases.forEach((r) => (sum -= parseFloat(r.amount || 0)));
+        const permanentEl = document.getElementById("kpi-permanent");
+        const temporaryEl = document.getElementById("kpi-temporary");
+        if (permanentEl) permanentEl.innerText = permanent;
+        if (temporaryEl) temporaryEl.innerText = temporary;
 
-        document.getElementById("kpi-funds").innerText = formatCurrencyPHP(sum);
+        let releaseSum = 0;
+        db.releases.forEach((r) => (releaseSum += parseFloat(r.amount || 0)));
+
+        const netTotal = approvedTransactionsTotal - releaseSum;
+
+        const fundsInEl = document.getElementById("kpi-funds-in");
+        const fundsOutEl = document.getElementById("kpi-funds-out");
+        const fundsRemainingEl = document.getElementById("kpi-funds-remaining");
+
+        if (fundsInEl)
+          fundsInEl.innerText = formatCurrencyPHP(approvedTransactionsTotal);
+        if (fundsOutEl) fundsOutEl.innerText = formatCurrencyPHP(releaseSum);
+        if (fundsRemainingEl)
+          fundsRemainingEl.innerText = formatCurrencyPHP(netTotal);
+        document.getElementById("kpi-funds").innerText =
+          formatCurrencyPHP(netTotal);
 
         const medicalCount = db.medical_aids.filter(
           (m) => m.status !== "Released",
@@ -3750,6 +4513,9 @@
             confirmButtonText: "Save changes",
             cancelButtonText: "Cancel",
             focusConfirm: false,
+            didOpen: () => {
+              formatPhoneInput(document.getElementById("edit_prof_contact"));
+            },
             preConfirm: async () => {
               console.log("[EditMember] preConfirm fired");
               const payload = {
@@ -3908,6 +4674,8 @@
           memberListLastHash = hash;
           db.members = newMembers;
           renderMembersTable();
+          updateKPICards();
+          populateDropdowns();
         } catch (e) {
           // ignore errors; keep current UI
         } finally {
@@ -3945,6 +4713,7 @@
             }));
 
             renderAllComponents();
+            populateDropdowns();
           })
           .catch(() => {});
       }
@@ -4208,64 +4977,134 @@
         showToast(`Record ${id} removed successfully.`, false);
       }
 
-      const contactInput = document.getElementById("prof_contact");
+      function formatPhoneInput(input) {
+        if (!input) return;
+        let isDeleting = false;
 
-      let isDeleting = false;
+        input.addEventListener("keydown", function (e) {
+          isDeleting = e.key === "Backspace";
+        });
 
-      contactInput.addEventListener("keydown", function (e) {
-        isDeleting = e.key === "Backspace";
-      });
+        input.addEventListener("input", function (e) {
+          let cursorPosition = e.target.selectionStart;
+          let originalLength = e.target.value.length;
+          let value = e.target.value;
 
-      contactInput.addEventListener("input", function (e) {
-        let cursorPosition = e.target.selectionStart;
-        let originalLength = e.target.value.length;
-        let value = e.target.value;
+          if (isDeleting && value.charAt(cursorPosition) === "-") {
+            value = value.slice(0, cursorPosition) + value.slice(cursorPosition + 1);
+            cursorPosition--;
+          }
 
-        if (isDeleting && value.charAt(cursorPosition) === "-") {
-          value =
-            value.slice(0, cursorPosition) + value.slice(cursorPosition + 1);
-          cursorPosition--;
-        }
+          let clean = value.replace(/(?!^\+)\D/g, "");
+          let formatted = "";
 
-        // Keep numbers and leading '+'
-        let clean = value.replace(/(?!^\+)\D/g, "");
-        let formatted = "";
+          if (clean.startsWith("+63") || clean.startsWith("63") || clean === "6") {
+            if (clean === "6") clean = "+63";
+            if (!clean.startsWith("+")) clean = "+" + clean;
+            formatted = clean.substring(0, 3);
+            let rest = clean.substring(3);
+            if (rest.length > 0) formatted += "-" + rest.substring(0, 3);
+            if (rest.length > 3) formatted += "-" + rest.substring(3, 6);
+            if (rest.length > 6) formatted += "-" + rest.substring(6, 10);
+          } else if (clean.startsWith("0") || /^[1-57-9]/.test(clean)) {
+            if (!clean.startsWith("0")) clean = "0" + clean;
+            formatted = clean.substring(0, 4);
+            if (clean.length > 4) formatted += "-" + clean.substring(4, 7);
+            if (clean.length > 7) formatted += "-" + clean.substring(7, 11);
+          } else {
+            formatted = clean;
+          }
 
-        // 1. Target +63 Format: If it starts with +63, 63, or just a standalone '6'
-        if (
-          clean.startsWith("+63") ||
-          clean.startsWith("63") ||
-          clean === "6"
-        ) {
-          // If they just typed '6', smoothly change it to '+63'
-          if (clean === "6") clean = "+63";
-          if (!clean.startsWith("+")) clean = "+" + clean;
+          e.target.value = formatted;
+          let newLength = formatted.length;
+          cursorPosition = cursorPosition + (newLength - originalLength);
+          e.target.setSelectionRange(cursorPosition, cursorPosition);
+        });
+      }
 
-          formatted = clean.substring(0, 3);
-          let rest = clean.substring(3);
-          if (rest.length > 0) formatted += "-" + rest.substring(0, 3);
-          if (rest.length > 3) formatted += "-" + rest.substring(3, 6);
-          if (rest.length > 6) formatted += "-" + rest.substring(6, 10);
-        }
-        // 2. Target 0 Format: If it starts with 0 or a typical mobile digit like '9'
-        else if (clean.startsWith("0") || /^[1-57-9]/.test(clean)) {
-          // Notice '6' is excluded from the regex above so it doesn't turn into '06'
-          if (!clean.startsWith("0")) clean = "0" + clean;
-
-          formatted = clean.substring(0, 4);
-          if (clean.length > 4) formatted += "-" + clean.substring(4, 7);
-          if (clean.length > 7) formatted += "-" + clean.substring(7, 11);
-        } else {
-          formatted = clean;
-        }
-
-        e.target.value = formatted;
-
-        let newLength = formatted.length;
-        cursorPosition = cursorPosition + (newLength - originalLength);
-        e.target.setSelectionRange(cursorPosition, cursorPosition);
-      });
+      formatPhoneInput(document.getElementById("prof_contact"));
+      formatPhoneInput(document.getElementById("death_contact"));
+      formatPhoneInput(document.getElementById("death_contact_dep"));
     </script>
+    <script src="{% static 'js/Treasurer/websocket.js' %}"></script>
     <script src="{% static 'js/Treasurer/AidsAndClaims.js' %}" defer></script>
+    <script src="{% static 'js/Treasurer/audit_trail.js' %}"></script>
+    <script>window.VAPID_PUBLIC_KEY = "BH_OcUmir3ilJ-ysc_ZWUISngSKIWg2LqLbOQQFwFZPcMTY1iKLS-Kwm6hfAHOH9Tj6CvJ8IDYVMTaQmXQhTbEg";</script>
+    <script src="{% static 'js/push-init.js' %}"></script>
+
+    <div
+      id="auditTrailModal"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+      "
+    >
+      <div
+        style="
+          background: #fff;
+          border-radius: 12px;
+          width: 90%;
+          max-width: 900px;
+          max-height: 90vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        "
+      >
+        <div
+          style="
+            padding: 20px 24px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <h3 style="margin: 0; color: #1b5e20; font-size: 1.1rem">
+            Audit Trail
+          </h3>
+          <button
+            id="closeAuditModal"
+            style="
+              background: none;
+              border: none;
+              font-size: 1.5rem;
+              cursor: pointer;
+              color: #666;
+            "
+          >
+            &times;
+          </button>
+        </div>
+        <div
+          id="auditTrailContent"
+          style="padding: 24px; overflow-y: auto; flex: 1"
+        >
+          <table style="width: 100%; border-collapse: collapse">
+            <thead>
+              <tr style="background: #f6fbf6; border-bottom: 2px solid #1b5e20">
+                <th style="padding: 10px; text-align: left">Timestamp</th>
+                <th style="padding: 10px; text-align: left">Action</th>
+                <th style="padding: 10px; text-align: left">Actor</th>
+                <th style="padding: 10px; text-align: left">Notes</th>
+                <th style="padding: 10px; text-align: left">Changes</th>
+              </tr>
+            </thead>
+            <tbody id="auditTrailBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </body>
 </html>
+
+

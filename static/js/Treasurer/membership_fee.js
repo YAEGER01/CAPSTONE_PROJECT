@@ -19,14 +19,6 @@
     return m ? m[1] : "";
   }
 
-  function showToast(message, isError = false) {
-    if (typeof window.showToast === "function") {
-      window.showToast(message, isError);
-      return;
-    }
-    alert(message);
-  }
-
   function getInputValue(id) {
     const el = document.getElementById(id);
     return el ? el.value : "";
@@ -241,6 +233,7 @@
         <td style="font-weight:600;">${moneyToPHP(f.amount)}</td>
         <td>${statusLabel}${methodLabel} <br><span style="font-size:0.75rem;color:#757575;">Covered: ${f.month_covered || f.month || "N/A"}</span><br><span style="font-size:0.75rem;color:#757575;">Date: ${f.payment_date || ""}</span></td>
         <td>${f.encoded_by || ""}</td>
+        <td><button type="button" class="btn-audit-trail btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" data-audit-table="membership_fee" data-audit-record-id="${f.fee_id}">Audit</button></td>
       `;
       tbody.appendChild(tr);
     });

@@ -5,10 +5,6 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
-
-
-
-
 class OfficerUser(models.Model):
     user_id_PK = models.AutoField(primary_key=True)
     full_name = models.CharField(max_length=255)
@@ -115,6 +111,27 @@ class Notification(models.Model):
 
     class Meta:
         db_table = "NOTIFICATION"
+
+
+class PushSubscription(models.Model):
+    subscription_id_PK = models.AutoField(primary_key=True)
+
+    officer_id_FK = models.ForeignKey(
+        "OfficerUser",
+        on_delete=models.CASCADE,
+        db_column="officer_id_FK",
+        related_name="push_subscriptions",
+    )
+    endpoint = models.URLField(max_length=500)
+    p256dh_key = models.CharField(max_length=256)
+    auth_key = models.CharField(max_length=128)
+    user_agent = models.CharField(max_length=500, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "PUSH_SUBSCRIPTION"
+        unique_together = ("officer_id_FK", "endpoint")
 
 
 class MonthlyDues(models.Model):
@@ -253,27 +270,7 @@ class SupportingProof(models.Model):
         ).hexdigest()
 
 
-class AuditLog(models.Model):
-    audit_id_PK = models.AutoField(primary_key=True)
 
-    # In the SQL, entity_id is an FK to FINANCIAL_DOCUMENT_ARCHIVE(document_id_PK).
-    # This is modeled as a proper FK to keep relational integrity.
-    actor_type = models.CharField(max_length=50)
-    actor_id = models.IntegerField()
-    action = models.CharField(max_length=255)
-    entity_type = models.CharField(max_length=100)
-    entity_id = models.ForeignKey(
-        FinancialDocumentArchive,
-        on_delete=models.CASCADE,
-        db_column="entity_id",
-    )
-
-    ip_address = models.GenericIPAddressField(protocol="both", unpack_ipv4=False)
-    device_info = models.CharField(max_length=255, null=True, blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "AUDIT_LOG"
 
 
 class AuditFindingsReport(models.Model):
@@ -390,6 +387,7 @@ class Claimant(models.Model):
     full_name = models.CharField(max_length=255)
     contact_number = models.CharField(max_length=50, null=True, blank=True)
     relationship_to_member = models.CharField(max_length=100)
+    relationship_group = models.CharField(max_length=20, blank=True)
     authorization_status = models.CharField(max_length=50)
 
     class Meta:
@@ -416,8 +414,13 @@ class DeathAid(models.Model):
 
     deceased_name = models.CharField(max_length=255)
     relationship_to_member = models.CharField(max_length=100)
+    relationship_group = models.CharField(max_length=20, blank=True)
+
+    funeral_location = models.CharField(max_length=255, blank=True)
+    interment_date = models.DateField(null=True, blank=True)
 
     benefit_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    bill_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     document_status = models.CharField(max_length=50)
     status = models.CharField(max_length=50)
@@ -494,76 +497,22 @@ class RevisionLog(models.Model):
         ]
 
 
-class AuditorPaymentVerification(models.Model):
-    auditor_payment_id_PK = models.AutoField(primary_key=True)
-
-    target_table = models.CharField(max_length=50)  # membership_fee | monthly_dues
-    target_record_id = models.IntegerField()
-
-    auditor_id_FK = models.ForeignKey(
-        "OfficerUser",
-        on_delete=models.RESTRICT,
-        db_column="auditor_id_FK",
-    )
-
-    verified_at = models.DateTimeField()
-    result_status = models.CharField(max_length=50)
-    auditor_remarks = models.TextField()
-
-    evidence_file_path = models.CharField(max_length=500, null=True, blank=True)
-    evidence_file_hash = models.CharField(max_length=255, null=True, blank=True)
-
-    class Meta:
-        db_table = "AUDITOR_PAYMENT_VERIFICATION"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["target_table", "target_record_id"],
-                name="uq_auditor_payment_verif_target",
-            )
-        ]
-
-
-class AuditorAidVerification(models.Model):
-    auditor_aid_verification_id_PK = models.AutoField(primary_key=True)
-
-    # medical_aid | death_aid
-    target_table = models.CharField(max_length=50)
-    target_record_id = models.IntegerField()
-
-    auditor_id_FK = models.ForeignKey(
-        "OfficerUser",
-        on_delete=models.RESTRICT,
-        db_column="auditor_id_FK",
-        related_name="auditor_aid_verifications",
-    )
-
-    verified_at = models.DateTimeField()
-    result_status = models.CharField(max_length=50)
-    auditor_remarks = models.TextField()
-
-    evidence_file_path = models.CharField(max_length=500, null=True, blank=True)
-    evidence_file_hash = models.CharField(max_length=255, null=True, blank=True)
-
-    class Meta:
-        db_table = "AUDITOR_AID_VERIFICATION"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["target_table", "target_record_id"],
-                name="uq_auditor_aid_verif_target",
-            )
-        ]
-
-
-
 
 class TransactionVerification(models.Model):
     verification_id = models.AutoField(primary_key=True)
     table_name = models.CharField(max_length=50)
     record_id = models.IntegerField()
+
+    target_category = models.CharField(
+        max_length=50, null=True, blank=True,
+        help_text="'payment' or 'aid' — replaces AuditorPaymentVerification/AuditorAidVerification",
+    )
+
     verification_status = models.CharField(
         max_length=50,
         default="Pending Verification"
     )
+
     auditor_id_FK = models.ForeignKey(
         OfficerUser,
         null=True,
@@ -572,6 +521,21 @@ class TransactionVerification(models.Model):
         db_column="auditor_id_FK",
         related_name="transaction_verifications_audited",
     )
+    auditor_remarks = models.TextField(null=True, blank=True)
+    evidence_file_path = models.CharField(max_length=500, null=True, blank=True)
+    evidence_file_hash = models.CharField(max_length=255, null=True, blank=True)
+
+    returned_by_auditor_id_FK = models.ForeignKey(
+        OfficerUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="returned_by_auditor_id_FK",
+        related_name="transaction_verifications_returned",
+    )
+    returned_reason = models.TextField(null=True, blank=True)
+    return_count = models.IntegerField(default=0)
+
     president_id_FK = models.ForeignKey(
         OfficerUser,
         null=True,
@@ -585,3 +549,157 @@ class TransactionVerification(models.Model):
 
     class Meta:
         db_table = "transaction_verification"
+
+
+class TransactionArchive(models.Model):
+    archive_id_PK = models.AutoField(primary_key=True)
+
+    transaction_type = models.CharField(max_length=50)
+    record_id = models.IntegerField()
+
+    member_id_FK = models.ForeignKey(
+        Member,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="member_id_FK",
+    )
+
+    member_name = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    validated_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    status = models.CharField(max_length=50)
+    payment_method = models.CharField(max_length=50, null=True, blank=True)
+
+    release_reference = models.CharField(max_length=100, null=True, blank=True)
+    released_by_user_id_FK = models.ForeignKey(
+        OfficerUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="released_by_user_id_FK",
+        related_name="archived_releases",
+    )
+
+    verified_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(auto_now_add=True)
+    archived_by_user_id_FK = models.ForeignKey(
+        OfficerUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="archived_by_user_id_FK",
+        related_name="archived_transactions",
+    )
+
+    class Meta:
+        db_table = "transaction_archive"
+        indexes = [
+            models.Index(fields=["transaction_type", "record_id"]),
+            models.Index(fields=["status"]),
+        ]
+
+
+class AidTrackingPost(models.Model):
+    post_id_PK = models.AutoField(primary_key=True)
+
+    archive_id_FK = models.ForeignKey(
+        TransactionArchive,
+        on_delete=models.CASCADE,
+        db_column="archive_id_FK",
+        related_name="aid_tracking_posts",
+    )
+    aid_type = models.CharField(max_length=50)
+    target_month = models.CharField(max_length=7)
+    total_expected = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    total_collected = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+
+    created_by_user_id_FK = models.ForeignKey(
+        OfficerUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        db_column="created_by_user_id_FK",
+        related_name="aid_posts_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "AID_TRACKING_POST"
+        ordering = ["-created_at"]
+
+
+class Contribution(models.Model):
+    contribution_id_PK = models.AutoField(primary_key=True)
+
+    aid_tracking_post_id_FK = models.ForeignKey(
+        AidTrackingPost,
+        on_delete=models.CASCADE,
+        db_column="aid_tracking_post_id_FK",
+        related_name="contributions",
+    )
+    member_id_FK = models.ForeignKey(
+        Member,
+        on_delete=models.RESTRICT,
+        db_column="member_id_FK",
+    )
+    expected_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    payment_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=20, default="NOT_PAID")
+    is_manually_overridden = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+
+    updated_by_user_id_FK = models.ForeignKey(
+        OfficerUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="updated_by_user_id_FK",
+        related_name="contribution_updates",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "CONTRIBUTION"
+        unique_together = (("aid_tracking_post_id_FK", "member_id_FK"),)
+
+
+class GlobalAuditTrail(models.Model):
+    trail_id = models.AutoField(primary_key=True)
+
+    table_name = models.CharField(max_length=100)
+    record_id = models.IntegerField()
+    action = models.CharField(max_length=20)
+
+    document_archive_id_FK = models.ForeignKey(
+        FinancialDocumentArchive,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="document_archive_id_FK",
+        related_name="audit_trails",
+    )
+    old_values = models.JSONField(null=True, blank=True)
+    new_values = models.JSONField(null=True, blank=True)
+
+    actor_type = models.CharField(max_length=50)
+    actor_id = models.IntegerField(null=True, blank=True)
+    actor_name = models.CharField(max_length=255)
+
+    ip_address = models.GenericIPAddressField(protocol="both", unpack_ipv4=False, null=True, blank=True)
+    device_info = models.CharField(max_length=255, null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "GLOBAL_AUDIT_TRAIL"
+        indexes = [
+            models.Index(fields=["table_name", "record_id", "timestamp"]),
+        ]
+
+
