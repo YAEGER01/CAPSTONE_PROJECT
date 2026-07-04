@@ -261,6 +261,7 @@ CREATE TABLE MEDICAL_AID (
     request_date                       DATE             NOT NULL,
     requested_amount                   DECIMAL(10,2)    NULL,
     hospital_name                      VARCHAR(255)     NOT NULL DEFAULT '',
+    hospital_date                      DATE             NULL,
     hospital_bill_amount               DECIMAL(10,2)    NOT NULL,
     claim_year                         INT              NOT NULL,
     document_status                    VARCHAR(50)      NOT NULL,
@@ -601,4 +602,22 @@ CREATE TABLE GLOBAL_AUDIT_TRAIL (
     CONSTRAINT fk_audit_trail_document FOREIGN KEY (document_archive_id_FK)
         REFERENCES FINANCIAL_DOCUMENT_ARCHIVE (document_id_PK)
         ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+DROP TABLE IF EXISTS SENSITIVE_READ_LOG;
+
+CREATE TABLE SENSITIVE_READ_LOG (
+    read_id                            INT              NOT NULL AUTO_INCREMENT,
+    table_name                         VARCHAR(100)     NOT NULL,
+    record_id                          INT              NULL,
+    reader_type                        VARCHAR(50)      NOT NULL,
+    reader_id                          INT              NULL,
+    reader_name                        VARCHAR(255)     NOT NULL,
+    ip_address                         VARCHAR(39)      NULL,
+    description                        TEXT             NULL,
+    read_at                            DATETIME(6)      NOT NULL,
+    PRIMARY KEY (read_id),
+    INDEX sensitive_read_log_table_record_idx (table_name, record_id),
+    INDEX sensitive_read_log_read_at_idx (read_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -321,6 +321,7 @@ class MedicalAid(models.Model):
     request_date = models.DateField()
     requested_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     hospital_name = models.CharField(max_length=255, blank=True)
+    hospital_date = models.DateField(null=True, blank=True)
     hospital_bill_amount = models.DecimalField(max_digits=10, decimal_places=2)
     claim_year = models.IntegerField()
 
@@ -700,6 +701,29 @@ class GlobalAuditTrail(models.Model):
         db_table = "GLOBAL_AUDIT_TRAIL"
         indexes = [
             models.Index(fields=["table_name", "record_id", "timestamp"]),
+        ]
+
+
+class SensitiveReadLog(models.Model):
+    read_id = models.AutoField(primary_key=True)
+
+    table_name = models.CharField(max_length=100)
+    record_id = models.IntegerField(null=True, blank=True)
+
+    reader_type = models.CharField(max_length=50)
+    reader_id = models.IntegerField(null=True, blank=True)
+    reader_name = models.CharField(max_length=255)
+
+    ip_address = models.GenericIPAddressField(protocol="both", unpack_ipv4=False, null=True, blank=True)
+    description = models.TextField(blank=True)
+
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "SENSITIVE_READ_LOG"
+        indexes = [
+            models.Index(fields=["table_name", "record_id"]),
+            models.Index(fields=["read_at"]),
         ]
 
 

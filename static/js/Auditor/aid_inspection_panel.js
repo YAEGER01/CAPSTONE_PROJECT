@@ -102,6 +102,14 @@
       },
     },
     {
+      key: "hospital_date",
+      label: "Date of Hospitalization / Illness",
+      icon: "",
+      value: function (item) {
+        return item.hospital_date || "\u2014";
+      },
+    },
+    {
       key: "total_hospital_bill",
       label: "Total Hospital Bill",
       icon: "",

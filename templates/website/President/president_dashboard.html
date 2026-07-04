@@ -1737,6 +1737,10 @@
                         <div id="mReadHospital">—</div>
                       </div>
                       <div class="readonly-field">
+                        <label>Date of Hospitalization / Illness</label>
+                        <div id="mReadHospitalDate">—</div>
+                      </div>
+                      <div class="readonly-field">
                         <label>Total Medical Bill</label>
                         <div id="mReadBill">—</div>
                       </div>
@@ -2496,6 +2500,7 @@
 
           document.getElementById("mReadDate").innerText = item.date;
           document.getElementById("mReadHospital").innerText = item.hospital;
+          document.getElementById("mReadHospitalDate").innerText = item.hospital_date || "—";
           document.getElementById("mReadBill").innerText =
             `₱${item.bill.toFixed(2)}`;
           document.getElementById("mReadReqAmount").innerText =

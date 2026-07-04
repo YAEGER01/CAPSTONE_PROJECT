@@ -38,6 +38,7 @@ from core_system.shared_view_utils import (
     _audit_evidence_filename,
     _get_auditor_verification,
     _record_audit_trail,
+    _log_sensitive_read,
     _payment_item_to_json,
     archive_transaction,
     _broadcast_pending_counts,
@@ -468,8 +469,10 @@ def president_auditor_approved_aids_queue(request: HttpRequest):
     ).order_by("-death_aid_id_PK")
 
     items: List[Dict[str, Any]] = []
+    pres_med_record_ids = []
 
     for m in medicals:
+        pres_med_record_ids.append(m.medical_aid_id_PK)
         member = m.member_id_FK
         tv = TransactionVerification.objects.filter(
             table_name="medical_aid",
@@ -523,6 +526,7 @@ def president_auditor_approved_aids_queue(request: HttpRequest):
                 "medical_case": m.document_status or m.policy_record_status or "",
                 "requested_amount": req_amount,
                 "hospital": m.hospital_name or member_name,
+                "hospital_date": str(m.hospital_date) if m.hospital_date else "",
                 "total_hospital_bill": bill_amount,
                 "validated_aid_amount": float(m.validated_aid_amount or 0),
                 "treasurer_validation": m.document_status or m.policy_record_status or "",
@@ -638,6 +642,9 @@ def president_auditor_approved_aids_queue(request: HttpRequest):
                 "timeline": timeline,
             }
         )
+
+    if pres_med_record_ids:
+        _log_sensitive_read(request, "medical_aid", pres_med_record_ids, "President viewed auditor-approved medical aid queue")
 
     return JsonResponse({"success": True, "aids": items})
 

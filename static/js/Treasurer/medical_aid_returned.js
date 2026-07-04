@@ -9,6 +9,7 @@
   const INPUT_REQUEST_DATE = "ma_returned_request_date";
   const INPUT_REQUESTED_AMOUNT = "ma_returned_requested_amount";
   const INPUT_HOSPITAL_NAME = "ma_returned_hospital";
+  const INPUT_HOSPITAL_DATE = "ma_returned_hospital_date";
   const INPUT_HOSPITAL_BILL = "ma_returned_hospital_bill";
   const INPUT_CLAIM_YEAR = "ma_returned_claim_year";
   const INPUT_DOCUMENT_STATUS = "ma_returned_document_status";
@@ -108,7 +109,9 @@
         '</td>',
         '<td>',
         escapeHtml(r.hospital_name || "—"),
-        '<br><span style="font-size:0.75rem;color:#757575;">Bill: ',
+        '<br><span style="font-size:0.75rem;color:#757575;">Admitted: ',
+        escapeHtml(r.hospital_date || "—"),
+        ' | Bill: ',
         escapeHtml(r.hospital_bill_amount || ""),
         '</span></td>',
         '<td>',
@@ -135,6 +138,7 @@
     setVal(INPUT_REQUEST_DATE, record.request_date || "");
     setVal(INPUT_REQUESTED_AMOUNT, record.requested_amount || "");
     setVal(INPUT_HOSPITAL_NAME, record.hospital_name || "");
+    setVal(INPUT_HOSPITAL_DATE, record.hospital_date || "");
     setVal(INPUT_HOSPITAL_BILL, record.hospital_bill_amount || "");
     setVal(INPUT_CLAIM_YEAR, record.claim_year || "");
     setVal(INPUT_DOCUMENT_STATUS, record.document_status || "");
@@ -228,6 +232,7 @@
     const request_date = getEl(INPUT_REQUEST_DATE)?.value;
     const requested_amount = getEl(INPUT_REQUESTED_AMOUNT)?.value;
     const hospital_name = getEl(INPUT_HOSPITAL_NAME)?.value;
+    const hospital_date = getEl(INPUT_HOSPITAL_DATE)?.value;
     const hospital_bill_amount = getEl(INPUT_HOSPITAL_BILL)?.value;
     const claim_year = getEl(INPUT_CLAIM_YEAR)?.value;
     const document_status = getEl(INPUT_DOCUMENT_STATUS)?.value;
@@ -251,6 +256,7 @@
     fd.append("request_date", request_date);
     fd.append("requested_amount", requested_amount);
     fd.append("hospital_name", hospital_name);
+    fd.append("hospital_date", hospital_date);
     fd.append("hospital_bill_amount", hospital_bill_amount);
     fd.append("claim_year", claim_year);
     fd.append("document_status", document_status);

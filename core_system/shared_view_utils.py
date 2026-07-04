@@ -29,6 +29,7 @@ from core_system.models import (
     TransactionVerification,
     TransactionArchive,
     GlobalAuditTrail,
+    SensitiveReadLog,
 )
 
 MODEL_MAP = {
@@ -41,7 +42,7 @@ MODEL_MAP = {
 UPDATABLE_FIELDS = {
     "membership_fee": ["amount", "payment_method", "payment_status", "month_covered", "payment_date", "receipt_number", "deposit_reference"],
     "monthly_dues": ["month_covered", "amount", "payment_method", "payment_status", "receipt_number", "payment_date", "remittance_reference", "deduction_batch_reference"],
-    "medical_aid": ["request_date", "requested_amount", "hospital_name", "hospital_bill_amount", "document_status", "status", "validated_aid_amount"],
+    "medical_aid": ["request_date", "requested_amount", "hospital_name", "hospital_date", "hospital_bill_amount", "document_status", "status", "validated_aid_amount"],
     "death_aid": ["claim_date", "claim_type", "deceased_name", "relationship_to_member", "relationship_group", "benefit_amount", "bill_amount", "document_status", "status"],
 }
 
@@ -278,6 +279,43 @@ def _record_audit_trail(
         actor_name=actor_name,
         ip_address=ip,
         notes=notes.strip() if isinstance(notes, str) else notes,
+    )
+
+
+def _log_sensitive_read(request, table_name, record_ids, description=""):
+    """Log read access to sensitive records.
+    - SensitiveReadLog: one entry per record_id
+    - GlobalAuditTrail: one summary entry with notes describing the bulk read.
+    """
+    officer = resolve_officer_from_session(request)
+    actor_id = getattr(officer, "user_id_PK", None) if officer else None
+    actor_name = getattr(officer, "full_name", "") if officer else ""
+    actor_type = getattr(officer, "role", "") if officer else ""
+    ip = request.META.get("REMOTE_ADDR")
+
+    batch = [
+        SensitiveReadLog(
+            table_name=table_name,
+            record_id=rid,
+            reader_type=actor_type,
+            reader_id=actor_id,
+            reader_name=actor_name,
+            ip_address=ip,
+            description=description,
+        )
+        for rid in record_ids
+    ]
+    SensitiveReadLog.objects.bulk_create(batch)
+
+    GlobalAuditTrail.objects.create(
+        table_name=table_name,
+        record_id=0,
+        action="READ",
+        actor_type=actor_type,
+        actor_id=actor_id,
+        actor_name=actor_name,
+        ip_address=ip,
+        notes=f"{description} ({len(record_ids)} records)",
     )
 
 

@@ -41,6 +41,7 @@ from core_system.shared_view_utils import (
     _payment_type_label,
     _broadcast_pending_counts,
     _broadcast_to_group,
+    _log_sensitive_read,
 )
 
 
@@ -253,9 +254,11 @@ def auditor_pending_aids(request: HttpRequest):
         "Pending Treasurer Check",
     }
 
+    med_record_ids = []
     for m in medicals:
         if str(m.status) in pending_aid_statuses:
             member = m.member_id_FK
+            med_record_ids.append(m.medical_aid_id_PK)
             items.append(
                 {
                     "id": "medical-" + str(m.medical_aid_id_PK),
@@ -266,6 +269,7 @@ def auditor_pending_aids(request: HttpRequest):
                     "medical_case": m.document_status or m.policy_record_status or "",
                     "requested_amount": str(m.requested_amount),
                     "hospital": m.hospital_name or (member.full_name if member else ""),
+                    "hospital_date": str(m.hospital_date) if m.hospital_date else "",
                     "total_hospital_bill": str(m.hospital_bill_amount),
                     "validated_aid_amount": str(m.validated_aid_amount),
                     "treasurer_validation": m.document_status or m.policy_record_status or "",
@@ -322,6 +326,9 @@ def auditor_pending_aids(request: HttpRequest):
                     },
                 }
             )
+
+    if med_record_ids:
+        _log_sensitive_read(request, "medical_aid", med_record_ids, "Auditor viewed pending medical aid list")
 
     return JsonResponse({"ok": True, "aids": items})
 

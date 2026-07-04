@@ -65,6 +65,7 @@ from core_system.shared_view_utils import (
     _serialize_value,
     _serialize_for_audit,
     _record_audit_trail,
+    _log_sensitive_read,
     archive_transaction,
     _broadcast_pending_counts,
 )
@@ -465,6 +466,7 @@ def treasurer_medical_aid_returned_list(request):
     )
 
     rows = []
+    record_ids = []
     for tv_rec in returned_verifications:
         try:
             aid = MedicalAid.objects.select_related("member_id_FK").get(
@@ -472,6 +474,8 @@ def treasurer_medical_aid_returned_list(request):
             )
         except MedicalAid.DoesNotExist:
             continue
+
+        record_ids.append(aid.medical_aid_id_PK)
 
         rejection_reason, rejection_details = _get_rejection_info("medical_aid", aid.medical_aid_id_PK)
         proof_url = _get_proof_url(MedicalAid, aid.medical_aid_id_PK)
@@ -484,6 +488,7 @@ def treasurer_medical_aid_returned_list(request):
             "request_date": str(aid.request_date),
             "requested_amount": str(aid.requested_amount or ""),
             "hospital_name": aid.hospital_name or "",
+            "hospital_date": str(aid.hospital_date) if aid.hospital_date else "",
             "hospital_bill_amount": str(aid.hospital_bill_amount),
             "claim_year": str(aid.claim_year),
             "document_status": aid.document_status or "",
@@ -493,6 +498,8 @@ def treasurer_medical_aid_returned_list(request):
             "rejection_details": rejection_details,
             "proof_url": proof_url or "",
         })
+
+    _log_sensitive_read(request, "medical_aid", record_ids, "Treasurer viewed returned medical aid list")
 
     return JsonResponse({"ok": True, "records": rows})
 
@@ -1420,6 +1427,7 @@ def treasurer_medical_aid_add(request: HttpRequest):
     med_date = (request.POST.get("med_date") or "").strip()
     med_req_amount = (request.POST.get("med_req_amount") or "").strip()
     med_hospital = (request.POST.get("med_hospital") or "").strip()
+    med_hospital_date = (request.POST.get("med_hospital_date") or "").strip()
     med_bill = (request.POST.get("med_bill") or "").strip()
     med_validation = (request.POST.get("med_validation") or "").strip()
     med_reason = (request.POST.get("med_reason") or "").strip()
@@ -1481,6 +1489,7 @@ def treasurer_medical_aid_add(request: HttpRequest):
             request_date=med_date,
             requested_amount=med_req_amount,
             hospital_name=med_hospital,
+            hospital_date=med_hospital_date or None,
             hospital_bill_amount=med_bill,
             claim_year=timezone.now().year,
             document_status=med_reason or "Pending",
@@ -1509,6 +1518,7 @@ def treasurer_medical_aid_add(request: HttpRequest):
                 "request_date": med_date,
                 "requested_amount": med_req_amount,
                 "hospital_name": med_hospital,
+                "hospital_date": med_hospital_date,
                 "hospital_bill_amount": med_bill,
                 "status": med_validation or "Pending",
                 "document_status": med_reason or "Pending",
@@ -1552,6 +1562,7 @@ def treasurer_medical_aid_list(request: HttpRequest):
                 "reason": aid.status or "Medical Aid Request",
                 "reqAmount": float(requested_amount) if requested_amount is not None else 0,
                 "hospital": aid.hospital_name or aid.member_id_FK.full_name,
+                "hospital_date": str(aid.hospital_date) if aid.hospital_date else "",
                 "bill": float(aid.hospital_bill_amount) if aid.hospital_bill_amount is not None else 0,
                 "validation": aid.status or "Pending",
                 "status": aid.status or "Pending",
@@ -1574,8 +1585,11 @@ def treasurer_medical_aid_list(request: HttpRequest):
                 "encoded_by": "",
             }
         )
+    record_ids = [aid.medical_aid_id_PK for aid in aids]
+    _log_sensitive_read(request, "medical_aid", record_ids, "Treasurer viewed medical aid list")
 
     return JsonResponse({"ok": True, "medical_aids": rows})
+
 
 # --- Death Aid (Claims) APIs (Treasurer) ---
 @require_POST
