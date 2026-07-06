@@ -17,6 +17,7 @@ from django.views.decorators.http import require_GET, require_POST
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+from core_system.constants.status_constants import Status, is_pending
 from core_system.guards import require_role
 from core_system.models import (
     AidTrackingPost,
@@ -33,9 +34,14 @@ from core_system.models import (
     SupportingProof,
     TransactionVerification,
 )
+from core_system.services.status_service import (
+    MODEL_MAP as _SVC_MODEL_MAP,
+    set_auditor_verified,
+    set_returned_for_revision,
+    set_president_decision,
+)
 from core_system.services.notifications import queue_and_send_member_notification
 from core_system.shared_view_utils import (
-    MODEL_MAP,
     PAYMENT_SOURCE_LABELS,
     _payment_item_to_json,
     _payment_type_label,
@@ -249,16 +255,10 @@ def auditor_pending_aids(request: HttpRequest):
 
     items: List[Dict[str, Any]] = []
 
-    pending_aid_statuses = {
-        "Pending",
-        "Pending Verification",
-        "Pending Treasurer Check",
-    }
-
     med_record_ids = []
     pending_med_ids = []
     for m in medicals:
-        if str(m.status) in pending_aid_statuses:
+        if str(m.status) in Status.ALL_PENDING:
             pending_med_ids.append(m.medical_aid_id_PK)
             member = m.member_id_FK
             med_record_ids.append(m.medical_aid_id_PK)
@@ -293,14 +293,12 @@ def auditor_pending_aids(request: HttpRequest):
                 }
             )
 
-    death_record_ids = []
     pending_death_ids = []
     for d in deaths:
-        if str(d.status) in pending_aid_statuses:
+        if str(d.status) in Status.ALL_PENDING:
             pending_death_ids.append(d.death_aid_id_PK)
             member = d.member_id_FK
             claimant = d.claimant_id_FK
-            death_record_ids.append(d.death_aid_id_PK)
             items.append(
                 {
                     "id": "death-" + str(d.death_aid_id_PK),
@@ -348,7 +346,7 @@ def auditor_pending_aids(request: HttpRequest):
         for tn, ids in tv_filters:
             q |= Q(table_name=tn, record_id__in=ids)
         tvs = TransactionVerification.objects.filter(q).exclude(
-            verification_status="Pending"
+            verification_status__in=Status.ALL_PENDING
         ).values_list("table_name", "record_id")
         for tn, rid in tvs:
             blocked_ids.add((tn, rid))
@@ -387,6 +385,7 @@ def auditor_verify_payment(request: HttpRequest):
     if not target_id:
         return JsonResponse({"ok": False, "error": "Missing pAuditID."}, status=400)
 
+    is_verify = result == "Verified"
     if result not in {"Verified", "Returned"}:
         return JsonResponse({"ok": False, "error": "Invalid pAuditResult."}, status=400)
 
@@ -417,8 +416,7 @@ def auditor_verify_payment(request: HttpRequest):
     else:
         return JsonResponse({"ok": False, "error": "Payment record not found."}, status=404)
 
-    audit_result_text = "Auditor Verified" if result == "Verified" else "Returned for Revision"
-    verification_now = timezone.now()
+    canonical_status = Status.AUDITOR_VERIFIED if is_verify else Status.RETURNED_REVISION
 
     tv_table = "membership_fee" if isinstance(entity, MembershipFee) else "monthly_dues"
     tv_qs = TransactionVerification.objects.select_for_update().filter(
@@ -427,7 +425,7 @@ def auditor_verify_payment(request: HttpRequest):
     )
     tv = tv_qs.first()
 
-    if tv is not None and str(tv.verification_status) != "Pending":
+    if tv is not None and not is_pending(tv.verification_status):
         return JsonResponse({"ok": True})
 
     uploaded = request.FILES.get("p_findings_file")
@@ -439,7 +437,7 @@ def auditor_verify_payment(request: HttpRequest):
             related_record_id=related_record_id,
             document_type="auditor_finding",
             uploaded_file=uploaded,
-            verification_status=audit_result_text,
+            verification_status=canonical_status,
         )
     else:
         _create_placeholder_archive(
@@ -447,7 +445,7 @@ def auditor_verify_payment(request: HttpRequest):
             related_module=related_module,
             related_record_id=related_record_id,
             document_type="auditor_finding",
-            verification_status=audit_result_text,
+            verification_status=canonical_status,
         )
 
     evidence_file_path = ""
@@ -469,16 +467,16 @@ def auditor_verify_payment(request: HttpRequest):
             evidence_file_hash = ""
 
     tv_update = {
-        "verification_status": audit_result_text,
+        "verification_status": canonical_status,
         "auditor_id_FK": officer,
-        "verified_at": verification_now,
+        "verified_at": timezone.now(),
         "auditor_remarks": remarks or "",
         "evidence_file_path": evidence_file_path,
         "evidence_file_hash": evidence_file_hash,
     }
 
     snapshot = None
-    if result == "Returned":
+    if not is_verify:
         snapshot = _serialize_record(entity)
         tv_update["returned_by_auditor_id_FK"] = officer
         tv_update["returned_reason"] = remarks or ""
@@ -492,7 +490,7 @@ def auditor_verify_payment(request: HttpRequest):
             setattr(tv, fname, val)
         tv.save()
 
-    if result == "Returned":
+    if not is_verify:
         from django.db.models import F
         TransactionVerification.objects.filter(
             table_name=tv_table,
@@ -539,6 +537,7 @@ def auditor_verify_aid(request: HttpRequest):
 
     if result not in {"Verified", "Returned"}:
         return JsonResponse({"ok": False, "error": "Invalid aAuditResult."}, status=400)
+    is_verify = result == "Verified"
 
     table_hint = None
     raw_id = target_id
@@ -566,22 +565,20 @@ def auditor_verify_aid(request: HttpRequest):
     entity = None
     if med is not None:
         entity_type = "MedicalAid"
-        related_module = "MEDICAL_AID"
         related_record_id = med.medical_aid_id_PK
-        audit_result_text = "Auditor Verified" if result == "Verified" else "Returned for Revision"
+        canonical_status = Status.AUDITOR_VERIFIED if is_verify else Status.RETURNED_REVISION
         entity = med
-        med.status = audit_result_text
+        med.status = canonical_status
         med.auditor_verified_by_user_id_FK = officer
         med.save(update_fields=["status", "auditor_verified_by_user_id_FK"])
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
 
     elif dth is not None:
         entity_type = "DeathAid"
-        related_module = "DEATH_AID"
         related_record_id = dth.death_aid_id_PK
-        audit_result_text = "Auditor Verified" if result == "Verified" else "Returned for Revision"
+        canonical_status = Status.AUDITOR_VERIFIED if is_verify else Status.RETURNED_REVISION
         entity = dth
-        dth.status = audit_result_text
+        dth.status = canonical_status
         dth.auditor_verified_by_user_id_FK = officer
         dth.save(update_fields=["status", "auditor_verified_by_user_id_FK"])
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
@@ -590,7 +587,7 @@ def auditor_verify_aid(request: HttpRequest):
         return JsonResponse({"ok": False, "error": "Aid record not found."}, status=404)
 
     snapshot = None
-    if result == "Returned":
+    if not is_verify:
         snapshot = _serialize_record(entity)
 
     uploaded = request.FILES.get("a_findings_file")
@@ -616,18 +613,16 @@ def auditor_verify_aid(request: HttpRequest):
 
     target_table = "medical_aid" if entity_type == "MedicalAid" else "death_aid"
 
-    now = timezone.now()
-
     tv_defaults = {
-        "verification_status": audit_result_text,
+        "verification_status": canonical_status,
         "auditor_id_FK": officer,
-        "verified_at": now,
+        "verified_at": timezone.now(),
         "auditor_remarks": remarks or "",
         "evidence_file_path": evidence_file_path,
         "evidence_file_hash": evidence_file_hash,
     }
 
-    if result == "Returned":
+    if not is_verify:
         tv_defaults["returned_by_auditor_id_FK"] = officer
         tv_defaults["returned_reason"] = remarks or ""
 
@@ -638,13 +633,13 @@ def auditor_verify_aid(request: HttpRequest):
     )
 
     from django.db.models import F
-    if result == "Returned":
+    if not is_verify:
         TransactionVerification.objects.filter(
             table_name=target_table,
             record_id=related_record_id,
         ).update(return_count=F("return_count") + 1)
 
-    audit_action = "VERIFIED" if result == "Verified" else "RETURNED"
+    audit_action = "VERIFIED" if is_verify else "RETURNED"
     GlobalAuditTrail.objects.create(
         table_name=target_table,
         record_id=related_record_id,
@@ -751,7 +746,7 @@ def auditor_verify_membership_fee_batch(request: HttpRequest):
     return _batch_verify_core(request, officer, items, result, remarks)
 
 
-VALID_BATCH_TABLES = {"membership_fee", "monthly_dues", "medical_aid", "death_aid"}
+VALID_BATCH_TABLES = _SVC_MODEL_MAP.keys()
 
 
 def _batch_verify_core(request, officer, items, result, remarks):
@@ -759,6 +754,10 @@ def _batch_verify_core(request, officer, items, result, remarks):
         return JsonResponse({"ok": False, "error": "items must be a non-empty array of {table_name, record_id}."}, status=400)
     if result not in {"Verified", "Returned"}:
         return JsonResponse({"ok": False, "error": "Invalid result."}, status=400)
+
+    is_verify = result == "Verified"
+    canonical_status = Status.AUDITOR_VERIFIED if is_verify else Status.RETURNED_REVISION
+    audit_action = "VERIFIED" if is_verify else "RETURNED"
 
     seen = set()
     deduped = []
@@ -774,11 +773,9 @@ def _batch_verify_core(request, officer, items, result, remarks):
             seen.add(key)
             deduped.append(key)
 
-    audit_result_text = "Auditor Verified" if result == "Verified" else "Returned for Revision"
-    audit_action = "VERIFIED" if result == "Verified" else "RETURNED"
     verification_now = timezone.now()
 
-    if result == "Verified" and not (remarks or "").strip():
+    if is_verify and not (remarks or "").strip():
         auditor_name = getattr(officer, "full_name", "") or str(officer)
         remarks = f"Reviewed by {auditor_name}"
 
@@ -802,17 +799,19 @@ def _batch_verify_core(request, officer, items, result, remarks):
         key = (tn, rid)
         tv = existing_tv_map.get(key)
 
-        if tv is not None and str(tv.verification_status) != "Pending":
+        model_info = _SVC_MODEL_MAP.get(tn)
+
+        if tv is not None and not is_pending(tv.verification_status):
             skipped += 1
         else:
             tv_defaults = {
-                "verification_status": audit_result_text,
+                "verification_status": canonical_status,
                 "auditor_id_FK": officer,
                 "verified_at": verification_now,
                 "auditor_remarks": remarks or "",
             }
 
-            if result == "Returned":
+            if not is_verify:
                 tv_defaults["returned_by_auditor_id_FK"] = officer
                 tv_defaults["returned_reason"] = remarks or ""
 
@@ -823,7 +822,7 @@ def _batch_verify_core(request, officer, items, result, remarks):
             else:
                 for field_name, val in tv_defaults.items():
                     setattr(tv, field_name, val)
-                if result == "Returned":
+                if not is_verify:
                     tv.return_count = (tv.return_count or 0) + 1
                 tv.save()
 
@@ -840,10 +839,9 @@ def _batch_verify_core(request, officer, items, result, remarks):
             processed += 1
 
         # Always sync the model status even if TV was already non-Pending
-        if tn == "medical_aid":
-            MedicalAid.objects.filter(medical_aid_id_PK=rid).update(status=audit_result_text)
-        elif tn == "death_aid":
-            DeathAid.objects.filter(death_aid_id_PK=rid).update(status=audit_result_text)
+        if model_info is not None:
+            model_cls, pk_field, status_field = model_info
+            model_cls.objects.filter(**{pk_field: rid}).update(**{status_field: canonical_status})
 
     if audit_entries:
         GlobalAuditTrail.objects.bulk_create(audit_entries)

@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 
+from core_system.constants.status_constants import Status
 from core_system.models import (
     DeathAid,
     MedicalAid,
@@ -12,13 +13,7 @@ TABLE_MODEL_MAP = {
     "death_aid": (DeathAid, "death_aid_id_PK", "status"),
 }
 
-VERIFIED_STATUSES = [
-    "Auditor Verified",
-    "Returned for Revision",
-    "Approved",
-    "Rejected",
-    "Released",
-]
+VERIFIED_STATUSES = list(Status.ALL_AUDITOR_ACTED | Status.ALL_APPROVED | {Status.REJECTED, Status.RELEASED})
 
 
 class Command(BaseCommand):

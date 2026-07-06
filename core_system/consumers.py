@@ -5,6 +5,7 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
+from core_system.constants.status_constants import Status
 from core_system.models import AccessSession, OfficerUser
 
 
@@ -50,7 +51,7 @@ class AuditorDashboardConsumer(AsyncWebsocketConsumer):
     def _get_pending_count(self):
         from core_system.models import TransactionVerification
         return TransactionVerification.objects.filter(
-            verification_status="Pending",
+            verification_status=Status.PENDING,
             auditor_id_FK__isnull=True,
         ).count()
 
@@ -176,7 +177,7 @@ class TreasurerDashboardConsumer(AsyncWebsocketConsumer):
     def _get_pending_count(self):
         from core_system.models import TransactionVerification
         return TransactionVerification.objects.filter(
-            verification_status="Returned for Revision",
+            verification_status=Status.RETURNED_REVISION,
         ).count()
 
     async def disconnect(self, close_code):
@@ -266,7 +267,7 @@ class PresidentDashboardConsumer(AsyncWebsocketConsumer):
     def _get_pending_count(self):
         from core_system.models import TransactionVerification
         return TransactionVerification.objects.filter(
-            verification_status="Auditor Verified",
+            verification_status=Status.AUDITOR_VERIFIED,
             president_id_FK__isnull=True,
         ).count()
 

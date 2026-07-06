@@ -11,6 +11,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.http import HttpRequest
 
+from core_system.constants.status_constants import Status
 from core_system.constants.policy_constants import (
     get_membership_fee_amount,
     get_monthly_dues_amount,
@@ -436,13 +437,13 @@ def _broadcast_pending_counts(target_groups: Optional[list[str]] = None) -> None
     cache.delete_many(["auditor_pending_count", "president_pending_count"])
 
     auditor_pending = TransactionVerification.objects.filter(
-        verification_status="Pending",
+        verification_status=Status.PENDING,
         auditor_id_FK__isnull=True,
     ).count()
     cache.set("auditor_pending_count", auditor_pending, 30)
 
     president_pending = TransactionVerification.objects.filter(
-        verification_status="Auditor Verified",
+        verification_status=Status.AUDITOR_VERIFIED,
         president_id_FK__isnull=True,
     ).count()
     cache.set("president_pending_count", president_pending, 30)

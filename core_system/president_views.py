@@ -26,6 +26,7 @@ from core_system.models import (
     AidTrackingPost,
     Contribution,
 )
+from core_system.constants.status_constants import Status, can_president_act, is_approved, is_rejected
 from core_system.constants.policy_constants import (
     get_death_aid_amount,
     get_membership_fee_amount,
@@ -929,12 +930,12 @@ def submit_presidential_decision_batch(request):
             if v is None:
                 skipped += 1
                 continue
-            if str(v.verification_status) not in ("Pending", "Auditor Verified", "Returned for Revision"):
+            if not can_president_act(v.verification_status):
                 skipped += 1
                 continue
 
-            if decision == "Approved":
-                v.verification_status = "Approved"
+            if decision == Status.APPROVED:
+                v.verification_status = Status.APPROVED
                 v.approved_at = timezone.now()
                 action_str = "APPROVED"
             else:
@@ -1035,9 +1036,11 @@ def submit_presidential_aid_decision_batch(request):
             if v is None:
                 skipped += 1
                 continue
-            if str(v.verification_status) not in ("Pending", "Auditor Verified", "Returned for Revision"):
+            if not can_president_act(v.verification_status):
                 skipped += 1
                 continue
+
+            canonical_decision = Status.APPROVED if is_approved(decision) else Status.REJECTED
 
             record = None
             if v.table_name == "medical_aid":
@@ -1048,23 +1051,21 @@ def submit_presidential_aid_decision_batch(request):
             if record is not None:
                 record.president_decided_by_user_id_FK = officer
                 record.president_decision = decision
-                record.status = decision
+                record.status = canonical_decision
                 record.save(update_fields=[
                     "president_decided_by_user_id_FK",
                     "president_decision",
                     "status",
                 ])
 
-            if decision == "Approved":
-                v.verification_status = "Approved"
+            v.verification_status = canonical_decision
+            if is_approved(decision):
                 v.approved_at = timezone.now()
-            else:
-                v.verification_status = "Rejected"
 
             v.president_id_FK = officer
             v.save()
 
-            if decision == "Approved":
+            if is_approved(decision):
                 archive_transaction(v.table_name, v.record_id, officer)
 
             audit_entries.append(GlobalAuditTrail(
