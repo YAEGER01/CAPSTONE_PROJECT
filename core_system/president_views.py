@@ -122,6 +122,7 @@ def president_dashboard(request):
     context = {
         "officer_full_name": officer_full_name,
         "officer_role": officer_role,
+        "access_token": request.session.get("access_token", ""),
     }
 
     if not officer_full_name.strip():
@@ -796,13 +797,11 @@ def submit_presidential_aid_decision(request):
         record.president_decided_by_user_id_FK = officer
         record.president_decision = decision
         record.status = decision
-        record.save(
-            update_fields=[
-                "president_decided_by_user_id_FK",
-                "president_decision",
-                "status",
-            ]
-        )
+        extra_fields = ["president_decided_by_user_id_FK", "president_decision", "status"]
+        if table_name == "medical_aid" and decision == "Approved" and approved_amount:
+            record.validated_aid_amount = approved_amount
+            extra_fields.append("validated_aid_amount")
+        record.save(update_fields=extra_fields)
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
 
         if decision == "Approved":

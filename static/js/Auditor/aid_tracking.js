@@ -84,9 +84,6 @@
       scheduleReconnect();
       return;
     }
-    ws.onopen = function () {
-      showToast("Real-time connected.", false);
-    };
     ws.onmessage = function (event) {
       try {
         var msg = JSON.parse(event.data);
@@ -666,7 +663,15 @@
   async function handlePayAll() {
     var ids = Array.from(state.selectedContributionIds);
     if (ids.length === 0) return;
-    if (!confirm("Pay " + ids.length + " selected contribution(s)?")) return;
+    var swalResult = await Swal.fire({
+      title: "Pay " + ids.length + " Contribution(s)?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, pay",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
     var done = 0;
     for (var i = 0; i < ids.length; i++) {
       try {
@@ -710,7 +715,16 @@
 
     var msg = "Skip " + skipIds.length + " contribution(s)?";
     if (paidIds.length > 0) msg += " (" + paidIds.length + " already paid/skipped will be excluded)";
-    if (!confirm(msg)) return;
+    var swalResult = await Swal.fire({
+      title: "Skip Contribution(s)?",
+      text: msg,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, skip",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
 
     var done = 0;
     for (var i = 0; i < skipIds.length; i++) {
@@ -736,7 +750,16 @@
   async function handleNotifyAll() {
     var ids = Array.from(state.selectedContributionIds);
     if (ids.length === 0) return;
-    if (!confirm("Send notifications to " + ids.length + " selected member(s)?")) return;
+    var swalResult = await Swal.fire({
+      title: "Send Notifications?",
+      text: "Send notifications to " + ids.length + " selected member(s)?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, send",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
     var done = 0;
     for (var i = 0; i < ids.length; i++) {
       try {

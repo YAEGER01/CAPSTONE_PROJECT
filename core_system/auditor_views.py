@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.db.models import ForeignKey
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import render
@@ -161,6 +161,7 @@ def auditor_dashboard(request):
         "officer_full_name": officer_full_name,
         "officer_role": officer_role,
         "officer_user_id": officer_user_id,
+        "access_token": request.session.get("access_token", ""),
     }
 
     if not officer_full_name.strip():
@@ -255,8 +256,10 @@ def auditor_pending_aids(request: HttpRequest):
     }
 
     med_record_ids = []
+    pending_med_ids = []
     for m in medicals:
         if str(m.status) in pending_aid_statuses:
+            pending_med_ids.append(m.medical_aid_id_PK)
             member = m.member_id_FK
             med_record_ids.append(m.medical_aid_id_PK)
             items.append(
@@ -290,10 +293,14 @@ def auditor_pending_aids(request: HttpRequest):
                 }
             )
 
+    death_record_ids = []
+    pending_death_ids = []
     for d in deaths:
         if str(d.status) in pending_aid_statuses:
+            pending_death_ids.append(d.death_aid_id_PK)
             member = d.member_id_FK
             claimant = d.claimant_id_FK
+            death_record_ids.append(d.death_aid_id_PK)
             items.append(
                 {
                     "id": "death-" + str(d.death_aid_id_PK),
@@ -329,6 +336,28 @@ def auditor_pending_aids(request: HttpRequest):
 
     if med_record_ids:
         _log_sensitive_read(request, "medical_aid", med_record_ids, "Auditor viewed pending medical aid list")
+
+    blocked_ids = set()
+    if pending_med_ids or pending_death_ids:
+        tv_filters = []
+        if pending_med_ids:
+            tv_filters.append(("medical_aid", pending_med_ids))
+        if pending_death_ids:
+            tv_filters.append(("death_aid", pending_death_ids))
+        q = Q()
+        for tn, ids in tv_filters:
+            q |= Q(table_name=tn, record_id__in=ids)
+        tvs = TransactionVerification.objects.filter(q).exclude(
+            verification_status="Pending"
+        ).values_list("table_name", "record_id")
+        for tn, rid in tvs:
+            blocked_ids.add((tn, rid))
+
+    if blocked_ids:
+        items = [
+            it for it in items
+            if (it["aid_type"], it["entity_id"]) not in blocked_ids
+        ]
 
     return JsonResponse({"ok": True, "aids": items})
 
@@ -486,6 +515,7 @@ def auditor_verify_payment(request: HttpRequest):
     )
 
     _broadcast_pending_counts()
+    _broadcast_to_group("auditor_dashboard", {"type": "dashboard_refresh", "section": "all"})
     return JsonResponse({"ok": True})
 
 
@@ -628,6 +658,7 @@ def auditor_verify_aid(request: HttpRequest):
     )
 
     _broadcast_pending_counts()
+    _broadcast_to_group("auditor_dashboard", {"type": "dashboard_refresh", "section": "all"})
     return JsonResponse({"ok": True})
 
 
@@ -747,6 +778,10 @@ def _batch_verify_core(request, officer, items, result, remarks):
     audit_action = "VERIFIED" if result == "Verified" else "RETURNED"
     verification_now = timezone.now()
 
+    if result == "Verified" and not (remarks or "").strip():
+        auditor_name = getattr(officer, "full_name", "") or str(officer)
+        remarks = f"Reviewed by {auditor_name}"
+
     from collections import defaultdict
     from itertools import chain
     table_ids = defaultdict(list)
@@ -766,48 +801,56 @@ def _batch_verify_core(request, officer, items, result, remarks):
     for tn, rid in deduped:
         key = (tn, rid)
         tv = existing_tv_map.get(key)
+
         if tv is not None and str(tv.verification_status) != "Pending":
             skipped += 1
-            continue
-
-        tv_defaults = {
-            "verification_status": audit_result_text,
-            "auditor_id_FK": officer,
-            "verified_at": verification_now,
-            "auditor_remarks": remarks or "",
-        }
-
-        if result == "Returned":
-            tv_defaults["returned_by_auditor_id_FK"] = officer
-            tv_defaults["returned_reason"] = remarks or ""
-
-        if tv is None:
-            tv_defaults["table_name"] = tn
-            tv_defaults["record_id"] = rid
-            TransactionVerification.objects.create(**tv_defaults)
         else:
-            for field_name, val in tv_defaults.items():
-                setattr(tv, field_name, val)
-            if result == "Returned":
-                tv.return_count = (tv.return_count or 0) + 1
-            tv.save()
+            tv_defaults = {
+                "verification_status": audit_result_text,
+                "auditor_id_FK": officer,
+                "verified_at": verification_now,
+                "auditor_remarks": remarks or "",
+            }
 
-        audit_entries.append(GlobalAuditTrail(
-            table_name=tn,
-            record_id=rid,
-            action=audit_action,
-            actor_type=getattr(officer, "role", "Auditor"),
-            actor_id=officer.user_id_PK,
-            actor_name=getattr(officer, "full_name", ""),
-            ip_address=request.META.get("REMOTE_ADDR"),
-            notes=remarks or None,
-        ))
-        processed += 1
+            if result == "Returned":
+                tv_defaults["returned_by_auditor_id_FK"] = officer
+                tv_defaults["returned_reason"] = remarks or ""
+
+            if tv is None:
+                tv_defaults["table_name"] = tn
+                tv_defaults["record_id"] = rid
+                TransactionVerification.objects.create(**tv_defaults)
+            else:
+                for field_name, val in tv_defaults.items():
+                    setattr(tv, field_name, val)
+                if result == "Returned":
+                    tv.return_count = (tv.return_count or 0) + 1
+                tv.save()
+
+            audit_entries.append(GlobalAuditTrail(
+                table_name=tn,
+                record_id=rid,
+                action=audit_action,
+                actor_type=getattr(officer, "role", "Auditor"),
+                actor_id=officer.user_id_PK,
+                actor_name=getattr(officer, "full_name", ""),
+                ip_address=request.META.get("REMOTE_ADDR"),
+                notes=remarks or None,
+            ))
+            processed += 1
+
+        # Always sync the model status even if TV was already non-Pending
+        if tn == "medical_aid":
+            MedicalAid.objects.filter(medical_aid_id_PK=rid).update(status=audit_result_text)
+        elif tn == "death_aid":
+            DeathAid.objects.filter(death_aid_id_PK=rid).update(status=audit_result_text)
 
     if audit_entries:
         GlobalAuditTrail.objects.bulk_create(audit_entries)
 
     _broadcast_pending_counts()
+    _broadcast_to_group("auditor_dashboard", {"type": "dashboard_refresh", "section": "all"})
+    _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
     return JsonResponse({"ok": True, "processed": processed, "skipped": skipped})
 
 
@@ -908,6 +951,7 @@ def reject_transaction(request: HttpRequest):
     )
 
     _broadcast_pending_counts()
+    _broadcast_to_group("auditor_dashboard", {"type": "dashboard_refresh", "section": "all"})
     return JsonResponse({"ok": True})
 
 

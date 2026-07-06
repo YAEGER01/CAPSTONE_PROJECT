@@ -8,9 +8,10 @@ from core_system.auth_views import officer_login
 
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
-from django.views.generic import TemplateView  # Allows rendering your index directly
+from django.views.generic import TemplateView, RedirectView
 
 urlpatterns = [
+    path("favicon.ico", RedirectView.as_view(url="/static/img/isu_caufa_official.png", permanent=True)),
     path("admin/", admin.site.urls),
     # 1. Main Landing: Shows your index.html homepage immediately at http://127.0.0.1:8000/
     path("", TemplateView.as_view(template_name="website/index.html"), name="home"),

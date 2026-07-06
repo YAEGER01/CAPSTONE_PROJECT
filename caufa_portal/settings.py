@@ -18,9 +18,9 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "core_system",
     "django.contrib.staticfiles",
     "channels",
-    "core_system",
 ]
 
 MIDDLEWARE = [

@@ -1,7 +1,8 @@
 (function () {
   "use strict";
 
-  var WS_URL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws/president-dashboard/";
+  var WS_TOKEN = window.WS_AUTH_TOKEN || "";
+  var WS_URL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws/president-dashboard/" + (WS_TOKEN ? "?token=" + encodeURIComponent(WS_TOKEN) : "");
   var ws = null;
   var wsReconnectTimer = null;
 
@@ -13,11 +14,6 @@
       scheduleReconnect();
       return;
     }
-    ws.onopen = function () {
-      if (typeof showToast === "function") {
-        showToast("Real-time connected.", false);
-      }
-    };
     ws.onmessage = function (event) {
       try {
         var msg = JSON.parse(event.data);

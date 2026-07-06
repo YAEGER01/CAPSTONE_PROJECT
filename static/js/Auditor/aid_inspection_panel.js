@@ -73,16 +73,16 @@
       },
     },
     {
-      key: "requested_amount",
-      label: "Requested Benefit Amount",
+      key: "validated_aid_amount",
+      label: "Assigned Contribution Amount",
       icon: "",
       value: function (item) {
         return formatMoneyPHP(
-          item.requested_amount ||
+          item.validated_aid_amount ||
             item.reqAmount ||
-            item.validated_aid_amount ||
+            item.requested_amount ||
             0,
-        );
+        ) + " /per member";
       },
     },
     {

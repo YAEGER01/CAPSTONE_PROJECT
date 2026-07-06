@@ -3275,6 +3275,10 @@
     <script src="{% static 'js/Auditor/aid_inspection_panel.js' %}"></script>
     <script src="{% static 'js/Auditor/media_handler.js' %}"></script>
     <script src="{% static 'js/Auditor/aid_tracking.js' %}"></script>
+    <script src="{% static 'js/Auditor/websocket.js' %}"></script>
+    <script>
+      window.WS_AUTH_TOKEN = "{{ access_token|escapejs }}";
+    </script>
     <script>
       window.VAPID_PUBLIC_KEY =
         "BH_OcUmir3ilJ-ysc_ZWUISngSKIWg2LqLbOQQFwFZPcMTY1iKLS-Kwm6hfAHOH9Tj6CvJ8IDYVMTaQmXQhTbEg";

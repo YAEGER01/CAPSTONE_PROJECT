@@ -80,23 +80,6 @@ class AccessSession(models.Model):
         db_table = "ACCESS_SESSION"
 
 
-class SensitiveReadLog(models.Model):
-    read_id_PK = models.AutoField(primary_key=True)
-
-    user_id_FK = models.ForeignKey(
-        OfficerUser,
-        on_delete=models.CASCADE,
-        db_column="user_id_FK",
-    )
-    module = models.CharField(max_length=100)
-    record_id = models.IntegerField()
-    purpose = models.CharField(max_length=255)
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "SENSITIVE_READ_LOG"
-
-
 class Notification(models.Model):
     notification_id_PK = models.AutoField(primary_key=True)
 

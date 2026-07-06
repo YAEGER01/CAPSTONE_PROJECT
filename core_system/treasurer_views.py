@@ -111,6 +111,7 @@ def treasurer_dashboard(request):
         "officer_full_name": officer_full_name,
         "officer_role": officer_role,
         "expected_dues_default_amount": get_expected_dues_amount(),
+        "access_token": request.session.get("access_token", ""),
     }
 
     # If full_name missing/empty: use the fallback as required by the spec.
@@ -1494,7 +1495,7 @@ def treasurer_medical_aid_add(request: HttpRequest):
             claim_year=timezone.now().year,
             document_status=med_reason or "Pending",
             policy_record_status="Pending",
-            validated_aid_amount=0,
+            validated_aid_amount=get_accidental_sickness_aid_benefit(),
             status=med_validation or "Pending",
         )
 

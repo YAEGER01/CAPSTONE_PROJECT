@@ -2839,6 +2839,9 @@
     <script>window.VAPID_PUBLIC_KEY = "BH_OcUmir3ilJ-ysc_ZWUISngSKIWg2LqLbOQQFwFZPcMTY1iKLS-Kwm6hfAHOH9Tj6CvJ8IDYVMTaQmXQhTbEg";</script>
     <script src="{% static 'js/President/sidebarNav.js' %}"></script>
     <script src="{% static 'js/President/payments_verification.js' %}"></script>
+    <script>
+      window.WS_AUTH_TOKEN = "{{ access_token|escapejs }}";
+    </script>
     <script src="{% static 'js/President/websocket.js' %}"></script>
     <script src="{% static 'js/push-init.js' %}"></script>
   </body>

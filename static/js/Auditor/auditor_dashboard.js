@@ -18,7 +18,7 @@
     }
     const toast = document.createElement("div");
     toast.className = `custom-toast ${isError ? "toast-error" : ""}`;
-    toast.innerHTML = `<span>[MSG]</span> <p style="font-size:0.85rem;font-weight:500;">${message}</p>`;
+    toast.innerHTML = `<p style="font-size:0.85rem;font-weight:500;margin:0;">${message}</p>`;
     host.appendChild(toast);
     setTimeout(() => toast.classList.add("show"), 10);
     setTimeout(() => {
@@ -239,7 +239,6 @@
     selectedMembershipFeeId: "",
     selectedPaymentIds: new Set(),
     selectedAidIds: new Set(),
-    paymentViewMode: "all",
   };
 
   async function getJSON(url) {
@@ -361,7 +360,15 @@
     if (items.length === 0) return;
 
     const label = result === "Verified" ? "Verify" : "Return";
-    if (!confirm(`${label} ${items.length} payment entr${items.length === 1 ? "y" : "ies"}?`)) return;
+    const swalResult = await Swal.fire({
+      title: `${label} ${items.length} Payment Entr${items.length === 1 ? "y" : "ies"}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: `Yes, ${label.toLowerCase()}`,
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
 
     try {
       const resp = await fetch("/api/auditor/verify-batch/", {
@@ -456,215 +463,9 @@
     return tr;
   }
 
-  function renderBatchDrawerItems(container, items) {
-    items.forEach((p) => {
-      const div = document.createElement("div");
-      div.className = "batch-drawer-list-item";
-      const pid = p.id;
-      if (state.selectedPaymentIds.has(String(pid))) {
-        div.classList.add("selected");
-      }
-      const currentId = getCurrentOfficerId();
-      const prevReturnedByYou = p.returned_by_auditor_id_FK && currentId && Number(p.returned_by_auditor_id_FK) === currentId;
-      const returnBadge = prevReturnedByYou ? '<span class="returned-badge">Previously returned by you</span>' : "";
-      const sourceLabel = escapeHtml(getPaymentSourceLabel(p));
-      const typeLabel = escapeHtml(getPaymentTypeLabel(p));
-      div.innerHTML = `
-        <label class="bdl-checkbox" onclick="event.stopPropagation()">
-          <input type="checkbox" class="pay-row-check" value="${pid}" ${state.selectedPaymentIds.has(String(pid)) ? "checked" : ""}>
-        </label>
-        <span class="bdl-ref">${escapeHtml(p.ref || "")}</span>
-        <span class="bdl-member">${escapeHtml(p.member && p.member.member_name ? p.member.member_name : "")}${returnBadge}</span>
-        <span class="bdl-amount">${formatMoneyPHP(p.amount)}</span>
-        <span class="bdl-type">
-          <span class="${getStatusBadgeClass(sourceLabel)}" style="font-size:0.72rem;">${sourceLabel}</span>
-          <span class="${getStatusBadgeClass(typeLabel)}" style="font-size:0.7rem;">${typeLabel}</span>
-        </span>
-        <button type="button" class="btn-select-glow" data-id="${pid}" style="flex-shrink:0;">Select</button>
-      `;
-      const cb = div.querySelector(".pay-row-check");
-      cb.addEventListener("click", function (e) {
-        e.stopPropagation();
-        togglePayRowCheck(pid, this.checked);
-      });
-      div.querySelector("button.btn-select-glow").addEventListener("click", function (e) {
-        e.stopPropagation();
-        selectPayment(pid);
-      });
-      div.addEventListener("click", function (e) {
-        if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON" || e.target.tagName === "LABEL") return;
-        selectPayment(pid);
-      });
-      container.appendChild(div);
-    });
-  }
-
-  function closeAllBatchDrawers() {
-    document.querySelectorAll("#pendingPaymentsTable tr.batch-drawer-header.expanded").forEach((header) => {
-      const icon = header.querySelector(".drawer-toggle-icon");
-      const panelRow = header.nextElementSibling;
-      if (panelRow && panelRow.classList.contains("batch-drawer-panel-row")) {
-        panelRow.style.display = "none";
-      }
-      if (icon) icon.textContent = "▶";
-      header.classList.remove("expanded");
-    });
-  }
-  window.closeAllBatchDrawers = closeAllBatchDrawers;
-
-  function renderPaymentsBatchView(tbody) {
-    tbody.innerHTML = "";
-
-    if (!state.pendingPayments || state.pendingPayments.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All payment queues cleared!</td></tr>';
-      updatePayBatchBar();
-      return;
-    }
-
-    const groups = {};
-    const ungrouped = [];
-    state.pendingPayments.forEach((p) => {
-      const br = (p.batch_reference || "").trim();
-      if (br) {
-        if (!groups[br]) groups[br] = { batch_ref: br, items: [] };
-        groups[br].items.push(p);
-      } else {
-        ungrouped.push(p);
-      }
-    });
-
-    if (ungrouped.length > 0) {
-      const headerTr = document.createElement("tr");
-      headerTr.className = "batch-drawer-header";
-      headerTr.innerHTML = `<td colspan="6" style="padding:0;">
-        <div class="batch-drawer-header-inner">
-          <div class="batch-drawer-summary">
-            <span class="drawer-toggle-icon">▶</span>
-            <strong class="batch-drawer-ref">Ungrouped</strong>
-            <span class="batch-drawer-meta">${ungrouped.length} item${ungrouped.length > 1 ? "s" : ""}</span>
-          </div>
-        </div>
-      </td>`;
-      headerTr.style.background = "var(--bg-card, #fff)";
-      tbody.appendChild(headerTr);
-
-      const detailTr = document.createElement("tr");
-      detailTr.className = "batch-drawer-panel-row";
-      detailTr.dataset.target = "ungrouped-payments";
-      detailTr.style.display = "none";
-      detailTr.innerHTML = `
-        <td colspan="6" style="padding:0 0 12px;">
-          <div class="batch-drawer-panel">
-            <div class="batch-drawer-list"></div>
-          </div>
-        </td>
-      `;
-      const listContainer = detailTr.querySelector(".batch-drawer-list");
-      renderBatchDrawerItems(listContainer, ungrouped);
-      tbody.appendChild(detailTr);
-
-      headerTr.addEventListener("click", function (e) {
-        if (e.target.closest("button")) return;
-        const icon = this.querySelector(".drawer-toggle-icon");
-        const isClosed = detailTr.style.display === "none" || !detailTr.style.display;
-        detailTr.style.display = isClosed ? "" : "none";
-        if (icon) icon.textContent = isClosed ? "▼" : "▶";
-        this.classList.toggle("expanded", isClosed);
-      });
-    }
-
-    const batchKeys = Object.keys(groups);
-    if (batchKeys.length === 0 && ungrouped.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All payment queues cleared!</td></tr>';
-      return;
-    }
-
-    batchKeys.forEach((br) => {
-      const group = groups[br];
-      const monthLabel = group.items[0]?.month || "";
-      const groupId = "batch-" + br.replace(/[^a-zA-Z0-9_-]/g, "_");
-      const totalAmount = group.items.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-
-      const headerTr = document.createElement("tr");
-      headerTr.className = "batch-drawer-header";
-      headerTr.dataset.target = groupId;
-      headerTr.innerHTML = `
-        <td colspan="6" style="padding:0;">
-          <div class="batch-drawer-header-inner">
-            <div class="batch-drawer-summary">
-              <span class="drawer-toggle-icon">▶</span>
-              <strong class="batch-drawer-ref">📦 ${escapeHtml(br)}</strong>
-              <span class="batch-drawer-meta">${escapeHtml(monthLabel)}</span>
-              <span class="batch-drawer-count">${group.items.length} item${group.items.length > 1 ? "s" : ""}</span>
-              <span class="batch-drawer-total">${formatMoneyPHP(totalAmount)}</span>
-            </div>
-            <div class="batch-drawer-actions">
-              <button type="button" class="batch-verify-btn btn-green" data-batch="${escapeHtml(br)}">Verify All</button>
-              <button type="button" class="batch-return-btn btn-red" data-batch="${escapeHtml(br)}">Return All</button>
-            </div>
-          </div>
-        </td>
-      `;
-      tbody.appendChild(headerTr);
-
-      const detailTr = document.createElement("tr");
-      detailTr.className = "batch-drawer-panel-row";
-      detailTr.dataset.batchGroup = groupId;
-      detailTr.style.display = "none";
-      detailTr.innerHTML = `
-        <td colspan="6" style="padding:0 0 12px;">
-          <div class="batch-drawer-panel">
-            <div class="batch-drawer-list"></div>
-          </div>
-        </td>
-      `;
-      const listContainer = detailTr.querySelector(".batch-drawer-list");
-      renderBatchDrawerItems(listContainer, group.items);
-      tbody.appendChild(detailTr);
-
-      headerTr.addEventListener("click", function (e) {
-        if (e.target.closest("button")) return;
-        const icon = this.querySelector(".drawer-toggle-icon");
-        const isClosed = detailTr.style.display === "none" || !detailTr.style.display;
-        detailTr.style.display = isClosed ? "" : "none";
-        if (icon) icon.textContent = isClosed ? "▼" : "▶";
-        this.classList.toggle("expanded", isClosed);
-      });
-    });
-
-    tbody.querySelectorAll(".batch-verify-btn").forEach((btn) => {
-      btn.addEventListener("click", async function (e) {
-        e.stopPropagation();
-        const br = this.dataset.batch;
-        const items = state.pendingPayments
-          .filter(p => (p.batch_reference || "").trim() === br)
-          .map(p => ({ table_name: getPaymentTableName(p), record_id: p.entity_id }));
-        if (items.length === 0) return;
-        if (!confirm(`Verify ${items.length} items in batch "${br}"?`)) return;
-        await submitBatchItems(items, "Verified");
-      });
-    });
-    tbody.querySelectorAll(".batch-return-btn").forEach((btn) => {
-      btn.addEventListener("click", async function (e) {
-        e.stopPropagation();
-        const br = this.dataset.batch;
-        const items = state.pendingPayments
-          .filter(p => (p.batch_reference || "").trim() === br)
-          .map(p => ({ table_name: getPaymentTableName(p), record_id: p.entity_id }));
-        if (items.length === 0) return;
-        if (!confirm(`Return ${items.length} items in batch "${br}"?`)) return;
-        await submitBatchItems(items, "Returned");
-      });
-    });
-  }
-
   function renderPaymentsTable() {
     const tbody = document.querySelector("#pendingPaymentsTable tbody");
     if (!tbody) return;
-
-    if (state.paymentViewMode === "batch") {
-      return renderPaymentsBatchView(tbody);
-    }
 
     tbody.innerHTML = "";
 
@@ -680,29 +481,6 @@
       tbody.appendChild(tr);
     });
     updatePayBatchBar();
-  }
-
-  async function submitBatchItems(items, result) {
-    try {
-      const resp = await fetch("/api/auditor/verify-batch/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": getCSRFToken(),
-        },
-        credentials: "same-origin",
-        body: JSON.stringify({ items, result, remarks: "" }),
-      });
-      const data = await resp.json();
-      if (!data.ok) {
-        showToast(data.error || "Batch operation failed.", true);
-        return;
-      }
-      showToast(`Batch ${result.toLowerCase()} completed: ${data.processed} processed, ${data.skipped} skipped.`, false);
-      await refreshAll();
-    } catch (err) {
-      showToast("Network error during batch operation.", true);
-    }
   }
 
   function toggleAidRowCheck(aid, checked) {
@@ -750,7 +528,15 @@
     if (items.length === 0) return;
 
     const label = result === "Verified" ? "Verify" : "Return";
-    if (!confirm(`${label} ${items.length} aid entr${items.length === 1 ? "y" : "ies"}?`)) return;
+    const swalResult = await Swal.fire({
+      title: `${label} ${items.length} Aid Entr${items.length === 1 ? "y" : "ies"}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: `Yes, ${label.toLowerCase()}`,
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
 
     try {
       const resp = await fetch("/api/auditor/verify-batch/", {
@@ -1614,34 +1400,6 @@
     togglePaymentAuditEvidenceRequirement();
     toggleAidAuditEvidenceRequirement();
     toggleMembershipFeeAuditEvidenceRequirement();
-
-    // Payment view toggle — inject into panel header
-    const payHeader = document.querySelector("#pendingPaymentsTable")?.closest(".dashboard-panel")?.querySelector(".panel-header-row");
-    if (payHeader) {
-      const toggleDiv = document.createElement("div");
-      toggleDiv.className = "payment-view-toggle";
-      toggleDiv.style.cssText = "display:flex;gap:4px;margin-left:auto;";
-      toggleDiv.innerHTML = `
-        <button type="button" class="pay-view-btn btn-brand btn-brand-primary" data-view="all" style="padding:4px 10px;font-size:0.75rem;">All Items</button>
-        <button type="button" class="pay-view-btn btn-brand" data-view="batch" style="padding:4px 10px;font-size:0.75rem;opacity:0.7;">By Batch</button>
-      `;
-      payHeader.appendChild(toggleDiv);
-
-      toggleDiv.addEventListener("click", function (e) {
-        const btn = e.target.closest(".pay-view-btn");
-        if (!btn) return;
-        const view = btn.dataset.view;
-        state.paymentViewMode = view;
-        if (view !== "batch") closeAllBatchDrawers();
-        toggleDiv.querySelectorAll(".pay-view-btn").forEach((b) => {
-          b.classList.remove("btn-brand-primary");
-          b.style.opacity = "0.7";
-        });
-        btn.classList.add("btn-brand-primary");
-        btn.style.opacity = "1";
-        renderPaymentsTable();
-      });
-    }
 
     const paySelectAll = document.getElementById("pay-select-all");
     if (paySelectAll) {

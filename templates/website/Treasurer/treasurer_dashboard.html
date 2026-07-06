@@ -5034,6 +5034,9 @@
       formatPhoneInput(document.getElementById("death_contact"));
       formatPhoneInput(document.getElementById("death_contact_dep"));
     </script>
+    <script>
+      window.WS_AUTH_TOKEN = "{{ access_token|escapejs }}";
+    </script>
     <script src="{% static 'js/Treasurer/websocket.js' %}"></script>
     <script src="{% static 'js/Treasurer/AidsAndClaims.js' %}" defer></script>
     <script src="{% static 'js/Treasurer/audit_trail.js' %}"></script>
