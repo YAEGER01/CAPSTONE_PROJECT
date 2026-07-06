@@ -216,6 +216,30 @@
       escapeHtml(post.aid_label || (isMedical ? "Medical Aid" : "Death Aid")) +
       "</span>";
 
+    var st = post.status || "";
+    var statusBadgeColor = "#546e7a";
+    var statusBadgeBg = "#eceff1";
+    if (statusUtils.isApproved(st)) {
+      statusBadgeColor = "#1b5e20";
+      statusBadgeBg = "#e8f5e9";
+    } else if (statusUtils.isReleased(st)) {
+      statusBadgeColor = "#0d47a1";
+      statusBadgeBg = "#e3f2fd";
+    } else if (statusUtils.isAuditorVerified(st)) {
+      statusBadgeColor = "#e65100";
+      statusBadgeBg = "#fff3e0";
+    }
+    var statusBadge =
+      '<span style="background:' +
+      statusBadgeBg +
+      ";color:" +
+      statusBadgeColor +
+      ";border:1px solid " +
+      statusBadgeColor +
+      ";padding:2px 8px;border-radius:4px;font-size:0.65rem;font-weight:500;display:inline-block;margin-left:6px;'>" +
+      escapeHtml(st || "Pending") +
+      "</span>";
+
     var rateColor = "#e53935";
     if (post.collection_rate >= 100) rateColor = "#1b5e20";
     else if (post.collection_rate >= 50) rateColor = "#fbc02d";
@@ -230,6 +254,7 @@
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
       "<div>" +
       badgeHtml +
+      statusBadge +
       "</div>" +
       '<span style="font-size:0.72rem;color:#90a4ae;">' +
       escapeHtml(post.target_month || "") +
@@ -322,6 +347,7 @@
   function filterPosts() {
     var searchVal = (getEl("aidPostSearch") || {}).value || "";
     var typeVal = (getEl("aidTypeFilter") || {}).value || "All";
+    var statusVal = (getEl("aidStatusFilter") || {}).value || "All";
 
     var filtered = state.posts.filter(function (p) {
       var name = (p.member_name || "").toLowerCase();
@@ -330,7 +356,9 @@
         typeVal === "All" ||
         (typeVal === "Medical" && p.aid_type === "medical_aid") ||
         (typeVal === "Death" && p.aid_type === "death_aid");
-      return matchesSearch && matchesType;
+      var matchesStatus =
+        statusVal === "All" || (p.status || "") === statusVal;
+      return matchesSearch && matchesType && matchesStatus;
     });
 
     var container = getEl("unifiedAidPostsContainer");
@@ -804,6 +832,10 @@
     var typeFilter = getEl("aidTypeFilter");
     if (typeFilter) {
       typeFilter.addEventListener("change", filterPosts);
+    }
+    var statusFilter = getEl("aidStatusFilter");
+    if (statusFilter) {
+      statusFilter.addEventListener("change", filterPosts);
     }
 
     var memberSearch = getEl("aidLedgerMemberSearch");

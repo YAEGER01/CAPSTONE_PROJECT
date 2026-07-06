@@ -1066,7 +1066,48 @@ def submit_presidential_aid_decision_batch(request):
             v.save()
 
             if is_approved(decision):
-                archive_transaction(v.table_name, v.record_id, officer)
+                archive = archive_transaction(v.table_name, v.record_id, officer)
+
+                if archive is not None:
+                    relationship = ""
+                    if v.table_name == "death_aid" and record is not None:
+                        relationship = getattr(record, "relationship_to_member", "")
+
+                    per_member_amount = get_contribution_amount_for_aid(v.table_name, relationship)
+                    active_members = Member.objects.exclude(
+                        membership_status__iexact="Retired",
+                    )
+                    total_expected = active_members.count() * per_member_amount
+
+                    post = AidTrackingPost.objects.create(
+                        archive_id_FK=archive,
+                        aid_type=v.table_name,
+                        target_month=timezone.now().strftime("%Y-%m"),
+                        total_expected=total_expected,
+                        total_collected=0,
+                        created_by_user_id_FK=officer,
+                    )
+
+                    Contribution.objects.bulk_create([
+                        Contribution(
+                            aid_tracking_post_id_FK=post,
+                            member_id_FK=member,
+                            expected_amount=per_member_amount,
+                            paid_amount=0,
+                            status="NOT_PAID",
+                        )
+                        for member in active_members
+                    ])
+
+                    member_name = record.member_id_FK.full_name if record is not None and hasattr(record, "member_id_FK") and record.member_id_FK else ""
+                    _broadcast_to_group("auditor_dashboard", {
+                        "type": "aid_post_created",
+                        "post_id": post.post_id_PK,
+                        "member_name": member_name,
+                        "aid_type": v.table_name,
+                        "total_expected": float(total_expected),
+                        "target_month": post.target_month,
+                    })
 
             audit_entries.append(GlobalAuditTrail(
                 table_name=v.table_name,
