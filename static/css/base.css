@@ -75,6 +75,52 @@
   font-weight: 600;
 }
 
+/* Sidebar nav category color coding — matches badge colors */
+.menu-item[data-nav-category="medical-aid"] {
+  border-left-color: #2dd4bf;
+}
+.menu-item[data-nav-category="medical-aid"].active {
+  background: #ccfbf1;
+  color: #115e59;
+  border-left-color: #2dd4bf;
+}
+
+.menu-item[data-nav-category="death-aid"] {
+  border-left-color: #a5b4fc;
+}
+.menu-item[data-nav-category="death-aid"].active {
+  background: #e0e7ff;
+  color: #4338ca;
+  border-left-color: #a5b4fc;
+}
+
+.menu-item[data-nav-category="monthly-dues-salary"] {
+  border-left-color: #7dd3fc;
+}
+.menu-item[data-nav-category="monthly-dues-salary"].active {
+  background: #e0f2fe;
+  color: #1e3a8a;
+  border-left-color: #7dd3fc;
+}
+
+.menu-item[data-nav-category="monthly-dues-otc"] {
+  border-left-color: #60a5fa;
+}
+.menu-item[data-nav-category="monthly-dues-otc"].active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-left-color: #60a5fa;
+}
+
+.menu-item[data-nav-category="membership-fee"] {
+  border-left-color: #fbbf24;
+}
+.menu-item[data-nav-category="membership-fee"].active {
+  background: #fef3c7;
+  color: #78350f;
+  border-left-color: #fbbf24;
+}
+
 .menu-icon {
   font-size: 1.15rem;
   width: 24px;

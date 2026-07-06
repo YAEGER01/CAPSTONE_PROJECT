@@ -157,6 +157,47 @@
         font-weight: 600;
       }
 
+      .menu-item[data-nav-category="medical-aid"] {
+        border-left-color: #2dd4bf;
+      }
+      .menu-item[data-nav-category="medical-aid"].active {
+        background: #ccfbf1;
+        color: #115e59;
+        border-left-color: #2dd4bf;
+      }
+      .menu-item[data-nav-category="death-aid"] {
+        border-left-color: #a5b4fc;
+      }
+      .menu-item[data-nav-category="death-aid"].active {
+        background: #e0e7ff;
+        color: #4338ca;
+        border-left-color: #a5b4fc;
+      }
+      .menu-item[data-nav-category="monthly-dues-salary"] {
+        border-left-color: #7dd3fc;
+      }
+      .menu-item[data-nav-category="monthly-dues-salary"].active {
+        background: #e0f2fe;
+        color: #1e3a8a;
+        border-left-color: #7dd3fc;
+      }
+      .menu-item[data-nav-category="monthly-dues-otc"] {
+        border-left-color: #60a5fa;
+      }
+      .menu-item[data-nav-category="monthly-dues-otc"].active {
+        background: #dbeafe;
+        color: #1d4ed8;
+        border-left-color: #60a5fa;
+      }
+      .menu-item[data-nav-category="membership-fee"] {
+        border-left-color: #fbbf24;
+      }
+      .menu-item[data-nav-category="membership-fee"].active {
+        background: #fef3c7;
+        color: #78350f;
+        border-left-color: #fbbf24;
+      }
+
       /* Nested Folders UI */
       .nested-folder {
         display: flex;
@@ -1199,7 +1240,7 @@
                   <span class="menu-text">Membership History</span>
                 </a>
               
-                <a class="menu-item" data-target="view-fee-payment">
+                <a class="menu-item" data-target="view-fee-payment" data-nav-category="membership-fee">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Membership Fee Payment</span>
                 </a>
@@ -1256,11 +1297,11 @@
                 </span>
               </div>
               <div class="folder-contents" id="folder-dues">
-                <a class="menu-item" data-target="view-otc-payment">
+                <a class="menu-item" data-target="view-otc-payment" data-nav-category="monthly-dues-otc">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">By OTC Payment</span>
                 </a>
-                <a class="menu-item" data-target="view-salary-deduction">
+                <a class="menu-item" data-target="view-salary-deduction" data-nav-category="monthly-dues-salary">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">By Salary Deduction</span>
                 </a>
@@ -1318,23 +1359,23 @@
                 </span>
               </div>
               <div class="folder-contents" id="folder-aid">
-                <a class="menu-item" data-target="view-medical-aid">
+                <a class="menu-item" data-target="view-medical-aid" data-nav-category="medical-aid">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Medical Aid Request</span>
                 </a>
-             
-                <a class="menu-item" data-target="view-medical-aid-returned">
+              
+                <a class="menu-item" data-target="view-medical-aid-returned" data-nav-category="medical-aid">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Returned Medical Aid</span>
                   {% if medical_aid_returned_count %}
                   <span class="notif-dot" style="display:inline-flex">{{ medical_aid_returned_count }}</span>
                   {% endif %}
                 </a>
-                <a class="menu-item" data-target="view-death-aid">
+                <a class="menu-item" data-target="view-death-aid" data-nav-category="death-aid">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Death Aid Claim</span>
                 </a>
-                <a class="menu-item" data-target="view-death-aid-returned">
+                <a class="menu-item" data-target="view-death-aid-returned" data-nav-category="death-aid">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Returned Death Aid</span>
                   {% if death_aid_returned_count %}
@@ -1499,45 +1540,33 @@
                 </div>
               </div>
               <div class="stat-card">
-                <div class="stat-icon accent-yellow">₱</div>
-                <div class="stat-info">
-                  <h4>Funds</h4>
-                  <div class="stat-value" id="kpi-funds">₱0.00</div>
-                  <div
-                    style="
-                      margin-top: 2px;
-                      font-size: 0.75rem;
-                      color: #757575;
-                      display: flex;
-                      flex-direction: column;
-                      gap: 2px;
-                    "
-                  >
-                    <span
-                      >+Funds:
-                      <strong id="kpi-funds-in" style="color: #1b5e20"
-                        >₱0.00</strong
-                      ></span
-                    >
-                    <span
-                      >-Releases:
-                      <strong id="kpi-funds-out" style="color: #e53935"
-                        >₱0.00</strong
-                      ></span
-                    >
-                    <span
-                      >Total Remaining:
-                      <strong id="kpi-funds-remaining">₱0.00</strong></span
-                    >
-                  </div>
-                </div>
-              </div>
-              <div class="stat-card">
                 <div class="stat-icon accent-blue">📂</div>
                 <div class="stat-info">
                   <h4>Active Claims / Aids</h4>
                   <div class="stat-value" id="kpi-active-claims">0</div>
                 </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon" style="background:rgba(245,124,0,0.1);color:#f57c00;">₱</div>
+                <div class="stat-info">
+                  <h4>Cash Flow</h4>
+                  <div style="margin-top:2px;font-size:0.75rem;color:#757575;display:flex;flex-direction:column;gap:2px;">
+                    <span>+Funds In: <strong id="cf-funds-in" style="color:#1b5e20">₱0.00</strong></span>
+                    <span>-Releases Out: <strong id="cf-funds-out" style="color:#e53935">₱0.00</strong></span>
+                    <span>⏳Pending Contributions: <strong id="cf-pending-contributions" style="color:#f57c00">₱0.00</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title">Cash Flow Overview</h3>
+                  <p class="panel-subtitle">Summary of funds in, out, and pending contributions</p>
+                </div>
+              </div>
+              <div style="position:relative;width:100%;height:260px;">
+                <canvas id="cf-chart"></canvas>
               </div>
             </div>
             <div class="dashboard-panel">
@@ -5199,6 +5228,67 @@
     <script src="{% static 'js/status-utils.js' %}"></script>
     <script src="{% static 'js/Treasurer/aid_tracking.js' %}"></script>
     <script src="{% static 'js/Treasurer/graph.js' %}"></script>
+    <script>
+      (function () {
+        "use strict";
+        function fmt(num) {
+          return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
+        }
+        async function init() {
+          try {
+            var res = await fetch("/api/cash-flow-summary/", { method: "GET", credentials: "same-origin" });
+            var data = await res.json();
+            if (!data || !data.ok) return;
+            var fundsIn = document.getElementById("cf-funds-in");
+            var fundsOut = document.getElementById("cf-funds-out");
+            var pending = document.getElementById("cf-pending-contributions");
+            if (fundsIn) fundsIn.innerText = fmt(data.funds_in);
+            if (fundsOut) fundsOut.innerText = fmt(data.funds_out);
+            if (pending) pending.innerText = fmt(data.pending_contributions);
+            var canvas = document.getElementById("cf-chart");
+            if (!canvas || typeof Chart === "undefined") return;
+            if (canvas.__chart) canvas.__chart.destroy();
+            canvas.__chart = new Chart(canvas.getContext("2d"), {
+              type: "bar",
+              data: {
+                labels: ["Funds In", "Releases Out", "Pending Contributions"],
+                datasets: [{
+                  label: "Amount (₱)",
+                  data: [data.funds_in, data.funds_out, data.pending_contributions],
+                  backgroundColor: ["rgba(27,94,32,0.8)", "rgba(229,57,53,0.8)", "rgba(245,124,0,0.8)"],
+                  borderColor: ["#1b5e20", "#e53935", "#f57c00"],
+                  borderWidth: 1,
+                  borderRadius: 4,
+                }],
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: function (ctx) { return "₱" + Number(ctx.raw).toLocaleString("en-PH", { minimumFractionDigits: 2 }); },
+                    },
+                  },
+                },
+                scales: {
+                  x: { grid: { display: false } },
+                  y: {
+                    beginAtZero: true,
+                    grid: { color: "rgba(0,0,0,0.06)" },
+                    ticks: {
+                      callback: function (v) { return "₱" + (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v); },
+                    },
+                  },
+                },
+              },
+            });
+          } catch (e) { console.error("Cash flow init failed:", e); }
+        }
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+        else init();
+      })();
+    </script>
     <script src="{% static 'js/Treasurer/AidsAndClaims.js' %}" defer></script>
     <script src="{% static 'js/Treasurer/audit_trail.js' %}"></script>
     <script>window.VAPID_PUBLIC_KEY = "BH_OcUmir3ilJ-ysc_ZWUISngSKIWg2LqLbOQQFwFZPcMTY1iKLS-Kwm6hfAHOH9Tj6CvJ8IDYVMTaQmXQhTbEg";</script>

@@ -15,7 +15,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from core_system.api_utils import member_to_json
-from core_system.guards import require_role
+from core_system.guards import require_officer_session, require_role
 from core_system.models import (
     AidTrackingPost,
     Contribution,
@@ -568,7 +568,44 @@ def treasurer_approved_transactions_total(request: HttpRequest):
 
     return JsonResponse({"ok": True, "total": total})
 
-    
+
+@require_GET
+def cash_flow_summary(request: HttpRequest):
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
+
+    funds_in = sum(
+        float(e.amount or 0)
+        for e in TransactionArchive.objects.filter(
+            transaction_type__in=["membership_fee", "monthly_dues"],
+        )
+    )
+
+    funds_out = sum(
+        float(e.amount or 0)
+        for e in TransactionArchive.objects.filter(
+            transaction_type__in=["medical_aid", "death_aid"],
+        )
+    )
+
+    pending = (
+        Contribution.objects.filter(
+            status="NOT_PAID",
+            aid_tracking_post_id_FK__is_active=True,
+        ).aggregate(total=Sum("expected_amount"))["total"]
+        or 0
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "funds_in": float(funds_in),
+        "funds_out": float(funds_out),
+        "pending_contributions": float(pending),
+    })
+
+
+
 
     
 #new_membership_add

@@ -68,6 +68,11 @@ urlpatterns = [
         treasurer_views.treasurer_approved_transactions_total,
         name="treasurer_approved_transactions_total",
     ),
+    path(
+        "api/cash-flow-summary/",
+        treasurer_views.cash_flow_summary,
+        name="cash_flow_summary",
+    ),
     # --- Treasurer Monthly Dues (OTC) APIs ---
     path(
         "api/treasurer/monthly-dues/add/",
