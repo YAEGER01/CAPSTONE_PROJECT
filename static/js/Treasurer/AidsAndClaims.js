@@ -66,7 +66,6 @@ function renderMedicalTableFromApi(medicalAids) {
       <td>${m.name}</td>
       <td>${m.reason} <br><span style="font-size:0.75rem;color:#757575;">At: ${m.hospital} (Bill: ₱${m.bill})</span></td>
       <td style="font-weight:600;">${formatCurrencyPHP(m.reqAmount)}</td>
-      <td><button type="button" class="btn-audit-trail btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" data-audit-table="medical_aid" data-audit-record-id="${m.aid_id}">Audit</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -289,10 +288,7 @@ function renderDeathTableFromApi(deathAids, tableId) {
       badgeStyle +
       '">' +
       d.status +
-      "</span></td>" +
-      '<td><button type="button" class="btn-audit-trail btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" data-audit-table="death_aid" data-audit-record-id="' +
-      rawId +
-      '">Audit</button></td>';
+      "</span></td>";
     tbody.appendChild(tr);
   });
 }

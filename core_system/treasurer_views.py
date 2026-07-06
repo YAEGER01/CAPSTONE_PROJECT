@@ -10,15 +10,15 @@ from django.utils import timezone
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
-
+from django.db.models import Sum
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from core_system.api_utils import member_to_json
 from core_system.guards import require_role
 from core_system.models import (
+    AidTrackingPost,
+    Contribution,
     Member,
     MembershipFee,
     OfficerUser,
@@ -43,6 +43,7 @@ from core_system.constants.policy_constants import (
     get_monthly_dues_amount,
     is_exempt_from_dues_and_aid,
 )
+from core_system.services.notifications import queue_and_send_member_notification
 from core_system.shared_view_utils import (
     MODEL_MAP,
     UPDATABLE_FIELDS,
@@ -68,6 +69,7 @@ from core_system.shared_view_utils import (
     _log_sensitive_read,
     archive_transaction,
     _broadcast_pending_counts,
+    _broadcast_to_group,
 )
 from django.core.files.storage import default_storage
 from django.http import HttpRequest
@@ -2087,6 +2089,387 @@ def treasurer_member_retire(request):
     _broadcast_treasurer("members")
 
     return JsonResponse({"ok": True, "member_id": member.member_id_PK})
+
+
+# ==========================================================================
+# TREASURER AID TRACKING POSTS
+# ==========================================================================
+
+@require_GET
+def treasurer_approved_aid_posts(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    posts = AidTrackingPost.objects.filter(is_active=True).select_related(
+        "archive_id_FK",
+        "archive_id_FK__member_id_FK",
+        "created_by_user_id_FK",
+    ).all()
+
+    items = []
+    for post in posts:
+        archive = post.archive_id_FK
+        member = archive.member_id_FK if archive else None
+        aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+        collection_rate = 0
+        if post.total_expected > 0:
+            collection_rate = round(float(post.total_collected) / float(post.total_expected) * 100, 1)
+
+        items.append({
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "aid_label": aid_label,
+            "member_name": archive.member_name if archive else "",
+            "member_id": member.member_id_PK if member else None,
+            "target_month": post.target_month,
+            "total_expected": str(post.total_expected),
+            "total_collected": str(post.total_collected),
+            "collection_rate": collection_rate,
+            "status": archive.status if archive else "",
+            "amount": str(archive.amount) if archive else "0",
+            "created_at": post.created_at.isoformat() if post.created_at else "",
+            "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
+        })
+
+    return JsonResponse({"ok": True, "posts": items})
+
+
+@require_GET
+def treasurer_aid_post_members(request: HttpRequest, post_id: int):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    try:
+        post = AidTrackingPost.objects.select_related("archive_id_FK").get(
+            post_id_PK=post_id
+        )
+    except AidTrackingPost.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+
+    contributions = Contribution.objects.filter(
+        aid_tracking_post_id_FK=post,
+    ).select_related("member_id_FK").order_by("member_id_FK__full_name")
+
+    members_data = []
+    for c in contributions:
+        member = c.member_id_FK
+        members_data.append({
+            "contribution_id": c.contribution_id_PK,
+            "member_id": member.member_id_PK,
+            "member_name": member.full_name,
+            "employee_id": member.employee_id or "",
+            "department": member.department or "",
+            "expected_amount": str(c.expected_amount),
+            "paid_amount": str(c.paid_amount),
+            "payment_date": str(c.payment_date) if c.payment_date else None,
+            "status": c.status,
+            "is_manually_overridden": c.is_manually_overridden,
+            "notes": c.notes,
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "post": {
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "target_month": post.target_month,
+            "total_expected": str(post.total_expected),
+            "total_collected": str(post.total_collected),
+        },
+        "members": members_data,
+    })
+
+
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_member_pay(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    contribution_id = (request.POST.get("contribution_id") or "").strip()
+    if not contribution_id:
+        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
+
+    try:
+        contribution = Contribution.objects.select_related(
+            "aid_tracking_post_id_FK"
+        ).get(contribution_id_PK=int(contribution_id))
+    except (ValueError, Contribution.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
+
+    contribution.paid_amount = contribution.expected_amount
+    contribution.payment_date = timezone.now().date()
+    contribution.status = "PAID"
+    contribution.is_manually_overridden = False
+    contribution.updated_by_user_id_FK = officer
+    contribution.save()
+
+    post = contribution.aid_tracking_post_id_FK
+    totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
+        total_collected=Sum("paid_amount"),
+    )
+    post.total_collected = totals["total_collected"] or 0
+    post.save(update_fields=["total_collected"])
+
+    GlobalAuditTrail.objects.create(
+        table_name="contribution",
+        record_id=contribution.contribution_id_PK,
+        action="PAID",
+        actor_type=getattr(officer, "role", "Treasurer"),
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "treasurer_dashboard",
+        {
+            "type": "contribution_updated",
+            "post_id": post.post_id_PK,
+            "contribution_id": contribution.contribution_id_PK,
+            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+            "status": "PAID",
+            "paid_amount": float(contribution.expected_amount),
+        },
+    )
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {
+            "type": "contribution_updated",
+            "post_id": post.post_id_PK,
+            "contribution_id": contribution.contribution_id_PK,
+            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+            "status": "PAID",
+            "paid_amount": float(contribution.expected_amount),
+        },
+    )
+
+    return JsonResponse({"ok": True, "status": "PAID"})
+
+
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_member_skip(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    contribution_id = (request.POST.get("contribution_id") or "").strip()
+    notes = (request.POST.get("notes") or "").strip()
+
+    if not contribution_id:
+        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
+
+    try:
+        contribution = Contribution.objects.get(contribution_id_PK=int(contribution_id))
+    except (ValueError, Contribution.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
+
+    contribution.status = "SKIPPED"
+    contribution.is_manually_overridden = True
+    contribution.paid_amount = 0
+    contribution.notes = notes or contribution.notes
+    contribution.updated_by_user_id_FK = officer
+    contribution.save()
+
+    GlobalAuditTrail.objects.create(
+        table_name="contribution",
+        record_id=contribution.contribution_id_PK,
+        action="SKIPPED",
+        actor_type=getattr(officer, "role", "Treasurer"),
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        notes=notes or None,
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "treasurer_dashboard",
+        {
+            "type": "contribution_updated",
+            "post_id": contribution.aid_tracking_post_id_FK_id,
+            "contribution_id": contribution.contribution_id_PK,
+            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+            "status": "SKIPPED",
+            "paid_amount": 0,
+        },
+    )
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {
+            "type": "contribution_updated",
+            "post_id": contribution.aid_tracking_post_id_FK_id,
+            "contribution_id": contribution.contribution_id_PK,
+            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+            "status": "SKIPPED",
+            "paid_amount": 0,
+        },
+    )
+
+    return JsonResponse({"ok": True, "status": "SKIPPED"})
+
+
+@require_POST
+def treasurer_aid_post_member_notify(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    contribution_id = (request.POST.get("contribution_id") or "").strip()
+
+    if not contribution_id:
+        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
+
+    try:
+        contribution = Contribution.objects.select_related(
+            "aid_tracking_post_id_FK",
+            "member_id_FK",
+        ).get(contribution_id_PK=int(contribution_id))
+    except (ValueError, Contribution.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
+
+    member = contribution.member_id_FK
+    post = contribution.aid_tracking_post_id_FK
+    aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+
+    message = (
+        f"Dear {member.full_name},\n\n"
+        f"This is a reminder regarding your contribution for the {aid_label} claim "
+        f"for {post.archive_id_FK.member_name if post.archive_id_FK else 'a member'} "
+        f"(Month: {post.target_month}).\n\n"
+        f"Expected Amount: PHP {contribution.expected_amount}\n"
+        f"Status: {contribution.status}\n\n"
+        f"Please settle your contribution at the Treasurer's office at your earliest convenience."
+    )
+
+    queue_and_send_member_notification(
+        member=member,
+        message=message,
+        notification_type=f"{aid_label} Contribution Reminder",
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "message": f"Notification sent to {member.full_name}.",
+    })
+
+
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_finish(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    skip_remaining = (request.POST.get("skip_remaining") or "").strip().lower() == "true"
+
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id), is_active=True)
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Active post not found."}, status=404)
+
+    if skip_remaining:
+        Contribution.objects.filter(
+            aid_tracking_post_id_FK=post,
+            status="NOT_PAID",
+        ).update(
+            status="SKIPPED",
+            is_manually_overridden=True,
+            paid_amount=0,
+        )
+        totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
+            total_collected=Sum("paid_amount"),
+        )
+        post.total_collected = totals["total_collected"] or 0
+
+    post.is_active = False
+    post.save(update_fields=["is_active", "total_collected"])
+
+    archive = post.archive_id_FK
+    if archive is not None:
+        if archive.transaction_type == "death_aid":
+            DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
+        elif archive.transaction_type == "medical_aid":
+            MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "treasurer_dashboard",
+        {
+            "type": "aid_post_finished",
+            "post_id": post.post_id_PK,
+            "member_name": post.archive_id_FK.member_name if post.archive_id_FK else "",
+        },
+    )
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {
+            "type": "aid_post_finished",
+            "post_id": post.post_id_PK,
+            "member_name": post.archive_id_FK.member_name if post.archive_id_FK else "",
+        },
+    )
+    _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+
+    return JsonResponse({"ok": True, "message": "Post marked as finished."})
+
+
+@require_GET
+def treasurer_aid_post_history(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    posts = AidTrackingPost.objects.filter(is_active=False).select_related(
+        "archive_id_FK",
+        "archive_id_FK__member_id_FK",
+        "created_by_user_id_FK",
+    ).all()
+
+    items = []
+    for post in posts:
+        archive = post.archive_id_FK
+        member = archive.member_id_FK if archive else None
+        aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+        collection_rate = 0
+        if post.total_expected > 0:
+            collection_rate = round(float(post.total_collected) / float(post.total_expected) * 100, 1)
+
+        items.append({
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "aid_label": aid_label,
+            "member_name": archive.member_name if archive else "",
+            "member_id": member.member_id_PK if member else None,
+            "target_month": post.target_month,
+            "total_expected": str(post.total_expected),
+            "total_collected": str(post.total_collected),
+            "collection_rate": collection_rate,
+            "status": archive.status if archive else "",
+            "amount": str(archive.amount) if archive else "0",
+            "created_at": post.created_at.isoformat() if post.created_at else "",
+            "updated_at": post.updated_at.isoformat() if post.updated_at else "",
+            "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
+        })
+
+    return JsonResponse({"ok": True, "posts": items})
 
 
 # ============================================================================

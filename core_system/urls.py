@@ -297,6 +297,42 @@ urlpatterns = [
         auditor_views.auditor_aid_post_history,
         name="auditor_aid_post_history",
     ),
+    # --- Treasurer Aid Tracking Post Endpoints ---
+    path(
+        "api/treasurer/approved-aid-posts/",
+        treasurer_views.treasurer_approved_aid_posts,
+        name="treasurer_approved_aid_posts",
+    ),
+    path(
+        "api/treasurer/aid-post-members/<int:post_id>/",
+        treasurer_views.treasurer_aid_post_members,
+        name="treasurer_aid_post_members",
+    ),
+    path(
+        "api/treasurer/aid-post-member-pay/",
+        treasurer_views.treasurer_aid_post_member_pay,
+        name="treasurer_aid_post_member_pay",
+    ),
+    path(
+        "api/treasurer/aid-post-member-skip/",
+        treasurer_views.treasurer_aid_post_member_skip,
+        name="treasurer_aid_post_member_skip",
+    ),
+    path(
+        "api/treasurer/aid-post-member-notify/",
+        treasurer_views.treasurer_aid_post_member_notify,
+        name="treasurer_aid_post_member_notify",
+    ),
+    path(
+        "api/treasurer/aid-post-finish/",
+        treasurer_views.treasurer_aid_post_finish,
+        name="treasurer_aid_post_finish",
+    ),
+    path(
+        "api/treasurer/aid-post-history/",
+        treasurer_views.treasurer_aid_post_history,
+        name="treasurer_aid_post_history",
+    ),
     # --- Logout (custom officer session) ---
     path("logout/", views.logout_view, name="logout"),
     # --- Push Notification Subscriptions ---

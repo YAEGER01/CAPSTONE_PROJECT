@@ -69,7 +69,6 @@ function getCookie(name) {
         <td><span class="badge-zero badge-green" style="font-size:0.75rem;">${escapeHtml(o.month || "")}</span></td>
         <td style="font-weight:600;">${escapeHtml(formatCurrencyPHP(o.amount))}</td>
         <td>${escapeHtml(o.method || "")} <br><span style="font-size:0.75rem;color:#757575;">Date: ${escapeHtml(o.date || "")}</span></td>
-        <td><button type="button" class="btn-audit-trail btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" data-audit-table="monthly_dues" data-audit-record-id="${o.dues_id}">Audit</button></td>
       `;
       actualTbody.appendChild(tr);
     });
@@ -179,7 +178,6 @@ function getCookie(name) {
         <td><span class="badge-zero badge-green" style="font-size:0.75rem;">${escapeHtml(s.month || "")}</span></td>
         <td style="font-weight:600;">${escapeHtml(formatCurrencyPHP(s.amount))}</td>
         <td style="font-weight:600;">${escapeHtml(s.remarks || "")}</td>
-        <td><button type="button" class="btn-audit-trail btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" data-audit-table="monthly_dues" data-audit-record-id="${s.dues_id}">Audit</button></td>
       `;
       tbody.appendChild(tr);
     });

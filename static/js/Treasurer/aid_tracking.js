@@ -66,12 +66,13 @@
     posts: [],
     selectedPostId: null,
     members: [],
+    selectedContributionIds: new Set(),
     historyPosts: [],
     selectedHistoryPostId: null,
     historyMembers: [],
   };
 
-  var WS_URL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws/auditor-dashboard/";
+  var WS_URL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws/treasurer-dashboard/";
   var ws = null;
   var wsReconnectTimer = null;
 
@@ -148,13 +149,13 @@
     });
   }
 
-  var POSTS_URL = "/api/auditor/approved-aid-posts/";
-  var MEMBERS_URL = "/api/auditor/aid-post-members/";
-  var PAY_URL = "/api/auditor/aid-post-member-pay/";
-  var SKIP_URL = "/api/auditor/aid-post-member-skip/";
-  var NOTIFY_URL = "/api/auditor/aid-post-member-notify/";
-  var FINISH_URL = "/api/auditor/aid-post-finish/";
-  var HISTORY_URL = "/api/auditor/aid-post-history/";
+  var POSTS_URL = "/api/treasurer/approved-aid-posts/";
+  var MEMBERS_URL = "/api/treasurer/aid-post-members/";
+  var PAY_URL = "/api/treasurer/aid-post-member-pay/";
+  var SKIP_URL = "/api/treasurer/aid-post-member-skip/";
+  var NOTIFY_URL = "/api/treasurer/aid-post-member-notify/";
+  var FINISH_URL = "/api/treasurer/aid-post-finish/";
+  var HISTORY_URL = "/api/treasurer/aid-post-history/";
 
   async function getJSON(url) {
     const resp = await fetch(url, {
@@ -243,6 +244,12 @@
     if (post.collection_rate >= 100) rateColor = "#1b5e20";
     else if (post.collection_rate >= 50) rateColor = "#fbc02d";
 
+    var canFinish = post.collection_rate >= 70;
+    var finishDisabled = canFinish ? "" : " disabled";
+    var finishStyle = canFinish
+      ? "opacity:1;cursor:pointer;"
+      : "opacity:0.4;cursor:not-allowed;";
+
     card.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
       "<div>" +
@@ -282,9 +289,17 @@
       formatMoneyPHP(post.total_collected) +
       " of " +
       formatMoneyPHP(post.total_expected) +
-      "</div>";
+      "</div>" +
+      '<button class="btn-finish-post" data-post-id="' +
+      post.post_id +
+      '" style="margin-top:10px;padding:4px 12px;font-size:0.7rem;border-radius:8px;border:1px solid #e53935;background:#fff;color:#e53935;font-weight:600;font-family:\'Poppins\',sans-serif;transition:all 0.2s;width:auto;' +
+      finishStyle +
+      '"' +
+      finishDisabled +
+      ">Mark as Finished</button>";
 
     card.addEventListener("click", function (e) {
+      if (e.target.classList.contains("btn-finish-post")) return;
       selectPost(post.post_id);
     });
 
@@ -318,6 +333,16 @@
       container.appendChild(renderCard(post));
     });
   }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".btn-finish-post");
+    if (btn) {
+      var postId = parseInt(btn.dataset.postId);
+      if (confirm("Mark this post as finished? It will move to History.")) {
+        handleFinishPost(postId);
+      }
+    }
+  });
 
   function filterPosts() {
     var searchVal = (getEl("aidPostSearch") || {}).value || "";
@@ -353,14 +378,28 @@
     });
   }
 
+  function updateMemberBatchBar() {
+    var bar = getEl("member-batch-bar");
+    var countEl = getEl("member-selected-count");
+    var count = state.selectedContributionIds.size;
+    if (!bar || !countEl) return;
+    countEl.textContent = count + " selected";
+    bar.style.display = count > 0 ? "flex" : "none";
+  }
+
   function clearMemberSelection() {
+    state.selectedContributionIds.clear();
+    document.querySelectorAll("#aidMembersChecklistTable .member-row-check").forEach(function (cb) { cb.checked = false; });
+    document.querySelectorAll("#aidMembersChecklistTable tbody tr").forEach(function (tr) { tr.classList.remove("selected-row"); });
     var selectAll = getEl("member-select-all");
     if (selectAll) selectAll.checked = false;
+    updateMemberBatchBar();
   }
 
   function clearRightPanel() {
     state.selectedPostId = null;
     state.members = [];
+    clearMemberSelection();
 
     var title = getEl("selectedAidPostTitle");
     if (title) title.innerText = "Member Contribution Ledger";
@@ -384,7 +423,7 @@
     var tbody = getEl("aidMembersTableBody");
     if (tbody) {
       tbody.innerHTML =
-        '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:30px;">' +
+        '<tr><td colspan="7" style="text-align:center;color:#90a4ae;padding:30px;">' +
         "Select an assessment record from the left pane to initialize individual tracking checklists." +
         "</td></tr>";
     }
@@ -461,7 +500,7 @@
 
     if (!members || members.length === 0) {
       tbody.innerHTML =
-        '<tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:30px;">' +
+        '<tr><td colspan="7" style="text-align:center;color:#90a4ae;padding:30px;">' +
         "No members found." +
         "</td></tr>";
       return;
@@ -470,11 +509,21 @@
     members.forEach(function (m) {
       var tr = document.createElement("tr");
       var cid = m.contribution_id;
+      if (state.selectedContributionIds.has(String(cid))) {
+        tr.classList.add("selected-row");
+      }
       var statusClass = getStatusBadgeClass(m.status);
       var statusLabel = getStatusLabel(m.status);
       var statusIcon = getStatusIcon(m.status);
 
+      var payBtnDisabled = m.status === "PAID" || m.status === "SKIPPED";
+      var skipBtnDisabled = m.status === "SKIPPED" || m.status === "PAID";
+      var notifyBtnDisabled = false;
+
       tr.innerHTML =
+        "<td>" +
+        '<input type="checkbox" class="member-row-check" value="' + cid + '" ' + (state.selectedContributionIds.has(String(cid)) ? "checked" : "") + ">" +
+        "</td>" +
         "<td>" +
         escapeHtml(m.employee_id || "\u2014") +
         "</td>" +
@@ -495,11 +544,69 @@
         " " +
         escapeHtml(statusLabel) +
         "</span>" +
+        "</td>" +
+        "<td style='text-align:center;white-space:nowrap;'>" +
+        '<button class="btn-pay" data-cid="' +
+        cid +
+        '" ' +
+        (payBtnDisabled ? "disabled style='opacity:0.4;cursor:not-allowed;'" : "") +
+        ">Pay</button> " +
+        '<button class="btn-skip" data-cid="' +
+        cid +
+        '" ' +
+        (skipBtnDisabled ? "disabled style='opacity:0.4;cursor:not-allowed;'" : "") +
+        ">Skip</button> " +
+        '<button class="btn-notify" data-cid="' +
+        cid +
+        '" ' +
+        (notifyBtnDisabled ? "disabled" : "") +
+        ">\u{1F514}</button>" +
         "</td>";
+
+      var cb = tr.querySelector(".member-row-check");
+      cb.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var checked = this.checked;
+        if (checked) {
+          state.selectedContributionIds.add(String(cid));
+        } else {
+          state.selectedContributionIds.delete(String(cid));
+        }
+        tr.classList.toggle("selected-row", checked);
+        updateMemberBatchBar();
+      });
+
+      tr.querySelector(".btn-pay").addEventListener("click", function (e) {
+        e.stopPropagation();
+        handlePay(cid, tr);
+      });
+      tr.querySelector(".btn-skip").addEventListener("click", function (e) {
+        e.stopPropagation();
+        handleSkip(cid, tr);
+      });
+      tr.querySelector(".btn-notify").addEventListener("click", function (e) {
+        e.stopPropagation();
+        handleNotify(cid, tr);
+      });
 
       tbody.appendChild(tr);
     });
     updateMemberBatchBar();
+  }
+
+  function disablePaySkipButtons(tr) {
+    var payBtn = tr.querySelector(".btn-pay");
+    if (payBtn) {
+      payBtn.disabled = true;
+      payBtn.style.opacity = "0.4";
+      payBtn.style.cursor = "not-allowed";
+    }
+    var skipBtn = tr.querySelector(".btn-skip");
+    if (skipBtn) {
+      skipBtn.disabled = true;
+      skipBtn.style.opacity = "0.4";
+      skipBtn.style.cursor = "not-allowed";
+    }
   }
 
   function updatePostProgressFromMembers(postId) {
@@ -514,6 +621,186 @@
     p.collection_rate = p.total_expected > 0 ? Math.round((total / parseFloat(p.total_expected)) * 100) : 0;
     renderCards();
     highlightSelectedCard();
+  }
+
+  async function handlePay(contributionId, tr) {
+    disablePaySkipButtons(tr);
+    try {
+      var fd = new FormData();
+      fd.append("contribution_id", contributionId);
+      var data = await postForm(PAY_URL, fd);
+
+      var m = state.members.find(function (x) { return x.contribution_id === contributionId; });
+      if (m) {
+        m.status = "PAID";
+        m.paid_amount = m.expected_amount;
+      }
+
+      var statusCell = tr.querySelector("td:nth-child(6) span");
+      if (statusCell) {
+        statusCell.className = "badge-zero badge-green";
+        statusCell.style.cssText = "padding:4px 10px;font-size:0.75rem;";
+        statusCell.innerHTML = "\u{1F7E2} PAID";
+      }
+
+      updatePostProgressFromMembers(state.selectedPostId);
+      showToast("Member marked as PAID.", false);
+    } catch (e) {
+      showToast(e.message || "Failed to mark as paid.", true);
+    }
+  }
+
+  async function handleSkip(contributionId, tr) {
+    disablePaySkipButtons(tr);
+    try {
+      var fd = new FormData();
+      fd.append("contribution_id", contributionId);
+      var data = await postForm(SKIP_URL, fd);
+
+      var m = state.members.find(function (x) { return x.contribution_id === contributionId; });
+      if (m) {
+        m.status = "SKIPPED";
+        m.paid_amount = 0;
+      }
+
+      var statusCell = tr.querySelector("td:nth-child(6) span");
+      if (statusCell) {
+        statusCell.className = "badge-zero badge-zero";
+        statusCell.style.cssText = "padding:4px 10px;font-size:0.75rem;";
+        statusCell.innerHTML = "\u26AB SKIPPED";
+      }
+
+      updatePostProgressFromMembers(state.selectedPostId);
+      showToast("Member marked as SKIPPED.", false);
+    } catch (e) {
+      showToast(e.message || "Failed to mark as skipped.", true);
+    }
+  }
+
+  async function handleNotify(contributionId, tr) {
+    try {
+      var fd = new FormData();
+      fd.append("contribution_id", contributionId);
+      var data = await postForm(NOTIFY_URL, fd);
+      showToast(data.message || "Notification sent.", false);
+    } catch (e) {
+      showToast(e.message || "Failed to send notification.", true);
+    }
+  }
+
+  async function handlePayAll() {
+    var ids = Array.from(state.selectedContributionIds);
+    if (ids.length === 0) return;
+    var swalResult = await Swal.fire({
+      title: "Pay " + ids.length + " Contribution(s)?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, pay",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
+    var done = 0;
+    for (var i = 0; i < ids.length; i++) {
+      try {
+        var fd = new FormData();
+        fd.append("contribution_id", ids[i]);
+        await postForm(PAY_URL, fd);
+        done++;
+      } catch (e) {
+        showToast("Failed on #" + ids[i] + ": " + e.message, true);
+      }
+    }
+    showToast(done + " of " + ids.length + " marked as PAID.", false);
+    if (state.selectedPostId) {
+      var data = await getJSON(MEMBERS_URL + state.selectedPostId + "/");
+      state.members = data.members || [];
+      renderMembersTable(state.members);
+      updatePostProgressFromMembers(state.selectedPostId);
+    }
+    clearMemberSelection();
+  }
+
+  async function handleSkipAll() {
+    var ids = Array.from(state.selectedContributionIds);
+    if (ids.length === 0) return;
+
+    var paidIds = [];
+    var skipIds = [];
+    ids.forEach(function (id) {
+      var m = state.members.find(function (x) { return String(x.contribution_id) === String(id); });
+      if (m && (m.status === "PAID" || m.status === "SKIPPED")) {
+        paidIds.push(id);
+      } else {
+        skipIds.push(id);
+      }
+    });
+
+    if (skipIds.length === 0) {
+      showToast("None of the selected items can be skipped (already paid or skipped).", true);
+      return;
+    }
+
+    var msg = "Skip " + skipIds.length + " contribution(s)?";
+    if (paidIds.length > 0) msg += " (" + paidIds.length + " already paid/skipped will be excluded)";
+    var swalResult = await Swal.fire({
+      title: "Skip Contribution(s)?",
+      text: msg,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, skip",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
+
+    var done = 0;
+    for (var i = 0; i < skipIds.length; i++) {
+      try {
+        var fd = new FormData();
+        fd.append("contribution_id", skipIds[i]);
+        await postForm(SKIP_URL, fd);
+        done++;
+      } catch (e) {
+        showToast("Failed on #" + skipIds[i] + ": " + e.message, true);
+      }
+    }
+    showToast(done + " of " + skipIds.length + " marked as SKIPPED.", false);
+    if (state.selectedPostId) {
+      var data = await getJSON(MEMBERS_URL + state.selectedPostId + "/");
+      state.members = data.members || [];
+      renderMembersTable(state.members);
+      updatePostProgressFromMembers(state.selectedPostId);
+    }
+    clearMemberSelection();
+  }
+
+  async function handleNotifyAll() {
+    var ids = Array.from(state.selectedContributionIds);
+    if (ids.length === 0) return;
+    var swalResult = await Swal.fire({
+      title: "Send Notifications?",
+      text: "Send notifications to " + ids.length + " selected member(s)?",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Yes, send",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
+    var done = 0;
+    for (var i = 0; i < ids.length; i++) {
+      try {
+        var fd = new FormData();
+        fd.append("contribution_id", ids[i]);
+        await postForm(NOTIFY_URL, fd);
+        done++;
+      } catch (e) {
+        showToast("Failed on #" + ids[i] + ": " + e.message, true);
+      }
+    }
+    showToast(done + " of " + ids.length + " notifications sent.", false);
+    clearMemberSelection();
   }
 
   function filterMembers() {
@@ -558,6 +845,46 @@
     var statusFilter = getEl("aidLedgerStatusFilter");
     if (statusFilter) {
       statusFilter.addEventListener("change", filterMembers);
+    }
+  }
+
+  async function handleFinishPost(postId) {
+    var post = state.posts.find(function (p) { return p.post_id === postId; });
+    var skipRemaining = false;
+
+    if (post && post.collection_rate < 100) {
+      var result = await Swal.fire({
+        title: "Incomplete Collection",
+        text: "Only " + post.collection_rate + "% has been collected. Remaining contributions will be auto-skipped. Continue?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Yes, finish",
+        cancelButtonText: "Cancel",
+        reverseButtons: true,
+        customClass: {
+          popup: "swal-custom-animated",
+        },
+      });
+      if (!result.isConfirmed) return;
+      skipRemaining = true;
+    }
+
+    try {
+      var fd = new FormData();
+      fd.append("post_id", postId);
+      if (skipRemaining) {
+        fd.append("skip_remaining", "true");
+      }
+      await postForm(FINISH_URL, fd);
+      state.posts = state.posts.filter(function (p) { return p.post_id !== postId; });
+      if (state.selectedPostId === postId) {
+        clearRightPanel();
+      }
+      renderCards();
+      loadHistoryPosts();
+      showToast("Post marked as finished.", false);
+    } catch (e) {
+      showToast(e.message || "Failed to finish post.", true);
     }
   }
 
@@ -752,7 +1079,8 @@
       ".btn-pay:hover { background: #1b5e20; color: #fff; border-color: #1b5e20; }" +
       ".btn-skip:hover { background: #757575; color: #fff; border-color: #757575; }" +
       ".btn-notify:hover { background: #fbc02d; color: #1b1b1b; border-color: #fbc02d; }" +
-      ".btn-pay:disabled:hover, .btn-skip:disabled:hover { background: #fff; color: inherit; }";
+      ".btn-pay:disabled:hover, .btn-skip:disabled:hover { background: #fff; color: inherit; }" +
+      ".btn-finish-post:hover { background: #e53935 !important; color: #fff !important; }";
     document.head.appendChild(style);
   }
 
@@ -774,6 +1102,26 @@
     loadPosts();
     loadHistoryPosts();
 
+    var memberSelectAll = getEl("member-select-all");
+    if (memberSelectAll) {
+      memberSelectAll.addEventListener("change", function () {
+        var checked = this.checked;
+        document.querySelectorAll("#aidMembersChecklistTable .member-row-check").forEach(function (cb) {
+          cb.checked = checked;
+          var cid = cb.value;
+          if (checked) state.selectedContributionIds.add(cid);
+          else state.selectedContributionIds.delete(cid);
+          var row = cb.closest("tr");
+          if (row) row.classList.toggle("selected-row", checked);
+        });
+        updateMemberBatchBar();
+      });
+    }
+    getEl("member-batch-pay")?.addEventListener("click", handlePayAll);
+    getEl("member-batch-skip")?.addEventListener("click", handleSkipAll);
+    getEl("member-batch-notify")?.addEventListener("click", handleNotifyAll);
+    getEl("member-batch-clear")?.addEventListener("click", clearMemberSelection);
+
     var historySearch = getEl("historyPostSearch");
     if (historySearch) historySearch.addEventListener("input", filterHistoryPosts);
     var historyType = getEl("historyTypeFilter");
@@ -793,7 +1141,27 @@
     bindFilters();
     connectWebSocket();
 
-    var tab = getEl("audit-comprehensive-aid-collection");
+    var memberSelectAll = getEl("member-select-all");
+    if (memberSelectAll) {
+      memberSelectAll.addEventListener("change", function () {
+        var checked = this.checked;
+        document.querySelectorAll("#aidMembersChecklistTable .member-row-check").forEach(function (cb) {
+          cb.checked = checked;
+          var cid = cb.value;
+          if (checked) state.selectedContributionIds.add(cid);
+          else state.selectedContributionIds.delete(cid);
+          var row = cb.closest("tr");
+          if (row) row.classList.toggle("selected-row", checked);
+        });
+        updateMemberBatchBar();
+      });
+    }
+    getEl("member-batch-pay")?.addEventListener("click", handlePayAll);
+    getEl("member-batch-skip")?.addEventListener("click", handleSkipAll);
+    getEl("member-batch-notify")?.addEventListener("click", handleNotifyAll);
+    getEl("member-batch-clear")?.addEventListener("click", clearMemberSelection);
+
+    var tab = getEl("treasurer-aid-tracking-posts");
     if (tab) {
       if (tab.classList.contains("active")) {
         loadPosts();
@@ -808,7 +1176,7 @@
       observer.observe(tab, { attributes: true, attributeFilter: ["class"] });
     }
 
-    var historyTab = getEl("audit-aid-history");
+    var historyTab = getEl("treasurer-aid-history");
     if (historyTab) {
       if (historyTab.classList.contains("active")) {
         loadHistoryPosts();

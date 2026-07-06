@@ -937,6 +937,8 @@
 
     <!-- SweetAlert2 (Sweet swal) -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Chart.js for aid tracking graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   </head>
 
   <body>
@@ -1339,6 +1341,14 @@
                   <span class="notif-dot" style="display:inline-flex">{{ death_aid_returned_count }}</span>
                   {% endif %}
                 </a>
+                <a class="menu-item" data-target="treasurer-aid-tracking-posts">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Aid Collection / Tracking</span>
+                </a>
+                <a class="menu-item" data-target="treasurer-aid-history">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Aid Tracking History</span>
+                </a>
               </div>
             </div>
 
@@ -1533,49 +1543,22 @@
             <div class="dashboard-panel">
               <div class="panel-header-row">
                 <div>
-                  <h3 class="panel-title">Lorem Ipsum</h3>
-                  <p class="panel-subtitle">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed
-                    do eiusmod
-                  </p>
+                  <h3 class="panel-title">Aid Collection Tracking</h3>
+                  <p class="panel-subtitle">Real-time overview of active aid contributions and collection progress</p>
                 </div>
+                <button id="seeFullAidDetails" class="btn-brand btn-brand-primary" style="padding:8px 18px;font-size:0.82rem;">
+                  See Full Details &rarr;
+                </button>
               </div>
 
-              <div
-                class="alert-box success"
-                style="
-                  background: rgba(27, 94, 32, 0.06);
-                  border-left: 5px solid #1b5e20;
-                  padding: 20px;
-                  border-radius: 12px;
-                  margin-bottom: 25px;
-                "
-              >
-                <h4
-                  style="color: #1b5e20; font-weight: 600; margin-bottom: 5px"
-                >
-                  Lorem Ipsum: Dolor Sit Amet
-                </h4>
-                <p style="font-size: 0.9rem; line-height: 1.5">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed
-                  do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-                  Ut enim ad minim veniam, quis nostrud exercitation ullamco
-                  laboris nisi ut aliquip ex ea commodo consequat.
-                </p>
+              <div id="aidChartSummary" style="display:none;"></div>
+
+              <div id="aidChartContainer" style="position:relative;width:100%;height:280px;">
+                <canvas id="aidTrackingChart"></canvas>
               </div>
 
-              <div style="margin-top: 20px">
-                <h4
-                  style="color: #1b5e20; font-weight: 600; margin-bottom: 10px"
-                >
-                  Lorem Ipsum Dolor
-                </h4>
-                <p style="font-size: 0.92rem; line-height: 1.6; color: #546e7a">
-                  Duis aute irure dolor in reprehenderit in voluptate velit esse
-                  cillum dolore eu fugiat nulla pariatur. Excepteur sint
-                  occaecat cupidatat non proident, sunt in culpa qui officia
-                  deserunt mollit anim id est laborum.
-                </p>
+              <div id="aidChartNoData" style="text-align:center;padding:20px;color:#90a4ae;font-size:0.9rem;">
+                No active aid tracking posts yet. Data will appear once the President approves aid requests.
               </div>
             </div>
           </section>
@@ -2015,14 +1998,13 @@
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Amount" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Method, Covered Period & Date" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-pen" title="Encoded By" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Audit" style="cursor: pointer;"></i></th>
                         </tr>
                       </thead>
                       <tbody></tbody>
                     </table>
-                  </div>
                 </div>
               </div>
+            </div>
             </section>
 
           <!-- ==========================================================================
@@ -2301,19 +2283,18 @@
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Method, Covered Period & Date" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-regular fa-circle-check" title="Payment Status" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-pen" title="Encoded By" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Audit" style="cursor: pointer;"></i></th>
                         </tr>
                       </thead>
                       <tbody></tbody>
                     </table>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <!-- ==========================================================================
-              TAB 5: MONTHLY DUES (OTC PAYMENT)
-              ========================================================================== -->
+            <!-- ==========================================================================
+               TAB 4: FEE PAYMENT (Membership Fee Payment)
+               ========================================================================== -->
           <section
             id="view-otc-payment"
             class="dashboard-module module-fade-in"
@@ -2462,7 +2443,6 @@
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Month" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Amount" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-regular fa-calendar-check" title="Method & Date" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Audit" style="cursor: pointer;"></i></th>
                         </tr>
                       </thead>
                       <tbody></tbody>
@@ -3029,7 +3009,6 @@
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-hospital" title="Case & Hospital" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Requested Amount" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-file-lines" title="Audit" style="cursor: pointer;"></i></th>
                         </tr>
                       </thead>
                       <tbody></tbody>
@@ -3057,7 +3036,6 @@
                     <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-coins" title="Benefit Amount"></i></th>
                     <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Bill Amount"></i></th>
                     <th style="padding:4px 8px;text-align:center"><i class="fa-regular fa-circle-check" title="Claims Status"></i></th>
-                    <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-file-lines" title="Audit"></i></th>
                   </tr></thead><tbody></tbody></table>
                 </div>
               </div>
@@ -3199,7 +3177,6 @@
                       <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-coins" title="Benefit Amount"></i></th>
                       <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Bill Amount"></i></th>
                       <th style="padding:4px 8px;text-align:center"><i class="fa-regular fa-circle-check" title="Claims Status"></i></th>
-                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-file-lines" title="Audit"></i></th>
                     </tr></thead><tbody></tbody></table>
                     <table class="custom-table" id="deathTableDependent" style="display:none"><thead><tr>
                       <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Claim ID"></i></th>
@@ -3208,7 +3185,6 @@
                       <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-coins" title="Benefit Amount"></i></th>
                       <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-receipt" title="Bill Amount"></i></th>
                       <th style="padding:4px 8px;text-align:center"><i class="fa-regular fa-circle-check" title="Claims Status"></i></th>
-                      <th style="padding:4px 8px;text-align:center"><i class="fa-solid fa-file-lines" title="Audit"></i></th>
                     </tr></thead><tbody></tbody></table>
                   </div>
                 </div>
@@ -3609,6 +3585,188 @@
           <!-- ==========================================================================
              TAB 10: AID RELEASE / LANDBANK CHEQUE REMOVED
              ========================================================================== -->
+
+          <!-- ==========================================================================
+             TAB: TREASURER AID TRACKING POSTS
+             ========================================================================== -->
+          <section id="treasurer-aid-tracking-posts" class="dashboard-module module-fade-in">
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title">Active Aid Tracking Posts</h3>
+                  <p class="panel-subtitle">Manage contribution collections for approved aid requests</p>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+                <input type="text" id="aidPostSearch" placeholder="Search by member name..." style="flex:1;min-width:180px;padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
+                <select id="aidTypeFilter" style="padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
+                  <option value="All">All Types</option>
+                  <option value="Medical">Medical Aid</option>
+                  <option value="Death">Death Aid</option>
+                </select>
+                <select id="aidStatusFilter" style="padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
+                  <option value="All">All Status</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Auditor Verified">Auditor Verified</option>
+                  <option value="Released">Released</option>
+                </select>
+              </div>
+              <div id="unifiedAidPostsContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;"></div>
+            </div>
+
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title" id="selectedAidPostTitle">Member Contribution Ledger</h3>
+                  <p class="panel-subtitle" id="selectedAidPostSubtitle">No active aid assessment post selected</p>
+                </div>
+              </div>
+
+              <div id="aidPostMetricsBlock" style="display:none;margin-bottom:16px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;">
+                  <div style="background:#f6fbf6;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:0.72rem;color:#757575;">Type</div>
+                    <div style="font-weight:600;color:#263238;font-size:0.95rem;" id="aidReadType">—</div>
+                  </div>
+                  <div style="background:#f6fbf6;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:0.72rem;color:#757575;">Total Target</div>
+                    <div style="font-weight:600;color:#263238;font-size:0.95rem;" id="aidReadTotalTarget">—</div>
+                  </div>
+                  <div style="background:#f6fbf6;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:0.72rem;color:#757575;">Quota / Member</div>
+                    <div style="font-weight:600;color:#263238;font-size:0.95rem;" id="aidReadQuota">—</div>
+                  </div>
+                  <div style="background:#f6fbf6;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:0.72rem;color:#757575;">Active Members</div>
+                    <div style="font-weight:600;color:#263238;font-size:0.95rem;" id="aidReadActiveCount">0</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+                <input type="text" id="aidLedgerMemberSearch" placeholder="Search by member name or department..." style="flex:1;min-width:160px;padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;" disabled>
+                <select id="aidLedgerStatusFilter" style="padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;" disabled>
+                  <option value="All">All Status</option>
+                  <option value="NOT_PAID">NOT PAID</option>
+                  <option value="PAID">PAID</option>
+                  <option value="SKIPPED">SKIPPED</option>
+                </select>
+              </div>
+
+              <div id="member-batch-bar" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:#f6fbf6;border-radius:10px;margin-bottom:12px;">
+                <span id="member-selected-count" style="font-weight:600;font-size:0.85rem;">0 selected</span>
+                <button id="member-batch-pay" style="padding:6px 14px;border-radius:8px;border:1px solid #1b5e20;background:#1b5e20;color:#fff;font-weight:600;font-size:0.75rem;cursor:pointer;">Pay All</button>
+                <button id="member-batch-skip" style="padding:6px 14px;border-radius:8px;border:1px solid #757575;background:#fff;color:#757575;font-weight:600;font-size:0.75rem;cursor:pointer;">Skip All</button>
+                <button id="member-batch-notify" style="padding:6px 14px;border-radius:8px;border:1px solid #fbc02d;background:#fff;color:#fbc02d;font-weight:600;font-size:0.75rem;cursor:pointer;">Notify All</button>
+                <button id="member-batch-clear" style="padding:6px 14px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#666;font-weight:600;font-size:0.75rem;cursor:pointer;">Clear</button>
+              </div>
+
+              <div class="table-container">
+                <table class="custom-table" id="aidMembersChecklistTable">
+                  <thead>
+                    <tr>
+                      <th style="width:40px;"><input type="checkbox" id="member-select-all"></th>
+                      <th>Employee ID</th>
+                      <th>Member Name</th>
+                      <th>Department</th>
+                      <th>Expected Amount</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="aidMembersTableBody">
+                    <tr><td colspan="7" style="text-align:center;color:#90a4ae;padding:30px;">Select an assessment record from the left pane.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB: TREASURER AID HISTORY
+             ========================================================================== -->
+          <section id="treasurer-aid-history" class="dashboard-module module-fade-in">
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title">Finished Aid Tracking Posts</h3>
+                  <p class="panel-subtitle">History of completed aid collection cycles</p>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+                <input type="text" id="historyPostSearch" placeholder="Search by member name..." style="flex:1;min-width:180px;padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
+                <select id="historyTypeFilter" style="padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
+                  <option value="All">All Types</option>
+                  <option value="Medical">Medical Aid</option>
+                  <option value="Death">Death Aid</option>
+                </select>
+              </div>
+              <div class="table-container">
+                <table class="custom-table" id="historyPostsTable">
+                  <thead>
+                    <tr>
+                      <th>Member Name</th>
+                      <th>Type</th>
+                      <th>Month</th>
+                      <th>Collected</th>
+                      <th>Rate</th>
+                      <th>Completed</th>
+                    </tr>
+                  </thead>
+                  <tbody id="historyPostsTableBody">
+                    <tr><td colspan="6" style="text-align:center;color:#90a4ae;padding:30px;">No finished aid tracking posts yet.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="dashboard-panel">
+              <div class="panel-header-row">
+                <div>
+                  <h3 class="panel-title" id="selectedHistoryPostTitle">Collection Summary</h3>
+                  <p class="panel-subtitle" id="selectedHistoryPostSubtitle">Select a finished post to view details</p>
+                </div>
+              </div>
+
+              <div id="historyPostMetricsBlock" style="display:none;margin-bottom:16px;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;">
+                  <div style="background:#f6fbf6;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:0.72rem;color:#757575;">Type</div>
+                    <div style="font-weight:600;color:#263238;font-size:0.95rem;" id="historyReadType">—</div>
+                  </div>
+                  <div style="background:#f6fbf6;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:0.72rem;color:#757575;">Total Target</div>
+                    <div style="font-weight:600;color:#263238;font-size:0.95rem;" id="historyReadTotalTarget">—</div>
+                  </div>
+                  <div style="background:#f6fbf6;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:0.72rem;color:#757575;">Quota / Member</div>
+                    <div style="font-weight:600;color:#263238;font-size:0.95rem;" id="historyReadQuota">—</div>
+                  </div>
+                  <div style="background:#f6fbf6;border-radius:10px;padding:12px;text-align:center;">
+                    <div style="font-size:0.72rem;color:#757575;">Members</div>
+                    <div style="font-weight:600;color:#263238;font-size:0.95rem;" id="historyReadMemberCount">0</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="table-container">
+                <table class="custom-table" id="historyMembersTable">
+                  <thead>
+                    <tr>
+                      <th>Employee ID</th>
+                      <th>Member Name</th>
+                      <th>Department</th>
+                      <th>Expected Amount</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="historyMembersTableBody">
+                    <tr><td colspan="5" style="text-align:center;color:#90a4ae;padding:30px;">Select a finished post to view member contributions.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
 
           <!-- ==========================================================================
              TAB 11: REPORTS & LEDGERS
@@ -5039,6 +5197,8 @@
     </script>
     <script src="{% static 'js/Treasurer/websocket.js' %}"></script>
     <script src="{% static 'js/status-utils.js' %}"></script>
+    <script src="{% static 'js/Treasurer/aid_tracking.js' %}"></script>
+    <script src="{% static 'js/Treasurer/graph.js' %}"></script>
     <script src="{% static 'js/Treasurer/AidsAndClaims.js' %}" defer></script>
     <script src="{% static 'js/Treasurer/audit_trail.js' %}"></script>
     <script>window.VAPID_PUBLIC_KEY = "BH_OcUmir3ilJ-ysc_ZWUISngSKIWg2LqLbOQQFwFZPcMTY1iKLS-Kwm6hfAHOH9Tj6CvJ8IDYVMTaQmXQhTbEg";</script>

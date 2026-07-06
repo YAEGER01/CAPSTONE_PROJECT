@@ -124,7 +124,6 @@
         '</td>',
         '<td>',
         '<button type="button" class="btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" onclick="window.__selectReturnedDeathAid(\'', r.record_id, '\')">Edit</button>',
-        '<button type="button" class="btn-audit-trail btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;margin-left:4px;" data-audit-table="death_aid" data-audit-record-id="', r.record_id, '">Audit</button>',
         '</td>',
       ].join("");
       tbody.appendChild(tr);

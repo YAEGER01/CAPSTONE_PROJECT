@@ -1127,17 +1127,16 @@ def auditor_aid_post_member_pay(request: HttpRequest):
     )
 
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "auditor_dashboard",
-        {
-            "type": "contribution_updated",
-            "post_id": post.post_id_PK,
-            "contribution_id": contribution.contribution_id_PK,
-            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
-            "status": "PAID",
-            "paid_amount": float(contribution.expected_amount),
-        },
-    )
+    payload = {
+        "type": "contribution_updated",
+        "post_id": post.post_id_PK,
+        "contribution_id": contribution.contribution_id_PK,
+        "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+        "status": "PAID",
+        "paid_amount": float(contribution.expected_amount),
+    }
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
 
     return JsonResponse({"ok": True, "status": "PAID"})
 
@@ -1183,17 +1182,16 @@ def auditor_aid_post_member_skip(request: HttpRequest):
     )
 
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "auditor_dashboard",
-        {
-            "type": "contribution_updated",
-            "post_id": contribution.aid_tracking_post_id_FK_id,
-            "contribution_id": contribution.contribution_id_PK,
-            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
-            "status": "SKIPPED",
-            "paid_amount": 0,
-        },
-    )
+    payload = {
+        "type": "contribution_updated",
+        "post_id": contribution.aid_tracking_post_id_FK_id,
+        "contribution_id": contribution.contribution_id_PK,
+        "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+        "status": "SKIPPED",
+        "paid_amount": 0,
+    }
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
 
     return JsonResponse({"ok": True, "status": "SKIPPED"})
 
@@ -1286,15 +1284,13 @@ def auditor_aid_post_finish(request: HttpRequest):
             MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
 
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "auditor_dashboard",
-        {
-            "type": "aid_post_finished",
-            "post_id": post.post_id_PK,
-            "member_name": post.archive_id_FK.member_name if post.archive_id_FK else "",
-        },
-    )
-    _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+    payload = {
+        "type": "aid_post_finished",
+        "post_id": post.post_id_PK,
+        "member_name": post.archive_id_FK.member_name if post.archive_id_FK else "",
+    }
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
 
     return JsonResponse({"ok": True, "message": "Post marked as finished."})
 

@@ -79,6 +79,12 @@
       if (typeof bootDeathAidTable === "function") {
         bootDeathAidTable();
       }
+      if (window.AidTracking && typeof window.AidTracking.loadPosts === "function") {
+        window.AidTracking.loadPosts();
+      }
+      if (window.AidTracking && typeof window.AidTracking.loadHistoryPosts === "function") {
+        window.AidTracking.loadHistoryPosts();
+      }
     }
     if (section === "all" || section === "returned_entries") {
       if (typeof fetchReturnedMembershipFees === "function") {

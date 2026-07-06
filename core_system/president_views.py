@@ -846,20 +846,18 @@ def submit_presidential_aid_decision(request):
             Contribution.objects.bulk_create(contribution_records)
 
             channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                "auditor_dashboard",
-                {
-                    "type": "aid_post_created",
-                    "post_id": post.post_id_PK,
-                    "member_name": record.member_id_FK.full_name
-                    if hasattr(record, "member_id_FK") and record.member_id_FK
-                    else "",
-                    "aid_type": table_name,
-                    "total_expected": float(total_expected),
-                    "target_month": post.target_month,
-                },
-            )
-            _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+            payload = {
+                "type": "aid_post_created",
+                "post_id": post.post_id_PK,
+                "member_name": record.member_id_FK.full_name
+                if hasattr(record, "member_id_FK") and record.member_id_FK
+                else "",
+                "aid_type": table_name,
+                "total_expected": float(total_expected),
+                "target_month": post.target_month,
+            }
+            async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+            async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
 
         TransactionVerification.objects.filter(
             table_name=table_name,
@@ -1100,14 +1098,16 @@ def submit_presidential_aid_decision_batch(request):
                     ])
 
                     member_name = record.member_id_FK.full_name if record is not None and hasattr(record, "member_id_FK") and record.member_id_FK else ""
-                    _broadcast_to_group("auditor_dashboard", {
+                    payload = {
                         "type": "aid_post_created",
                         "post_id": post.post_id_PK,
                         "member_name": member_name,
                         "aid_type": v.table_name,
                         "total_expected": float(total_expected),
                         "target_month": post.target_month,
-                    })
+                    }
+                    _broadcast_to_group("auditor_dashboard", payload)
+                    _broadcast_to_group("treasurer_dashboard", payload)
 
             audit_entries.append(GlobalAuditTrail(
                 table_name=v.table_name,

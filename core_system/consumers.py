@@ -211,6 +211,39 @@ class TreasurerDashboardConsumer(AsyncWebsocketConsumer):
         except AccessSession.DoesNotExist:
             return None
 
+    async def aid_post_created(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "aid_post_created",
+            "post_id": event.get("post_id"),
+            "member_name": event.get("member_name"),
+            "aid_type": event.get("aid_type"),
+            "total_expected": event.get("total_expected"),
+            "target_month": event.get("target_month"),
+        }))
+
+    async def contribution_updated(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "contribution_updated",
+            "post_id": event.get("post_id"),
+            "contribution_id": event.get("contribution_id"),
+            "member_name": event.get("member_name"),
+            "status": event.get("status"),
+            "paid_amount": event.get("paid_amount"),
+        }))
+
+    async def aid_post_finished(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "aid_post_finished",
+            "post_id": event.get("post_id"),
+            "member_name": event.get("member_name"),
+        }))
+
+    async def dashboard_refresh(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "dashboard_refresh",
+            "section": event.get("section", "all"),
+        }))
+
     async def data_changed(self, event):
         await self.send(text_data=json.dumps({
             "type": "data_changed",

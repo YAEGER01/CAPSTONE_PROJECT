@@ -187,7 +187,6 @@
         '</td>',
         '<td>',
         '<button type="button" class="btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" onclick="window.__selectReturnedFee(\'', r.fee_id_PK, '\')">Edit</button>',
-        '<button type="button" class="btn-audit-trail btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;margin-left:4px;" data-audit-table="membership_fee" data-audit-record-id="', r.fee_id_PK, '">Audit</button>',
         '</td>',
       ].join("");
       tbody.appendChild(tr);
