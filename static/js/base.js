@@ -3,7 +3,7 @@
 // - when collapsed, clicking a top-level icon opens the sidebar and opens its subfolder
 // - modules continue to be handled by dashboard.js
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("turbo:load", () => {
   // Dynamic Philippine System Date (updates every load)
   // Looks for any element whose text contains "System Date:".
   const tz = "Asia/Manila";

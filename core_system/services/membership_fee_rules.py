@@ -229,5 +229,4 @@ def record_membership_fee_policy_exception(*, member: Member, reason: str, offic
         notes=f"Membership fee policy exception: {reason}",
     )
 
-    from core_system.services.notifications import notify_membership_fee_policy_exception
-    notify_membership_fee_policy_exception(member=member, reason=reason)
+

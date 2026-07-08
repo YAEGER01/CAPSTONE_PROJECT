@@ -503,7 +503,7 @@
   window.handleAidSubmit = handleAidSubmit;
   window.bindAidPanelForms = bindAidPanelForms;
 
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("turbo:load", function () {
     var fieldsContainer = getEl("aidInspectionFields");
     if (fieldsContainer && !getEl("aidInspectionGrid")) {
       var grid = buildAidDataContainer().querySelector("#aidInspectionGrid");

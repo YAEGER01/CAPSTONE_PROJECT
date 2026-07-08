@@ -4,6 +4,11 @@ from . import auditor_views
 from . import treasurer_views
 from . import president_views
 from . import push_views
+from . import settings_views
+from . import report_views
+from . import auditor_report_views
+from . import htmx_views
+
 
 
 urlpatterns = [
@@ -109,6 +114,11 @@ urlpatterns = [
         "api/treasurer/monthly-dues/salary/bulk-process/",
         treasurer_views.treasurer_salary_bulk_process,
         name="treasurer_salary_bulk_process",
+    ),
+    path(
+        "api/treasurer/monthly-dues/tracking/",
+        treasurer_views.treasurer_monthly_dues_tracking,
+        name="treasurer_monthly_dues_tracking",
     ),
     path(
         "api/treasurer/releases/list/",
@@ -288,11 +298,6 @@ urlpatterns = [
         name="auditor_aid_post_member_skip",
     ),
     path(
-        "api/auditor/aid-post-member-notify/",
-        auditor_views.auditor_aid_post_member_notify,
-        name="auditor_aid_post_member_notify",
-    ),
-    path(
         "api/auditor/aid-post-finish/",
         auditor_views.auditor_aid_post_finish,
         name="auditor_aid_post_finish",
@@ -301,6 +306,11 @@ urlpatterns = [
         "api/auditor/aid-post-history/",
         auditor_views.auditor_aid_post_history,
         name="auditor_aid_post_history",
+    ),
+    path(
+        "api/auditor/audited-logs/",
+        auditor_views.auditor_audited_logs,
+        name="auditor_audited_logs",
     ),
     # --- Treasurer Aid Tracking Post Endpoints ---
     path(
@@ -324,11 +334,6 @@ urlpatterns = [
         name="treasurer_aid_post_member_skip",
     ),
     path(
-        "api/treasurer/aid-post-member-notify/",
-        treasurer_views.treasurer_aid_post_member_notify,
-        name="treasurer_aid_post_member_notify",
-    ),
-    path(
         "api/treasurer/aid-post-finish/",
         treasurer_views.treasurer_aid_post_finish,
         name="treasurer_aid_post_finish",
@@ -343,5 +348,92 @@ urlpatterns = [
     # --- Push Notification Subscriptions ---
     path("api/push/subscribe/", push_views.push_subscribe, name="push_subscribe"),
     path("api/push/unsubscribe/", push_views.push_unsubscribe, name="push_unsubscribe"),
+    # --- System Settings API Endpoints ---
+    path(
+        "api/settings/grace-period/",
+        settings_views.grace_period_setting,
+        name="grace_period_setting",
+    ),
+    path(
+        "api/settings/notifications/",
+        settings_views.notification_settings,
+        name="notification_settings",
+    ),
+    # --- Report API Endpoints ---
+    path(
+        "api/reports/overall/",
+        report_views.download_overall_report,
+        name="download_overall_report",
+    ),
+    path(
+        "api/reports/department/<int:dept_id>/",
+        report_views.download_department_report,
+        name="download_department_report",
+    ),
+    path(
+        "api/reports/contributions/",
+        report_views.download_contribution_report,
+        name="download_contribution_report",
+    ),
+    # --- Auditor Report Endpoints ---
+    path(
+        "api/auditor/reports/create/",
+        auditor_report_views.auditor_create_report,
+        name="auditor_create_report",
+    ),
+    path(
+        "api/auditor/reports/",
+        auditor_report_views.auditor_reports_list,
+        name="auditor_reports_list",
+    ),
+    path(
+        "api/auditor/reports/<int:report_id>/",
+        auditor_report_views.auditor_report_detail,
+        name="auditor_report_detail",
+    ),
+    # --- President Report Approval Flow ---
+    path(
+        "api/president/auditor-reports/",
+        auditor_report_views.president_auditor_reports_list,
+        name="president_auditor_reports_list",
+    ),
+    path(
+        "api/president/auditor-reports/<int:report_id>/approve/",
+        auditor_report_views.president_approve_report,
+        name="president_approve_report",
+    ),
+    path(
+        "api/president/auditor-reports/<int:report_id>/request-revision/",
+        auditor_report_views.president_request_report_revision,
+        name="president_request_report_revision",
+    ),
+    # --- President Aid Tracking Post Finish Approval ---
+    path(
+        "api/president/aid-post-finish-requests/",
+        president_views.president_pending_finish_requests,
+        name="president_pending_finish_requests",
+    ),
+    path(
+        "api/president/aid-post-finish-approve/",
+        president_views.president_approve_aid_post_finish,
+        name="president_approve_aid_post_finish",
+    ),
+    path(
+        "api/president/aid-post-finish-reject/",
+        president_views.president_reject_aid_post_finish,
+        name="president_reject_aid_post_finish",
+    ),
+
+    # --- HTMX Partial Endpoints ---
+    path(
+        "hx/cash-flow-summary/",
+        htmx_views.hx_cash_flow_summary,
+        name="hx_cash_flow_summary",
+    ),
+    path(
+        "hx/treasurer/module/<str:module_name>/",
+        htmx_views.hx_treasurer_module,
+        name="hx_treasurer_module",
+    ),
 ]
 handler403 = "core_system.president_views.permission_denied_view"

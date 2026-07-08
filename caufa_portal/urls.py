@@ -23,6 +23,7 @@ urlpatterns = [
     ),
     # Treasurer workspace + internal module fragments
     path("", include("core_system.urls")),
+    path("__reload__/", include("django_browser_reload.urls")),
 ]
 
 # Serve uploaded media and static files during development

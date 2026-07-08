@@ -53,6 +53,19 @@
         showToast(msg.message || "You have " + msg.pending_count + " pending item(s).", false);
       }
     }
+    if (msg.type === "aid_post_finish_requested") {
+      if (typeof showToast === "function") {
+        showToast("New finish request: " + (msg.member_name || ""), false);
+      }
+      if (typeof window.AidFinishApproval !== "undefined" && typeof window.AidFinishApproval.loadRequests === "function") {
+        window.AidFinishApproval.loadRequests();
+      }
+    }
+    if (msg.type === "aid_post_finished" || msg.type === "aid_post_finish_rejected") {
+      if (typeof window.AidFinishApproval !== "undefined" && typeof window.AidFinishApproval.loadRequests === "function") {
+        window.AidFinishApproval.loadRequests();
+      }
+    }
   }
 
   function refreshPresidentSection(section) {
@@ -65,10 +78,17 @@
       if (typeof loadPresidentialAidsQueue === "function") {
         loadPresidentialAidsQueue();
       }
+      if (typeof window.AidFinishApproval !== "undefined" && typeof window.AidFinishApproval.loadRequests === "function") {
+        window.AidFinishApproval.loadRequests();
+      }
     }
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("turbo:load", function () {
     connectWebSocket();
+  });
+  document.addEventListener("turbo:before-cache", function () {
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
   });
 })();

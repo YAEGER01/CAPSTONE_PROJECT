@@ -130,8 +130,24 @@
         clearRightPanel();
       }
       renderCards();
+      updateActiveAidGreenDots(state.posts.length);
       loadHistoryPosts();
       showToast((msg.member_name || "A post") + " has been finished.", false);
+    } else if (msg.type === "aid_post_finish_requested") {
+      var fp = state.posts.find(function (x) { return x.post_id === msg.post_id; });
+      if (fp) {
+        fp.finish_status = "pending_approval";
+      }
+      renderCards();
+      highlightSelectedCard();
+    } else if (msg.type === "aid_post_finish_rejected") {
+      var rp = state.posts.find(function (x) { return x.post_id === msg.post_id; });
+      if (rp) {
+        rp.finish_status = "rejected";
+      }
+      renderCards();
+      highlightSelectedCard();
+      showToast((msg.member_name || "A post") + " finish was rejected." + (msg.remarks ? " Reason: " + msg.remarks : ""), true);
     } else if (msg.type === "pending_queue_updated") {
       showToast((msg.queue_type || "Queue") + ": " + msg.count + " pending.", false);
     } else if (msg.type === "dashboard_refresh") {
@@ -153,7 +169,6 @@
   var MEMBERS_URL = "/api/treasurer/aid-post-members/";
   var PAY_URL = "/api/treasurer/aid-post-member-pay/";
   var SKIP_URL = "/api/treasurer/aid-post-member-skip/";
-  var NOTIFY_URL = "/api/treasurer/aid-post-member-notify/";
   var FINISH_URL = "/api/treasurer/aid-post-finish/";
   var HISTORY_URL = "/api/treasurer/aid-post-history/";
 
@@ -244,11 +259,23 @@
     if (post.collection_rate >= 100) rateColor = "#1b5e20";
     else if (post.collection_rate >= 50) rateColor = "#fbc02d";
 
-    var canFinish = post.collection_rate >= 70;
+    var finishStatus = post.finish_status || "";
+    var isPendingApproval = finishStatus === "pending_approval";
+    var isRejected = finishStatus === "rejected";
+
+    var finishBadgeHtml = "";
+    if (isPendingApproval) {
+      finishBadgeHtml = '<div style="margin-top:6px;margin-bottom:6px;"><span style="background:#fff8e1;color:#f57c00;border:1px solid #fbc02d;padding:3px 10px;border-radius:6px;font-size:0.68rem;font-weight:600;">⏳ Pending President Approval</span></div>';
+    } else if (isRejected) {
+      finishBadgeHtml = '<div style="margin-top:6px;margin-bottom:6px;"><span style="background:#ffebee;color:#c62828;border:1px solid #ef5350;padding:3px 10px;border-radius:6px;font-size:0.68rem;font-weight:600;">❌ Finish Rejected</span></div>';
+    }
+
+    var canFinish = post.collection_rate >= 70 && !isPendingApproval;
     var finishDisabled = canFinish ? "" : " disabled";
     var finishStyle = canFinish
       ? "opacity:1;cursor:pointer;"
       : "opacity:0.4;cursor:not-allowed;";
+    var finishBtnText = isRejected ? "Retry Finish Request" : "Mark as Finished";
 
     card.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
@@ -263,6 +290,7 @@
       '<div style="font-weight:600;font-size:1rem;color:#263238;margin-bottom:8px;">' +
       escapeHtml(post.member_name || "Unknown Member") +
       "</div>" +
+      finishBadgeHtml +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.82rem;color:#546e7a;margin-bottom:10px;">' +
       "<div><strong>Amount:</strong> " +
       formatMoneyPHP(post.amount) +
@@ -296,7 +324,7 @@
       finishStyle +
       '"' +
       finishDisabled +
-      ">Mark as Finished</button>";
+      ">" + escapeHtml(finishBtnText) + "</button>";
 
     card.addEventListener("click", function (e) {
       if (e.target.classList.contains("btn-finish-post")) return;
@@ -518,7 +546,6 @@
 
       var payBtnDisabled = m.status === "PAID" || m.status === "SKIPPED";
       var skipBtnDisabled = m.status === "SKIPPED" || m.status === "PAID";
-      var notifyBtnDisabled = false;
 
       tr.innerHTML =
         "<td>" +
@@ -555,12 +582,7 @@
         cid +
         '" ' +
         (skipBtnDisabled ? "disabled style='opacity:0.4;cursor:not-allowed;'" : "") +
-        ">Skip</button> " +
-        '<button class="btn-notify" data-cid="' +
-        cid +
-        '" ' +
-        (notifyBtnDisabled ? "disabled" : "") +
-        ">\u{1F514}</button>" +
+        ">Skip</button>" +
         "</td>";
 
       var cb = tr.querySelector(".member-row-check");
@@ -584,11 +606,6 @@
         e.stopPropagation();
         handleSkip(cid, tr);
       });
-      tr.querySelector(".btn-notify").addEventListener("click", function (e) {
-        e.stopPropagation();
-        handleNotify(cid, tr);
-      });
-
       tbody.appendChild(tr);
     });
     updateMemberBatchBar();
@@ -674,17 +691,6 @@
       showToast("Member marked as SKIPPED.", false);
     } catch (e) {
       showToast(e.message || "Failed to mark as skipped.", true);
-    }
-  }
-
-  async function handleNotify(contributionId, tr) {
-    try {
-      var fd = new FormData();
-      fd.append("contribution_id", contributionId);
-      var data = await postForm(NOTIFY_URL, fd);
-      showToast(data.message || "Notification sent.", false);
-    } catch (e) {
-      showToast(e.message || "Failed to send notification.", true);
     }
   }
 
@@ -775,34 +781,6 @@
     clearMemberSelection();
   }
 
-  async function handleNotifyAll() {
-    var ids = Array.from(state.selectedContributionIds);
-    if (ids.length === 0) return;
-    var swalResult = await Swal.fire({
-      title: "Send Notifications?",
-      text: "Send notifications to " + ids.length + " selected member(s)?",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Yes, send",
-      cancelButtonText: "Cancel",
-      reverseButtons: true,
-    });
-    if (!swalResult.isConfirmed) return;
-    var done = 0;
-    for (var i = 0; i < ids.length; i++) {
-      try {
-        var fd = new FormData();
-        fd.append("contribution_id", ids[i]);
-        await postForm(NOTIFY_URL, fd);
-        done++;
-      } catch (e) {
-        showToast("Failed on #" + ids[i] + ": " + e.message, true);
-      }
-    }
-    showToast(done + " of " + ids.length + " notifications sent.", false);
-    clearMemberSelection();
-  }
-
   function filterMembers() {
     if (!state.selectedPostId) return;
 
@@ -850,15 +828,17 @@
 
   async function handleFinishPost(postId) {
     var post = state.posts.find(function (p) { return p.post_id === postId; });
+    if (!post) return;
+
     var skipRemaining = false;
 
-    if (post && post.collection_rate < 100) {
+    if (post.collection_rate < 100) {
       var result = await Swal.fire({
         title: "Incomplete Collection",
-        text: "Only " + post.collection_rate + "% has been collected. Remaining contributions will be auto-skipped. Continue?",
+        text: "Only " + post.collection_rate + "% has been collected. Remaining contributions will be auto-skipped upon President approval. Continue?",
         icon: "warning",
         showCancelButton: true,
-        confirmButtonText: "Yes, finish",
+        confirmButtonText: "Yes, submit for approval",
         cancelButtonText: "Cancel",
         reverseButtons: true,
         customClass: {
@@ -876,15 +856,65 @@
         fd.append("skip_remaining", "true");
       }
       await postForm(FINISH_URL, fd);
-      state.posts = state.posts.filter(function (p) { return p.post_id !== postId; });
-      if (state.selectedPostId === postId) {
-        clearRightPanel();
-      }
+      post.finish_status = "pending_approval";
       renderCards();
-      loadHistoryPosts();
-      showToast("Post marked as finished.", false);
+      highlightSelectedCard();
+      showToast("Finish request submitted for President approval.", false);
     } catch (e) {
-      showToast(e.message || "Failed to finish post.", true);
+      showToast(e.message || "Failed to submit finish request.", true);
+    }
+  }
+
+  function getLatestHistoryPostId() {
+    if (!state.historyPosts || state.historyPosts.length === 0) return 0;
+    var maxId = 0;
+    state.historyPosts.forEach(function (p) {
+      if (p.post_id > maxId) maxId = p.post_id;
+    });
+    return maxId;
+  }
+
+  function getStoredHistoryLastViewedId() {
+    try { return parseInt(localStorage.getItem("treasurer_history_last_id") || "0", 10); } catch (e) { return 0; }
+  }
+
+  function setStoredHistoryLastViewedId(id) {
+    try { localStorage.setItem("treasurer_history_last_id", String(id)); } catch (e) {}
+  }
+
+  function updateActiveAidGreenDots(count) {
+    var folderDot = getEl("aid-claims-green-dot");
+    var itemDot = getEl("aid-tracking-green-dot");
+    var displayCount = count > 99 ? "99+" : count;
+    if (count > 0) {
+      if (folderDot) { folderDot.style.display = "inline-flex"; folderDot.textContent = displayCount; }
+      if (itemDot) { itemDot.style.display = "inline-flex"; itemDot.textContent = displayCount; }
+    } else {
+      if (folderDot) folderDot.style.display = "none";
+      if (itemDot) itemDot.style.display = "none";
+    }
+  }
+
+  function updateHistoryNotificationDot() {
+    var dot = getEl("history-new-dot");
+    if (!dot) return;
+    if (!state.historyPosts || state.historyPosts.length === 0) {
+      dot.style.display = "none";
+      return;
+    }
+    var latestId = getLatestHistoryPostId();
+    var lastViewed = getStoredHistoryLastViewedId();
+    var historyTab = getEl("treasurer-aid-history");
+    var isActive = historyTab && historyTab.classList.contains("active");
+
+    if (isActive) {
+      setStoredHistoryLastViewedId(latestId);
+      dot.style.display = "none";
+    } else if (latestId > lastViewed) {
+      dot.style.display = "inline-flex";
+      dot.textContent = "";
+    } else {
+      dot.style.display = "none";
     }
   }
 
@@ -893,6 +923,7 @@
       var data = await getJSON(HISTORY_URL);
       state.historyPosts = data.posts || [];
       renderHistoryTable();
+      updateHistoryNotificationDot();
     } catch (e) {
       showToast(e.message || "Failed to load history.", true);
     }
@@ -1090,6 +1121,7 @@
       var data = await getJSON(POSTS_URL);
       state.posts = data.posts || [];
       renderCards();
+      updateActiveAidGreenDots(state.posts.length);
     } catch (e) {
       showToast(e.message || "Failed to load aid posts.", true);
     }
@@ -1119,7 +1151,6 @@
     }
     getEl("member-batch-pay")?.addEventListener("click", handlePayAll);
     getEl("member-batch-skip")?.addEventListener("click", handleSkipAll);
-    getEl("member-batch-notify")?.addEventListener("click", handleNotifyAll);
     getEl("member-batch-clear")?.addEventListener("click", clearMemberSelection);
 
     var historySearch = getEl("historyPostSearch");
@@ -1136,7 +1167,7 @@
     selectHistoryPost: selectHistoryPost,
   };
 
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("turbo:load", function () {
     addCardStyles();
     bindFilters();
     connectWebSocket();
@@ -1158,7 +1189,6 @@
     }
     getEl("member-batch-pay")?.addEventListener("click", handlePayAll);
     getEl("member-batch-skip")?.addEventListener("click", handleSkipAll);
-    getEl("member-batch-notify")?.addEventListener("click", handleNotifyAll);
     getEl("member-batch-clear")?.addEventListener("click", clearMemberSelection);
 
     var tab = getEl("treasurer-aid-tracking-posts");
@@ -1193,5 +1223,15 @@
     if (historySearch) historySearch.addEventListener("input", filterHistoryPosts);
     var historyType = getEl("historyTypeFilter");
     if (historyType) historyType.addEventListener("change", filterHistoryPosts);
+
+    window._aidObservers = [observer];
+    if (historyObserver) window._aidObservers.push(historyObserver);
+  });
+
+  document.addEventListener("turbo:before-cache", function () {
+    if (window._aidObservers) {
+      window._aidObservers.forEach(function (o) { o.disconnect(); });
+      window._aidObservers = null;
+    }
   });
 })();

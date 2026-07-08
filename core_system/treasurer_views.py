@@ -6,6 +6,7 @@ from datetime import datetime
 from django.http import Http404, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.views.decorators.cache import never_cache
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -43,7 +44,7 @@ from core_system.constants.policy_constants import (
     get_monthly_dues_amount,
     is_exempt_from_dues_and_aid,
 )
-from core_system.services.notifications import queue_and_send_member_notification
+from core_system.services.email_service import send_member_added_email
 from core_system.shared_view_utils import (
     MODEL_MAP,
     UPDATABLE_FIELDS,
@@ -89,6 +90,7 @@ def _broadcast_treasurer(section: str) -> None:
         pass
 
 
+@never_cache
 def treasurer_dashboard(request):
     """Loads the unified Treasurer/Auditor executive workspace page."""
     guard = require_role(request, role="Treasurer")
@@ -138,6 +140,10 @@ def treasurer_dashboard(request):
     context["death_aid_returned_count"] = TransactionVerification.objects.filter(
         table_name="death_aid",
         verification_status="Returned for Revision",
+    ).count()
+
+    context["active_aid_posts_count"] = AidTrackingPost.objects.filter(
+        is_active=True,
     ).count()
 
     return render(request, "website/Treasurer/treasurer_dashboard.html", context)
@@ -303,11 +309,19 @@ def treasurer_add_member(request: HttpRequest):
     except Exception as ex:
         return JsonResponse({"ok": False, "error": f"Internal pipeline transactional exception: {str(ex)}"}, status=500)
 
+    email_sent = False
+    try:
+        if member.email:
+            email_sent = send_member_added_email(member)
+    except Exception:
+        pass
+
     _broadcast_treasurer("members")
 
     return JsonResponse(
         {
             "ok": True,
+            "email_sent": email_sent,
             "member": {
                 "member_id": member.member_id_PK,
                 "full_name": member.full_name,
@@ -709,10 +723,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
         from core_system.services.membership_fee_rules import (
             create_correction_artifacts_for_membership_fee,
         )
-        from core_system.services.notifications import (
-            notify_membership_fee_correction_required,
-        )
-
         if recorded_by is None:
             return JsonResponse(
                 {"ok": False, "error": "Unable to resolve officer session for encoding."},
@@ -747,8 +757,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
                 request=request,
             )
 
-        notify_membership_fee_correction_required(member=member_obj)
-
         return JsonResponse(
             {
                 "ok": False,
@@ -767,12 +775,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
     from core_system.services.membership_fee_rules import (
         has_duplicate_membership_fee,
     )
-    from core_system.services.notifications import (
-        notify_membership_fee_policy_exception,
-        notify_membership_fee_correction_required,
-        notify_membership_fee_confirmed,
-    )
-
     dup_check = has_duplicate_membership_fee(
         member=member_obj,
         receipt_number=fee_ref,
@@ -1139,6 +1141,39 @@ def treasurer_monthly_dues_salary_list(request: HttpRequest):
         "salary_dues": rows,
         "batches": list(batches_map.values()),
     })
+
+
+@require_GET
+def treasurer_monthly_dues_tracking(request):
+    """Returns per-member per-month dues status for a given year."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    year = request.GET.get("year", "")
+    if not year or not year.isdigit():
+        return JsonResponse({"ok": False, "error": "year query parameter required."}, status=400)
+
+    prefix = year + "-"
+    dues = MonthlyDues.objects.filter(
+        month_covered__startswith=prefix
+    ).select_related("member_id_FK")
+
+    tracking = {}
+    for d in dues:
+        mid = d.member_id_FK.member_id_PK
+        if mid not in tracking:
+            tracking[mid] = {}
+        month_key = d.month_covered
+        if d.payment_method == "Salary Deduction":
+            status = "paid"
+        elif d.payment_status == "Full Payment":
+            status = "paid"
+        else:
+            status = "partial"
+        tracking[mid][month_key] = status
+
+    return JsonResponse({"ok": True, "year": int(year), "tracking": tracking})
 
 
 @require_POST
@@ -2163,6 +2198,7 @@ def treasurer_approved_aid_posts(request: HttpRequest):
             "total_expected": str(post.total_expected),
             "total_collected": str(post.total_collected),
             "collection_rate": collection_rate,
+            "finish_status": post.finish_status or "",
             "status": archive.status if archive else "",
             "amount": str(archive.amount) if archive else "0",
             "created_at": post.created_at.isoformat() if post.created_at else "",
@@ -2360,56 +2396,15 @@ def treasurer_aid_post_member_skip(request: HttpRequest):
 
 
 @require_POST
-def treasurer_aid_post_member_notify(request: HttpRequest):
-    guard = require_role(request, role="Treasurer")
-    if guard is not None:
-        return guard
-
-    contribution_id = (request.POST.get("contribution_id") or "").strip()
-
-    if not contribution_id:
-        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
-
-    try:
-        contribution = Contribution.objects.select_related(
-            "aid_tracking_post_id_FK",
-            "member_id_FK",
-        ).get(contribution_id_PK=int(contribution_id))
-    except (ValueError, Contribution.DoesNotExist):
-        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
-
-    member = contribution.member_id_FK
-    post = contribution.aid_tracking_post_id_FK
-    aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
-
-    message = (
-        f"Dear {member.full_name},\n\n"
-        f"This is a reminder regarding your contribution for the {aid_label} claim "
-        f"for {post.archive_id_FK.member_name if post.archive_id_FK else 'a member'} "
-        f"(Month: {post.target_month}).\n\n"
-        f"Expected Amount: PHP {contribution.expected_amount}\n"
-        f"Status: {contribution.status}\n\n"
-        f"Please settle your contribution at the Treasurer's office at your earliest convenience."
-    )
-
-    queue_and_send_member_notification(
-        member=member,
-        message=message,
-        notification_type=f"{aid_label} Contribution Reminder",
-    )
-
-    return JsonResponse({
-        "ok": True,
-        "message": f"Notification sent to {member.full_name}.",
-    })
-
-
-@require_POST
 @transaction.atomic
 def treasurer_aid_post_finish(request: HttpRequest):
     guard = require_role(request, role="Treasurer")
     if guard is not None:
         return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
 
     post_id = (request.POST.get("post_id") or "").strip()
     skip_remaining = (request.POST.get("skip_remaining") or "").strip().lower() == "true"
@@ -2422,50 +2417,40 @@ def treasurer_aid_post_finish(request: HttpRequest):
     except (ValueError, AidTrackingPost.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Active post not found."}, status=404)
 
-    if skip_remaining:
-        Contribution.objects.filter(
-            aid_tracking_post_id_FK=post,
-            status="NOT_PAID",
-        ).update(
-            status="SKIPPED",
-            is_manually_overridden=True,
-            paid_amount=0,
-        )
-        totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
-            total_collected=Sum("paid_amount"),
-        )
-        post.total_collected = totals["total_collected"] or 0
+    if post.finish_status == "pending_approval":
+        return JsonResponse({"ok": False, "error": "A finish request is already pending President approval."}, status=400)
 
-    post.is_active = False
-    post.save(update_fields=["is_active", "total_collected"])
+    post.finish_status = "pending_approval"
+    post.finish_skip_remaining = skip_remaining
+    post.save(update_fields=["finish_status", "finish_skip_remaining"])
+
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="FINISH_REQUESTED",
+        actor=officer,
+        new={
+            "finish_status": "pending_approval",
+            "finish_skip_remaining": skip_remaining,
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+    )
 
     archive = post.archive_id_FK
-    if archive is not None:
-        if archive.transaction_type == "death_aid":
-            DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
-        elif archive.transaction_type == "medical_aid":
-            MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+    member_name = archive.member_name if archive else ""
 
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "treasurer_dashboard",
-        {
-            "type": "aid_post_finished",
-            "post_id": post.post_id_PK,
-            "member_name": post.archive_id_FK.member_name if post.archive_id_FK else "",
-        },
-    )
-    async_to_sync(channel_layer.group_send)(
-        "auditor_dashboard",
-        {
-            "type": "aid_post_finished",
-            "post_id": post.post_id_PK,
-            "member_name": post.archive_id_FK.member_name if post.archive_id_FK else "",
-        },
-    )
+    payload = {
+        "type": "aid_post_finish_requested",
+        "post_id": post.post_id_PK,
+        "member_name": member_name,
+    }
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("president_dashboard", payload)
     _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
 
-    return JsonResponse({"ok": True, "message": "Post marked as finished."})
+    return JsonResponse({"ok": True, "message": "Finish request submitted for President approval."})
 
 
 @require_GET

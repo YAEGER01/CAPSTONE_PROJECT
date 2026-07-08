@@ -5,6 +5,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cooperative Executive Management Console</title>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8/dist/turbo.es2017-esm.js"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPhjkR0G0OKRvCk2727" crossorigin="anonymous"></script>
+
 
     <link
       rel="stylesheet"
@@ -431,6 +434,35 @@
       .panel-subtitle {
         font-size: 0.85rem;
         color: #757575;
+      }
+
+      /* Dues Tracking Calendar boxes */
+      .dt-month-box {
+        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        padding: 18px 8px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.85rem;
+        background: #fafafa;
+        transition: background 0.2s;
+        position: relative;
+        overflow: hidden;
+      }
+      .dt-month-box.paid {
+        background: rgba(27, 94, 32, 0.12);
+        border-color: rgba(27, 94, 32, 0.3);
+        color: #1b5e20;
+      }
+      .dt-month-box.partial {
+        background: rgba(245, 124, 0, 0.12);
+        border-color: rgba(245, 124, 0, 0.3);
+        color: #e65100;
+      }
+      .dt-month-box.not-paid {
+        background: rgba(229, 57, 53, 0.10);
+        border-color: rgba(229, 57, 53, 0.2);
+        color: #c62828;
       }
 
       /* KPI Grid cards */
@@ -971,15 +1003,83 @@
         padding: 0 5px;
         flex-shrink: 0;
         line-height: 1;
-        margin-left: 6px;
         vertical-align: middle;
+      }
+
+      .green-dot {
+        min-width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: #4caf50;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0 5px;
+        flex-shrink: 0;
+        line-height: 1;
+        vertical-align: middle;
+      }
+
+      .overview-grid-3x2 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .overview-card {
+        min-height: 160px;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .overview-card .panel-header-row {
+        margin-bottom: 0;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+      }
+
+      .overview-card .panel-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1b5e20;
+      }
+
+      .overview-card-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 10px;
+      }
+
+      .overview-card-placeholder {
+        color: #b0bec5;
+        font-size: 0.8rem;
+        font-style: italic;
+        text-align: center;
+      }
+
+      @media (max-width: 1100px) {
+        .overview-grid-3x2 {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 700px) {
+        .overview-grid-3x2 {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
 
     <!-- SweetAlert2 (Sweet swal) -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Chart.js for aid tracking graphs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
   </head>
 
   <body>
@@ -1114,6 +1214,26 @@
       </div>
     </div>
 
+    <!-- Dues Tracking Modal -->
+    <div class="modal-overlay" id="duesTrackingModal">
+      <div class="modal-card" style="max-width:720px;text-align:left;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+          <div>
+            <h3 style="color:#1b5e20;margin:0;" id="dtModalMemberName">—</h3>
+            <p style="margin:4px 0 0;font-size:0.85rem;color:#757575;" id="dtModalMemberInfo">—</p>
+          </div>
+          <button type="button" onclick="closeDuesTrackingModal()" style="background:none;border:none;font-size:1.8rem;cursor:pointer;color:#666;line-height:1;">&times;</button>
+        </div>
+        <hr style="border:0;border-top:1px solid #e8f0e8;margin:12px 0;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <label style="font-weight:600;font-size:0.9rem;color:#1b5e20;white-space:nowrap;">Select Year</label>
+          <select id="dtYearFilter" onchange="dtLoadCal()" style="padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.85rem;background:#fbfdfb;"></select>
+        </div>
+        <div id="dtCalendarGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 0 8px;"></div>
+        <button type="button" class="btn-brand btn-brand-primary" onclick="closeDuesTrackingModal()" style="margin-top:16px;width:100%;">Close</button>
+      </div>
+    </div>
+
     <!-- Notification Toast Area -->
     <div class="notification-host" id="toastContainer"></div>
 
@@ -1174,7 +1294,7 @@
                   <polyline points="9 22 9 12 15 12 15 22"></polyline>
                 </svg>
               </span>
-              <span class="menu-text">Home Dashboard</span>
+              <span class="menu-text">OVERVIEW</span>
             </a>
 
             <!-- FOLDER CATEGORY 1: MEMBERSHIP & FEES -->
@@ -1234,10 +1354,6 @@
                   {% if returned_entries_count %}
                   <span class="notif-dot" style="display:inline-flex">{{ returned_entries_count }}</span>
                   {% endif %}
-                </a>
-                <a class="menu-item" data-target="view-treasurer-fee-entries">
-                  <span class="menu-icon sub-icon">&#8226;</span>
-                  <span class="menu-text">Membership History</span>
                 </a>
               
                 <a class="menu-item" data-target="view-fee-payment" data-nav-category="membership-fee">
@@ -1312,6 +1428,10 @@
                   <span class="notif-dot" style="display:inline-flex">{{ monthly_dues_returned_count }}</span>
                   {% endif %}
                 </a>
+                <a class="menu-item" data-target="view-dues-tracking">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Dues Tracking</span>
+                </a>
               </div>
             </div>
 
@@ -1342,6 +1462,11 @@
                   {% if medical_aid_returned_count or death_aid_returned_count %}
                   <span class="notif-dot" style="display:inline-flex">{{ medical_aid_returned_count|add:death_aid_returned_count }}</span>
                   {% endif %}
+                  {% if active_aid_posts_count %}
+                  <span class="green-dot" id="aid-claims-green-dot" style="display:inline-flex">{{ active_aid_posts_count }}</span>
+                  {% else %}
+                  <span class="green-dot" id="aid-claims-green-dot" style="display:none">0</span>
+                  {% endif %}
                 </div>
                 <span class="chevron-icon">
                   <svg
@@ -1371,7 +1496,7 @@
                   <span class="notif-dot" style="display:inline-flex">{{ medical_aid_returned_count }}</span>
                   {% endif %}
                 </a>
-                <a class="menu-item" data-target="view-death-aid" data-nav-category="death-aid">
+                <a class="menu-item" data-target="view-death-aid" ondata-nav-category="death-aid">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Death Aid Claim</span>
                 </a>
@@ -1385,10 +1510,12 @@
                 <a class="menu-item" data-target="treasurer-aid-tracking-posts">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Aid Collection / Tracking</span>
+                  <span class="green-dot" id="aid-tracking-green-dot" style="display:none">0</span>
                 </a>
                 <a class="menu-item" data-target="treasurer-aid-history">
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Aid Tracking History</span>
+                  <span id="history-new-dot" class="notif-dot"></span>
                 </a>
               </div>
             </div>
@@ -1485,7 +1612,7 @@
               &#9776;
             </button>
             <h1 class="page-title" id="currentModuleTitle">
-              Overview
+              OVERVIEW
             </h1>
           </div>
           <div class="header-right">
@@ -1504,11 +1631,8 @@
           <!-- ==========================================================================
              TAB 1: SYSTEM EXECUTIVE OVERVIEW
              ========================================================================== -->
-          <section
-            id="dashboard-overview"
-            class="dashboard-module active module-fade-in"
-          >
-            <!-- KPI Stats grid overview -->
+           <section id="dashboard-overview" class="dashboard-module module-fade-in">
+<!-- KPI Stats grid overview -->
             <div class="stats-grid">
               <div class="stat-card">
                 <div class="stat-icon">👤</div>
@@ -1546,60 +1670,66 @@
                   <div class="stat-value" id="kpi-active-claims">0</div>
                 </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-icon" style="background:rgba(245,124,0,0.1);color:#f57c00;">₱</div>
-                <div class="stat-info">
-                  <h4>Cash Flow</h4>
-                  <div style="margin-top:2px;font-size:0.75rem;color:#757575;display:flex;flex-direction:column;gap:2px;">
-                    <span>+Funds In: <strong id="cf-funds-in" style="color:#1b5e20">₱0.00</strong></span>
-                    <span>-Releases Out: <strong id="cf-funds-out" style="color:#e53935">₱0.00</strong></span>
-                    <span>⏳Pending Contributions: <strong id="cf-pending-contributions" style="color:#f57c00">₱0.00</strong></span>
-                  </div>
+
+            </div>
+
+            <div class="overview-grid-3x2">
+              <div class="dashboard-panel overview-card">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Recent Transactions</h3>
+                </div>
+                <div class="overview-card-content">
+                  <p class="overview-card-placeholder">Content area</p>
+                </div>
+              </div>
+              <div class="dashboard-panel overview-card">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Member Statistics</h3>
+                </div>
+                <div class="overview-card-content">
+                  <p class="overview-card-placeholder">Content area</p>
+                </div>
+              </div>
+              <div class="dashboard-panel overview-card">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Collection Summary</h3>
+                </div>
+                <div class="overview-card-content">
+                  <p class="overview-card-placeholder">Content area</p>
+                </div>
+              </div>
+              <div class="dashboard-panel overview-card">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Pending Approvals</h3>
+                </div>
+                <div class="overview-card-content">
+                  <p class="overview-card-placeholder">Content area</p>
+                </div>
+              </div>
+              <div class="dashboard-panel overview-card">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Disbursement Overview</h3>
+                </div>
+                <div class="overview-card-content">
+                  <p class="overview-card-placeholder">Content area</p>
+                </div>
+              </div>
+              <div class="dashboard-panel overview-card">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Recent Alerts</h3>
+                </div>
+                <div class="overview-card-content">
+                  <p class="overview-card-placeholder">Content area</p>
                 </div>
               </div>
             </div>
-            <div class="dashboard-panel">
-              <div class="panel-header-row">
-                <div>
-                  <h3 class="panel-title">Cash Flow Overview</h3>
-                  <p class="panel-subtitle">Summary of funds in, out, and pending contributions</p>
-                </div>
-              </div>
-              <div style="position:relative;width:100%;height:260px;">
-                <canvas id="cf-chart"></canvas>
-              </div>
-            </div>
-            <div class="dashboard-panel">
-              <div class="panel-header-row">
-                <div>
-                  <h3 class="panel-title">Aid Collection Tracking</h3>
-                  <p class="panel-subtitle">Real-time overview of active aid contributions and collection progress</p>
-                </div>
-                <button id="seeFullAidDetails" class="btn-brand btn-brand-primary" style="padding:8px 18px;font-size:0.82rem;">
-                  See Full Details &rarr;
-                </button>
-              </div>
-
-              <div id="aidChartSummary" style="display:none;"></div>
-
-              <div id="aidChartContainer" style="position:relative;width:100%;height:280px;">
-                <canvas id="aidTrackingChart"></canvas>
-              </div>
-
-              <div id="aidChartNoData" style="text-align:center;padding:20px;color:#90a4ae;font-size:0.9rem;">
-                No active aid tracking posts yet. Data will appear once the President approves aid requests.
-              </div>
-            </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB 2: MEMBER PROFILE
              ========================================================================== -->
-          <section
-            id="view-member-profile"
-            class="dashboard-module module-fade-in"
-          >
-            <div
+          <section id="view-member-profile" class="dashboard-module module-fade-in">
+<div
               style="
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1859,16 +1989,13 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB 3: MEMBERSHIP FEE PAYMENT
              ========================================================================== -->
-            <section
-              id="view-fee-payment"
-              class="dashboard-module module-fade-in"
-            >
-              <div
+            <section id="view-fee-payment" class="dashboard-module module-fade-in">
+<div
                 style="
                   display: grid;
                   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2034,16 +2161,13 @@
                 </div>
               </div>
             </div>
-            </section>
+</section>
 
           <!-- ==========================================================================
               TAB 4: RETURNED ENTRIES / CORRECT & RESUBMIT MEMBERSHIP FEES
               ========================================================================== -->
-          <section
-            id="view-returned-entries"
-            class="dashboard-module module-fade-in"
-          >
-            <div
+          <section id="view-returned-entries" class="dashboard-module module-fade-in">
+<div
               style="
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2278,57 +2402,15 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
 
-          <!-- ==========================================================================
-              TAB 4b: MY MEMBERSHIP FEE ENTRIES (TREASURER ENCODED)
-              ========================================================================== -->
-          <section
-            id="view-treasurer-fee-entries"
-            class="dashboard-module module-fade-in"
-          >
-            <div
-              style="
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-                gap: 20px;
-              "
-            >
-              <div class="dashboard-panel" style="grid-column: 1 / -1">
-                <div class="panel-header-row">
-                  <h3 class="panel-title">Membership Entries</h3>
-                  <p class="panel-subtitle">
-                    Showing all membership records encoded by the Treasurer.
-                  </p>
-                </div>
 
-                <div class="table-container">
-                    <table class="custom-table" id="treasurerFeesTable">
-                      <thead>
-                        <tr>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Ref Number" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Amount" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-calendar" title="Method, Covered Period & Date" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-regular fa-circle-check" title="Payment Status" style="cursor: pointer;"></i></th>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-pen" title="Encoded By" style="cursor: pointer;"></i></th>
-                        </tr>
-                      </thead>
-                      <tbody></tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </section>
 
             <!-- ==========================================================================
                TAB 4: FEE PAYMENT (Membership Fee Payment)
                ========================================================================== -->
-          <section
-            id="view-otc-payment"
-            class="dashboard-module module-fade-in"
-          >
-            <div
+          <section id="view-otc-payment" class="dashboard-module module-fade-in">
+<div
               style="
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2479,16 +2561,13 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB 5: MONTHLY DUES (SALARY DEDUCTION)
              ========================================================================== -->
-          <section
-            id="view-salary-deduction"
-            class="dashboard-module module-fade-in"
-          >
-            <style>
+          <section id="view-salary-deduction" class="dashboard-module module-fade-in">
+<style>
               .salary-tab-btn.premium-active {
                 position: relative;
                 z-index: 1;
@@ -2726,16 +2805,13 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
               TAB 5c: MONTHLY DUES RETURNED ENTRIES
               ========================================================================== -->
-          <section
-            id="view-monthly-dues-returned"
-            class="dashboard-module module-fade-in"
-          >
-            <div
+          <section id="view-monthly-dues-returned" class="dashboard-module module-fade-in">
+<div
               style="
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2958,16 +3034,54 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
+
+          <!-- ==========================================================================
+              TAB: DUES TRACKING
+              ========================================================================== -->
+          <section id="view-dues-tracking" class="dashboard-module module-fade-in">
+<div
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
+              "
+            >
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Monthly Dues Tracking</h3>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+                  <select id="dt_dept_filter" onchange="dtApplyFilters()" style="flex:1;min-width:160px;padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
+                    <option value="">All Departments</option>
+                  </select>
+                  <select id="dt_pos_filter" onchange="dtApplyFilters()" style="flex:1;min-width:160px;padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
+                    <option value="">All Titles</option>
+                  </select>
+                </div>
+                <div class="table-container">
+                  <table class="custom-table" id="duesTrackingTable">
+                    <thead>
+                      <tr>
+                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-id-card" title="Employee ID"></i></th>
+                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-user" title="Name"></i></th>
+                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-briefcase" title="Department"></i></th>
+                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-venus-mars" title="Position"></i></th>
+                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-gears" title="Action"></i></th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+</section>
 
           <!-- ==========================================================================
               TAB 6: MEDICAL AID REQUEST
               ========================================================================== -->
-          <section
-            id="view-medical-aid"
-            class="dashboard-module module-fade-in"
-          >
-            <div
+          <section id="view-medical-aid" class="dashboard-module module-fade-in">
+<div
               style="
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -3045,13 +3159,13 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB 7: DEATH AID CLAIM
              ========================================================================== -->
           <section id="view-death-aid" class="dashboard-module module-fade-in">
-            <div id="deathAidScenarioArea" style="display:grid">
+<div id="deathAidScenarioArea" style="display:grid">
               <div class="dashboard-panel" style="flex:2">
                 <div class="panel-header-row">
                   <h3 class="panel-title">Death Aid Claims</h3>
@@ -3219,16 +3333,13 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB 7b: RETURNED MEDICAL AID ENTRIES
              ========================================================================== -->
-          <section
-            id="view-medical-aid-returned"
-            class="dashboard-module module-fade-in"
-          >
-            <div
+          <section id="view-medical-aid-returned" class="dashboard-module module-fade-in">
+<div
               style="
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -3412,16 +3523,13 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB 7c: RETURNED DEATH AID ENTRIES
              ========================================================================== -->
-          <section
-            id="view-death-aid-returned"
-            class="dashboard-module module-fade-in"
-          >
-            <div
+          <section id="view-death-aid-returned" class="dashboard-module module-fade-in">
+<div
               style="
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -3601,7 +3709,7 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB 8: AUDITOR VERIFICATION REMOVED
@@ -3619,7 +3727,7 @@
              TAB: TREASURER AID TRACKING POSTS
              ========================================================================== -->
           <section id="treasurer-aid-tracking-posts" class="dashboard-module module-fade-in">
-            <div class="dashboard-panel">
+<div class="dashboard-panel">
               <div class="panel-header-row">
                 <div>
                   <h3 class="panel-title">Active Aid Tracking Posts</h3>
@@ -3686,7 +3794,6 @@
                 <span id="member-selected-count" style="font-weight:600;font-size:0.85rem;">0 selected</span>
                 <button id="member-batch-pay" style="padding:6px 14px;border-radius:8px;border:1px solid #1b5e20;background:#1b5e20;color:#fff;font-weight:600;font-size:0.75rem;cursor:pointer;">Pay All</button>
                 <button id="member-batch-skip" style="padding:6px 14px;border-radius:8px;border:1px solid #757575;background:#fff;color:#757575;font-weight:600;font-size:0.75rem;cursor:pointer;">Skip All</button>
-                <button id="member-batch-notify" style="padding:6px 14px;border-radius:8px;border:1px solid #fbc02d;background:#fff;color:#fbc02d;font-weight:600;font-size:0.75rem;cursor:pointer;">Notify All</button>
                 <button id="member-batch-clear" style="padding:6px 14px;border-radius:8px;border:1px solid #ccc;background:#fff;color:#666;font-weight:600;font-size:0.75rem;cursor:pointer;">Clear</button>
               </div>
 
@@ -3709,13 +3816,13 @@
                 </table>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB: TREASURER AID HISTORY
              ========================================================================== -->
           <section id="treasurer-aid-history" class="dashboard-module module-fade-in">
-            <div class="dashboard-panel">
+<div class="dashboard-panel">
               <div class="panel-header-row">
                 <div>
                   <h3 class="panel-title">Finished Aid Tracking Posts</h3>
@@ -3795,13 +3902,13 @@
                 </table>
               </div>
             </div>
-          </section>
+</section>
 
           <!-- ==========================================================================
              TAB 11: REPORTS & LEDGERS
              ========================================================================== -->
           <section id="view-reports" class="dashboard-module module-fade-in">
-            <div
+<div
               style="
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -3915,7 +4022,7 @@
                 </div>
               </div>
             </div>
-          </section>
+</section>
         </div>
       </main>
     </div>
@@ -3959,47 +4066,51 @@
       let db = {};
       let membershipFeeTotal = 0;
       let approvedTransactionsTotal = 0;
+      let _pollInterval = null;
+      let _initialized = false;
 
-      window.addEventListener("DOMContentLoaded", () => {
-        loadSystemDatabase();
-        setupFolders();
-        setupNavigation();
-        setupCollapsibleSidebar();
+      function _onFormChange(e) {
+        if (e.target.closest("form.dashboard-form")) saveDashboardState();
+      }
 
-        var initialModule = getPersistedModuleTarget();
-        if (initialModule && initialModule !== "dashboard-overview") {
-          setActiveModule(initialModule);
-        }
-
+      window._tabInit = function() {
         renderMembersFromBackend();
         fetchMemberBreakdown();
         fetchMembershipFeeTotal();
         fetchApprovedTransactionsTotal();
         fetchReleases();
 
-        // Start lightweight auto-update for the Enrolled table.
-        // This only updates the #memberTable block (no full page refresh).
         if (typeof refreshEnrolledTableIfChanged === "function") {
-          // Run once quickly after initial render.
-          setTimeout(() => {
-            refreshEnrolledTableIfChanged();
-          }, 500);
+          refreshEnrolledTableIfChanged();
 
-          // Poll every 10 seconds.
-          setInterval(() => {
+          if (_pollInterval) clearInterval(_pollInterval);
+          _pollInterval = setInterval(() => {
             refreshEnrolledTableIfChanged();
           }, 10000);
         }
 
         renderAllComponents();
+        restoreDashboardState();
+      }
 
-        // Restore persisted dashboard state (active module, form values)
-        setTimeout(restoreDashboardState, 100);
+      document.addEventListener("turbo:load", () => {
+        loadSystemDatabase();
+        setupFolders();
+        setupNavigation();
+        setupCollapsibleSidebar();
+
+        setActiveModule(getPersistedModuleTarget() || "dashboard-overview");
+
+        window._tabInit();
+
+        document.addEventListener("change", _onFormChange);
+        _initialized = true;
       });
 
-      window.addEventListener("beforeunload", saveDashboardState);
-      document.addEventListener("change", function (e) {
-        if (e.target.closest("form.dashboard-form")) saveDashboardState();
+      document.addEventListener("turbo:before-cache", () => {
+        if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
+        document.removeEventListener("change", _onFormChange);
+        saveDashboardState();
       });
 
       function setupCollapsibleSidebar() {
@@ -4387,7 +4498,6 @@
         renderMembersTable();
         populateDropdowns();
         renderFeesTable();
-        renderTreasurerFeesEntriesTable();
         // OTC dues table is rendered by monthly_dues_handle.js from DB.
 
         // renderOtcTable();
@@ -4972,50 +5082,6 @@
         });
       }
 
-      async function renderTreasurerFeesEntriesTable() {
-        const tbody = document.querySelector("#treasurerFeesTable tbody");
-        if (!tbody) return;
-
-        tbody.innerHTML =
-          '<tr><td colspan="7" style="text-align:center;color:#757575;">Loading membership fee entries...</td></tr>';
-
-        try {
-          const res = await fetch("/api/treasurer/membership-fees/list/", {
-            method: "GET",
-            credentials: "same-origin",
-          });
-          const data = await res.json();
-          if (!data || !data.ok || !Array.isArray(data.fees)) {
-            throw new Error("Invalid membership fee response.");
-          }
-
-          const fees = data.fees;
-          tbody.innerHTML = "";
-
-          if (fees.length === 0) {
-            tbody.innerHTML =
-              '<tr><td colspan="7" style="text-align:center;color:#757575;">No membership fee entries recorded</td></tr>';
-            return;
-          }
-
-          fees.forEach((f) => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td style="font-weight:600;color:#1b5e20;">${f.ref || ""}</td>
-              <td>${f.member_name || ""} <br><span style="font-size:0.75rem;color:#757575;">Code: ${f.member_id || ""}</span></td>
-              <td style="font-weight:600;">${formatCurrencyPHP(f.amount)}</td>
-              <td>${f.payment_method || ""} <br><span style="font-size:0.75rem;color:#757575;">Covered: ${f.month_covered || f.month || "N/A"}</span><br><span style="font-size:0.75rem;color:#757575;">Date: ${f.payment_date || ""}</span></td>
-              <td>${f.payment_status || ""}</td>
-              <td>${f.encoded_by || ""}</td>
-            `;
-            tbody.appendChild(tr);
-          });
-        } catch (e) {
-          tbody.innerHTML =
-            '<tr><td colspan="7" style="text-align:center;color:#e53935;">Unable to load membership fee entries.</td></tr>';
-        }
-      }
-
       function renderAuditorTable() {
         const tbody = document.querySelector("#auditTable tbody");
         tbody.innerHTML = "";
@@ -5099,6 +5165,10 @@
           tbody.appendChild(tr);
         });
       }
+
+      // --- Dues Tracking (stub - actual code in separate script block) ---
+      function closeDuesTrackingModal() { document.getElementById("duesTrackingModal").style.display = "none"; }
+      window.closeDuesTrackingModal = closeDuesTrackingModal;
 
       function handleReportSubmit(e) {
         e.preventDefault();
@@ -5227,7 +5297,6 @@
     <script src="{% static 'js/Treasurer/websocket.js' %}"></script>
     <script src="{% static 'js/status-utils.js' %}"></script>
     <script src="{% static 'js/Treasurer/aid_tracking.js' %}"></script>
-    <script src="{% static 'js/Treasurer/graph.js' %}"></script>
     <script>
       (function () {
         "use strict";
@@ -5245,48 +5314,9 @@
             if (fundsIn) fundsIn.innerText = fmt(data.funds_in);
             if (fundsOut) fundsOut.innerText = fmt(data.funds_out);
             if (pending) pending.innerText = fmt(data.pending_contributions);
-            var canvas = document.getElementById("cf-chart");
-            if (!canvas || typeof Chart === "undefined") return;
-            if (canvas.__chart) canvas.__chart.destroy();
-            canvas.__chart = new Chart(canvas.getContext("2d"), {
-              type: "bar",
-              data: {
-                labels: ["Funds In", "Releases Out", "Pending Contributions"],
-                datasets: [{
-                  label: "Amount (₱)",
-                  data: [data.funds_in, data.funds_out, data.pending_contributions],
-                  backgroundColor: ["rgba(27,94,32,0.8)", "rgba(229,57,53,0.8)", "rgba(245,124,0,0.8)"],
-                  borderColor: ["#1b5e20", "#e53935", "#f57c00"],
-                  borderWidth: 1,
-                  borderRadius: 4,
-                }],
-              },
-              options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: {
-                      label: function (ctx) { return "₱" + Number(ctx.raw).toLocaleString("en-PH", { minimumFractionDigits: 2 }); },
-                    },
-                  },
-                },
-                scales: {
-                  x: { grid: { display: false } },
-                  y: {
-                    beginAtZero: true,
-                    grid: { color: "rgba(0,0,0,0.06)" },
-                    ticks: {
-                      callback: function (v) { return "₱" + (v >= 1000 ? (v / 1000).toFixed(0) + "k" : v); },
-                    },
-                  },
-                },
-              },
-            });
           } catch (e) { console.error("Cash flow init failed:", e); }
         }
-        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
-        else init();
+        document.addEventListener("turbo:load", init);
       })();
     </script>
     <script src="{% static 'js/Treasurer/AidsAndClaims.js' %}" defer></script>
@@ -5366,6 +5396,168 @@
       </div>
     </div>
 
+    <script>
+      // --- Dues Tracking (isolated script block) ---
+      (function() {
+        var dtData = {};
+        var dtMembers = [];
+
+        function dtEsc(s) {
+          if (s == null) return "";
+          return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+        }
+
+        function dtNormalizeMember(m) {
+          var id = m && (m.id || m.member_id || m.member_id_PK || m.employee_id || "");
+          return {
+            id: String(id || ""),
+            name: (m && (m.name || m.full_name || "")) || "",
+            facultyId: (m && (m.facultyId || m.employee_id || m.member_type || m.member_type_PK || "")) || "",
+            department: (m && m.department) || "",
+            position: (m && m.position) || "",
+          };
+        }
+
+        async function dtLoadMembers() {
+          try {
+            var resp = await fetch("/api/treasurer/members/list/", {
+              method: "GET",
+              credentials: "same-origin",
+            });
+            var data = await resp.json();
+            if (!resp.ok || !data || !data.ok || !Array.isArray(data.members)) {
+              dtMembers = [];
+              return;
+            }
+            dtMembers = data.members.map(dtNormalizeMember);
+          } catch (e) {
+            if (typeof window.db !== "undefined" && window.db && Array.isArray(window.db.members)) {
+              dtMembers = window.db.members.map(dtNormalizeMember);
+            } else {
+              dtMembers = [];
+            }
+          }
+        }
+
+        async function dtInit() {
+          await dtLoadMembers();
+          dtFillFilters();
+          dtRender();
+        }
+
+        function dtFillFilters() {
+          var depts = {}, poses = {}, i, m, arr = dtMembers || [];
+          for (i = 0; i < arr.length; i++) { m = arr[i]; if (m.department) depts[m.department] = 1; if (m.position) poses[m.position] = 1; }
+          var dk = Object.keys(depts).sort(), pk = Object.keys(poses).sort();
+          var ds = document.getElementById("dt_dept_filter"), ps = document.getElementById("dt_pos_filter");
+          if (ds) {
+            ds.innerHTML = '<option value="">All Departments</option>';
+            for (i = 0; i < dk.length; i++) ds.innerHTML += '<option value="' + dtEsc(dk[i]) + '">' + dtEsc(dk[i]) + '</option>';
+          }
+          if (ps) {
+            ps.innerHTML = '<option value="">All Titles</option>';
+            for (i = 0; i < pk.length; i++) ps.innerHTML += '<option value="' + dtEsc(pk[i]) + '">' + dtEsc(pk[i]) + '</option>';
+          }
+        }
+
+        function dtRender() {
+          var tb = document.getElementById("duesTrackingTable");
+          if (!tb) return;
+          var tbdy = tb.getElementsByTagName("tbody")[0];
+          if (!tbdy) return;
+          var ds = document.getElementById("dt_dept_filter"), ps = document.getElementById("dt_pos_filter");
+          var df = ds ? ds.value : "", pf = ps ? ps.value : "";
+          var arr = dtMembers || [], flt = [], i, m;
+          for (i = 0; i < arr.length; i++) {
+            m = arr[i];
+            if ((!df || m.department === df) && (!pf || m.position === pf)) flt.push(m);
+          }
+          tbdy.innerHTML = "";
+          if (flt.length === 0) {
+            tbdy.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#757580;padding:30px;">No members found for current filters.</td></tr>';
+            return;
+          }
+          for (i = 0; i < flt.length; i++) {
+            m = flt[i];
+            var tr = document.createElement("tr");
+            var sid = dtEsc(m.id);
+            tr.innerHTML = '<td style="font-weight:600;color:#1b5e20;">' + dtEsc(m.facultyId || m.id || "") + '</td>' +
+              '<td>' + dtEsc(m.name || "") + '</td>' +
+              '<td>' + dtEsc(m.department || "") + '</td>' +
+              '<td>' + dtEsc(m.position || "") + '</td>' +
+              '<td><button class="btn-brand btn-brand-primary" style="padding:6px 14px;font-size:0.8rem;" onclick="dtOpenModal(\'' + sid + '\')">Track Dues</button></td>';
+            tbdy.appendChild(tr);
+          }
+        }
+
+        function dtOpenModal(mid) {
+          var arr = dtMembers || [], m = null, i;
+          for (i = 0; i < arr.length; i++) { if (arr[i].id === mid) { m = arr[i]; break; } }
+          if (!m) return;
+          document.getElementById("dtModalMemberName").textContent = m.name || "";
+          document.getElementById("dtModalMemberInfo").textContent = (m.department || "\u2014") + " \u00B7 " + (m.position || "\u2014") + " \u00B7 ID: " + (m.facultyId || mid);
+          var ys = document.getElementById("dtYearFilter");
+          if (ys && ys.options.length === 0) {
+            var cy = new Date().getFullYear();
+            for (var y = cy - 5; y <= cy + 5; y++) { var o = document.createElement("option"); o.value = y; o.textContent = y; if (y === cy) o.selected = true; ys.appendChild(o); }
+          }
+          document.getElementById("duesTrackingModal").dataset.memberId = mid;
+          document.getElementById("duesTrackingModal").style.display = "flex";
+          dtLoadCal();
+        }
+
+        function dtLoadCal() {
+          var ys = document.getElementById("dtYearFilter"), yr = ys ? ys.value : new Date().getFullYear();
+          var mid = (document.getElementById("duesTrackingModal").dataset.memberId || "").replace("M-","");
+          var x = new XMLHttpRequest();
+          x.open("GET","/api/treasurer/monthly-dues/tracking/?year=" + yr, true);
+          x.withCredentials = true;
+          x.onload = function() { try { var d = JSON.parse(x.responseText); dtData = (d.ok && d.tracking) ? d.tracking : {}; } catch(e) { dtData = {}; } dtDrawCal(mid); };
+          x.onerror = function() { dtData = {}; dtDrawCal(mid); };
+          x.send();
+        }
+
+        function dtDrawCal(mid) {
+          var g = document.getElementById("dtCalendarGrid");
+          if (!g) return;
+          g.innerHTML = "";
+          var ms = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+          var ys = document.getElementById("dtYearFilter"), yr = ys ? ys.value : new Date().getFullYear();
+          var mm = dtData[mid] || {};
+          for (var i = 0; i < 12; i++) {
+            var mk = yr + "-" + (i < 9 ? "0" : "") + (i + 1);
+            var st = mm[mk] || "not_paid";
+            var bx = document.createElement("div"); bx.className = "dt-month-box " + st; bx.textContent = ms[i]; g.appendChild(bx);
+          }
+        }
+
+        window.dtOpenModal = dtOpenModal;
+
+        // Also monitor for db.members changes
+        var origRenderAll = window.renderAllComponents;
+        if (typeof origRenderAll === "function") {
+          window.renderAllComponents = function() {
+            origRenderAll();
+            setTimeout(function() {
+              dtLoadMembers().then(function() {
+                dtFillFilters();
+                dtRender();
+              });
+            }, 50);
+          };
+        }
+
+        document.addEventListener("turbo:load", function() { setTimeout(dtInit, 100); });
+      })();
+    </script>
+    <script>
+      (function(){
+        var orig = window.location.reload.bind(window.location);
+        window.location.reload = function() {
+          Turbo.visit(window.location.href, { action: "replace" });
+        };
+      })();
+    </script>
   </body>
 </html>
 

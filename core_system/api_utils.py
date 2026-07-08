@@ -7,7 +7,7 @@ def member_to_json(member):
         "member_id": getattr(member, "member_id_PK", None),
         "full_name": member.full_name,
         "employee_id": member.employee_id or "",
-        "department": member.department or "",
+        "department": member.department_id_FK.name if member.department_id_FK else (member.department or ""),
         "position": member.position or "",
         "contact_number": member.contact_number,
         "email": member.email,

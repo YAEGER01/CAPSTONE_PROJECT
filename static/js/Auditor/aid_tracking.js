@@ -131,6 +131,21 @@
       renderCards();
       loadHistoryPosts();
       showToast((msg.member_name || "A post") + " has been finished.", false);
+    } else if (msg.type === "aid_post_finish_requested") {
+      var fp = state.posts.find(function (x) { return x.post_id === msg.post_id; });
+      if (fp) {
+        fp.finish_status = "pending_approval";
+      }
+      renderCards();
+      highlightSelectedCard();
+    } else if (msg.type === "aid_post_finish_rejected") {
+      var rp = state.posts.find(function (x) { return x.post_id === msg.post_id; });
+      if (rp) {
+        rp.finish_status = "rejected";
+      }
+      renderCards();
+      highlightSelectedCard();
+      showToast((msg.member_name || "A post") + " finish was rejected." + (msg.remarks ? " Reason: " + msg.remarks : ""), true);
     } else if (msg.type === "pending_queue_updated") {
       showToast((msg.queue_type || "Queue") + ": " + msg.count + " pending.", false);
     } else if (msg.type === "dashboard_refresh") {
@@ -243,6 +258,24 @@
     if (post.collection_rate >= 100) rateColor = "#1b5e20";
     else if (post.collection_rate >= 50) rateColor = "#fbc02d";
 
+    var finishStatus = post.finish_status || "";
+    var isPendingApproval = finishStatus === "pending_approval";
+    var isRejected = finishStatus === "rejected";
+
+    var finishBadgeHtml = "";
+    if (isPendingApproval) {
+      finishBadgeHtml = '<div style="margin-top:6px;margin-bottom:6px;"><span style="background:#fff8e1;color:#f57c00;border:1px solid #fbc02d;padding:3px 10px;border-radius:6px;font-size:0.68rem;font-weight:600;">⏳ Pending President Approval</span></div>';
+    } else if (isRejected) {
+      finishBadgeHtml = '<div style="margin-top:6px;margin-bottom:6px;"><span style="background:#ffebee;color:#c62828;border:1px solid #ef5350;padding:3px 10px;border-radius:6px;font-size:0.68rem;font-weight:600;">❌ Finish Rejected</span></div>';
+    }
+
+    var canFinish = post.collection_rate >= 70 && !isPendingApproval;
+    var finishDisabled = canFinish ? "" : " disabled";
+    var finishStyle = canFinish
+      ? "opacity:1;cursor:pointer;"
+      : "opacity:0.4;cursor:not-allowed;";
+    var finishBtnText = isRejected ? "Retry Finish Request" : "Mark as Finished";
+
     card.innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
       "<div>" +
@@ -256,6 +289,7 @@
       '<div style="font-weight:600;font-size:1rem;color:#263238;margin-bottom:8px;">' +
       escapeHtml(post.member_name || "Unknown Member") +
       "</div>" +
+      finishBadgeHtml +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.82rem;color:#546e7a;margin-bottom:10px;">' +
       "<div><strong>Amount:</strong> " +
       formatMoneyPHP(post.amount) +
@@ -282,9 +316,17 @@
       formatMoneyPHP(post.total_collected) +
       " of " +
       formatMoneyPHP(post.total_expected) +
-      "</div>";
+      "</div>" +
+      '<button class="btn-finish-post" data-post-id="' +
+      post.post_id +
+      '" style="margin-top:10px;padding:4px 12px;font-size:0.7rem;border-radius:8px;border:1px solid #e53935;background:#fff;color:#e53935;font-weight:600;font-family:\'Poppins\',sans-serif;transition:all 0.2s;width:auto;' +
+      finishStyle +
+      '"' +
+      finishDisabled +
+      ">" + escapeHtml(finishBtnText) + "</button>";
 
     card.addEventListener("click", function (e) {
+      if (e.target.classList.contains("btn-finish-post")) return;
       selectPost(post.post_id);
     });
 
@@ -317,6 +359,53 @@
     state.posts.forEach(function (post) {
       container.appendChild(renderCard(post));
     });
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".btn-finish-post");
+    if (btn) {
+      var postId = parseInt(btn.dataset.postId);
+      handleFinishPost(postId);
+    }
+  });
+
+  async function handleFinishPost(postId) {
+    var post = state.posts.find(function (p) { return p.post_id === postId; });
+    if (!post) return;
+
+    var skipRemaining = false;
+
+    if (post.collection_rate < 100) {
+      var result = await Swal.fire({
+        title: "Incomplete Collection",
+        text: "Only " + post.collection_rate + "% has been collected. Remaining contributions will be auto-skipped upon President approval. Continue?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Yes, submit for approval",
+        cancelButtonText: "Cancel",
+        reverseButtons: true,
+        customClass: {
+          popup: "swal-custom-animated",
+        },
+      });
+      if (!result.isConfirmed) return;
+      skipRemaining = true;
+    }
+
+    try {
+      var fd = new FormData();
+      fd.append("post_id", postId);
+      if (skipRemaining) {
+        fd.append("skip_remaining", "true");
+      }
+      await postForm(FINISH_URL, fd);
+      post.finish_status = "pending_approval";
+      renderCards();
+      highlightSelectedCard();
+      showToast("Finish request submitted for President approval.", false);
+    } catch (e) {
+      showToast(e.message || "Failed to submit finish request.", true);
+    }
   }
 
   function filterPosts() {
@@ -738,7 +827,7 @@
       "border: 2px solid #1b5e20 !important;" +
       "box-shadow: 0 4px 20px rgba(27,94,32,0.25) !important;" +
       "}" +
-      ".btn-pay, .btn-skip, .btn-notify {" +
+      ".btn-pay, .btn-skip {" +
       "padding: 4px 12px;" +
       "border-radius: 8px;" +
       "border: 1px solid #cfdccc;" +
@@ -751,7 +840,6 @@
       "}" +
       ".btn-pay:hover { background: #1b5e20; color: #fff; border-color: #1b5e20; }" +
       ".btn-skip:hover { background: #757575; color: #fff; border-color: #757575; }" +
-      ".btn-notify:hover { background: #fbc02d; color: #1b1b1b; border-color: #fbc02d; }" +
       ".btn-pay:disabled:hover, .btn-skip:disabled:hover { background: #fff; color: inherit; }";
     document.head.appendChild(style);
   }
@@ -788,7 +876,7 @@
     selectHistoryPost: selectHistoryPost,
   };
 
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("turbo:load", function () {
     addCardStyles();
     bindFilters();
     connectWebSocket();
@@ -825,5 +913,15 @@
     if (historySearch) historySearch.addEventListener("input", filterHistoryPosts);
     var historyType = getEl("historyTypeFilter");
     if (historyType) historyType.addEventListener("change", filterHistoryPosts);
+
+    window._auditAidObservers = [observer];
+    if (historyObserver) window._auditAidObservers.push(historyObserver);
+  });
+
+  document.addEventListener("turbo:before-cache", function () {
+    if (window._auditAidObservers) {
+      window._auditAidObservers.forEach(function (o) { o.disconnect(); });
+      window._auditAidObservers = null;
+    }
   });
 })();

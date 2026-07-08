@@ -90,12 +90,7 @@ async function bootMedicalAidTable() {
   }
 }
 
-// Load once DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", bootMedicalAidTable);
-} else {
-  bootMedicalAidTable();
-}
+document.addEventListener("turbo:load", bootMedicalAidTable);
 
 // ---------- Multi-file management for Medical Aid ----------
 let medFiles = [];
@@ -780,12 +775,7 @@ window.resetDeathAidForm = resetDeathAidForm;
 window.openDeathAidScenarioPicker = openDeathAidScenarioPicker;
 window.showDeathForm = showDeathForm;
 
-// Ensure death table loads on page open
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", bootDeathAidTable);
-} else {
-  bootDeathAidTable();
-}
+document.addEventListener("turbo:load", bootDeathAidTable);
 
 // Expose handlers globally for inline form attribute
 window.handleMedicalSubmit = handleMedicalSubmit;

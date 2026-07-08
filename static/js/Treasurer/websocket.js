@@ -104,7 +104,11 @@
     }
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  document.addEventListener("turbo:load", function () {
     connectWebSocket();
+  });
+  document.addEventListener("turbo:before-cache", function () {
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
   });
 })();

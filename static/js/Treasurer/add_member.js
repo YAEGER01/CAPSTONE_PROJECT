@@ -207,6 +207,9 @@
         window.toggleReceiptFieldsVisibility();
 
       showToast("Streamlined Member Profile logged successfully!", false);
+      if (data.email_sent && email) {
+        showToast(`Welcome email sent to ${email}`, false);
+      }
     } catch (err) {
       showToast(
         "Network/server error while handling your execution request.",
@@ -223,7 +226,7 @@
     form.addEventListener("submit", handleSubmit);
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("turbo:load", init);
 
   // Expose visibility handlers globally for the HTML onchange attributes
   window.togglePaymentSectionVisibility = function () {

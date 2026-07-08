@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     "core_system",
     "django.contrib.staticfiles",
     "channels",
+    "django_browser_reload",
 ]
 
 MIDDLEWARE = [
@@ -31,6 +32,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_browser_reload.middleware.BrowserReloadMiddleware",
 ]
 
 ROOT_URLCONF = "caufa_portal.urls"
@@ -113,6 +115,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Authentication Redirect routing boundaries
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+# -------------------------
+# Django Email Settings (read from .env)
+# -------------------------
+EMAIL_BACKEND = _os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = _os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(_os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = _os.getenv("EMAIL_USE_TLS", "true").lower() in {"1", "true", "yes"}
+EMAIL_HOST_USER = _os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = _os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or "noreply@isucaufa.org"
 
 # -------------------------
 # Gmail SMTP (for notifications)

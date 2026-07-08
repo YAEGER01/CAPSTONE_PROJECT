@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("turbo:load", () => {
   const toggleButton = document.querySelector("[data-nav-toggle]");
   const navLinks = document.querySelector("[data-nav-links]");
 

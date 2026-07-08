@@ -556,22 +556,6 @@ class AidTrackingActionTests(TestCase):
         self.assertTrue(self.contribution.is_manually_overridden)
         self.assertEqual(self.contribution.notes, "On leave")
 
-    def test_send_notification(self):
-        self._login_auditor()
-        self.member.email = "member@example.com"
-        self.member.save()
-
-        response = self.client.post(
-            "/api/auditor/aid-post-member-notify/",
-            {"contribution_id": str(self.contribution.contribution_id_PK)},
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertTrue(data["ok"])
-
-        notifs = Notification.objects.filter(recipient_id=self.member.member_id_PK)
-        self.assertGreaterEqual(notifs.count(), 1)
-
     def test_unauthenticated_requests_rejected(self):
         response = self.client.get("/api/auditor/approved-aid-posts/")
         self.assertNotEqual(response.status_code, 200)

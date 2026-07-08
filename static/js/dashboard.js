@@ -1,4 +1,6 @@
-document.addEventListener("DOMContentLoaded", () => {
+let _popStateHandler = null;
+
+document.addEventListener("turbo:load", () => {
   const sidebar = document.getElementById("sidebar");
   const toggleBtn = document.getElementById("sidebar-toggle-btn");
   const folderTrigger = document.getElementById("folder-trigger");
@@ -161,12 +163,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Handle browser back/forward buttons
-  window.addEventListener("popstate", (e) => {
-    const module =
-      e.state && e.state.module ? e.state.module : getPersistedModule();
+  if (_popStateHandler) window.removeEventListener("popstate", _popStateHandler);
+  _popStateHandler = function (e) {
+    const module = e.state && e.state.module ? e.state.module : getPersistedModule();
     currentModule = null;
     loadModule(module, false);
-  });
+  };
+  window.addEventListener("popstate", _popStateHandler);
 });
 
 // ==========================================================================

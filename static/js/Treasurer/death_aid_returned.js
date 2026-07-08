@@ -332,5 +332,5 @@
     }
   }
 
-  window.addEventListener("DOMContentLoaded", init);
+  window.addEventListener("turbo:load", init);
 })();

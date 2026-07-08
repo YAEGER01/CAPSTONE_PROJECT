@@ -21,7 +21,8 @@ function updatePresidentNotifDots() {
     const paymentsCount = presidentialQueueCache.length || 0;
     const aidsCount =
       (typeof db !== "undefined" && db.pendingAids && db.pendingAids.length) || 0;
-    const total = paymentsCount + aidsCount;
+    const finishCount = (typeof window.__finishApprovalCount !== "undefined" ? window.__finishApprovalCount : 0) || 0;
+    const total = paymentsCount + aidsCount + finishCount;
     dot.style.display = total > 0 ? "inline-flex" : "none";
     dot.textContent = total > 0 ? total : "";
   }
@@ -183,7 +184,7 @@ function selectPaymentToAudit(id) {
 
 let presidentialQueueCache = [];
 
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("turbo:load", function () {
   updatePresidentNotifDots();
   loadPresidentialQueue();
   loadPresidentialAidsQueue();

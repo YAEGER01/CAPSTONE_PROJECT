@@ -40,8 +40,8 @@ from core_system.services.status_service import (
     set_returned_for_revision,
     set_president_decision,
 )
-from core_system.services.notifications import queue_and_send_member_notification
 from core_system.shared_view_utils import (
+    MODEL_MAP,
     PAYMENT_SOURCE_LABELS,
     _payment_item_to_json,
     _payment_type_label,
@@ -1024,6 +1024,7 @@ def auditor_approved_aid_posts(request: HttpRequest):
             "total_expected": str(post.total_expected),
             "total_collected": str(post.total_collected),
             "collection_rate": collection_rate,
+            "finish_status": post.finish_status or "",
             "status": archive.status if archive else "",
             "amount": str(archive.amount) if archive else "0",
             "created_at": post.created_at.isoformat() if post.created_at else "",
@@ -1197,56 +1198,15 @@ def auditor_aid_post_member_skip(request: HttpRequest):
 
 
 @require_POST
-def auditor_aid_post_member_notify(request: HttpRequest):
-    guard = require_role(request, role="Auditor")
-    if guard is not None:
-        return guard
-
-    contribution_id = (request.POST.get("contribution_id") or "").strip()
-
-    if not contribution_id:
-        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
-
-    try:
-        contribution = Contribution.objects.select_related(
-            "aid_tracking_post_id_FK",
-            "member_id_FK",
-        ).get(contribution_id_PK=int(contribution_id))
-    except (ValueError, Contribution.DoesNotExist):
-        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
-
-    member = contribution.member_id_FK
-    post = contribution.aid_tracking_post_id_FK
-    aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
-
-    message = (
-        f"Dear {member.full_name},\n\n"
-        f"This is a reminder regarding your contribution for the {aid_label} claim "
-        f"for {post.archive_id_FK.member_name if post.archive_id_FK else 'a member'} "
-        f"(Month: {post.target_month}).\n\n"
-        f"Expected Amount: PHP {contribution.expected_amount}\n"
-        f"Status: {contribution.status}\n\n"
-        f"Please settle your contribution at the Treasurer's office at your earliest convenience."
-    )
-
-    queue_and_send_member_notification(
-        member=member,
-        message=message,
-        notification_type=f"{aid_label} Contribution Reminder",
-    )
-
-    return JsonResponse({
-        "ok": True,
-        "message": f"Notification sent to {member.full_name}.",
-    })
-
-
-@require_POST
 @transaction.atomic
 def auditor_aid_post_finish(request: HttpRequest):
     guard = require_role(request, role="Auditor")
     if guard is not None:
         return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
 
     post_id = (request.POST.get("post_id") or "").strip()
     skip_remaining = (request.POST.get("skip_remaining") or "").strip().lower() == "true"
@@ -1259,40 +1219,42 @@ def auditor_aid_post_finish(request: HttpRequest):
     except (ValueError, AidTrackingPost.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Active post not found."}, status=404)
 
-    if skip_remaining:
-        Contribution.objects.filter(
-            aid_tracking_post_id_FK=post,
-            status="NOT_PAID",
-        ).update(
-            status="SKIPPED",
-            is_manually_overridden=True,
-            paid_amount=0,
-        )
-        totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
-            total_collected=Sum("paid_amount"),
-        )
-        post.total_collected = totals["total_collected"] or 0
+    if post.finish_status == "pending_approval":
+        return JsonResponse({"ok": False, "error": "A finish request is already pending President approval."}, status=400)
 
-    post.is_active = False
-    post.save(update_fields=["is_active", "total_collected"])
+    post.finish_status = "pending_approval"
+    post.finish_skip_remaining = skip_remaining
+    post.save(update_fields=["finish_status", "finish_skip_remaining"])
+
+    GlobalAuditTrail.objects.create(
+        table_name="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="FINISH_REQUESTED",
+        actor_type=getattr(officer, "role", "Auditor"),
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        new_values={
+            "finish_status": "pending_approval",
+            "finish_skip_remaining": skip_remaining,
+        },
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
 
     archive = post.archive_id_FK
-    if archive is not None:
-        if archive.transaction_type == "death_aid":
-            DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
-        elif archive.transaction_type == "medical_aid":
-            MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+    member_name = archive.member_name if archive else ""
 
     channel_layer = get_channel_layer()
     payload = {
-        "type": "aid_post_finished",
+        "type": "aid_post_finish_requested",
         "post_id": post.post_id_PK,
-        "member_name": post.archive_id_FK.member_name if post.archive_id_FK else "",
+        "member_name": member_name,
     }
     async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
     async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("president_dashboard", payload)
+    _broadcast_to_group("auditor_dashboard", {"type": "data_changed", "section": "aids"})
 
-    return JsonResponse({"ok": True, "message": "Post marked as finished."})
+    return JsonResponse({"ok": True, "message": "Finish request submitted for President approval."})
 
 
 @require_GET
@@ -1334,3 +1296,88 @@ def auditor_aid_post_history(request: HttpRequest):
         })
 
     return JsonResponse({"ok": True, "posts": items})
+
+
+# ==========================================================================
+# AUDITED LOGS — Official Audited Logs Registry
+# ==========================================================================
+
+TRANSACTION_TYPE_LABELS = {
+    "membership_fee": "Membership Fee",
+    "monthly_dues": "Monthly Dues",
+    "medical_aid": "Medical Aid",
+    "death_aid": "Death Aid",
+}
+
+
+@require_GET
+def auditor_audited_logs(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    from collections import defaultdict
+
+    qs = TransactionVerification.objects.exclude(
+        verification_status="Pending Verification"
+    ).exclude(
+        verified_at__isnull=True
+    ).select_related(
+        "auditor_id_FK",
+        "returned_by_auditor_id_FK",
+        "president_id_FK",
+    ).order_by("-verified_at")
+
+    table_ids = defaultdict(set)
+    for tv in qs:
+        table_ids[tv.table_name].add(tv.record_id)
+
+    related_map = {}
+    for tn, ids in table_ids.items():
+        model_cls = MODEL_MAP.get(tn)
+        if model_cls is None:
+            continue
+        pk_field = model_cls._meta.pk.name
+        records = model_cls.objects.select_related("member_id_FK").filter(
+            **{f"{pk_field}__in": list(ids)}
+        )
+        for r in records:
+            related_map[(tn, getattr(r, pk_field))] = r
+
+    items = []
+    for tv in qs:
+        key = (tv.table_name, tv.record_id)
+        record = related_map.get(key)
+
+        member_name = ""
+        amount = ""
+        if record:
+            if hasattr(record, "member_id_FK") and record.member_id_FK:
+                member_name = record.member_id_FK.full_name
+            if hasattr(record, "amount"):
+                amount = str(record.amount)
+            elif hasattr(record, "requested_amount"):
+                amount = str(record.requested_amount)
+            elif hasattr(record, "benefit_amount"):
+                amount = str(record.benefit_amount)
+
+        items.append({
+            "verification_id": tv.verification_id,
+            "verified_at": tv.verified_at.isoformat() if tv.verified_at else "",
+            "table_name": tv.table_name,
+            "record_id": tv.record_id,
+            "transaction_type": TRANSACTION_TYPE_LABELS.get(tv.table_name, tv.table_name),
+            "member_name": member_name,
+            "amount": amount,
+            "result": tv.verification_status,
+            "remarks": tv.auditor_remarks or "",
+            "returned_reason": tv.returned_reason or "",
+            "has_evidence": bool(tv.evidence_file_path),
+            "evidence_file_path": tv.evidence_file_path or "",
+            "auditor_name": tv.auditor_id_FK.full_name if tv.auditor_id_FK else "",
+            "president_name": tv.president_id_FK.full_name if tv.president_id_FK else "",
+            "approved_at": tv.approved_at.isoformat() if tv.approved_at else "",
+            "return_count": tv.return_count or 0,
+        })
+
+    return JsonResponse({"ok": True, "logs": items})

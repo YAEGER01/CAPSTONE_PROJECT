@@ -23,11 +23,41 @@ class OfficerUser(models.Model):
         db_table = "OFFICER_USER"
 
 
+class Department(models.Model):
+    department_id_PK = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=50, unique=True)
+    head_officer_id_FK = models.ForeignKey(
+        OfficerUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="head_officer_id_FK",
+        related_name="headed_departments",
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "DEPARTMENT"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Member(models.Model):
     member_id_PK = models.AutoField(primary_key=True)
     full_name = models.CharField(max_length=255)
     employee_id = models.CharField(max_length=50, null=True, blank=True)
     department = models.CharField(max_length=100, null=True, blank=True)
+    department_id_FK = models.ForeignKey(
+        Department,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="department_id_FK",
+        related_name="members",
+    )
     position = models.CharField(max_length=100, null=True, blank=True)
     contact_number = models.CharField(max_length=50, null=True, blank=True)
     email = models.CharField(max_length=255, null=True, blank=True)
@@ -91,6 +121,28 @@ class Notification(models.Model):
     message = models.TextField()
     delivery_status = models.CharField(max_length=50)
     sent_at = models.DateTimeField(auto_now_add=True)
+
+    category = models.CharField(
+        max_length=20, null=True, blank=True,
+        help_text="dues, contribution, or general",
+    )
+    related_post_id_FK = models.ForeignKey(
+        "AidTrackingPost",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        db_column="related_post_id_FK",
+        related_name="notifications",
+    )
+    overdue_bucket = models.CharField(
+        max_length=10, null=True, blank=True,
+        help_text="1d, 3d, 5d, 7d, 15d+",
+    )
+    channel = models.CharField(
+        max_length=20, null=True, blank=True,
+        help_text="email, sms, push",
+    )
+    scheduled_date = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(null=True, blank=True)
 
     class Meta:
         db_table = "NOTIFICATION"
@@ -519,6 +571,7 @@ class TransactionVerification(models.Model):
     )
     returned_reason = models.TextField(null=True, blank=True)
     return_count = models.IntegerField(default=0)
+    deposit_slip_reference = models.CharField(max_length=255, null=True, blank=True)
 
     president_id_FK = models.ForeignKey(
         OfficerUser,
@@ -555,6 +608,7 @@ class TransactionArchive(models.Model):
 
     status = models.CharField(max_length=50)
     payment_method = models.CharField(max_length=50, null=True, blank=True)
+    fiscal_term = models.CharField(max_length=50, null=True, blank=True)
 
     release_reference = models.CharField(max_length=100, null=True, blank=True)
     released_by_user_id_FK = models.ForeignKey(
@@ -600,6 +654,11 @@ class AidTrackingPost(models.Model):
     total_collected = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True)
+
+    finish_status = models.CharField(max_length=20, blank=True, default="",
+        help_text="'' = no request, 'pending_approval' = awaiting President, 'rejected' = President rejected")
+    finish_skip_remaining = models.BooleanField(default=False,
+        help_text="Whether to auto-skip unpaid contributions when President approves")
 
     created_by_user_id_FK = models.ForeignKey(
         OfficerUser,
@@ -685,6 +744,27 @@ class GlobalAuditTrail(models.Model):
         indexes = [
             models.Index(fields=["table_name", "record_id", "timestamp"]),
         ]
+
+
+
+class SystemSetting(models.Model):
+    setting_id_PK = models.AutoField(primary_key=True)
+    setting_key = models.CharField(max_length=100, unique=True)
+    setting_value = models.TextField()
+    updated_by_id_FK = models.ForeignKey(
+        OfficerUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="updated_by_id_FK",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "SYSTEM_SETTING"
+
+    def __str__(self):
+        return f"{self.setting_key} = {self.setting_value}"
 
 
 class SensitiveReadLog(models.Model):

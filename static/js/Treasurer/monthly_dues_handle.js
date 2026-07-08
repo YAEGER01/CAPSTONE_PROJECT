@@ -713,5 +713,5 @@ function getCookie(name) {
     }, 2000);
   }
 
-  window.addEventListener("DOMContentLoaded", init);
+  window.addEventListener("turbo:load", init);
 })();

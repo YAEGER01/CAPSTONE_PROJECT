@@ -234,6 +234,7 @@
     pendingPayments: [],
     pendingAids: [],
     pendingMembershipFees: [],
+    auditedLogs: [],
     selectedPaymentId: "",
     selectedAidId: "",
     selectedMembershipFeeId: "",
@@ -888,6 +889,7 @@
     renderPaymentsTable();
     renderAidsTable();
     renderMembershipFeesTable();
+    loadAuditedLogs();
 
     const totalPending = state.pendingPayments.length + state.pendingAids.length;
     const dot = getEl("audit-folder-dot");
@@ -907,6 +909,79 @@
       aDot.textContent = state.pendingAids.length;
       aDot.classList.toggle("show", state.pendingAids.length > 0);
     }
+  }
+
+  /* === AUDITED LOGS === */
+  state.auditedLogs = [];
+
+  async function loadAuditedLogs() {
+    try {
+      const data = await getJSON("/api/auditor/audited-logs/");
+      state.auditedLogs = data.logs || [];
+    } catch (e) {
+      state.auditedLogs = [];
+    }
+    applyAuditLogFilters();
+  }
+
+  function applyAuditLogFilters() {
+    const searchVal = (getEl("auditLogSearch")?.value || "").toLowerCase().trim();
+    const resultVal = (getEl("auditLogResultFilter")?.value || "").trim();
+    const dateFrom = getEl("auditLogDateFrom")?.value || "";
+    const dateTo = getEl("auditLogDateTo")?.value || "";
+
+    var filtered = state.auditedLogs.filter(function (log) {
+      if (searchVal && !log.member_name.toLowerCase().includes(searchVal)) return false;
+      if (resultVal && (log.result || "").toLowerCase().indexOf(resultVal.toLowerCase()) === -1) return false;
+      if (dateFrom && log.verified_at && log.verified_at.slice(0, 10) < dateFrom) return false;
+      if (dateTo && log.verified_at && log.verified_at.slice(0, 10) > dateTo) return false;
+      return true;
+    });
+
+    renderAuditedLogs(filtered);
+  }
+
+  function renderAuditedLogs(logs) {
+    var tbody = document.querySelector("#auditedLogsTable tbody");
+    if (!tbody) return;
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#757575;padding:24px;">No audited log entries found.</td></tr>';
+      return;
+    }
+
+    var html = "";
+    for (var i = 0; i < logs.length; i++) {
+      var log = logs[i];
+      var dateLabel = log.verified_at ? new Date(log.verified_at).toLocaleString() : "—";
+      var amountLabel = log.amount ? formatMoneyPHP(log.amount) : "—";
+      var resultBadge = (function (s) {
+        var lower = (s || "").toLowerCase();
+        if (lower.indexOf("verified") !== -1 || lower.indexOf("approved") !== -1 || lower.indexOf("released") !== -1)
+          return '<span style="background:rgba(27,94,32,0.1);color:#1b5e20;padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600;">' + escapeHtml(s) + '</span>';
+        if (lower.indexOf("returned") !== -1 || lower.indexOf("rejected") !== -1)
+          return '<span style="background:rgba(229,57,53,0.1);color:#e53935;padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600;">' + escapeHtml(s) + '</span>';
+        return '<span style="background:rgba(158,158,158,0.1);color:#757575;padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600;">' + escapeHtml(s) + '</span>';
+      })(log.result);
+      var evidenceIcon = log.has_evidence
+        ? '<span style="color:#1b5e20;font-size:1.1rem;cursor:pointer;" title="Evidence on file">&#128206;</span>'
+        : '<span style="color:#bdbdbd;font-size:0.78rem;">None</span>';
+
+      html += "<tr>";
+      html += "<td style='white-space:nowrap;font-size:0.78rem;'>" + escapeHtml(dateLabel) + "</td>";
+      html += "<td>" + escapeHtml(log.transaction_type || "") + "</td>";
+      html += "<td><strong>" + escapeHtml(log.member_name || "") + "</strong></td>";
+      html += "<td style='font-weight:600;'>" + amountLabel + "</td>";
+      html += "<td>" + resultBadge + "</td>";
+      html += "<td style='max-width:220px;font-size:0.78rem;'>" + escapeHtml(log.remarks || "") + "</td>";
+      html += "<td style='font-size:0.78rem;line-height:1.6;'>";
+      html += "<div><span style='color:#1b5e20;font-weight:600;'>&#10003;</span> " + escapeHtml(log.auditor_name || "") + "</div>";
+      html += "<div><span style='color:#1565c0;font-weight:600;'>&#10003;</span> " + escapeHtml(log.president_name || "\u2014") + "</div>";
+      html += "</td>";
+      html += "<td style='text-align:center;'>" + evidenceIcon + "</td>";
+      html += "</tr>";
+    }
+    tbody.innerHTML = html;
   }
 
   async function handlePaymentSubmit(e) {
@@ -1452,6 +1527,12 @@
     });
 
     refreshAll();
+    loadAuditedLogs();
+
+    getEl("auditLogSearch")?.addEventListener("input", applyAuditLogFilters);
+    getEl("auditLogResultFilter")?.addEventListener("change", applyAuditLogFilters);
+    getEl("auditLogDateFrom")?.addEventListener("change", applyAuditLogFilters);
+    getEl("auditLogDateTo")?.addEventListener("change", applyAuditLogFilters);
   }
 
   // Global handlers for inline onclick attributes
@@ -1515,5 +1596,5 @@
     );
   };
 
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("turbo:load", init);
 })();

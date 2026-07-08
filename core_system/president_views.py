@@ -2,6 +2,7 @@ import json
 from typing import Any, Dict, List
 
 from django.db import transaction
+from django.db.models import Sum
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -44,6 +45,10 @@ from core_system.shared_view_utils import (
     archive_transaction,
     _broadcast_pending_counts,
     _broadcast_to_group,
+)
+from core_system.services.compliance import (
+    dues_compliance_summary,
+    active_members_qs,
 )
 
 
@@ -1169,9 +1174,205 @@ def president_kpi_counts(request: HttpRequest):
     ).count()
     total_approvals_count = payment_decisions + aid_decisions
 
+    today = timezone.localdate()
+    dept_summary = dues_compliance_summary(today.year, today.month)
+    total_active = sum(d["total_members"] for d in dept_summary)
+    total_paid = sum(d["paid_count"] for d in dept_summary)
+    total_unpaid = sum(d["unpaid_count"] for d in dept_summary)
+    overall_pct = round(total_paid / total_active * 100, 1) if total_active else 0.0
+    low_depts = [
+        {"id": d["department_id"], "name": d["department_name"], "pct": d["percentage"]}
+        for d in dept_summary if d["percentage"] < 70
+    ]
+    sorted_depts = sorted(dept_summary, key=lambda d: d["percentage"], reverse=True)
+    top_depts = [{"name": d["department_name"], "pct": d["percentage"]} for d in sorted_depts[:3]]
+    bottom_depts = [{"name": d["department_name"], "pct": d["percentage"]} for d in sorted_depts[-3:]] if len(sorted_depts) >= 3 else []
+
     return JsonResponse({
         "ok": True,
         "verified_dues_count": verified_dues_count,
         "verified_claims_count": verified_claims_count,
         "total_approvals_count": total_approvals_count,
+        "total_active_members": total_active,
+        "overall_compliance_percentage": overall_pct,
+        "total_paid": total_paid,
+        "total_unpaid": total_unpaid,
+        "departments_below_threshold": low_depts,
+        "top_performing_departments": top_depts,
+        "bottom_performing_departments": bottom_depts,
     })
+
+
+# ============================================================================
+# PRESIDENT: AID TRACKING POST FINISH APPROVAL
+# ============================================================================
+
+
+@require_GET
+def president_pending_finish_requests(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    posts = AidTrackingPost.objects.filter(
+        finish_status="pending_approval", is_active=True
+    ).select_related(
+        "archive_id_FK",
+        "archive_id_FK__member_id_FK",
+        "created_by_user_id_FK",
+    ).all()
+
+    items = []
+    for post in posts:
+        archive = post.archive_id_FK
+        member = archive.member_id_FK if archive else None
+        aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+        collection_rate = 0
+        if post.total_expected > 0:
+            collection_rate = round(float(post.total_collected) / float(post.total_expected) * 100, 1)
+
+        items.append({
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "aid_label": aid_label,
+            "member_name": archive.member_name if archive else "",
+            "member_id": member.member_id_PK if member else None,
+            "target_month": post.target_month,
+            "total_expected": str(post.total_expected),
+            "total_collected": str(post.total_collected),
+            "collection_rate": collection_rate,
+            "skip_remaining": post.finish_skip_remaining,
+            "status": archive.status if archive else "",
+            "amount": str(archive.amount) if archive else "0",
+            "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
+            "created_at": post.created_at.isoformat() if post.created_at else "",
+        })
+
+    return JsonResponse({"ok": True, "posts": items})
+
+
+@require_POST
+@transaction.atomic
+def president_approve_aid_post_finish(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    president_id = request.session.get("officer_id")
+    if president_id is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+    try:
+        president = OfficerUser.objects.get(user_id_PK=int(president_id))
+    except OfficerUser.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Officer not found."}, status=404)
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id), is_active=True, finish_status="pending_approval")
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Pending finish request not found."}, status=404)
+
+    if post.finish_skip_remaining:
+        Contribution.objects.filter(
+            aid_tracking_post_id_FK=post,
+            status="NOT_PAID",
+        ).update(
+            status="SKIPPED",
+            is_manually_overridden=True,
+            paid_amount=0,
+        )
+        totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
+            total_collected=Sum("paid_amount"),
+        )
+        post.total_collected = totals["total_collected"] or 0
+
+    post.finish_status = "approved"
+    post.is_active = False
+    post.save(update_fields=["finish_status", "is_active", "total_collected"])
+
+    archive = post.archive_id_FK
+    if archive is not None:
+        if archive.transaction_type == "death_aid":
+            DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
+        elif archive.transaction_type == "medical_aid":
+            MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="FINISH_APPROVED",
+        actor=president,
+        new={"finish_status": "approved", "is_active": False},
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    member_name = archive.member_name if archive else ""
+    channel_layer = get_channel_layer()
+    payload = {
+        "type": "aid_post_finished",
+        "post_id": post.post_id_PK,
+        "member_name": member_name,
+    }
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("president_dashboard", payload)
+
+    return JsonResponse({"ok": True, "message": "Finish request approved. Post moved to history."})
+
+
+@require_POST
+@transaction.atomic
+def president_reject_aid_post_finish(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    president_id = request.session.get("officer_id")
+    if president_id is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+    try:
+        president = OfficerUser.objects.get(user_id_PK=int(president_id))
+    except OfficerUser.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Officer not found."}, status=404)
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    remarks = (request.POST.get("remarks") or "").strip()
+
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id), is_active=True, finish_status="pending_approval")
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Pending finish request not found."}, status=404)
+
+    post.finish_status = "rejected"
+    post.save(update_fields=["finish_status"])
+
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="FINISH_REJECTED",
+        actor=president,
+        new={"finish_status": "rejected"},
+        notes=remarks,
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    archive = post.archive_id_FK
+    member_name = archive.member_name if archive else ""
+    channel_layer = get_channel_layer()
+    payload = {
+        "type": "aid_post_finish_rejected",
+        "post_id": post.post_id_PK,
+        "member_name": member_name,
+        "remarks": remarks,
+    }
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("president_dashboard", payload)
+
+    return JsonResponse({"ok": True, "message": "Finish request rejected. Post returned to active state."})
