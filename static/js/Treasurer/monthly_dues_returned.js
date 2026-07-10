@@ -127,9 +127,104 @@
     return data.records || [];
   }
 
+  function mdReturnedGetChecked(id) {
+    var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+    for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+    return vals;
+  }
+
+  function mdReturnedGetAllValues(id) {
+    var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+    return vals;
+  }
+
+  function mdReturnedToggleAll(containerId, checked) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var cbs = container.querySelectorAll('input[type="checkbox"]');
+    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+    mdReturnedApplyFilter();
+  }
+
+  function mdReturnedSyncAll(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var cbs = container.querySelectorAll('input[type="checkbox"]');
+    var allBox = cbs.length > 0 ? cbs[0] : null;
+    if (!allBox) return;
+    var allChecked = true;
+    for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+    allBox.checked = allChecked;
+  }
+
+  function mdReturnedApplyFilter() {
+    window.__renderReturnedMonthlyDuesList(window.__returnedMonthlyDuesRecords);
+  }
+
+  function mdReturnedToggleFilter() {
+    var card = document.getElementById("mdReturnedFilterCard");
+    if (!card) return;
+    var opening = card.style.display === "none";
+    card.style.display = opening ? "block" : "none";
+    if (opening) {
+      mdReturnedFillFilters();
+      var handler = function(e) {
+        var btn = document.querySelector('[onclick="mdReturnedToggleFilter()"]');
+        if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
+        document.removeEventListener("click", handler);
+        card.style.display = "none";
+        mdReturnedApplyFilter();
+      };
+      setTimeout(function() { document.addEventListener("click", handler); }, 0);
+    }
+  }
+
+  function mdReturnedFillFilters() {
+    var stats = {}, sources = {}, i, r, arr = window.__returnedMonthlyDuesRecords || [];
+    for (i = 0; i < arr.length; i++) {
+      r = arr[i];
+      if (r.payment_status) stats[r.payment_status] = 1;
+      var s = getDuesSourceMethod(r);
+      if (s) sources[s] = 1;
+    }
+    var sk = Object.keys(stats).sort(), srk = Object.keys(sources).sort();
+    var sc = document.getElementById("mdReturnedStatusCheckboxes");
+    if (sc) {
+      sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="mdReturnedToggleAll(\'mdReturnedStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+      for (i = 0; i < sk.length; i++) sc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(sk[i]) + '" checked onchange="mdReturnedSyncAll(\'mdReturnedStatusCheckboxes\');mdReturnedApplyFilter()"> <span>' + escapeHtml(sk[i]) + '</span></label>';
+    }
+    var src = document.getElementById("mdReturnedSourceCheckboxes");
+    if (src) {
+      src.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="mdReturnedToggleAll(\'mdReturnedSourceCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+      for (i = 0; i < srk.length; i++) src.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(srk[i]) + '" checked onchange="mdReturnedSyncAll(\'mdReturnedSourceCheckboxes\');mdReturnedApplyFilter()"> <span>' + escapeHtml(srk[i]) + '</span></label>';
+    }
+  }
+
+  window.mdReturnedGetChecked = mdReturnedGetChecked;
+  window.mdReturnedGetAllValues = mdReturnedGetAllValues;
+  window.mdReturnedToggleAll = mdReturnedToggleAll;
+  window.mdReturnedSyncAll = mdReturnedSyncAll;
+  window.mdReturnedApplyFilter = mdReturnedApplyFilter;
+  window.mdReturnedToggleFilter = mdReturnedToggleFilter;
+
   function renderReturnedRecords(records) {
     const tbody = document.querySelector("#monthlyDuesReturnedTable tbody");
     if (!tbody) return;
+
+    var stats = mdReturnedGetChecked("mdReturnedStatusCheckboxes");
+    if (stats.length === 0) { stats = mdReturnedGetAllValues("mdReturnedStatusCheckboxes"); mdReturnedSyncAll("mdReturnedStatusCheckboxes"); }
+    var sources = mdReturnedGetChecked("mdReturnedSourceCheckboxes");
+    if (sources.length === 0) { sources = mdReturnedGetAllValues("mdReturnedSourceCheckboxes"); mdReturnedSyncAll("mdReturnedSourceCheckboxes"); }
+
+    var arr = records || [], flt = [], i, r;
+    for (i = 0; i < arr.length; i++) {
+      r = arr[i];
+      if (stats.length && stats.indexOf(r.payment_status) === -1) continue;
+      var s = getDuesSourceMethod(r);
+      if (sources.length && sources.indexOf(s) === -1) continue;
+      flt.push(r);
+    }
 
     tbody.innerHTML = "";
     if (!records || records.length === 0) {
@@ -137,8 +232,12 @@
         '<tr><td colspan="8" style="text-align:center;color:#757575;">No returned monthly dues entries</td></tr>';
       return;
     }
+    if (flt.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
+      return;
+    }
 
-    records.forEach((r) => {
+    flt.forEach((r) => {
       const tr = document.createElement("tr");
       const sourceMethod = getDuesSourceMethod(r);
       const sourceBadge = getDuesSourceBadge(sourceMethod);

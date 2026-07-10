@@ -43,14 +43,78 @@ function updatePresidentNotifDots() {
   }
 }
 
+function ppGetChecked(id) {
+  var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+  for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+  return vals;
+}
+function ppGetAllValues(id) {
+  var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+  for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+  return vals;
+}
+function ppToggleAll(containerId, checked) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  var cbs = container.querySelectorAll('input[type="checkbox"]');
+  for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+  renderPendingPaymentsTable();
+}
+function ppSyncAll(containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  var cbs = container.querySelectorAll('input[type="checkbox"]');
+  var allBox = cbs.length > 0 ? cbs[0] : null;
+  if (!allBox) return;
+  var allChecked = true;
+  for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+  allBox.checked = allChecked;
+}
+function ppToggleFilter() {
+  var card = document.getElementById("ppFilterCard");
+  if (!card) return;
+  var opening = card.style.display === "none";
+  card.style.display = opening ? "block" : "none";
+  if (opening) {
+    ppFillFilters();
+    var handler = function(e) {
+      var btn = document.querySelector('[onclick="ppToggleFilter()"]');
+      if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
+      document.removeEventListener("click", handler);
+      card.style.display = "none";
+      renderPendingPaymentsTable();
+    };
+    setTimeout(function() { document.addEventListener("click", handler); }, 0);
+  }
+}
+function ppFillFilters() {
+  var types = {}, i, p, arr = db.pendingPayments || [];
+  for (i = 0; i < arr.length; i++) { p = arr[i]; if (p.type) types[p.type] = 1; }
+  var tk = Object.keys(types).sort();
+  var tc = document.getElementById("ppTypeCheckboxes");
+  if (tc) {
+    tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="ppToggleAll(\'ppTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+    for (i = 0; i < tk.length; i++) tc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + tk[i] + '" checked onchange="ppSyncAll(\'ppTypeCheckboxes\');renderPendingPaymentsTable()"> <span>' + tk[i] + '</span></label>';
+  }
+}
+function ppApplyFilter() { renderPendingPaymentsTable(); }
+
 function renderPendingPaymentsTable() {
   const tbody = document.querySelector("#pendingPaymentsTable tbody");
   tbody.innerHTML = "";
-  if (db.pendingPayments.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All payment approvals completed!</td></tr>`;
+  var types = ppGetChecked("ppTypeCheckboxes");
+  if (types.length === 0) { types = ppGetAllValues("ppTypeCheckboxes"); ppSyncAll("ppTypeCheckboxes"); }
+  var arr = db.pendingPayments || [], flt = [], i, p;
+  for (i = 0; i < arr.length; i++) {
+    p = arr[i];
+    if (types.length && types.indexOf(p.type) === -1) continue;
+    flt.push(p);
+  }
+  if (flt.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>`;
     return;
   }
-  db.pendingPayments.forEach((p) => {
+  flt.forEach((p) => {
     const tr = document.createElement("tr");
     tr.id = `row-${p.id}`;
     tr.innerHTML = `
@@ -142,10 +206,7 @@ function selectPaymentToAudit(id) {
     );
     setText(
       "pApprovedMembershipMonthText",
-      matchingFee?.month_covered ||
-        matchingFee?.month ||
-        matchingFee?.monthCovered ||
-        "—",
+      "—",
     );
     const amt =
       matchingFee?.amount ?? matchingFee?.fee_amount ?? matchingFee?.amountPaid;

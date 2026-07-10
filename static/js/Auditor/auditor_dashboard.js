@@ -94,7 +94,6 @@
   const MEMBERSHIP_FEE_VERIFICATION_FIELDS = [
     { key: "amount", label: "Actual amount paid" },
     { key: "ref", label: "Official receipt / ref code" },
-    { key: "month_covered", label: "Deduction month / Covered Period" },
     { key: "payment_date", label: "Payment date" },
     { key: "proof_status", label: "Uploaded proof" },
     { key: "payment_status", label: "Payment method" },
@@ -464,20 +463,111 @@
     return tr;
   }
 
+  function auditGetChecked(id) {
+    var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+    for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+    return vals;
+  }
+  function auditGetAllValues(id) {
+    var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+    return vals;
+  }
+  function auditToggleAll(containerId, checked) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var cbs = container.querySelectorAll('input[type="checkbox"]');
+    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+    refreshAll();
+  }
+  function auditSyncAll(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var cbs = container.querySelectorAll('input[type="checkbox"]');
+    var allBox = cbs.length > 0 ? cbs[0] : null;
+    if (!allBox) return;
+    var allChecked = true;
+    for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+    allBox.checked = allChecked;
+  }
+  window.auditToggleAll = auditToggleAll;
+  window.auditSyncAll = auditSyncAll;
+  window.auditGetChecked = auditGetChecked;
+  window.auditGetAllValues = auditGetAllValues;
+
+  function makeAuditToggle(cardId, fillFn, applyFn) {
+    return function() {
+      var card = document.getElementById(cardId);
+      if (!card) return;
+      var opening = card.style.display === "none";
+      card.style.display = opening ? "block" : "none";
+      if (opening) {
+        fillFn();
+        var handler = function(e) {
+          if (card.contains(e.target)) return;
+          document.removeEventListener("click", handler);
+          card.style.display = "none";
+          applyFn();
+        };
+        setTimeout(function() { document.addEventListener("click", handler); }, 0);
+      }
+    };
+  }
+
+  window.audPayToggle = makeAuditToggle("audPayFilterCard",
+    function() {
+      var tc = document.getElementById("audPayTypeCheckboxes");
+      if (tc) {
+        tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="auditToggleAll(\'audPayTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="monthly_dues" checked onchange="auditSyncAll(\'audPayTypeCheckboxes\');refreshAll()"> <span>Monthly Dues</span></label>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="membership_fee" checked onchange="auditSyncAll(\'audPayTypeCheckboxes\');refreshAll()"> <span>Membership Fee</span></label>';
+      }
+    }, refreshAll);
+  window.audAidToggle = makeAuditToggle("audAidFilterCard",
+    function() {
+      var tc = document.getElementById("audAidTypeCheckboxes");
+      if (tc) {
+        tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="auditToggleAll(\'audAidTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="medical" checked onchange="auditSyncAll(\'audAidTypeCheckboxes\');refreshAll()"> <span>Medical</span></label>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="death" checked onchange="auditSyncAll(\'audAidTypeCheckboxes\');refreshAll()"> <span>Death Aid</span></label>';
+      }
+    }, refreshAll);
+  window.audFeeToggle = makeAuditToggle("audFeeFilterCard",
+    function() {
+      var stats = {}, i, f, arr = state.pendingMembershipFees || [];
+      for (i = 0; i < arr.length; i++) { f = arr[i]; if (f.payment_status) stats[f.payment_status] = 1; }
+      var sk = Object.keys(stats).sort();
+      var sc = document.getElementById("audFeeStatusCheckboxes");
+      if (sc) {
+        sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="auditToggleAll(\'audFeeStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+        for (i = 0; i < sk.length; i++) sc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(sk[i]) + '" checked onchange="auditSyncAll(\'audFeeStatusCheckboxes\');refreshAll()"> <span>' + escapeHtml(sk[i]) + '</span></label>';
+      }
+    }, refreshAll);
+
   function renderPaymentsTable() {
     const tbody = document.querySelector("#pendingPaymentsTable tbody");
     if (!tbody) return;
 
-    tbody.innerHTML = "";
+    var checked = auditGetChecked("audPayTypeCheckboxes");
+    if (checked.length === 0) { checked = auditGetAllValues("audPayTypeCheckboxes"); auditSyncAll("audPayTypeCheckboxes"); }
 
-    if (!state.pendingPayments || state.pendingPayments.length === 0) {
-      tbody.innerHTML =
-        '<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">All payment queues cleared!</td></tr>';
+    var arr = state.pendingPayments || [], flt = [], i, p;
+    for (i = 0; i < arr.length; i++) {
+      p = arr[i];
+      var raw = p.source_label
+        ? (p.source_label === "Membership Fee" ? "membership_fee" : "monthly_dues")
+        : (p.type === "OTC Fee Payment" ? "membership_fee" : "monthly_dues");
+      if (checked.length && checked.indexOf(raw) === -1) continue;
+      flt.push(p);
+    }
+
+    tbody.innerHTML = "";
+    if (flt.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
       updatePayBatchBar();
       return;
     }
-
-    state.pendingPayments.forEach((p) => {
+    flt.forEach((p) => {
       const tr = createPaymentRow(p);
       tbody.appendChild(tr);
     });
@@ -570,16 +660,27 @@
     const tbody = document.querySelector("#pendingAidsTable tbody");
     if (!tbody) return;
 
-    tbody.innerHTML = "";
+    var checked = auditGetChecked("audAidTypeCheckboxes");
+    if (checked.length === 0) { checked = auditGetAllValues("audAidTypeCheckboxes"); auditSyncAll("audAidTypeCheckboxes"); }
+    var arr = state.pendingAids || [], flt = [], i, a;
+    for (i = 0; i < arr.length; i++) {
+      a = arr[i];
+      if (checked.length) {
+        var tc = (a.type || "").toLowerCase();
+        var match = (checked.indexOf("medical") !== -1 && tc.indexOf("medical") !== -1) ||
+                    (checked.indexOf("death") !== -1 && tc.indexOf("death") !== -1);
+        if (!match) continue;
+      }
+      flt.push(a);
+    }
 
-    if (!state.pendingAids || state.pendingAids.length === 0) {
-      tbody.innerHTML =
-        '<tr><td colspan="5" style="text-align:center;color:#757575;padding:24px;">All claims verified!</td></tr>';
+    tbody.innerHTML = "";
+    if (flt.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
       updateAidBatchBar();
       return;
     }
-
-    state.pendingAids.forEach((a) => {
+    flt.forEach((a) => {
       const aid = a.id;
       const tr = document.createElement("tr");
       if (state.selectedAidIds.has(String(aid))) {
@@ -614,18 +715,21 @@
     const tbody = document.querySelector("#pendingMembershipFeesTable tbody");
     if (!tbody) return;
 
-    tbody.innerHTML = "";
-
-    if (
-      !state.pendingMembershipFees ||
-      state.pendingMembershipFees.length === 0
-    ) {
-      tbody.innerHTML =
-        '<tr><td colspan="6" style="text-align:center;color:#757575;padding:24px;">No pending membership fees awaiting audit.</td></tr>';
-      return;
+    var stats = auditGetChecked("audFeeStatusCheckboxes");
+    if (stats.length === 0) { stats = auditGetAllValues("audFeeStatusCheckboxes"); auditSyncAll("audFeeStatusCheckboxes"); }
+    var arr = state.pendingMembershipFees || [], flt = [], i, fee;
+    for (i = 0; i < arr.length; i++) {
+      fee = arr[i];
+      if (stats.length && stats.indexOf(fee.payment_status) === -1) continue;
+      flt.push(fee);
     }
 
-    state.pendingMembershipFees.forEach((fee) => {
+    tbody.innerHTML = "";
+    if (flt.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
+      return;
+    }
+    flt.forEach((fee) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td style="font-weight:600;color:#1b5e20;">${fee.ref || ""}</td>

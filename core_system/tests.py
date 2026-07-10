@@ -89,7 +89,6 @@ class MembershipFeeUploadTests(TreasurerApiClientMixin, TestCase):
         self.assertTrue(response.json()["ok"])
 
         fee = MembershipFee.objects.get(receipt_number="RECV-1001")
-        self.assertEqual(fee.month_covered, "2026-06")
         proof = SupportingProof.objects.filter(
             content_type__model="membershipfee",
             object_id=fee.fee_id_PK,
@@ -119,7 +118,6 @@ class MembershipFeeUploadTests(TreasurerApiClientMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["ok"])
         fee = MembershipFee.objects.get(receipt_number="RECV-1003")
-        self.assertEqual(fee.month_covered, "2026-06")
 
     def test_membership_fee_without_file_still_works(self):
         self._login_treasurer()
@@ -138,7 +136,6 @@ class MembershipFeeUploadTests(TreasurerApiClientMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["ok"])
         fee = MembershipFee.objects.get(receipt_number="RECV-1002")
-        self.assertEqual(fee.month_covered, "2026-06")
         self.assertFalse(SupportingProof.objects.exists())
 
 

@@ -51,7 +51,6 @@ from core_system.shared_view_utils import (
     MONTH_COVERED_PATTERN,
     PAYMENT_ENTITY_TYPE_LABELS,
     normalize_month_covered,
-    get_request_month_covered,
     resolve_officer_from_session,
     resolve_member_from_input,
     check_member_not_retired,
@@ -116,6 +115,8 @@ def treasurer_dashboard(request):
         "officer_role": officer_role,
         "expected_dues_default_amount": get_expected_dues_amount(),
         "access_token": request.session.get("access_token", ""),
+        "sickness_aid_threshold": get_accidental_sickness_aid_threshold(),
+        "sickness_aid_benefit": get_accidental_sickness_aid_benefit(),
     }
 
     # If full_name missing/empty: use the fallback as required by the spec.
@@ -188,10 +189,6 @@ def treasurer_add_member(request: HttpRequest):
     # Resolve Encoder User Identity context
     recorded_by = resolve_officer_from_session(request)
 
-    # Parse Visibility Interface Control Flags
-    payment_required = request.POST.get("payment_required") == "true"
-    receipt_required = request.POST.get("receipt_required") == "true"
-
     # Enforce transactional data integrity checks across models
     try:
         with transaction.atomic():
@@ -217,94 +214,32 @@ def treasurer_add_member(request: HttpRequest):
                 date_joined=timezone.now().date(),
             )
 
-            # 3. Handle Conditional Onboarding Payment Logic
-            if payment_required:
-                fee_method = (request.POST.get("fee_method") or "").strip()
-                fee_date = (request.POST.get("fee_date") or "").strip()
-                fee_amount_raw = (request.POST.get("fee_amount") or "500.00").strip()
-
-                if not fee_method:
-                    raise ValueError("Payment method is required when logging a profile payment entry.")
-                if not fee_date:
-                    raise ValueError("Payment Date is required when logging a profile payment entry.")
-
-                try:
-                    amount_decimal = decimal.Decimal(fee_amount_raw)
-                    if amount_decimal <= 0:
-                        raise ValueError()
-                except (decimal.InvalidOperation, ValueError):
-                    raise ValueError("Payment Amount must be a positive valid numeric description.")
-
-                # Defaulting verification properties explicitly to onboarding configuration norms
-                fee_status = "Full Payment"
-                fee_month = "ONBOARDING"  # Clean fallback string to signal initialization fee
-
-                # Base Setup for Audit Logs
-                fee_ref = None
-                fee_encoder = None
-
-                # 4. Handle Conditional Receipt Verification Sub-Logic
-                if receipt_required:
-                    fee_ref = (request.POST.get("fee_ref") or "").strip()
-                    fee_encoder = (request.POST.get("fee_encoder") or "").strip()
-                    fee_uploaded = request.FILES.get("fee_photo_file")
-
-                    if not fee_ref:
-                        raise ValueError("Receipt / Reference Number is required when audit tracking is checked.")
-                    if not fee_encoder:
-                        raise ValueError("Encoded By description tag identity is required when audit tracking is checked.")
-                    if not fee_uploaded or fee_uploaded.size == 0:
-                        raise ValueError("An official photo proof attachment of the receipt file must be uploaded.")
-
-                # If receipt check is omitted entirely, resolve session context dynamically for fallback values
-                if not fee_encoder and recorded_by:
-                    fee_encoder = recorded_by.full_name or "System Automatic Encoder"
-
-                # 5. Provision MembershipFee Database Entry Row
+            # 3. Auto-create membership fee if member status requires it
+            if member.membership_status in ("Permanent", "Temporary"):
                 fee = MembershipFee.objects.create(
                     member_id_FK=member,
-                    receipt_number=fee_ref or f"SYS-TEMP-{int(timezone.now().timestamp())}",
-                    amount=str(amount_decimal),
-                    month_covered=fee_month,
-                    payment_date=fee_date,
-                    payment_method=fee_method,
-                    payment_status=fee_status,
-                    deposit_reference=fee_encoder or None,
+                    receipt_number=f"SYS-TEMP-{int(timezone.now().timestamp())}",
+                    amount=str(get_membership_fee_amount()),
+                    payment_date=timezone.now().date(),
+                    payment_method="Pending",
+                    payment_status="Pending",
                     recorded_by_user_id_FK=recorded_by,
                 )
-
-                # 6. Initialize verification records
                 TransactionVerification.objects.create(
                     table_name="membership_fee",
                     record_id=fee.fee_id_PK,
                     verification_status="Pending",
                 )
-
-                # Link document files securely via your internal system hooks
-                if receipt_required and fee_uploaded:
-                    _link_proof_to_record(fee_uploaded, fee, recorded_by)
-
-                # Write record properties into historical audit trail hooks
                 _record_audit_trail(
                     table="membership_fee",
                     record_id=fee.fee_id_PK,
                     action="CREATED",
                     actor=recorded_by,
-                    new={
-                        "member": member,
-                        "receipt_number": fee.receipt_number,
-                        "amount": str(amount_decimal),
-                        "month_covered": fee_month,
-                        "payment_date": fee_date,
-                        "payment_method": fee_method,
-                        "payment_status": fee_status,
-                        "deposit_reference": fee_encoder,
-                    },
+                    new={"member": member, "amount": str(fee.amount), "payment_date": str(fee.payment_date)},
                     ip=request.META.get("REMOTE_ADDR"),
                 )
 
     except ValueError as val_err:
-        # Atomic block gracefully triggers a database rollback on explicit error raises
         return JsonResponse({"ok": False, "error": str(val_err)}, status=400)
     except Exception as ex:
         return JsonResponse({"ok": False, "error": f"Internal pipeline transactional exception: {str(ex)}"}, status=500)
@@ -337,6 +272,70 @@ def treasurer_add_member(request: HttpRequest):
             }
         }
     )
+
+
+@require_POST
+def treasurer_member_batch_add(request):
+    """Accept multiple member entries in one JSON request and create them in a single transaction."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    try:
+        body = json.loads(request.body)
+        entries = body.get("entries", [])
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        return JsonResponse({"ok": False, "error": "Invalid JSON payload."}, status=400)
+
+    if not entries or not isinstance(entries, list):
+        return JsonResponse({"ok": False, "error": "No entries provided."}, status=400)
+
+    results = []
+    recorded_by = resolve_officer_from_session(request)
+
+    with transaction.atomic():
+        for entry in entries:
+            name = (entry.get("prof_name") or "").strip()
+            emp_id = (entry.get("prof_id") or "").strip()
+            if not name or not emp_id:
+                results.append({"ok": False, "name": name, "error": "Name and Employee ID are required."})
+                continue
+            try:
+                member = Member.objects.create(
+                    full_name=name,
+                    employee_id=emp_id,
+                    department=(entry.get("prof_dept") or "").strip() or None,
+                    position=(entry.get("prof_pos") or "").strip() or None,
+                    contact_number=(entry.get("prof_contact") or "").strip() or None,
+                    email=(entry.get("prof_email") or "").strip() or None,
+                    employment_status=(entry.get("prof_status") or "Active").strip(),
+                    membership_status=(entry.get("prof_status") or "Active").strip(),
+                    member_type=emp_id,
+                    date_joined=timezone.now().date(),
+                )
+                if member.membership_status in ("Permanent", "Temporary"):
+                    fee = MembershipFee.objects.create(
+                        member_id_FK=member,
+                        receipt_number=f"SYS-TEMP-{int(timezone.now().timestamp())}-{member.member_id_PK}",
+                        amount=str(get_membership_fee_amount()),
+                        payment_date=timezone.now().date(),
+                        payment_method="Pending",
+                        payment_status="Pending",
+                        recorded_by_user_id_FK=recorded_by,
+                    )
+                    TransactionVerification.objects.create(
+                        table_name="membership_fee",
+                        record_id=fee.fee_id_PK,
+                        verification_status="Pending",
+                    )
+                results.append({"ok": True, "name": name, "id": member.member_id_PK})
+            except Exception as ex:
+                results.append({"ok": False, "name": name, "error": str(ex)})
+
+    _broadcast_treasurer("members")
+    return JsonResponse({"ok": True, "results": results})
+
+
 @require_GET
 def treasurer_membership_fee_list(request):
     """Return all membership fee ledger entries for the Treasurer dashboard."""
@@ -366,7 +365,6 @@ def treasurer_membership_fee_list(request):
                 "member_id": f.member_id_FK.member_id_PK,
                 "member_name": f.member_id_FK.full_name,
                 "amount": str(f.amount),
-                "month_covered": f.month_covered or "",
                 "payment_date": str(f.payment_date),
                 "payment_status": f.payment_status,
                 "payment_method": f.payment_method,
@@ -409,7 +407,6 @@ def treasurer_membership_fees_returned_list(request):
             "member_id_PK": fee.member_id_FK.member_id_PK,
             "member_name": fee.member_id_FK.full_name,
             "amount": str(fee.amount),
-            "month_covered": fee.month_covered or "",
             "payment_date": str(fee.payment_date),
             "payment_status": fee.payment_status,
             "payment_method": fee.payment_method,
@@ -639,7 +636,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
     fee_method = (request.POST.get("fee_method") or "").strip()
     fee_status = (request.POST.get("fee_status") or "").strip()
     fee_date = (request.POST.get("fee_date") or "").strip()
-    fee_month = normalize_month_covered(get_request_month_covered(request))
     fee_ref = (request.POST.get("fee_ref") or "").strip()
     fee_encoder = (request.POST.get("fee_encoder") or "").strip()
 
@@ -653,24 +649,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
         return JsonResponse({"ok": False, "error": "Payment status must be Full Payment or Partial."}, status=400)
     if not fee_date:
         return JsonResponse({"ok": False, "error": "Payment Date is required."}, status=400)
-    if not fee_month:
-        return JsonResponse({"ok": False, "error": "Deduction Month / Covered Period is required."}, status=400)
-        
-    # ─── UPDATED BI-PASS FOR REGISTRATION FEES ───
-    if fee_month != "Registration Fee":
-        if not MONTH_COVERED_PATTERN.match(fee_month):
-            return JsonResponse({"ok": False, "error": "Deduction Month / Covered Period must use YYYY-MM."}, status=400)
-
-    month_covered_max_length = MembershipFee._meta.get_field("month_covered").max_length
-    
-    if len(fee_month) > month_covered_max_length:
-        return JsonResponse(
-            {
-                "ok": False,
-                "error": f"Deduction Month / Covered Period must be {month_covered_max_length} characters or fewer.",
-            },
-            status=400,
-        )
     if not fee_ref:
         return JsonResponse({"ok": False, "error": "Receipt / Reference Number is required."}, status=400)
 
@@ -736,7 +714,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
                 member_id_FK=member_obj,
                 receipt_number=fee_ref,
                 amount=amount_value,
-                month_covered=fee_month,
                 payment_date=fee_date,
                 payment_method=fee_method,
                 payment_status=fee_status,
@@ -796,7 +773,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
             member_id_FK=member_obj,
             receipt_number=fee_ref,
             amount=amount_value,
-            month_covered=fee_month,
             payment_date=fee_date,
             payment_method=fee_method,
             payment_status=fee_status,
@@ -822,7 +798,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
                 "member": member_obj,
                 "receipt_number": fee_ref,
                 "amount": amount_value,
-                "month_covered": fee_month,
                 "payment_date": fee_date,
                 "payment_method": fee_method,
                 "payment_status": fee_status,
@@ -841,7 +816,6 @@ def treasurer_membership_fee_add(request: HttpRequest):
                 "member_id": member_obj.member_id_PK,
                 "member_name": member_obj.full_name,
                 "amount": str(fee.amount),
-                "month_covered": fee.month_covered or "",
                 "payment_date": str(fee.payment_date),
                 "payment_status": fee.payment_status,
                 "payment_method": fee.payment_method,
@@ -1126,6 +1100,7 @@ def treasurer_monthly_dues_salary_list(request: HttpRequest):
                 "member_count": 0,
                 "total_amount": 0.0,
                 "members": [],
+                "recorded_by": d.recorded_by_user_id_FK.full_name if d.recorded_by_user_id_FK else "Unknown",
             }
         batches_map[br]["member_count"] += 1
         batches_map[br]["total_amount"] += float(d.amount)
@@ -1882,14 +1857,13 @@ def treasurer_resubmit_entry(request: HttpRequest, table_name: str, record_id: i
 
     # Explicitly bind Treasurer resubmission payload fields to model fields.
     # Bug A: the Treasurer frontend posts keys like fee_ref / fee_encoder / fee_month,
-    # but membership_fee model fields are receipt_number / deposit_reference / month_covered, etc.
+    # but membership_fee model fields are receipt_number / deposit_reference, etc.
     if table_name == "membership_fee":
         payload_map = {
             "fee_ref": "receipt_number",
             "fee_encoder": "deposit_reference",
             "fee_method": "payment_method",
             "fee_date": "payment_date",
-            "fee_month": "month_covered",
             "fee_status": "payment_status",
         }
 
@@ -1914,7 +1888,6 @@ def treasurer_resubmit_entry(request: HttpRequest, table_name: str, record_id: i
             "deposit_reference",
             "payment_method",
             "payment_date",
-            "month_covered",
             "payment_status",
             "amount",
         ]
@@ -1998,8 +1971,6 @@ def _treasurer_payment_item_to_json(kind: str, obj) -> dict:
     amount = getattr(obj, "amount", None)
     payment_date = getattr(obj, "payment_date", None)
     payment_method = getattr(obj, "payment_status", None) if kind == "membership_fee" else getattr(obj, "payment_method", None)
-    month_covered = getattr(obj, "month_covered", None)
-
     return {
         "id": str(obj.fee_id_PK if kind == "membership_fee" else obj.dues_id_PK),
         "entity_id": int(obj.fee_id_PK if kind == "membership_fee" else obj.dues_id_PK),
@@ -2016,7 +1987,7 @@ def _treasurer_payment_item_to_json(kind: str, obj) -> dict:
             "membership_status": getattr(member, "membership_status", None) or "",
         },
         "amount": str(amount) if amount is not None else "0",
-        "month": month_covered or "N/A",
+        "month": getattr(obj, "month_covered", None) or "N/A",
         "date": str(payment_date) if payment_date is not None else "",
         "method": str(payment_method) if payment_method is not None else "",
         "encoded_by": getattr(getattr(obj, "recorded_by_user_id_FK", None), "full_name", "") or "",
@@ -2127,6 +2098,8 @@ def treasurer_member_update(request):
     if "membership_status" in fields and fields["membership_status"] is None:
         return JsonResponse({"ok": False, "error": "membership_status cannot be empty."}, status=400)
 
+    old_status = member.membership_status
+
     for k, v in fields.items():
         setattr(member, k, v)
 
@@ -2134,6 +2107,25 @@ def treasurer_member_update(request):
         return JsonResponse({"ok": False, "error": "full_name is required."}, status=400)
 
     member.save()
+
+    new_status = member.membership_status
+    if new_status in ("Permanent", "Temporary") and old_status != new_status:
+        has_fee = MembershipFee.objects.filter(member_id_FK=member).exists()
+        if not has_fee:
+            fee = MembershipFee.objects.create(
+                member_id_FK=member,
+                receipt_number=f"SYS-TEMP-{int(timezone.now().timestamp())}",
+                amount=str(get_membership_fee_amount()),
+                payment_date=timezone.now().date(),
+                payment_method="Pending",
+                payment_status="Pending",
+                recorded_by_user_id_FK=resolve_officer_from_session(request),
+            )
+            TransactionVerification.objects.create(
+                table_name="membership_fee",
+                record_id=fee.fee_id_PK,
+                verification_status="Pending",
+            )
 
     _broadcast_treasurer("members")
 

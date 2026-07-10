@@ -222,7 +222,7 @@ def _load_pending_fee_record(v):
         "reference_code": payment_record.receipt_number
         or payment_record.deposit_reference
         or "—",
-        "covered_period": payment_record.month_covered or "Initial Setup",
+        "covered_period": "One-Time Fee",
         "amount_paid": float(payment_record.amount),
         "expected": get_membership_fee_amount(),
         "payment_method": payment_record.payment_method,
@@ -236,7 +236,7 @@ def _load_pending_fee_record(v):
     approved_fields = {
         "membership_type": "OTC Membership Fee",
         "membership_ref": payment_record.receipt_number or payment_record.deposit_reference or "",
-        "membership_month": payment_record.month_covered or "",
+        "membership_month": "One-Time Fee",
         "membership_amount": float(payment_record.amount),
         "otc_month": "—", "otc_amount": 0, "otc_ref": "—",
         "salary_month": "—", "salary_amount": 0, "salary_ref": "—",

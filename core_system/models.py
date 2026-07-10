@@ -211,7 +211,6 @@ class MembershipFee(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_method = models.CharField(max_length=50)
     payment_status = models.CharField(max_length=50)
-    month_covered = models.CharField(max_length=50, null=True, blank=True)
     payment_date = models.DateField()
     receipt_number = models.CharField(max_length=100, null=True, blank=True)
     deposit_reference = models.CharField(max_length=100, null=True, blank=True)
@@ -356,7 +355,7 @@ class MedicalAid(models.Model):
     request_date = models.DateField()
     requested_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     hospital_name = models.CharField(max_length=255, blank=True)
-    hospital_date = models.DateField(null=True, blank=True)
+    hospital_date = models.CharField(max_length=50, null=True, blank=True)
     hospital_bill_amount = models.DecimalField(max_digits=10, decimal_places=2)
     claim_year = models.IntegerField()
 

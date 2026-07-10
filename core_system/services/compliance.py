@@ -38,7 +38,6 @@ def _get_paid_members_for_period(year: int, month: int) -> set[int]:
     )
     fee_ids = set(
         MembershipFee.objects.filter(
-            month_covered=month_str,
             payment_status__in=Status.ALL_AUDITOR_VERIFIED,
         ).values_list("member_id_FK", flat=True)
     )
@@ -94,7 +93,6 @@ def member_dues_status(member, year: int | None = None, month: int | None = None
     ).exists()
     has_fee = MembershipFee.objects.filter(
         member_id_FK=member,
-        month_covered=month_str,
         payment_status__in=Status.ALL_AUDITOR_VERIFIED,
     ).exists()
 

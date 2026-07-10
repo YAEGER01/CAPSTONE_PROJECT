@@ -189,9 +189,16 @@ function getCookie(name) {
     const content = byId("batchDetailContent");
     if (!modal || !title || !content) return;
 
-    title.textContent = `Batch: ${batch.batch_reference || "N/A"}`;
+    title.textContent = "Batch Details";
 
     let html = `
+      <div style="margin-bottom:12px;">
+        <div style="font-size:0.95rem;color:#1b5e20;font-weight:600;">${escapeHtml(batch.batch_reference || "N/A")}</div>
+        <div style="margin-top:6px;font-size:0.85rem;color:#555;">
+          Processed By:
+          <span style="display:inline-block;background:rgba(76,175,80,0.18);color:#2e7d32;padding:2px 12px;border-radius:20px;font-weight:600;font-size:0.85rem;margin-left:4px;">${escapeHtml(batch.recorded_by || "Unknown")}</span>
+        </div>
+      </div>
       <div class="batch-detail-summary">
         <div class="batch-detail-summary-card">
           <div style="font-size:0.75rem;color:#757575;">Month</div>
@@ -219,7 +226,6 @@ function getCookie(name) {
               <tr>
                 <th style="padding:4px 8px;">#</th>
                 <th style="padding:4px 8px;">Member Name</th>
-                <th style="padding:4px 8px;">Employee Code</th>
                 <th style="padding:4px 8px;">Amount</th>
               </tr>
             </thead>
@@ -230,7 +236,6 @@ function getCookie(name) {
           <tr>
             <td style="padding:4px 8px;text-align:center;">${idx + 1}</td>
             <td style="padding:4px 8px;">${escapeHtml(m.member_name || "")}</td>
-            <td style="padding:4px 8px;">${escapeHtml(m.member_id || "")}</td>
             <td style="padding:4px 8px;">${escapeHtml(formatCurrencyPHP(m.amount))}</td>
           </tr>
         `;
@@ -305,11 +310,11 @@ function getCookie(name) {
     ["otc_member", "sal_member"].forEach((id) => {
       const sel = byId(id);
       if (!sel) return;
-      sel.innerHTML = '<option value="">-- Choose Member ID --</option>';
+      sel.innerHTML = '<option value="">Select Associated Member</option>';
       members.forEach((m) => {
         const opt = document.createElement("option");
         opt.value = m.member_id;
-        opt.textContent = `${m.full_name} (${m.member_id})`;
+        opt.textContent = `${m.full_name}`;
         sel.appendChild(opt);
       });
     });
@@ -537,6 +542,22 @@ function getCookie(name) {
       });
     }
 
+    function updateBulkAmountBadge() {
+      const perMemberEl = byId("bulk-per-member");
+      const totalEl = byId("bulk-total-display");
+      const totalAmountEl = byId("bulk-total-amount");
+      if (!perMemberEl || !totalEl || !totalAmountEl) return;
+      const amount = previewData.expected_amount || 0;
+      perMemberEl.textContent = formatCurrencyPHP(amount).replace("₱", "");
+      const checked = document.querySelectorAll("#bulk-member-tbody .bulk-member-cb:checked").length;
+      if (checked > 0 && amount > 0) {
+        totalEl.style.display = "inline";
+        totalAmountEl.textContent = formatCurrencyPHP(amount * checked).replace("₱", "");
+      } else {
+        totalEl.style.display = "none";
+      }
+    }
+
     function renderBulkMemberTable(data) {
       if (!memberTbody) return;
       memberTbody.innerHTML = "";
@@ -544,6 +565,7 @@ function getCookie(name) {
       if (memberCount) {
         memberCount.textContent = `${members.length} members`;
       }
+      updateBulkAmountBadge();
       members.forEach((m) => {
         const tr = document.createElement("tr");
         const dupLabel = m.already_exists
@@ -580,6 +602,7 @@ function getCookie(name) {
         processBtn.disabled = true;
         processBtn.textContent = "Process Members";
       }
+      updateBulkAmountBadge();
     }
 
     if (selectAllBtn) {

@@ -209,6 +209,8 @@
     if (sel) sel.value = "";
     const form = getEl(FORM_ID);
     if (form) form.reset();
+    const fp = getEl(INPUT_HOSPITAL_DATE);
+    if (fp && fp._flatpickr) fp._flatpickr.clear();
     const rej = document.getElementById("ma_rejection_reason_display");
     if (rej) rej.textContent = "Select a record to view rejection reason";
     const container = document.getElementById("ma_rejection_details_container");

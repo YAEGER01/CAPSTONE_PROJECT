@@ -691,7 +691,6 @@ def auditor_pending_membership_fees(request: HttpRequest):
                 "member_id": member.member_id_PK if member else None,
                 "member_name": member.full_name if member else "",
                 "amount": str(f.amount),
-                "month_covered": f.month_covered or "",
                 "payment_date": str(f.payment_date),
                 "payment_status": f.payment_status,
                 "deposit_reference": f.deposit_reference or "",

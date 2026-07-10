@@ -165,9 +165,9 @@
     }).format(n);
   }
 
-  function getMemberOptionLabel(m) {
-    return `${m.full_name} (${m.member_id})`;
-  }
+function getMemberOptionLabel(m) {
+    return `${m.full_name}`;
+}
 
   async function fetchMembers() {
     const resp = await fetch("/api/treasurer/members/list/", {
@@ -186,7 +186,7 @@
     if (!sel) return;
 
     sel.innerHTML = "";
-    sel.innerHTML = '<option value="">-- Choose Member ID --</option>';
+    sel.innerHTML = '<option value="">Select Associated Member</option>';
 
     members.forEach((m) => {
       const opt = document.createElement("option");
@@ -231,7 +231,7 @@
         <td style="font-weight:600;color:#1b5e20;">${f.ref || ""}</td>
         <td>${f.member_name || ""} <br><span style="font-size:0.75rem;color:#757575;">Code: ${f.member_id || ""}</span></td>
         <td style="font-weight:600;">${moneyToPHP(f.amount)}</td>
-        <td>${statusLabel}${methodLabel} <br><span style="font-size:0.75rem;color:#757575;">Covered: ${f.month_covered || f.month || "N/A"}</span><br><span style="font-size:0.75rem;color:#757575;">Date: ${f.payment_date || ""}</span></td>
+        <td>${statusLabel}${methodLabel} <br><span style="font-size:0.75rem;color:#757575;">Date: ${f.payment_date || ""}</span></td>
         <td>${f.encoded_by || ""}</td>
       `;
       tbody.appendChild(tr);
@@ -329,6 +329,14 @@
 
     const csrf = getCSRFToken();
 
+    const submitBtn = form.querySelector("button[type='submit']");
+    let originalBtnHTML = "";
+    if (submitBtn) {
+      originalBtnHTML = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...';
+    }
+
     try {
       if (isSubmitting) return;
       isSubmitting = true;
@@ -343,6 +351,10 @@
 
       if (!resp.ok || !data.ok) {
         isSubmitting = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHTML;
+        }
         return showToast(
           (data && data.error) || "Failed to log membership fee entry.",
           true,
@@ -357,9 +369,31 @@
       const fees = await fetchMembershipFees();
       renderFeeTableRows(fees);
 
+      // Trigger global component rendering to update KPI cards and other tables
+      if (typeof window.renderAllComponents === "function") {
+        window.renderAllComponents();
+      } else if (typeof renderAllComponents === "function") {
+        renderAllComponents();
+      }
+
       isSubmitting = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHTML;
+      }
+
+      Swal.fire({
+        title: "Fee Recorded",
+        text: "Membership fee payment has been successfully recorded and logged.",
+        icon: "success",
+        confirmButtonColor: "#1b5e20"
+      });
     } catch (err) {
       isSubmitting = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnHTML;
+      }
       showToast("Network/server error while logging membership fee.", true);
     }
   }

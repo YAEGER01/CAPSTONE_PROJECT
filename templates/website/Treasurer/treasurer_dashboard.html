@@ -14,6 +14,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
       crossorigin="anonymous"
     />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
 
@@ -414,6 +416,7 @@
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
         border: 1px solid #dfe9df;
         margin-bottom: 20px;
+        min-width: 0;
       }
 
       .panel-header-row {
@@ -423,6 +426,15 @@
         margin-bottom: 16px;
         border-bottom: 2px solid #f6fbf6;
         padding-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
       }
 
       .panel-title {
@@ -463,6 +475,67 @@
         background: rgba(229, 57, 53, 0.10);
         border-color: rgba(229, 57, 53, 0.2);
         color: #c62828;
+      }
+      .dt-month-box.upcoming {
+        background: rgba(13, 71, 161, 0.08);
+        border-color: rgba(13, 71, 161, 0.25);
+        color: #0d47a1;
+      }
+      .dot-tip {
+        position: relative;
+        display: inline-block;
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      .dot-tip::after {
+        content: attr(data-tip);
+        position: absolute;
+        bottom: 150%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #333;
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.72rem;
+        font-weight: 500;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .dot-tip:hover::after {
+        opacity: 1;
+      }
+      .dt-tip {
+        position: relative;
+        cursor: pointer;
+      }
+      .dt-tip::after {
+        content: attr(data-tip);
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-top: 6px;
+        background: #333;
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 400;
+        white-space: pre-line;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        min-width: 160px;
+        text-align: left;
+        line-height: 1.5;
+        z-index: 9999;
+      }
+      .dt-tip:hover::after {
+        opacity: 1;
       }
 
       /* KPI Grid cards */
@@ -613,17 +686,19 @@
 
       /* Interactive Action Buttons */
       .btn-brand {
-        padding: 10px 20px;
-        border-radius: 8px;
+        padding: 6px 16px;
+        border-radius: 999px;
         font-weight: 600;
+        font-size: 0.85rem;
         border: none;
         cursor: pointer;
-        transition: 0.3s;
+        transition: background 0.25s, transform 0.15s, box-shadow 0.25s;
         font-family: "Poppins", sans-serif;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
+        line-height: 1.2;
       }
 
       .btn-brand-primary {
@@ -634,6 +709,7 @@
       .btn-brand-primary:hover {
         background: #2e7d32;
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(27, 94, 32, 0.3);
       }
 
       .btn-brand-secondary {
@@ -644,6 +720,7 @@
       .btn-brand-secondary:hover {
         background: #ffd54f;
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(251, 192, 45, 0.35);
       }
 
       .btn-brand-danger {
@@ -653,6 +730,8 @@
 
       .btn-brand-danger:hover {
         background: #d32f2f;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(229, 57, 53, 0.3);
       }
 
       /* Badges for System State Loops */
@@ -758,10 +837,10 @@
 
       .custom-table {
         width: 100%;
+        min-width: max-content;
         border-collapse: collapse;
         text-align: left;
         font-size: 0.78rem;
-        table-layout: auto;
       }
 
       .custom-table th {
@@ -777,7 +856,6 @@
         border-bottom: 1px solid #f0f5f0;
         color: #263238;
         vertical-align: middle;
-        word-break: break-word;
       }
 
       .custom-table tr:hover {
@@ -929,7 +1007,7 @@
       }
 
       /* RESPONSIVE DESIGN TWEAKS */
-      @media (max-width: 900px) {
+      @media (max-width: 1200px) {
         .sidebar {
           position: absolute;
           left: -280px;
@@ -953,6 +1031,14 @@
 
         .dashboard-panel {
           padding: 18px;
+        }
+
+        .overview-grid-3x2 {
+          grid-template-columns: 1fr;
+        }
+
+        [style*="auto-fit"] {
+          grid-template-columns: 1fr !important;
         }
       }
 
@@ -1064,17 +1150,40 @@
         text-align: center;
       }
 
-      @media (max-width: 1100px) {
-        .overview-grid-3x2 {
-          grid-template-columns: repeat(2, 1fr);
-        }
+      .bulk-member-card {
+        border: 1px solid #cfdccc;
+        border-radius: 14px;
+        padding: 16px 18px;
+        margin-bottom: 18px;
+        background: #fbfdfb;
+      }
+      .bulk-member-card legend {
+        font-weight: 700;
+        color: #1b5e20;
+        padding: 0 8px;
+        font-size: 1rem;
       }
 
-      @media (max-width: 700px) {
-        .overview-grid-3x2 {
+      @media (max-width: 600px) {
+        .stats-grid {
           grid-template-columns: 1fr;
         }
+        .form-grid-2 {
+          grid-template-columns: 1fr;
+        }
+        .dashboard-panel {
+          padding: 14px;
+        }
+        .content-viewport {
+          padding: 12px;
+        }
+        .header-actions .btn-brand {
+          font-size: 0.75rem;
+          padding: 6px 10px;
+        }
       }
+      .med-result-row.med-search-active { background: #c8e6c9 !important; }
+      .med-pick-badge:hover { background: rgba(76,175,80,0.35) !important; }
     </style>
 
     <!-- SweetAlert2 (Sweet swal) -->
@@ -1225,9 +1334,15 @@
           <button type="button" onclick="closeDuesTrackingModal()" style="background:none;border:none;font-size:1.8rem;cursor:pointer;color:#666;line-height:1;">&times;</button>
         </div>
         <hr style="border:0;border-top:1px solid #e8f0e8;margin:12px 0;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
           <label style="font-weight:600;font-size:0.9rem;color:#1b5e20;white-space:nowrap;">Select Year</label>
           <select id="dtYearFilter" onchange="dtLoadCal()" style="padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.85rem;background:#fbfdfb;"></select>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:flex-start;margin-bottom:12px;">
+          <span class="dot-tip" data-tip="Paid" style="background:#43a047;border:1px solid #2e7d32;"></span>
+          <span class="dot-tip" data-tip="Partial" style="background:#fb8c00;border:1px solid #e65100;"></span>
+          <span class="dot-tip" data-tip="Missed" style="background:#e53935;border:1px solid #c62828;"></span>
+          <span class="dot-tip" data-tip="Upcoming" style="background:#1e88e5;border:1px solid #0d47a1;"></span>
         </div>
         <div id="dtCalendarGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 0 8px;"></div>
         <button type="button" class="btn-brand btn-brand-primary" onclick="closeDuesTrackingModal()" style="margin-top:16px;width:100%;">Close</button>
@@ -1736,9 +1851,35 @@
                 gap: 20px;
               "
             >
-              <div class="dashboard-panel">
+           
+
+            <div class="dashboard-panel" id="bulkEnrollPanel" style="display: none;">
+              <div class="panel-header-row">
+                <h3 class="panel-title">Enroll 5 New Members</h3>
+                <div class="header-actions">
+                  <button class="btn-brand btn-brand-primary" id="bulkUploadBtn" onclick="triggerBulkUpload()">Batch Upload</button>
+                  <button class="btn-brand btn-brand-secondary" id="singleUploadBtn" onclick="triggerSingleUpload()">Single Upload</button>
+                </div>
+              </div>
+
+              <!-- BULK ENROLL FORM (revealed when Bulk Upload is clicked) -->
+              <form class="dashboard-form" id="bulkMemberForm" method="POST" enctype="multipart/form-data" autocomplete="off">
+                {% csrf_token %}
+                <p style="margin: 0 0 12px; color: #757575;">Fill up to 5 members at once. Employee/Faculty ID auto-populates from the name.</p>
+                <div id="bulkMemberRows"></div>
+                <button type="submit" class="btn-brand btn-brand-primary" style="margin-top: 20px;">
+                  Enroll 5 Members
+                </button>
+              </form>
+            </div>
+
+              <div class="dashboard-panel" id="singleEnrollPanel">
                 <div class="panel-header-row">
                   <h3 class="panel-title">Enroll New Profile</h3>
+                  <div class="header-actions">
+                    <button class="btn-brand btn-brand-primary" onclick="triggerBulkUpload()">Batch Upload</button>
+                    <button class="btn-brand btn-brand-secondary" onclick="triggerSingleUpload()">Single Upload</button>
+                  </div>
                 </div>
                 <form
                 class="dashboard-form"
@@ -1746,6 +1887,7 @@
                 method="POST"
                 action=""
                 enctype="multipart/form-data"
+                autocomplete="off"
               >
                 {% csrf_token %}
                 
@@ -1759,43 +1901,40 @@
                     required
                   />
                 </div>
-              
                 <div class="form-grid-2">
                   <div class="form-group">
-                    <label for="prof_id">Employee/Faculty ID</label>
-                    <input
-                      type="text"
-                      id="prof_id"
-                      name="prof_id"
-                      placeholder="e.g., EMP-2026-99"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="prof_dept">Department / College</label>
-                    <select id="prof_dept" name="prof_dept" required>
-                      <option value="">-- Select Department / College --</option>
-                      <option value="College of Education">College of Education</option>
-                      <option value="College of Agriculture">College of Agriculture</option>
-                      <option value="College of Information Technology">Information Technology</option>
-                      <option value="College of Criminology">Criminology</option>
-                      <option value="College of Business Management">Business Management</option>
-                      <option value="Add Option">Add Option</option>
-                    </select>
-                  </div>
-                </div>
-              
-                <div class="form-grid-2">
-                  <div class="form-group">
-                    <label for="prof_pos">Position</label>
+                    <label for="prof_pos">Academic Rank</label>
                     <select id="prof_pos" name="prof_pos" required>
-                      <option value="">-- Select Position --</option>
-                      <option value="Professor">Professor</option>
-                      <option value="Associate Professor">Associate Professor</option>
-                      <option value="Assistant Professor">Assistant Professor</option>
-                      <option value="Senior Associate Professor">Senior Associate Professor</option>
-                      <option value="Dean">Dean</option>
-                      <option value="Coordinator">Coordinator</option>
+                      <option value="">-- Select Academic Rank --</option>
+                      <optgroup label="Instructor Ranks">
+                        <option value="Instructor I">Instructor I</option>
+                        <option value="Instructor II">Instructor II</option>
+                        <option value="Instructor III">Instructor III</option>
+                      </optgroup>
+                      <optgroup label="Assistant Professor Ranks">
+                        <option value="Assistant Professor I">Assistant Professor I</option>
+                        <option value="Assistant Professor II">Assistant Professor II</option>
+                        <option value="Assistant Professor III">Assistant Professor III</option>
+                        <option value="Assistant Professor IV">Assistant Professor IV</option>
+                      </optgroup>
+                      <optgroup label="Associate Professor Ranks">
+                        <option value="Associate Professor I">Associate Professor I</option>
+                        <option value="Associate Professor II">Associate Professor II</option>
+                        <option value="Associate Professor III">Associate Professor III</option>
+                        <option value="Associate Professor IV">Associate Professor IV</option>
+                        <option value="Associate Professor V">Associate Professor V</option>
+                      </optgroup>
+                      <optgroup label="Full Professor Ranks">
+                        <option value="Professor I">Professor I</option>
+                        <option value="Professor II">Professor II</option>
+                        <option value="Professor III">Professor III</option>
+                        <option value="Professor IV">Professor IV</option>
+                        <option value="Professor V">Professor V</option>
+                        <option value="Professor VI">Professor VI</option>
+                      </optgroup>
+                      <optgroup label="Ultimate Rank">
+                        <option value="College / University Professor">College / University Professor</option>
+                      </optgroup>
                     </select>
                   </div>
                   <div class="form-group">
@@ -1809,6 +1948,33 @@
                     />
                   </div>
                 </div>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="prof_id">Employee SystemRef ID</label>
+                    <input
+                      type="text"
+                      id="prof_id"
+                      name="prof_id"
+                      placeholder="Auto Populated"
+                      required
+                      disabled
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="prof_dept">Department</label>
+                    <select id="prof_dept" name="prof_dept" required>
+                      <option value="">-- Select Department / College --</option>
+                      <option value="College of Education">College of Education</option>
+                      <option value="College of Agriculture">College of Agriculture</option>
+                      <option value="College of Information Technology">Information Technology</option>
+                      <option value="College of Criminology">Criminology</option>
+                      <option value="College of Business Management">Business Management</option>
+                      <option value="Add Option">Add Option</option>
+                    </select>
+                  </div>
+                </div>
+              
+              
               
                 <div class="form-grid-2">
                   <div class="form-group">
@@ -1824,10 +1990,10 @@
                   <div class="form-group">
                     <label for="prof_status">Membership Status</label>
                     <select id="prof_status" name="prof_status" required>
-                      <option value="" disabled selected>Select Membership Category</option>
-                      <option value="Permanent">Permanent</option>
+                     
+                      <option value="Permanent" selected>Permanent</option>
                       <option value="Temporary">Temporary</option>
-                      <option value="Retired">Retired</option>
+                      
                     </select>
                   </div>
                 </div>
@@ -1861,110 +2027,10 @@
                   </div>
                 </div>
               
-                <hr style="border: 0; border-top: 1px dashed rgba(0,0,0,0.15); margin: 25px 0;">
+             
                 
-                <div class="form-group">
-                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                    <label style="margin: 0; font-weight: bold; font-size: 1.05rem;">Is Onboarding Payment Required?</label>
-                    <label class="switch">
-                      <input
-                        type="checkbox"
-                        id="enroll_payment_required_toggle"
-                        onchange="togglePaymentSectionVisibility()"
-                      />
-                      <span class="slider round"></span>
-                    </label>
-                  </div>
-                </div>
-              
-                <div id="enroll_corePaymentContainer" style="display: none;">
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="enroll_fee_method">Payment Method</label>
-                      <select id="enroll_fee_method" name="fee_method">
-                        <option value="OTC Cash">OTC Cash</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                        <option value="GCash">GCash Transfer</option>
-                        <option value="Maya">Maya Wallet</option>
-                      </select>
-                    </div>
-                    <div class="form-group">
-                      <label for="enroll_fee_date">Payment Date</label>
-                      <input type="date" id="enroll_fee_date" name="fee_date" />
-                    </div>
-                  </div>
-              
-                  <div class="form-group">
-                    <label for="enroll_fee_amount">Amount Paid (₱)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      id="enroll_fee_amount"
-                      name="fee_amount"
-                      placeholder="500.00"
-                    />
-                  </div>
-              
-                  <div class="form-group" style="margin-top: 15px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                      <label style="margin: 0; font-style: italic;">Is Reference / Receipt Document Required?</label>
-                      <label class="switch">
-                        <input
-                          type="checkbox"
-                          id="enroll_receipt_required_toggle"
-                          onchange="toggleReceiptFieldsVisibility()"
-                        />
-                        <span class="slider round"></span>
-                      </label>
-                    </div>
-                  </div>
-              
-                  <div id="enroll_auditFieldsContainer" style="display: none;">
-                    <div class="form-grid-2">
-                      <div class="form-group">
-                        <label for="enroll_fee_ref">Receipt / Reference Number</label>
-                        <input
-                          type="text"
-                          id="enroll_fee_ref"
-                          name="fee_ref"
-                          placeholder="e.g., OR-23194-A"
-                        />
-                      </div>
-                      <div class="form-group">
-                        <label for="enroll_fee_encoder">Encoded By</label>
-                        <input
-                          type="text"
-                          id="enroll_fee_encoder"
-                          name="fee_encoder"
-                          placeholder="e.g., Asst. Treasurer"
-                        />
-                      </div>
-                    </div>
-              
-                    <div class="form-group">
-                      <label>Required Photo of Receipt / Proof of Payment</label>
-                      <div class="photo-upload-slot" onclick="triggerFileUpload('enroll_fee_photo_file')">
-                        <input
-                          type="file"
-                          id="enroll_fee_photo_file"
-                          name="fee_photo_file"
-                          style="display: none"
-                          onchange="showAttachedPreview(this, 'enroll_fee_preview')"
-                        />
-                        <p>📸 Tap to upload official reference receipt</p>
-                        <span class="req-badge" style="background: rgba(229, 57, 53, 0.1); color: #e53935;">
-                          Required field
-                        </span>
-                        <div class="upload-preview-indicator" id="enroll_fee_preview">
-                          ✓ Receipt Document Attached!
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              
                 <button type="submit" class="btn-brand btn-brand-primary" style="margin-top: 20px;">
-                  Enroll Profile & Process Payment
+                  Enroll Profile
                 </button>
               </form>
               </div>
@@ -1972,12 +2038,26 @@
               <div class="dashboard-panel" style="flex: 2">
                 <div class="panel-header-row">
                   <h3 class="panel-title">Enrolled</h3>
+                  <div class="header-actions" style="position:relative;">
+                    <button onclick="memberToggleFilter()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                      <i class="fa-solid fa-filter"></i> Filter
+                    </button>
+                    <div id="memberFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Department</div>
+                      <div id="memberDeptCheckboxes"></div>
+                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Academic Rank</div>
+                      <div id="memberPosCheckboxes"></div>
+                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Status</div>
+                      <div id="memberStatusCheckboxes"></div>
+                      <button onclick="memberApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                    </div>
+                  </div>
                 </div>
                 <div class="table-container">
                   <table class="custom-table" id="memberTable">
                     <thead>
                       <tr>
-                        <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-id-card" title="Employee ID" style="cursor: pointer;"></i></th>
+                        <th style="padding: 4px 8px; text-align: center; display: none;"><i class="fa-solid fa-id-card" title="Employee ID" style="cursor: pointer;"></i></th>
                         <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Name" style="cursor: pointer;"></i></th>
                         <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-briefcase" title="Department & Position" style="cursor: pointer;"></i></th>
                         <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-flag" title="Status" style="cursor: pointer;"></i></th>
@@ -2012,10 +2092,11 @@
                     method="POST"
                     action=""
                     enctype="multipart/form-data"
+                    autocomplete="off"
                   >
                     {% csrf_token %}
                     <div class="form-group">
-                      <label for="fee_member">Member ID</label>
+                      <label for="fee_member">Associated Member</label>
                       <select id="fee_member" name="fee_member" required></select>
                     </div>
                     <div class="form-grid-2">
@@ -2144,6 +2225,16 @@
                 <div class="dashboard-panel" style="flex: 2">
                   <div class="panel-header-row">
                     <h3 class="panel-title">History</h3>
+                    <div class="header-actions" style="position:relative;">
+                      <button onclick="feeToggleFilter()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                        <i class="fa-solid fa-filter"></i> Filter
+                      </button>
+                      <div id="feeFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                        <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Payment Status</div>
+                        <div id="feeStatusCheckboxes"></div>
+                        <button onclick="feeApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                      </div>
+                    </div>
                   </div>
                   <div class="table-container">
                     <table class="custom-table" id="feePaymentTable">
@@ -2184,6 +2275,7 @@
                   method="POST"
                   action=""
                   enctype="multipart/form-data"
+                  autocomplete="off"
                 >
                   {% csrf_token %}
                   <input
@@ -2249,18 +2341,6 @@
                         />
                       </div>
                     </div>
-                  </div>
-                  <div class="form-group">
-                    <label for="re_fee_month"
-                      >Deduction Month / Covered Period</label
-                    >
-                    <input
-                      type="month"
-                      id="re_fee_month"
-                      name="re_fee_month"
-                      placeholder="YYYY-MM"
-                      required
-                    />
                   </div>
                   <div class="form-group">
                     <label for="re_fee_ref">Receipt / Reference Number</label>
@@ -2383,6 +2463,16 @@
               <div class="dashboard-panel" style="flex: 2">
                 <div class="panel-header-row">
                   <h3 class="panel-title">Returned Entries</h3>
+                  <div class="header-actions" style="position:relative;">
+                    <button onclick="returnedFeeToggleFilter()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                      <i class="fa-solid fa-filter"></i> Filter
+                    </button>
+                    <div id="returnedFeeFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Payment Status</div>
+                      <div id="returnedFeeStatusCheckboxes"></div>
+                      <button onclick="window.returnedFeeApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                    </div>
+                  </div>
                 </div>
                 <div class="table-container">
                     <table class="custom-table" id="returnedFeesTable">
@@ -2426,10 +2516,11 @@
                   id="otcDuesForm"
                   method="POST"
                   action=""
+                  autocomplete="off"
                 >
                   {% csrf_token %}
                   <div class="form-group">
-                    <label for="otc_member">Associated Member ID</label>
+                    <label for="otc_member">Associated Member</label>
                     <select id="otc_member" name="otc_member" required></select>
                   </div>
                   <div class="form-grid-2">
@@ -2544,6 +2635,16 @@
               <div class="dashboard-panel" style="flex: 2">
                 <div class="panel-header-row">
                   <h3 class="panel-title">History</h3>
+                  <div class="header-actions" style="position:relative;">
+                    <button onclick="otcToggleFilter()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                      <i class="fa-solid fa-filter"></i> Filter
+                    </button>
+                    <div id="otcFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Payment Method</div>
+                      <div id="otcMethodCheckboxes"></div>
+                      <button onclick="otcApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                    </div>
+                  </div>
                 </div>
                 <div class="table-container">
                     <table class="custom-table" id="otcTable">
@@ -2584,6 +2685,7 @@
                 animation: borderGlide 2s ease-in-out forwards;
                 z-index: -1;
                 pointer-events: none;
+                mask: none;
                 -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
                 -webkit-mask-composite: xor;
                 mask-composite: exclude;
@@ -2600,7 +2702,7 @@
               <h3 class="panel-title" style="margin: 0;">Salary Deductions</h3>
               <div class="salary-tabs premium-tabs" style="display: flex; gap: 4px;">
                 <button type="button" class="salary-tab-btn btn-brand" data-tab="individual" data-premium="1" style="padding: 6px 16px; font-size: 0.85rem; opacity: 0.7;">Individual Entry</button>
-                <button type="button" class="salary-tab-btn btn-brand btn-brand-primary" data-tab="bulk" data-premium="2" style="padding: 6px 16px; font-size: 0.85rem;">Bulk</button>
+                <button type="button" class="salary-tab-btn btn-brand btn-brand-primary" data-tab="bulk" data-premium="2" style="padding: 6px 16px; font-size: 0.85rem;">Batch</button>
               </div>
             </div>
             <div
@@ -2621,6 +2723,7 @@
                   action=""
                   enctype="multipart/form-data"
                   onsubmit="handleSalarySubmit(event)"
+                  autocomplete="off"
                 >
                   {% csrf_token %}
                   <div class="form-group">
@@ -2652,7 +2755,7 @@
                   </div>
                   <div class="form-group">
                     <label for="sal_summary"
-                      >Accounting Deduction Summary Remarks</label
+                      >Remarks</label
                     >
                     <textarea
                       id="sal_summary"
@@ -2728,7 +2831,7 @@
 
               <div class="dashboard-panel salary-tab-panel" id="salary-bulk-panel">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Bulk Process Salary Deductions</h3>
+                  <h3 class="panel-title">Batch Process Salary Deductions</h3>
                 </div>
                 <div class="dashboard-form">
                   <div class="form-group">
@@ -2743,7 +2846,7 @@
                     </div>
                   </div>
                   <div class="form-group">
-                    <label for="bulk_summary">Accounting Deduction Summary Remarks</label>
+                    <label for="bulk_summary">Remarks</label>
                     <textarea id="bulk_summary" name="bulk_summary" rows="2" placeholder="e.g., Payroll deductions for July 2026"></textarea>
                   </div>
                   <div class="form-group">
@@ -2753,6 +2856,10 @@
                       <p>📂 Click to upload payroll summary file</p>
                       <div class="upload-preview-indicator" id="bulk_preview" style="display: none;">✓ File Attached!</div>
                     </div>
+                  </div>
+                  <div id="bulk-amount-badge" style="display:flex;justify-content:center;gap:16px;margin-bottom:10px;font-size:0.85rem;color:#2e7d32;background:rgba(76,175,80,0.12);padding:6px 14px;border-radius:20px;font-weight:600;">
+                    <span>₱<span id="bulk-per-member">{{ expected_dues_default_amount|default:'50' }}</span> / member</span>
+                    <span id="bulk-total-display" style="display:none;">Total: ₱<span id="bulk-total-amount">0</span></span>
                   </div>
                   <button type="button" id="bulk_preview_btn" class="btn-brand btn-brand-primary" style="width: 100%; margin-bottom: 12px;">
                     Preview Members
@@ -2830,6 +2937,7 @@
                   method="POST"
                   action=""
                   enctype="multipart/form-data"
+                  autocomplete="off"
                 >
                   {% csrf_token %}
                   <input
@@ -3014,6 +3122,18 @@
               <div class="dashboard-panel" style="flex: 2">
                 <div class="panel-header-row">
                   <h3 class="panel-title">Returned Monthly Dues Entries</h3>
+                  <div class="header-actions" style="position:relative;">
+                    <button onclick="mdReturnedToggleFilter()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                      <i class="fa-solid fa-filter"></i> Filter
+                    </button>
+                    <div id="mdReturnedFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Payment Status</div>
+                      <div id="mdReturnedStatusCheckboxes"></div>
+                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Source</div>
+                      <div id="mdReturnedSourceCheckboxes"></div>
+                      <button onclick="mdReturnedApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                    </div>
+                  </div>
                 </div>
                 <div class="table-container">
                     <table class="custom-table" id="monthlyDuesReturnedTable">
@@ -3051,22 +3171,30 @@
                 <div class="panel-header-row">
                   <h3 class="panel-title">Monthly Dues Tracking</h3>
                 </div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-                  <select id="dt_dept_filter" onchange="dtApplyFilters()" style="flex:1;min-width:160px;padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
-                    <option value="">All Departments</option>
-                  </select>
-                  <select id="dt_pos_filter" onchange="dtApplyFilters()" style="flex:1;min-width:160px;padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
-                    <option value="">All Titles</option>
-                  </select>
+                <div style="position:relative;margin-bottom:16px;">
+                  <button onclick="dtToggleFilter()" style="padding:8px 14px;border:1px solid #cfdccc;border-radius:8px;background:#fff;cursor:pointer;font-size:0.82rem;display:flex;align-items:center;gap:6px;">
+                    <i class="fa-solid fa-filter"></i> Filter
+                  </button>
+                  <div id="dtFilterCard" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                    <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Department</div>
+                    <div id="dtDeptCheckboxes"></div>
+                    <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Academic Rank</div>
+                    <div id="dtPosCheckboxes"></div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+                      <label style="font-weight:600;font-size:0.82rem;color:#1b5e20;">Year</label>
+                      <select id="dtTableYear" onchange="dtApplyFilters()" style="flex:1;padding:6px 8px;border:1px solid #cfdccc;border-radius:6px;font-size:0.82rem;background:#fbfdfb;"></select>
+                    </div>
+                    <button onclick="dtApplyFilters()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                  </div>
                 </div>
                 <div class="table-container">
                   <table class="custom-table" id="duesTrackingTable">
                     <thead>
                       <tr>
-                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-id-card" title="Employee ID"></i></th>
+                        <th style="padding:4px 8px;text-align:center;display:none;"><i class="fa-solid fa-id-card" title="Employee ID"></i></th>
                         <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-user" title="Name"></i></th>
-                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-briefcase" title="Department"></i></th>
-                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-venus-mars" title="Position"></i></th>
+                        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-building" title="Dept and Rank"></i></th>
+                        <th style="padding:4px 8px;text-align:center;"><span title="Monthly Dues">Dues</span></th>
                         <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-gears" title="Action"></i></th>
                       </tr>
                     </thead>
@@ -3090,7 +3218,7 @@
             >
               <div class="dashboard-panel">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Request Medical Assistance</h3>
+                  <h3 class="panel-title">Medical Assistance</h3>
                 </div>
                 <form
                   class="dashboard-form"
@@ -3099,11 +3227,23 @@
                   action=""
                   novalidate
                   onsubmit="handleMedicalSubmit(event)"
+                  autocomplete="off"
                 >
                   {% csrf_token %}
-                  <div class="form-group">
-                    <label for="med_member">Beneficiary Member ID</label>
-                    <select id="med_member" name="med_member" required></select>
+                  <div class="form-group" style="position:relative;">
+                    <label for="med_member_search">Associated Member</label>
+                    <div style="display:flex;gap:6px;">
+                      <input type="text" id="med_member_search" placeholder="Type to search..." style="flex:1;padding:8px 12px;border:1px solid #cfdccc;border-radius:6px;font-size:0.85rem;" autocomplete="off" oninput="filterMedMembers(this.value)" onfocus="filterMedMembers(this.value)" onblur="setTimeout(function(){hideMedResults();},200)" onkeydown="handleMedSearchKeydown(event)">
+                      <select id="med_member" name="med_member" required style="width:180px;" onchange="onMedMemberSelect(this)">
+                        <option value="" selected>Select Associated Member</option>
+                      </select>
+                    </div>
+                    <div id="med_member_results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;background:#fff;border:1px solid #cfdccc;border-radius:8px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:2px;"></div>
+                  </div>
+                  <div id="med_member_info" style="display:none;padding:10px 12px;background:#e8f5e9;border-radius:8px;margin-bottom:12px;font-size:0.85rem;">
+                    <div id="med_member_info_name" style="font-weight:600;color:#1b5e20;"></div>
+                    <div id="med_member_info_contact" style="color:#555;margin-top:2px;"></div>
+                    <div id="med_member_info_status" style="margin-top:4px;"></div>
                   </div>
                   <div class="form-grid-2">
                     <div class="form-group">
@@ -3111,21 +3251,36 @@
                       <input type="date" id="med_date" name="med_date" required />
                     </div>
                     <div class="form-group">
-                      <label for="med_reason">Reason / Medical Case</label>
-                      <input type="text" id="med_reason" name="med_reason" placeholder="e.g., Surgery, Acute Pneumonia" required />
+                      <label for="med_reason">Reason for Hospitalization</label>
+                      <input type="text" id="med_reason" name="med_reason" placeholder="Type here..." required />
+                    </div>
+                  </div>
+                  <div class="dashboard-panel" style="margin-bottom:12px;padding:12px;">
+                    <div onclick="toggleMedHospitalDrawer()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+                      <h4 style="margin:0;color:#1b5e20;font-size:0.95rem;">Hospital Details</h4>
+                      <span id="medHospitalChevron" style="color:#1b5e20;font-size:1rem;transition:transform 0.25s;">&#9656;</span>
+                    </div>
+                    <div id="medHospitalDrawerBody" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;">
+                      <div style="padding-top:12px;">
+                        <div class="form-group">
+                          <label for="med_hospital">Hospital</label>
+                          <input type="text" id="med_hospital" name="med_hospital" placeholder="e.g., Cauayan District Hospital" />
+                        </div>
+                        <div class="form-group">
+                          <label for="med_hospital_date">Date of Hospitalization (Admission – Discharge)</label>
+                          <input type="text" id="med_hospital_date" name="med_hospital_date" class="flatpickr-range" placeholder="Select admission and discharge dates" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                   <div class="form-group">
-                    <label for="med_hospital">Hospital / Clinic Name</label>
-                    <input type="text" id="med_hospital" name="med_hospital" placeholder="e.g., Metro Medical Center" required />
-                  </div>
-                  <div class="form-group">
-                    <label for="med_hospital_date">Date of Hospitalization / Illness</label>
-                    <input type="date" id="med_hospital_date" name="med_hospital_date" />
-                  </div>
-                  <div class="form-group">
                     <label for="med_bill">Total Hospital Bill Amount (₱)</label>
-                    <input type="number" step="0.01" id="med_bill" name="med_bill" placeholder="18500.00" required />
+                    <input type="number" step="0.01" id="med_bill" name="med_bill" placeholder="{{ sickness_aid_threshold|default:'20000' }} or above" required oninput="updateMedBillIndicator()" />
+                    <div id="med_bill_indicator" style="margin-top:4px;font-size:0.8rem;font-weight:600;"></div>
+                  </div>
+                  <div id="med_aid_estimate" data-threshold="{{ sickness_aid_threshold|default:'20000' }}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:rgba(27,94,32,0.08);border-radius:8px;margin-bottom:12px;font-size:0.85rem;color:#1b5e20;">
+                    <span>Estimated Aid Benefit:</span>
+                    <span style="font-weight:700;">₱{{ sickness_aid_benefit|default:'0'|floatformat:2 }}</span>
                   </div>
                   <div class="form-group">
                     <label>Supporting Documents (Photos, PDF, DOCX)</label>
@@ -3148,7 +3303,6 @@
                     <table class="custom-table" id="medicalTable">
                       <thead>
                         <tr>
-                          <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-receipt" title="Claim ID" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-user" title="Member" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-hospital" title="Case & Hospital" style="cursor: pointer;"></i></th>
                           <th style="padding: 4px 8px; text-align: center;"><i class="fa-solid fa-coins" title="Requested Amount" style="cursor: pointer;"></i></th>
@@ -3169,7 +3323,17 @@
               <div class="dashboard-panel" style="flex:2">
                 <div class="panel-header-row">
                   <h3 class="panel-title">Death Aid Claims</h3>
-                  <button type="button" class="btn-brand btn-brand-primary" style="padding:4px 14px;font-size:0.85rem;" onclick="openDeathAidScenarioPicker()">+ New Claim</button>
+                  <div class="header-actions" style="display:flex;gap:8px;align-items:center;position:relative;">
+                    <button onclick="deathToggleFilter()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                      <i class="fa-solid fa-filter"></i> Filter
+                    </button>
+                    <div id="deathFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Status</div>
+                      <div id="deathStatusCheckboxes"></div>
+                      <button onclick="deathApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                    </div>
+                    <button type="button" class="btn-brand btn-brand-primary" style="padding:4px 14px;font-size:0.85rem;" onclick="openDeathAidScenarioPicker()">+ New Claim</button>
+                  </div>
                 </div>
                 <div class="table-container">
                   <table class="custom-table" id="deathTable"><thead><tr>
@@ -3192,7 +3356,7 @@
                     <h3 class="panel-title">Death Aid Claim</h3>
                     <button type="button" class="btn-brand btn-brand-secondary" style="padding:4px 12px;font-size:0.8rem" onclick="resetDeathAidForm()">Change</button>
                   </div>
-                  <form class="dashboard-form" id="deathForm" method="POST" action="" novalidate onsubmit="handleDeathSubmit(event)">
+                  <form class="dashboard-form" id="deathForm" method="POST" action="" novalidate autocomplete="off" onsubmit="handleDeathSubmit(event)">
                     {% csrf_token %}
                     <input type="hidden" id="death_scenario" name="death_scenario" value="">
 
@@ -3269,22 +3433,29 @@
 
                     </div>
 
-                    <!-- Card 2: Funeral & Interment -->
+                    <!-- Card 2: Funeral & Interment (collapsible) -->
                     <div class="dashboard-panel" style="margin-bottom:16px">
-                      <h4 style="margin:0 0 12px 0;color:#1b5e20">Funeral &amp; Interment Details</h4>
-                      <div class="form-grid-2">
-                        <div class="form-group">
-                          <label for="death_funeral_location">Funeral / Interment Location</label>
-                          <input type="text" id="death_funeral_location" name="death_funeral_location" placeholder="e.g. St. Peter Memorial Chapel">
-                        </div>
-                        <div class="form-group">
-                          <label for="death_interment_date">Interment / Burial Date</label>
-                          <input type="date" id="death_interment_date" name="death_interment_date">
-                        </div>
+                      <div onclick="toggleFuneralDrawer()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
+                        <h4 style="margin:0;color:#1b5e20">Funeral &amp; Interment Details</h4>
+                        <span id="funeralChevron" style="color:#1b5e20;font-size:1.1rem;transition:transform 0.25s;">&#9656;</span>
                       </div>
-                      <div class="form-group">
-                        <label for="death_date">Date of Death</label>
-                        <input type="date" id="death_date" name="death_date" required>
+                      <div id="funeralDrawerBody" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;">
+                        <div style="padding-top:12px;">
+                          <div class="form-grid-2">
+                            <div class="form-group">
+                              <label for="death_funeral_location">Funeral / Interment Location</label>
+                              <input type="text" id="death_funeral_location" name="death_funeral_location" placeholder="e.g. St. Peter Memorial Chapel">
+                            </div>
+                            <div class="form-group">
+                              <label for="death_interment_date">Interment / Burial Date</label>
+                              <input type="date" id="death_interment_date" name="death_interment_date">
+                            </div>
+                          </div>
+                          <div class="form-group">
+                            <label for="death_date">Date of Death</label>
+                            <input type="date" id="death_date" name="death_date" required>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -3356,6 +3527,7 @@
                   method="POST"
                   action=""
                   enctype="multipart/form-data"
+                  autocomplete="off"
                 >
                   {% csrf_token %}
                   <input
@@ -3378,9 +3550,9 @@
                     <label for="ma_returned_hospital">Hospital / Clinic Name</label>
                     <input type="text" id="ma_returned_hospital" name="hospital_name" placeholder="e.g., Isabela Sanitation Hospital" />
                   </div>
-                  <div class="form-group">
-                    <label for="ma_returned_hospital_date">Date of Hospitalization / Illness</label>
-                    <input type="date" id="ma_returned_hospital_date" name="hospital_date" />
+<div class="form-group">
+                    <label for="ma_returned_hospital_date">Date of Hospitalization (Admission – Discharge)</label>
+                    <input type="text" id="ma_returned_hospital_date" name="hospital_date" class="flatpickr-range" placeholder="Select admission and discharge dates" />
                   </div>
                   <div class="form-grid-2">
                     <div class="form-group">
@@ -3546,6 +3718,7 @@
                   method="POST"
                   action=""
                   enctype="multipart/form-data"
+                  autocomplete="off"
                 >
                   {% csrf_token %}
                   <input
@@ -3925,6 +4098,7 @@
                   method="POST"
                   action=""
                   onsubmit="handleReportSubmit(event)"
+                  autocomplete="off"
                 >
                   {% csrf_token %}
                   <div class="form-grid-2">
@@ -4054,6 +4228,8 @@
        ========================================================================== -->
     <script src="{% static 'js/Treasurer/toast.js' %}"></script>
     <script src="{% static 'js/Treasurer/add_member.js' %}"></script>
+    <script src="{% static 'js/Treasurer/auto_employee_id.js' %}"></script>
+    <script src="{% static 'js/Treasurer/bulk_upload.js' %}"></script>
     <script src="{% static 'js/Treasurer/membership_fee.js' %}"></script>
     <script src="{% static 'js/Treasurer/monthly_dues_handle.js' %}"></script>
     <script src="{% static 'js/Treasurer/returned_entries.js' %}"></script>
@@ -4666,9 +4842,12 @@
         selectors.forEach((id) => {
           const sel = document.getElementById(id);
           if (!sel) return;
-          sel.innerHTML = '<option value="">-- Choose Member ID --</option>';
+          sel.innerHTML = '<option value="">Select Associated Member</option>';
           db.members.forEach((m) => {
-            sel.innerHTML += `<option value="${m.id}">${m.name} (${m.id})</option>`;
+            const label = m.name + (m.facultyId ? " (" + m.facultyId + ")" : "");
+            const contact = m.contact || "";
+            const status = m.status || "";
+            sel.innerHTML += `<option value="${m.id}" data-contact="${contact.replace(/"/g,"&quot;")}" data-status="${status.replace(/"/g,"&quot;")}">${label}</option>`;
           });
         });
 
@@ -4717,9 +4896,91 @@
           }
         });
       }
+      function memberEsc(s) {
+        if (s == null) return "";
+        return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+      }
+
+      function memberGetChecked(id) {
+        var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+        for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+        return vals;
+      }
+
+      function memberGetAllValues(id) {
+        var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+        for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+        return vals;
+      }
+
+      function memberToggleAll(containerId, checked) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var cbs = container.querySelectorAll('input[type="checkbox"]');
+        for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+        memberApplyFilter();
+      }
+
+      function memberSyncAll(containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var cbs = container.querySelectorAll('input[type="checkbox"]');
+        var allBox = cbs.length > 0 ? cbs[0] : null;
+        if (!allBox) return;
+        var allChecked = true;
+        for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+        allBox.checked = allChecked;
+      }
+
+      function memberFillFilters() {
+        var depts = {}, poses = {}, stats = {}, i, m, arr = db.members || [];
+        for (i = 0; i < arr.length; i++) { m = arr[i]; if (m.department) depts[m.department] = 1; if (m.position) poses[m.position] = 1; if (m.status) stats[m.status] = 1; }
+        var dk = Object.keys(depts).sort(), pk = Object.keys(poses).sort(), sk = Object.keys(stats).sort();
+        var dc = document.getElementById("memberDeptCheckboxes"), pc = document.getElementById("memberPosCheckboxes"), sc = document.getElementById("memberStatusCheckboxes");
+        if (dc) {
+          dc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="memberToggleAll(\'memberDeptCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+          for (i = 0; i < dk.length; i++) dc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + memberEsc(dk[i]) + '" checked onchange="memberSyncAll(\'memberDeptCheckboxes\');memberApplyFilter()"> <span>' + memberEsc(dk[i]) + '</span></label>';
+        }
+        if (pc) {
+          pc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="memberToggleAll(\'memberPosCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+          for (i = 0; i < pk.length; i++) pc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + memberEsc(pk[i]) + '" checked onchange="memberSyncAll(\'memberPosCheckboxes\');memberApplyFilter()"> <span>' + memberEsc(pk[i]) + '</span></label>';
+        }
+        if (sc) {
+          sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="memberToggleAll(\'memberStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+          for (i = 0; i < sk.length; i++) sc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + memberEsc(sk[i]) + '" checked onchange="memberSyncAll(\'memberStatusCheckboxes\');memberApplyFilter()"> <span>' + memberEsc(sk[i]) + '</span></label>';
+        }
+      }
+
+      function memberToggleFilter() {
+        var card = document.getElementById("memberFilterCard");
+        if (!card) return;
+        var opening = card.style.display === "none";
+        card.style.display = opening ? "block" : "none";
+        if (opening) {
+          memberFillFilters();
+          var handler = function(e) {
+            var btn = document.querySelector('[onclick="memberToggleFilter()"]');
+            if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
+            document.removeEventListener("click", handler);
+            card.style.display = "none";
+            memberApplyFilter();
+          };
+          setTimeout(function() { document.addEventListener("click", handler); }, 0);
+        }
+      }
+
+      function memberApplyFilter() {
+        renderMembersTable();
+      }
+
       function renderMembersTable() {
         const tbody = document.querySelector("#memberTable tbody");
         if (!tbody) return;
+
+        var depts = memberGetChecked("memberDeptCheckboxes"), poses = memberGetChecked("memberPosCheckboxes"), stats = memberGetChecked("memberStatusCheckboxes");
+        if (depts.length === 0) { depts = memberGetAllValues("memberDeptCheckboxes"); memberSyncAll("memberDeptCheckboxes"); }
+        if (poses.length === 0) { poses = memberGetAllValues("memberPosCheckboxes"); memberSyncAll("memberPosCheckboxes"); }
+        if (stats.length === 0) { stats = memberGetAllValues("memberStatusCheckboxes"); memberSyncAll("memberStatusCheckboxes"); }
 
         tbody.innerHTML = "";
         if (!db.members || db.members.length === 0) {
@@ -4727,7 +4988,21 @@
           return;
         }
 
-        db.members.forEach((m) => {
+        var arr = db.members || [], flt = [], i, m;
+        for (i = 0; i < arr.length; i++) {
+          m = arr[i];
+          if (depts.length && depts.indexOf(m.department) === -1) continue;
+          if (poses.length && poses.indexOf(m.position) === -1) continue;
+          if (stats.length && stats.indexOf(m.status) === -1) continue;
+          flt.push(m);
+        }
+
+        if (flt.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757580;padding:30px;">No members match current filters.</td></tr>`;
+          return;
+        }
+
+        flt.forEach((m) => {
           const badgeClass =
             m.status === "Active" || m.status === "Permanent"
               ? "badge-green"
@@ -4737,10 +5012,10 @@
 
           const tr = document.createElement("tr");
           tr.innerHTML = `
-        <td style="font-weight:600;color:#1b5e20;">${m.id}</td>
-        <td>${m.name} <br><span style="font-size:0.75rem;color:#757575;">ID: ${m.facultyId}</span></td>
-        <td>${m.department} <br><span style="font-size:0.75rem;color:#1b5e20;font-weight:500;">${m.position}</span></td>
-        <td><span class="badge-zero ${badgeClass}">${m.status}</span></td>
+        <td style="font-weight:600;color:#1b5e20;display:none;">${memberEsc(m.id)}</td>
+        <td>${memberEsc(m.name)}</td>
+        <td>${memberEsc(m.department)} <br><span style="font-size:0.75rem;color:#1b5e20;font-weight:500;">${memberEsc(m.position)}</span></td>
+        <td><span class="badge-zero ${badgeClass}">${memberEsc(m.status)}</span></td>
         <td>
           <select class="action-dropdown" onchange="handleAction(this, '${m.id}')">
             <option value="" disabled selected hidden>Actions</option>
@@ -4769,7 +5044,7 @@
 
               <div class="form-group" style="margin:0;">
                 <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Full Legal Name</label>
-                <input id="edit_prof_name" type="text" value="${member.name || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
+                <input id="edit_prof_name" type="text" autocomplete="off" value="${member.name || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
               </div>
 
               <div class="form-grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
@@ -4787,12 +5062,12 @@
               <div class="form-grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
                 <div class="form-group" style="margin:0;">
                   <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Contact Number</label>
-                  <input id="edit_prof_contact" type="tel" value="${member.contact || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
+                  <input id="edit_prof_contact" type="tel" autocomplete="off" value="${member.contact || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
                 </div>
 
                 <div class="form-group" style="margin:0;">
                   <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Institutional Email</label>
-                  <input id="edit_prof_email" type="email" value="${member.email || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
+                  <input id="edit_prof_email" type="email" autocomplete="off" value="${member.email || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
                 </div>
               </div>
 
@@ -5023,53 +5298,198 @@
           .catch(() => {});
       }
 
+      var __feeRecords = [];
+
+      function feeGetChecked(id) {
+        var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+        for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+        return vals;
+      }
+
+      function feeGetAllValues(id) {
+        var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+        for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+        return vals;
+      }
+
+      function feeToggleAll(containerId, checked) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var cbs = container.querySelectorAll('input[type="checkbox"]');
+        for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+        feeApplyFilter();
+      }
+
+      function feeSyncAll(containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var cbs = container.querySelectorAll('input[type="checkbox"]');
+        var allBox = cbs.length > 0 ? cbs[0] : null;
+        if (!allBox) return;
+        var allChecked = true;
+        for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+        allBox.checked = allChecked;
+      }
+
+      function feeFillFilters() {
+        var stats = {}, i, f, arr = __feeRecords || [];
+        for (i = 0; i < arr.length; i++) { f = arr[i]; if (f.payment_status) stats[f.payment_status] = 1; }
+        var sk = Object.keys(stats).sort();
+        var sc = document.getElementById("feeStatusCheckboxes");
+        if (sc) {
+          sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="feeToggleAll(\'feeStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+          for (i = 0; i < sk.length; i++) sc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + sk[i] + '" checked onchange="feeSyncAll(\'feeStatusCheckboxes\');feeApplyFilter()"> <span>' + sk[i] + '</span></label>';
+        }
+      }
+
+      function feeToggleFilter() {
+        var card = document.getElementById("feeFilterCard");
+        if (!card) return;
+        var opening = card.style.display === "none";
+        card.style.display = opening ? "block" : "none";
+        if (opening) {
+          feeFillFilters();
+          var handler = function(e) {
+            var btn = document.querySelector('[onclick="feeToggleFilter()"]');
+            if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
+            document.removeEventListener("click", handler);
+            card.style.display = "none";
+            feeApplyFilter();
+          };
+          setTimeout(function() { document.addEventListener("click", handler); }, 0);
+        }
+      }
+
+      function feeApplyFilter() {
+        renderFeesTable();
+      }
+
       async function renderFeesTable() {
         const tbody = document.querySelector("#feePaymentTable tbody");
         if (!tbody) return;
 
-        tbody.innerHTML =
-          '<tr><td colspan="6" style="text-align:center;color:#757575;">Loading membership fee payments...</td></tr>';
-
-        try {
-          const res = await fetch("/api/treasurer/membership-fees/list/", {
-            method: "GET",
-            credentials: "same-origin",
-          });
-
-          const data = await res.json();
-          if (!data || !data.ok || !Array.isArray(data.fees)) {
-            throw new Error("Invalid membership fee response.");
-          }
-
-          const fees = data.fees;
-          tbody.innerHTML = "";
-          if (fees.length === 0) {
-            tbody.innerHTML =
-              '<tr><td colspan="6" style="text-align:center;color:#757575;">No membership fee payments recorded</td></tr>';
+        if (__feeRecords.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#757575;">Loading membership fee payments...</td></tr>';
+          try {
+            const res = await fetch("/api/treasurer/membership-fees/list/", {
+              method: "GET", credentials: "same-origin",
+            });
+            const data = await res.json();
+            if (!data || !data.ok || !Array.isArray(data.fees)) throw new Error("Invalid membership fee response.");
+            __feeRecords = data.fees;
+          } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#e53935;">Unable to load membership fee payments from the database.</td></tr>';
             return;
           }
+        }
 
-          fees.forEach((f) => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
+        var stats = feeGetChecked("feeStatusCheckboxes");
+        if (stats.length === 0) { stats = feeGetAllValues("feeStatusCheckboxes"); feeSyncAll("feeStatusCheckboxes"); }
+
+        var arr = __feeRecords || [], flt = [], i, f;
+        for (i = 0; i < arr.length; i++) {
+          f = arr[i];
+          if (stats.length && stats.indexOf(f.payment_status) === -1) continue;
+          flt.push(f);
+        }
+
+        tbody.innerHTML = "";
+        if (flt.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
+          return;
+        }
+
+        flt.forEach((f) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
               <td style="font-weight:600;color:#1b5e20;">${f.ref || ""}</td>
               <td>${f.member_name || ""} <br><span style="font-size:0.75rem;color:#757575;">Code: ${f.member_id || ""}</span></td>
               <td style="font-weight:600;">${formatCurrencyPHP(f.amount)}</td>
               <td>${f.payment_status || ""} <br><span style="font-size:0.75rem;color:#757575;">Date: ${f.payment_date || ""}</span></td>
               <td>${f.encoded_by || ""}</td>
             `;
-            tbody.appendChild(tr);
-          });
-        } catch (e) {
-          tbody.innerHTML =
-            '<tr><td colspan="5" style="text-align:center;color:#e53935;">Unable to load membership fee payments from the database.</td></tr>';
+          tbody.appendChild(tr);
+        });
+      }
+
+      function otcGetChecked(id) {
+        var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+        for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+        return vals;
+      }
+
+      function otcGetAllValues(id) {
+        var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+        for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+        return vals;
+      }
+
+      function otcToggleAll(containerId, checked) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var cbs = container.querySelectorAll('input[type="checkbox"]');
+        for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+        otcApplyFilter();
+      }
+
+      function otcSyncAll(containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var cbs = container.querySelectorAll('input[type="checkbox"]');
+        var allBox = cbs.length > 0 ? cbs[0] : null;
+        if (!allBox) return;
+        var allChecked = true;
+        for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+        allBox.checked = allChecked;
+      }
+
+      function otcFillFilters() {
+        var methods = {}, i, o, arr = db.otc_dues || [];
+        for (i = 0; i < arr.length; i++) { o = arr[i]; if (o.method) methods[o.method] = 1; }
+        var mk = Object.keys(methods).sort();
+        var mc = document.getElementById("otcMethodCheckboxes");
+        if (mc) {
+          mc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="otcToggleAll(\'otcMethodCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+          for (i = 0; i < mk.length; i++) mc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + mk[i] + '" checked onchange="otcSyncAll(\'otcMethodCheckboxes\');otcApplyFilter()"> <span>' + mk[i] + '</span></label>';
         }
       }
+
+      function otcToggleFilter() {
+        var card = document.getElementById("otcFilterCard");
+        if (!card) return;
+        var opening = card.style.display === "none";
+        card.style.display = opening ? "block" : "none";
+        if (opening) {
+          otcFillFilters();
+          var handler = function(e) {
+            var btn = document.querySelector('[onclick="otcToggleFilter()"]');
+            if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
+            document.removeEventListener("click", handler);
+            card.style.display = "none";
+            otcApplyFilter();
+          };
+          setTimeout(function() { document.addEventListener("click", handler); }, 0);
+        }
+      }
+
+      function otcApplyFilter() { renderOtcTable(); }
 
       function renderOtcTable() {
         const tbody = document.querySelector("#otcTable tbody");
         tbody.innerHTML = "";
-        db.otc_dues.forEach((o) => {
+        var methods = otcGetChecked("otcMethodCheckboxes");
+        if (methods.length === 0) { methods = otcGetAllValues("otcMethodCheckboxes"); otcSyncAll("otcMethodCheckboxes"); }
+        var arr = db.otc_dues || [], flt = [], i, o;
+        for (i = 0; i < arr.length; i++) {
+          o = arr[i];
+          if (methods.length && methods.indexOf(o.method) === -1) continue;
+          flt.push(o);
+        }
+        if (flt.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
+          return;
+        }
+        flt.forEach((o) => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
               <td style="font-weight:600;color:#1b5e20;">${o.ref}</td>
@@ -5246,23 +5666,9 @@
         if (!input) return;
         let isDeleting = false;
 
-        input.addEventListener("keydown", function (e) {
-          isDeleting = e.key === "Backspace";
-        });
-
-        input.addEventListener("input", function (e) {
-          let cursorPosition = e.target.selectionStart;
-          let originalLength = e.target.value.length;
-          let value = e.target.value;
-
-          if (isDeleting && value.charAt(cursorPosition) === "-") {
-            value = value.slice(0, cursorPosition) + value.slice(cursorPosition + 1);
-            cursorPosition--;
-          }
-
-          let clean = value.replace(/(?!^\+)\D/g, "");
+        function phoneFormat(raw) {
+          let clean = raw.replace(/(?!^\+)\D/g, "");
           let formatted = "";
-
           if (clean.startsWith("+63") || clean.startsWith("63") || clean === "6") {
             if (clean === "6") clean = "+63";
             if (!clean.startsWith("+")) clean = "+" + clean;
@@ -5279,6 +5685,35 @@
           } else {
             formatted = clean;
           }
+          return formatted;
+        }
+
+        input.addEventListener("paste", function (e) {
+          e.preventDefault();
+          const pasted = (e.clipboardData || window.clipboardData).getData("text");
+          const digits = pasted.replace(/(?!^\+)\D/g, "");
+          if (!digits) return;
+          const start = this.selectionStart;
+          const end = this.selectionEnd;
+          this.value = this.value.substring(0, start) + digits + this.value.substring(end);
+          this.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+
+        input.addEventListener("keydown", function (e) {
+          isDeleting = e.key === "Backspace";
+        });
+
+        input.addEventListener("input", function (e) {
+          let cursorPosition = e.target.selectionStart;
+          let originalLength = e.target.value.length;
+          let value = e.target.value;
+
+          if (isDeleting && value.charAt(cursorPosition) === "-") {
+            value = value.slice(0, cursorPosition) + value.slice(cursorPosition + 1);
+            cursorPosition--;
+          }
+
+          let formatted = phoneFormat(value);
 
           e.target.value = formatted;
           let newLength = formatted.length;
@@ -5442,22 +5877,85 @@
         async function dtInit() {
           await dtLoadMembers();
           dtFillFilters();
+          var ty = document.getElementById("dtTableYear");
+          if (ty && ty.options.length === 0) {
+            var cy = new Date().getFullYear();
+            for (var y = cy - 2; y <= cy + 1; y++) { var o = document.createElement("option"); o.value = y; o.textContent = y; if (y === cy) o.selected = true; ty.appendChild(o); }
+          }
+          await dtLoadTableTracking();
           dtRender();
+        }
+
+        async function dtLoadTableTracking() {
+          var ty = document.getElementById("dtTableYear"), yr = ty ? ty.value : new Date().getFullYear();
+          try {
+            var resp = await fetch("/api/treasurer/monthly-dues/tracking/?year=" + yr, { method: "GET", credentials: "same-origin" });
+            var d = await resp.json();
+            dtData = (d.ok && d.tracking) ? d.tracking : {};
+          } catch(e) { dtData = {}; }
+        }
+
+        function dtToggleFilter() {
+          var card = document.getElementById("dtFilterCard");
+          if (!card) return;
+          var opening = card.style.display === "none";
+          card.style.display = opening ? "block" : "none";
+          if (opening) {
+            var handler = function(e) {
+              var btn = document.querySelector('[onclick="dtToggleFilter()"]');
+              if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
+              document.removeEventListener("click", handler);
+              card.style.display = "none";
+              dtApplyFilters();
+            };
+            setTimeout(function() { document.addEventListener("click", handler); }, 0);
+          }
+        }
+
+        function dtToggleAll(containerId, checked) {
+          var container = document.getElementById(containerId);
+          if (!container) return;
+          var cbs = container.querySelectorAll('input[type="checkbox"]');
+          for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+          dtApplyFilters();
+        }
+
+        function dtSyncAll(containerId) {
+          var container = document.getElementById(containerId);
+          if (!container) return;
+          var cbs = container.querySelectorAll('input[type="checkbox"]');
+          var allBox = cbs.length > 0 ? cbs[0] : null;
+          if (!allBox) return;
+          var allChecked = true;
+          for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+          allBox.checked = allChecked;
         }
 
         function dtFillFilters() {
           var depts = {}, poses = {}, i, m, arr = dtMembers || [];
           for (i = 0; i < arr.length; i++) { m = arr[i]; if (m.department) depts[m.department] = 1; if (m.position) poses[m.position] = 1; }
           var dk = Object.keys(depts).sort(), pk = Object.keys(poses).sort();
-          var ds = document.getElementById("dt_dept_filter"), ps = document.getElementById("dt_pos_filter");
-          if (ds) {
-            ds.innerHTML = '<option value="">All Departments</option>';
-            for (i = 0; i < dk.length; i++) ds.innerHTML += '<option value="' + dtEsc(dk[i]) + '">' + dtEsc(dk[i]) + '</option>';
+          var dc = document.getElementById("dtDeptCheckboxes"), pc = document.getElementById("dtPosCheckboxes");
+          if (dc) {
+            dc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="dtToggleAll(\'dtDeptCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+            for (i = 0; i < dk.length; i++) dc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + dtEsc(dk[i]) + '" checked onchange="dtSyncAll(\'dtDeptCheckboxes\');dtApplyFilters()"> <span>' + dtEsc(dk[i]) + '</span></label>';
           }
-          if (ps) {
-            ps.innerHTML = '<option value="">All Titles</option>';
-            for (i = 0; i < pk.length; i++) ps.innerHTML += '<option value="' + dtEsc(pk[i]) + '">' + dtEsc(pk[i]) + '</option>';
+          if (pc) {
+            pc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="dtToggleAll(\'dtPosCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+            for (i = 0; i < pk.length; i++) pc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + dtEsc(pk[i]) + '" checked onchange="dtSyncAll(\'dtPosCheckboxes\');dtApplyFilters()"> <span>' + dtEsc(pk[i]) + '</span></label>';
           }
+        }
+
+        function dtGetChecked(id) {
+          var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+          for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+          return vals;
+        }
+
+        function dtGetAllValues(id) {
+          var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+          for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+          return vals;
         }
 
         function dtRender() {
@@ -5465,30 +5963,58 @@
           if (!tb) return;
           var tbdy = tb.getElementsByTagName("tbody")[0];
           if (!tbdy) return;
-          var ds = document.getElementById("dt_dept_filter"), ps = document.getElementById("dt_pos_filter");
-          var df = ds ? ds.value : "", pf = ps ? ps.value : "";
+          var depts = dtGetChecked("dtDeptCheckboxes"), poses = dtGetChecked("dtPosCheckboxes");
+          if (depts.length === 0) { depts = dtGetAllValues("dtDeptCheckboxes"); dtSyncAll("dtDeptCheckboxes"); }
+          if (poses.length === 0) { poses = dtGetAllValues("dtPosCheckboxes"); dtSyncAll("dtPosCheckboxes"); }
           var arr = dtMembers || [], flt = [], i, m;
           for (i = 0; i < arr.length; i++) {
             m = arr[i];
-            if ((!df || m.department === df) && (!pf || m.position === pf)) flt.push(m);
+            if (depts.length && depts.indexOf(m.department) === -1) continue;
+            if (poses.length && poses.indexOf(m.position) === -1) continue;
+            flt.push(m);
           }
           tbdy.innerHTML = "";
           if (flt.length === 0) {
             tbdy.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#757580;padding:30px;">No members found for current filters.</td></tr>';
             return;
           }
+          var ty = document.getElementById("dtTableYear"), tblYr = parseInt(ty ? ty.value : new Date().getFullYear());
+          var now = new Date(), curYear = now.getFullYear(), curMonth = now.getMonth() + 1;
+          var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
           for (i = 0; i < flt.length; i++) {
             m = flt[i];
             var tr = document.createElement("tr");
             var sid = dtEsc(m.id);
-            tr.innerHTML = '<td style="font-weight:600;color:#1b5e20;">' + dtEsc(m.facultyId || m.id || "") + '</td>' +
+            var memberData = dtData[m.id] || {};
+            var paidCount = 0, missedCount = 0, paidMonths = [], missedMonths = [];
+            for (var mo = 1; mo <= 12; mo++) {
+              var mk = tblYr + "-" + (mo < 10 ? "0" : "") + mo;
+              var st = memberData[mk] || "not-paid";
+              var isPastMo = tblYr < curYear || (tblYr == curYear && mo < curMonth);
+              if (st === "paid" || st === "partial") {
+                paidCount++;
+                paidMonths.push(monthNames[mo - 1]);
+              } else if (isPastMo) {
+                missedCount++;
+                missedMonths.push(monthNames[mo - 1]);
+              }
+            }
+            var paidTip = paidCount > 0 ? paidCount + " paid for this year\n• " + paidMonths.join("\n• ") : "";
+            var missedTip = missedCount > 0 ? missedCount + " missed for this year\n• " + missedMonths.join("\n• ") : "";
+            tr.innerHTML = '<td style="display:none;">' + dtEsc(m.facultyId || m.id || "") + '</td>' +
               '<td>' + dtEsc(m.name || "") + '</td>' +
-              '<td>' + dtEsc(m.department || "") + '</td>' +
-              '<td>' + dtEsc(m.position || "") + '</td>' +
+              '<td>' + dtEsc(m.department || "") + '<br><span style="font-size:0.78rem;color:#757575;">' + dtEsc(m.position || "") + '</span></td>' +
+              '<td style="text-align:center;"><span class="dt-tip" data-tip="' + dtEsc(paidTip) + '" style="color:#2e7d32;font-weight:600;">' + paidCount + '</span><span style="color:#999;"> | </span><span class="dt-tip" data-tip="' + dtEsc(missedTip) + '" style="color:#c62828;font-weight:600;">' + missedCount + '</span></td>' +
               '<td><button class="btn-brand btn-brand-primary" style="padding:6px 14px;font-size:0.8rem;" onclick="dtOpenModal(\'' + sid + '\')">Track Dues</button></td>';
             tbdy.appendChild(tr);
           }
         }
+
+        function dtApplyFilters() { dtLoadTableTracking().then(function() { dtRender(); }); }
+        window.dtApplyFilters = dtApplyFilters;
+        window.dtToggleFilter = dtToggleFilter;
+        window.dtToggleAll = dtToggleAll;
+        window.dtSyncAll = dtSyncAll;
 
         function dtOpenModal(mid) {
           var arr = dtMembers || [], m = null, i;
@@ -5522,12 +6048,24 @@
           if (!g) return;
           g.innerHTML = "";
           var ms = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-          var ys = document.getElementById("dtYearFilter"), yr = ys ? ys.value : new Date().getFullYear();
+          var ys = document.getElementById("dtYearFilter"), yr = parseInt(ys ? ys.value : new Date().getFullYear());
           var mm = dtData[mid] || {};
+          var now = new Date(), curYear = now.getFullYear(), curMonth = now.getMonth() + 1;
           for (var i = 0; i < 12; i++) {
             var mk = yr + "-" + (i < 9 ? "0" : "") + (i + 1);
-            var st = mm[mk] || "not_paid";
-            var bx = document.createElement("div"); bx.className = "dt-month-box " + st; bx.textContent = ms[i]; g.appendChild(bx);
+            var st = mm[mk] || "not-paid";
+            var monthNum = i + 1;
+            var isPast = yr < curYear || (yr == curYear && monthNum < curMonth);
+            if (st === "not-paid" && !isPast) {
+              st = "upcoming";
+            }
+            var isCurrent = (yr == curYear && monthNum == curMonth);
+            var bx = document.createElement("div"); bx.className = "dt-month-box " + st + (isCurrent ? " current-month" : ""); bx.textContent = ms[i];
+            if (isCurrent) {
+              var lbl = document.createElement("span"); lbl.textContent = "Current Month"; lbl.style.cssText = "display:block;font-size:0.6rem;color:#999;font-weight:400;margin-top:2px;";
+              bx.appendChild(lbl);
+            }
+            g.appendChild(bx);
           }
         }
 
@@ -5541,7 +6079,7 @@
             setTimeout(function() {
               dtLoadMembers().then(function() {
                 dtFillFilters();
-                dtRender();
+                dtLoadTableTracking().then(function() { dtRender(); });
               });
             }, 50);
           };
@@ -5557,6 +6095,19 @@
           Turbo.visit(window.location.href, { action: "replace" });
         };
       })();
+    </script>
+    <script>
+      document.addEventListener("turbo:load", function() {
+        document.querySelectorAll(".flatpickr-range").forEach(function(el) {
+          if (el._flatpickr) return;
+          flatpickr(el, {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            allowInput: true,
+            animate: true,
+          });
+        });
+      });
     </script>
   </body>
 </html>

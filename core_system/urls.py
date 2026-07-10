@@ -169,6 +169,11 @@ urlpatterns = [
         treasurer_views.treasurer_member_retire,
         name="treasurer_member_retire",
     ),
+    path(
+        "api/treasurer/members/batch-add/",
+        treasurer_views.treasurer_member_batch_add,
+        name="treasurer_member_batch_add",
+    ),
 
     # --- Auditor Workspace Endpoints ---
     path("auditor/", auditor_views.auditor_dashboard, name="auditor_dashboard"),

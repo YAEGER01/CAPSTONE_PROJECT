@@ -96,18 +96,92 @@
     }
   }
 
+  function faGetChecked(id) {
+    var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+    for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+    return vals;
+  }
+  function faGetAllValues(id) {
+    var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+    return vals;
+  }
+  function faToggleAll(containerId, checked) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var cbs = container.querySelectorAll('input[type="checkbox"]');
+    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+    loadRequests();
+  }
+  function faSyncAll(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var cbs = container.querySelectorAll('input[type="checkbox"]');
+    var allBox = cbs.length > 0 ? cbs[0] : null;
+    if (!allBox) return;
+    var allChecked = true;
+    for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+    allBox.checked = allChecked;
+  }
+  function faToggleFilter() {
+    var card = document.getElementById("faFilterCard");
+    if (!card) return;
+    var opening = card.style.display === "none";
+    card.style.display = opening ? "block" : "none";
+    if (opening) {
+      faFillFilters();
+      var handler = function(e) {
+        var btn = document.querySelector('[onclick="faToggleFilter()"]');
+        if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
+        document.removeEventListener("click", handler);
+        card.style.display = "none";
+        loadRequests();
+      };
+      setTimeout(function() { document.addEventListener("click", handler); }, 0);
+    }
+  }
+  function faFillFilters() {
+    var types = {}, i, p, arr = window.__finishPosts || [];
+    for (i = 0; i < arr.length; i++) { p = arr[i]; if (p.aid_label) types[p.aid_label] = 1; }
+    var tk = Object.keys(types).sort();
+    var tc = document.getElementById("faTypeCheckboxes");
+    if (tc) {
+      tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="faToggleAll(\'faTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+      for (i = 0; i < tk.length; i++) tc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(tk[i]) + '" checked onchange="faSyncAll(\'faTypeCheckboxes\');loadRequests()"> <span>' + escapeHtml(tk[i]) + '</span></label>';
+    }
+  }
+  window.faToggleFilter = faToggleFilter;
+  window.faApplyFilter = function() { loadRequests(); };
+
+  var __finishAllPosts = [];
+
   function renderRequests(posts) {
     var tbody = getEl("finishApprovalTableBody");
     if (!tbody) return;
+    __finishAllPosts = posts || [];
+    window.__finishPosts = __finishAllPosts;
+
+    var types = faGetChecked("faTypeCheckboxes");
+    if (types.length === 0) { types = faGetAllValues("faTypeCheckboxes"); faSyncAll("faTypeCheckboxes"); }
+
+    var arr = posts || [], flt = [], i, p;
+    for (i = 0; i < arr.length; i++) {
+      p = arr[i];
+      if (types.length && types.indexOf(p.aid_label) === -1) continue;
+      flt.push(p);
+    }
 
     tbody.innerHTML = "";
-
     if (!posts || posts.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#90a4ae;padding:30px;">No pending finish requests.</td></tr>';
       return;
     }
+    if (flt.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
+      return;
+    }
 
-    posts.forEach(function (p) {
+    flt.forEach(function (p) {
       var tr = document.createElement("tr");
 
       var rateColor = "#e53935";

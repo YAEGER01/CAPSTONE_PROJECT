@@ -432,6 +432,7 @@
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
         border: 1px solid #dfe9df;
         margin-bottom: 20px;
+        min-width: 0;
       }
 
       .panel-header-row {
@@ -441,6 +442,8 @@
         margin-bottom: 16px;
         border-bottom: 2px solid #f6fbf6;
         padding-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 8px;
       }
 
       .panel-title {
@@ -524,6 +527,7 @@
 
       .custom-table {
         width: 100%;
+        min-width: max-content;
         border-collapse: collapse;
         text-align: left;
         font-size: 0.78rem;
@@ -1078,7 +1082,7 @@
       }
 
       /* RESPONSIVE DESIGN TWEAKS */
-      @media (max-width: 900px) {
+      @media (max-width: 1200px) {
         .sidebar {
           position: absolute;
           left: -280px;
@@ -1102,6 +1106,14 @@
 
         .dashboard-panel {
           padding: 18px;
+        }
+
+        .overview-grid-3x2 {
+          grid-template-columns: 1fr;
+        }
+
+        [style*="auto-fit"] {
+          grid-template-columns: 1fr !important;
         }
       }
 
@@ -1181,15 +1193,18 @@
         text-align: center;
       }
 
-      @media (max-width: 1100px) {
-        .overview-grid-3x2 {
-          grid-template-columns: repeat(2, 1fr);
-        }
-      }
-
-      @media (max-width: 700px) {
-        .overview-grid-3x2 {
+      @media (max-width: 600px) {
+        .stats-grid {
           grid-template-columns: 1fr;
+        }
+        .form-grid-2 {
+          grid-template-columns: 1fr;
+        }
+        .dashboard-panel {
+          padding: 14px;
+        }
+        .content-viewport {
+          padding: 12px;
         }
       }
     </style>
@@ -1727,6 +1742,16 @@
                         Select an entry below to review
                       </p>
                     </div>
+                    <div class="header-actions" style="position:relative;">
+                      <button onclick="audPayToggle()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                        <i class="fa-solid fa-filter"></i> Filter
+                      </button>
+                      <div id="audPayFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                        <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Type</div>
+                        <div id="audPayTypeCheckboxes"></div>
+                        <button onclick="refreshAll()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                      </div>
+                    </div>
                   </div>
                   <div class="table-container">
                     <table class="custom-table" id="pendingPaymentsTable">
@@ -2076,6 +2101,16 @@
                         entries.
                       </p>
                     </div>
+                    <div class="header-actions" style="position:relative;">
+                      <button onclick="audAidToggle()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                        <i class="fa-solid fa-filter"></i> Filter
+                      </button>
+                      <div id="audAidFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                        <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Claim Type</div>
+                        <div id="audAidTypeCheckboxes"></div>
+                        <button onclick="refreshAll()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                      </div>
+                    </div>
                   </div>
                   <div class="table-container">
                     <table class="custom-table" id="pendingAidsTable">
@@ -2348,6 +2383,16 @@
                         Select an entry below to verify membership fee
                         submissions
                       </p>
+                    </div>
+                    <div class="header-actions" style="position:relative;">
+                      <button onclick="audFeeToggle()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
+                        <i class="fa-solid fa-filter"></i> Filter
+                      </button>
+                      <div id="audFeeFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                        <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Payment Status</div>
+                        <div id="audFeeStatusCheckboxes"></div>
+                        <button onclick="refreshAll()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                      </div>
                     </div>
                   </div>
                   <div class="table-container">

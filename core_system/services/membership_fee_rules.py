@@ -173,7 +173,6 @@ def create_correction_artifacts_for_membership_fee(
         "member_id_FK": fee.member_id_FK_id,
         "receipt_number": fee.receipt_number,
         "amount": str(fee.amount),
-        "month_covered": fee.month_covered,
         "payment_date": str(fee.payment_date),
         "payment_method": fee.payment_method,
         "payment_status": fee.payment_status,

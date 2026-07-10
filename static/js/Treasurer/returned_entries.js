@@ -10,7 +10,6 @@
   const INPUT_FEE_AMOUNT = "re_fee_amount";
   const INPUT_PAYMENT_METHOD = "re_fee_method";
   const INPUT_PAYMENT_STATUS = "re_fee_status";
-  const INPUT_MONTH_COVERED = "re_fee_month";
   const INPUT_PAYMENT_DATE = "re_fee_date";
   const INPUT_RECEIPT_NUMBER = "re_fee_ref";
   const INPUT_DEPOSIT_REFERENCE = "re_fee_encoder";
@@ -72,42 +71,6 @@
     return extractRejectionDetails(record.rejection_reason);
   }
 
-  function padMonth(month) {
-    return String(month).padStart(2, "0");
-  }
-
-  function formatMonthFromDate(date) {
-    if (!date || Number.isNaN(date.getTime())) return "";
-    return `${date.getFullYear()}-${padMonth(date.getMonth() + 1)}`;
-  }
-
-  function normalizeCoveredMonth(value) {
-    const trimmed = String(value || "").trim();
-
-    const fullMatch = trimmed.match(/^(\d{4})-(0[1-9]|1[0-2])-(\d{2})$/);
-    if (fullMatch) return `${fullMatch[1]}-${fullMatch[2]}`;
-
-    const ymMatch = trimmed.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
-    if (ymMatch) return `${ymMatch[1]}-${ymMatch[2]}`;
-
-    const parsed = new Date(trimmed);
-    if (!Number.isNaN(parsed.getTime())) return formatMonthFromDate(parsed);
-
-    return trimmed;
-  }
-
-  function getCoveredMonthValue() {
-    const input = getEl(INPUT_MONTH_COVERED);
-    if (!input) return "";
-    const raw = input.value || input.getAttribute("value") || "";
-    const parsed = normalizeCoveredMonth(raw);
-    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(parsed)) {
-      input.dataset.coveredMonth = parsed;
-      return parsed;
-    }
-    return input.dataset.coveredMonth || "";
-  }
-
   function syncStatusMode() {
     const statusSelect = getEl(STATUS_SELECT_ID);
     const fullGroup = getEl(FULL_AMOUNT_GROUP_ID);
@@ -145,9 +108,92 @@
     return data.records || [];
   }
 
+  var returnedFeeFilterState = { status: [] };
+
+  function returnedFeeGetChecked(id) {
+    var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
+    for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+    return vals;
+  }
+
+  function returnedFeeGetAllValues(id) {
+    var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
+    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+    return vals;
+  }
+
+  function returnedFeeToggleAll(containerId, checked) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var cbs = container.querySelectorAll('input[type="checkbox"]');
+    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+    returnedFeeApplyFilter();
+  }
+
+  function returnedFeeSyncAll(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var cbs = container.querySelectorAll('input[type="checkbox"]');
+    var allBox = cbs.length > 0 ? cbs[0] : null;
+    if (!allBox) return;
+    var allChecked = true;
+    for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+    allBox.checked = allChecked;
+  }
+
+  function returnedFeeApplyFilter() {
+    window.__renderReturnedFeeList(window.__returnedFeeRecords);
+  }
+
+  function returnedFeeToggleFilter() {
+    var card = document.getElementById("returnedFeeFilterCard");
+    if (!card) return;
+    var opening = card.style.display === "none";
+    card.style.display = opening ? "block" : "none";
+    if (opening) {
+      returnedFeeFillFilters();
+      var handler = function(e) {
+        var btn = document.querySelector('[onclick="returnedFeeToggleFilter()"]');
+        if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
+        document.removeEventListener("click", handler);
+        card.style.display = "none";
+        returnedFeeApplyFilter();
+      };
+      setTimeout(function() { document.addEventListener("click", handler); }, 0);
+    }
+  }
+
+  function returnedFeeFillFilters() {
+    var stats = {}, i, r, arr = window.__returnedFeeRecords || [];
+    for (i = 0; i < arr.length; i++) { r = arr[i]; if (r.payment_status) stats[r.payment_status] = 1; }
+    var sk = Object.keys(stats).sort();
+    var sc = document.getElementById("returnedFeeStatusCheckboxes");
+    if (sc) {
+      sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="window.returnedFeeToggleAll(\'returnedFeeStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+      for (i = 0; i < sk.length; i++) sc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(sk[i]) + '" checked onchange="window.returnedFeeSyncAll(\'returnedFeeStatusCheckboxes\');window.returnedFeeApplyFilter()"> <span>' + escapeHtml(sk[i]) + '</span></label>';
+    }
+  }
+
+  window.returnedFeeGetChecked = returnedFeeGetChecked;
+  window.returnedFeeGetAllValues = returnedFeeGetAllValues;
+  window.returnedFeeToggleAll = returnedFeeToggleAll;
+  window.returnedFeeSyncAll = returnedFeeSyncAll;
+  window.returnedFeeApplyFilter = returnedFeeApplyFilter;
+  window.returnedFeeToggleFilter = returnedFeeToggleFilter;
+
   function renderReturnedRecords(records) {
     const tbody = document.querySelector("#returnedFeesTable tbody");
     if (!tbody) return;
+
+    var stats = returnedFeeGetChecked("returnedFeeStatusCheckboxes");
+    if (stats.length === 0) { stats = returnedFeeGetAllValues("returnedFeeStatusCheckboxes"); returnedFeeSyncAll("returnedFeeStatusCheckboxes"); }
+
+    var arr = records || [], flt = [], i, r;
+    for (i = 0; i < arr.length; i++) {
+      r = arr[i];
+      if (stats.length && stats.indexOf(r.payment_status) === -1) continue;
+      flt.push(r);
+    }
 
     tbody.innerHTML = "";
     if (!records || records.length === 0) {
@@ -155,8 +201,12 @@
         '<tr><td colspan="7" style="text-align:center;color:#757575;">No returned entries to correct</td></tr>';
       return;
     }
+    if (flt.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
+      return;
+    }
 
-    records.forEach((r) => {
+    flt.forEach((r) => {
       const tr = document.createElement("tr");
       tr.dataset.recordId = String(r.fee_id_PK);
       tr.dataset.receipt = String(r.receipt_number || "");
@@ -173,8 +223,7 @@
         escapeHtml(r.amount || "0"),
         '</td>',
         '<td>',
-        escapeHtml(r.month_covered || "N/A"),
-        '<br><span style="font-size:0.75rem;color:#757575;">Date: ',
+        '<span style="font-size:0.75rem;color:#757575;">Date: ',
         escapeHtml(r.payment_date || ""),
         '</span></td>',
         '<td>',
@@ -206,7 +255,6 @@
     setVal(INPUT_PARTIAL_AMOUNT, record.partial_amount || "");
     setVal(INPUT_PAYMENT_METHOD, record.payment_method || "");
     setVal(INPUT_PAYMENT_STATUS, record.payment_status || "Full Payment");
-    setVal(INPUT_MONTH_COVERED, record.month_covered || "");
     setVal(INPUT_PAYMENT_DATE, record.payment_date || "");
     setVal(INPUT_RECEIPT_NUMBER, record.receipt_number || "");
     setVal(INPUT_DEPOSIT_REFERENCE, record.deposit_reference || "");
@@ -302,17 +350,12 @@
 
     const status = getEl(STATUS_SELECT_ID)?.value;
     const fee_date = getEl(INPUT_PAYMENT_DATE)?.value;
-    const fee_month = getCoveredMonthValue();
     const fee_ref = getEl(INPUT_RECEIPT_NUMBER)?.value;
     const fee_encoder = getEl(INPUT_DEPOSIT_REFERENCE)?.value;
     const fee_method = getEl(INPUT_PAYMENT_METHOD)?.value;
 
     if (!fee_date) {
       showToast("Payment date is required.", true);
-      return;
-    }
-    if (!fee_month || !/^\d{4}-(0[1-9]|1[0-2])$/.test(fee_month)) {
-      showToast("Month/Covered period must be YYYY-MM.", true);
       return;
     }
     if (!fee_ref) {
@@ -343,7 +386,6 @@
     const fd = new FormData();
     fd.append("fee_status", status);
     fd.append("fee_date", fee_date);
-    fd.append("fee_month", fee_month);
     fd.append("fee_ref", fee_ref);
     fd.append("fee_encoder", fee_encoder);
     fd.append("fee_method", fee_method);
