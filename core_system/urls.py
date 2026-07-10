@@ -141,6 +141,11 @@ urlpatterns = [
         treasurer_views.treasurer_medical_aid_list,
         name="treasurer_medical_aid_list",
     ),
+    path(
+        "api/treasurer/medical-aid/batch-add/",
+        treasurer_views.treasurer_medical_aid_batch_add,
+        name="treasurer_medical_aid_batch_add",
+    ),
     # --- Death Aid (Claims) APIs ---
     path(
         "api/treasurer/death-aid/add/",

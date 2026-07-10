@@ -304,12 +304,6 @@ function getMemberOptionLabel(m) {
         );
     }
 
-    const photoInput = document.getElementById("fee_photo_file");
-    const photoFile =
-      photoInput && photoInput.files && photoInput.files.length
-        ? photoInput.files[0]
-        : null;
-
     const fd = new FormData(form);
     fd.set("fee_member", fee_member);
     fd.set("fee_status", fee_status);
@@ -325,7 +319,8 @@ function getMemberOptionLabel(m) {
     fd.set("fee_month", fee_month);
     fd.set("fee_ref", fee_ref);
     fd.set("fee_encoder", fee_encoder);
-    if (photoFile) fd.set("fee_photo_file", photoFile);
+    var feeFiles = FileQueue.getFiles("fee");
+    if (feeFiles.length > 0) fd.set("fee_photo_file", feeFiles[0]);
 
     const csrf = getCSRFToken();
 
@@ -362,6 +357,7 @@ function getMemberOptionLabel(m) {
       }
 
       form.reset();
+      FileQueue.clear("fee");
       syncFeeStatusMode();
       const preview = document.getElementById("fee_preview");
       if (preview) preview.style.display = "none";
@@ -399,6 +395,8 @@ function getMemberOptionLabel(m) {
   }
 
   function init() {
+    FileQueue.init("fee", { inputId: "fee_file_input", containerId: "fee_file_queue", maxFiles: 1 });
+
     attachCoveredMonthHandler();
 
     const statusSelect = document.getElementById(STATUS_SELECT_ID);

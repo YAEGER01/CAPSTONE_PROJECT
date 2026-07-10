@@ -1184,6 +1184,14 @@
       }
       .med-result-row.med-search-active { background: #c8e6c9 !important; }
       .med-pick-badge:hover { background: rgba(76,175,80,0.35) !important; }
+      .file-queue { display:flex;gap:6px;flex-wrap:wrap;margin-top:6px; }
+      .file-queue-btn { padding:6px 16px;background:rgba(76,175,80,0.12);color:#2e7d32;border:1px solid rgba(76,175,80,0.3);border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:500; }
+      .file-queue-btn:hover { background:rgba(76,175,80,0.25); }
+      .file-queue-thumb { width:48px;height:48px;border-radius:6px;overflow:hidden;position:relative;border:1px solid #e0e0e0;cursor:pointer;flex-shrink:0; }
+      .file-queue-thumb img { width:100%;height:100%;object-fit:cover; }
+      .file-queue-thumb .fq-remove { position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:#e53935;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:18px;text-align:center;padding:0; }
+      .file-queue-thumb .fq-remove:hover { background:#c62828; }
+      .file-queue-thumb .fq-icon { display:flex;align-items:center;justify-content:center;height:100%;font-size:1.2rem;color:#1565c0;background:#f5f5f5; }
     </style>
 
     <!-- SweetAlert2 (Sweet swal) -->
@@ -1999,31 +2007,10 @@
                 </div>
               
                 <div class="form-group">
-                  <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                    <label style="margin: 0">Is Profile Attachment Required?</label>
-                    <label class="switch">
-                      <input
-                        type="checkbox"
-                        id="prof_receipt_required_toggle"
-                        checked
-                        onchange="toggleOtcRequiredStatus('prof')"
-                      />
-                      <span class="slider round"></span>
-                    </label>
-                  </div>
-                  <div class="photo-upload-slot" onclick="triggerFileUpload('prof_photo_file')">
-                    <input
-                      type="file"
-                      id="prof_photo_file"
-                      name="prof_photo_file"
-                      style="display: none"
-                      onchange="showAttachedPreview(this, 'prof_preview')"
-                    />
-                    <p>Click here to upload Membership Form or ID card scan</p>
-                    <span class="req-badge" id="prof_req_badge" style="background: rgba(27, 94, 32, 0.1); color: #1b5e20;">
-                      Optional attachment
-                    </span>
-                    <div class="upload-preview-indicator" id="prof_preview">✓ File attached!</div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <button type="button" onclick="document.getElementById('prof_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                    <input type="file" id="prof_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('prof')" />
+                    <div id="prof_file_queue" class="file-queue"></div>
                   </div>
                 </div>
               
@@ -2191,30 +2178,11 @@
                     </div>
                     <div class="form-group">
                       <label>Required Photo of Receipt / Proof of Payment</label>
-                      <div
-                        class="photo-upload-slot"
-                        onclick="triggerFileUpload('fee_photo_file')"
-                      >
-                        <input
-                          type="file"
-                          id="fee_photo_file"
-                          name="fee_photo_file"
-                          style="display: none"
-                          onchange="showAttachedPreview(this, 'fee_preview')"
-                        />
-                        <p>📸 Tap to upload official reference receipt</p>
-                        <span
-                          class="req-badge"
-                          style="
-                            background: rgba(229, 57, 53, 0.1);
-                            color: #e53935;
-                          "
-                          >Required field</span
-                        >
-                        <div class="upload-preview-indicator" id="fee_preview">
-                          ✓ Receipt Document Attached!
-                        </div>
-                      </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                      <button type="button" onclick="document.getElementById('fee_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                      <input type="file" id="fee_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('fee')" />
+                      <div id="fee_file_queue" class="file-queue"></div>
+                    </div>
                     </div>
                     <button type="submit" class="btn-brand btn-brand-primary">
                       Record Membership Fee
@@ -2418,34 +2386,10 @@
                         </a>
                       </div>
                       <div style="flex: 1; min-width: 0">
-                        <div
-                          class="photo-upload-slot"
-                          onclick="triggerFileUpload('re_fee_photo_file')"
-                        >
-                          <input
-                            type="file"
-                            id="re_fee_photo_file"
-                            name="re_fee_photo_file"
-                            style="display: none"
-                            onchange="
-                              showAttachedPreview(this, 're_fee_preview')
-                            "
-                          />
-                          <p>📸 Tap to upload official reference receipt</p>
-                          <span
-                            class="req-badge"
-                            style="
-                              background: rgba(229, 57, 53, 0.1);
-                              color: #e53935;
-                            "
-                            >Required field</span
-                          >
-                          <div
-                            class="upload-preview-indicator"
-                            id="re_fee_preview"
-                          >
-                            ✓ Receipt Document Attached!
-                          </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                          <button type="button" onclick="document.getElementById('re_fee_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                          <input type="file" id="re_fee_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('re_fee')" />
+                          <div id="re_fee_file_queue" class="file-queue"></div>
                         </div>
                       </div>
                     </div>
@@ -2579,51 +2523,10 @@
                     />
                   </div>
                   <div class="form-group">
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        margin-bottom: 8px;
-                      "
-                    >
-                      <label style="margin: 0"
-                        >Is Receipt Image Required?</label
-                      >
-                      <label class="switch">
-                        <input
-                          type="checkbox"
-                          id="otc_receipt_required_toggle"
-                          checked
-                          onchange="toggleOtcRequiredStatus('otc')"
-                        />
-                        <span class="slider round"></span>
-                      </label>
-                    </div>
-                    <div
-                      class="photo-upload-slot"
-                      onclick="triggerFileUpload('otc_photo_file')"
-                    >
-                      <input
-                        type="file"
-                        id="otc_photo_file"
-                        name="otc_photo_file"
-                        style="display: none"
-                        onchange="showAttachedPreview(this, 'otc_preview')"
-                      />
-                      <p>📸 Tap to upload receipt image</p>
-                      <span
-                        class="req-badge"
-                        id="otc_req_badge"
-                        style="
-                          background: rgba(229, 57, 53, 0.1);
-                          color: #e53935;
-                        "
-                        >Required field</span
-                      >
-                      <div class="upload-preview-indicator" id="otc_preview">
-                        ✓ OTC Document Attached!
-                      </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                      <button type="button" onclick="document.getElementById('otc_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                      <input type="file" id="otc_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('otc')" />
+                      <div id="otc_file_queue" class="file-queue"></div>
                     </div>
                   </div>
                   <button type="submit" class="btn-brand btn-brand-primary">
@@ -2776,51 +2679,10 @@
                   </div>
                   <div class="form-group">
                     <label>Accounting Summary Document</label>
-                    <div
-                      style="
-                        display: flex;
-                        align-items: center;
-                        justify-content: space-between;
-                        margin-bottom: 8px;
-                      "
-                    >
-                      <label style="margin: 0">Is Required?</label>
-                      <label class="switch">
-                        <input
-                          type="checkbox"
-                          id="sal_receipt_required_toggle"
-                          checked
-                          onchange="toggleOtcRequiredStatus('sal')"
-                        />
-                        <span class="slider round"></span>
-                      </label>
-                    </div>
-                    <div
-                      class="photo-upload-slot"
-                      onclick="triggerFileUpload('sal_photo_file')"
-                    >
-                      <input
-                        type="file"
-                        id="sal_photo_file"
-                        name="sal_photo_file"
-                        style="display: none"
-                        onchange="showAttachedPreview(this, 'sal_preview')"
-                      />
-                      <p>
-                        📂 Click here to upload Accounting Summary PDF/Sheet
-                      </p>
-                      <span
-                        class="req-badge"
-                        id="sal_req_badge"
-                        style="
-                          background: rgba(251, 192, 45, 0.15);
-                          color: #d89600;
-                        "
-                        >Optional payroll backup</span
-                      >
-                      <div class="upload-preview-indicator" id="sal_preview">
-                        ✓ Summary Document Attached!
-                      </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                      <button type="button" onclick="document.getElementById('sal_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                      <input type="file" id="sal_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('sal')" />
+                      <div id="sal_file_queue" class="file-queue"></div>
                     </div>
                   </div>
                   <button type="submit" class="btn-brand btn-brand-primary">
@@ -2850,11 +2712,11 @@
                     <textarea id="bulk_summary" name="bulk_summary" rows="2" placeholder="e.g., Payroll deductions for July 2026"></textarea>
                   </div>
                   <div class="form-group">
-                    <label for="bulk_photo_file">Payroll Summary Document (optional)</label>
-                    <div class="photo-upload-slot" onclick="document.getElementById('bulk_photo_file').click()">
-                      <input type="file" id="bulk_photo_file" name="bulk_photo_file" style="display: none" onchange="showAttachedPreview(this, 'bulk_preview')" />
-                      <p>📂 Click to upload payroll summary file</p>
-                      <div class="upload-preview-indicator" id="bulk_preview" style="display: none;">✓ File Attached!</div>
+                    <label for="bulk_file_input">Payroll Summary Document (optional)</label>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                      <button type="button" onclick="document.getElementById('bulk_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                      <input type="file" id="bulk_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('bulk')" />
+                      <div id="bulk_file_queue" class="file-queue"></div>
                     </div>
                   </div>
                   <div id="bulk-amount-badge" style="display:flex;justify-content:center;gap:16px;margin-bottom:10px;font-size:0.85rem;color:#2e7d32;background:rgba(76,175,80,0.12);padding:6px 14px;border-radius:20px;font-weight:600;">
@@ -3073,34 +2935,10 @@
                         </a>
                       </div>
                       <div style="flex: 1; min-width: 0">
-                        <div
-                          class="photo-upload-slot"
-                          onclick="triggerFileUpload('md_returned_photo_file')"
-                        >
-                          <input
-                            type="file"
-                            id="md_returned_photo_file"
-                            name="md_returned_photo_file"
-                            style="display: none"
-                            onchange="
-                              showAttachedPreview(this, 'md_returned_preview')
-                            "
-                          />
-                          <p>📸 Tap to upload official reference receipt</p>
-                          <span
-                            class="req-badge"
-                            style="
-                              background: rgba(229, 57, 53, 0.1);
-                              color: #e53935;
-                            "
-                            >Required field</span
-                          >
-                          <div
-                            class="upload-preview-indicator"
-                            id="md_returned_preview"
-                          >
-                            ✓ Receipt Document Attached!
-                          </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                          <button type="button" onclick="document.getElementById('md_ret_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                          <input type="file" id="md_ret_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('md_ret')" />
+                          <div id="md_ret_file_queue" class="file-queue"></div>
                         </div>
                       </div>
                     </div>
@@ -3231,67 +3069,18 @@
                 >
                   {% csrf_token %}
                   <div class="form-group" style="position:relative;">
-                    <label for="med_member_search">Associated Member</label>
+                    <label for="med_member_search">Associated Members <span style="font-weight:400;color:#757575;font-size:0.75rem;">Max 5 · <span id="med_member_counter">0</span> selected</span></label>
                     <div style="display:flex;gap:6px;">
                       <input type="text" id="med_member_search" placeholder="Type to search..." style="flex:1;padding:8px 12px;border:1px solid #cfdccc;border-radius:6px;font-size:0.85rem;" autocomplete="off" oninput="filterMedMembers(this.value)" onfocus="filterMedMembers(this.value)" onblur="setTimeout(function(){hideMedResults();},200)" onkeydown="handleMedSearchKeydown(event)">
-                      <select id="med_member" name="med_member" required style="width:180px;" onchange="onMedMemberSelect(this)">
+                      <select id="med_member" name="med_member" style="width:180px;" onchange="addMedMember(this.value);this.selectedIndex=0;">
                         <option value="" selected>Select Associated Member</option>
                       </select>
                     </div>
                     <div id="med_member_results" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;background:#fff;border:1px solid #cfdccc;border-radius:8px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:2px;"></div>
                   </div>
-                  <div id="med_member_info" style="display:none;padding:10px 12px;background:#e8f5e9;border-radius:8px;margin-bottom:12px;font-size:0.85rem;">
-                    <div id="med_member_info_name" style="font-weight:600;color:#1b5e20;"></div>
-                    <div id="med_member_info_contact" style="color:#555;margin-top:2px;"></div>
-                    <div id="med_member_info_status" style="margin-top:4px;"></div>
-                  </div>
-                  <div class="form-grid-2">
-                    <div class="form-group">
-                      <label for="med_date">Request Date</label>
-                      <input type="date" id="med_date" name="med_date" required />
-                    </div>
-                    <div class="form-group">
-                      <label for="med_reason">Reason for Hospitalization</label>
-                      <input type="text" id="med_reason" name="med_reason" placeholder="Type here..." required />
-                    </div>
-                  </div>
-                  <div class="dashboard-panel" style="margin-bottom:12px;padding:12px;">
-                    <div onclick="toggleMedHospitalDrawer()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
-                      <h4 style="margin:0;color:#1b5e20;font-size:0.95rem;">Hospital Details</h4>
-                      <span id="medHospitalChevron" style="color:#1b5e20;font-size:1rem;transition:transform 0.25s;">&#9656;</span>
-                    </div>
-                    <div id="medHospitalDrawerBody" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;">
-                      <div style="padding-top:12px;">
-                        <div class="form-group">
-                          <label for="med_hospital">Hospital</label>
-                          <input type="text" id="med_hospital" name="med_hospital" placeholder="e.g., Cauayan District Hospital" />
-                        </div>
-                        <div class="form-group">
-                          <label for="med_hospital_date">Date of Hospitalization (Admission – Discharge)</label>
-                          <input type="text" id="med_hospital_date" name="med_hospital_date" class="flatpickr-range" placeholder="Select admission and discharge dates" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label for="med_bill">Total Hospital Bill Amount (₱)</label>
-                    <input type="number" step="0.01" id="med_bill" name="med_bill" placeholder="{{ sickness_aid_threshold|default:'20000' }} or above" required oninput="updateMedBillIndicator()" />
-                    <div id="med_bill_indicator" style="margin-top:4px;font-size:0.8rem;font-weight:600;"></div>
-                  </div>
-                  <div id="med_aid_estimate" data-threshold="{{ sickness_aid_threshold|default:'20000' }}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:rgba(27,94,32,0.08);border-radius:8px;margin-bottom:12px;font-size:0.85rem;color:#1b5e20;">
-                    <span>Estimated Aid Benefit:</span>
-                    <span style="font-weight:700;">₱{{ sickness_aid_benefit|default:'0'|floatformat:2 }}</span>
-                  </div>
-                  <div class="form-group">
-                    <label>Supporting Documents (Photos, PDF, DOCX)</label>
-                    <div class="photo-upload-slot" id="med_upload_zone" onclick="document.getElementById('med_photo_files').click()">
-                      <input type="file" id="med_photo_files" name="med_photo_files" multiple accept="image/*,.pdf,.docx" style="display:none" />
-                      <p>📎 Tap to upload multiple documents</p>
-                      <span class="req-badge" style="background:rgba(229,57,53,0.1);color:#e53935">Required</span>
-                    </div>
-                    <div id="med_file_list" style="margin-top:8px"></div>
-                  </div>
-                  <button type="submit" class="btn-brand btn-brand-primary">Record Medical Aid Request</button>
+                  <div id="med_member_cards"></div>
+                  <div id="med_aid_estimate_data" data-threshold="{{ sickness_aid_threshold|default:'20000' }}" data-benefit="{% if sickness_aid_benefit %}{{ sickness_aid_benefit|floatformat:2 }}{% else %}0{% endif %}" style="display:none;"></div>
+                  <button type="submit" class="btn-brand btn-brand-primary">Submit All Requests (0)</button>
                 </form>
               </div>
 
@@ -3468,12 +3257,11 @@
                       </div>
                       <div class="form-group">
                         <label>Required Documents (Death Certificate or equivalent)</label>
-                        <div class="photo-upload-slot" onclick="document.getElementById('death_photo_files').click()">
-                          <input type="file" id="death_photo_files" name="death_photo_files" multiple accept="image/*,.pdf,.docx" style="display:none">
-                          <p>📎 Tap to upload supporting documents</p>
-                          <span class="req-badge" style="background:rgba(229,57,53,0.1);color:#e53935">Required</span>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                          <button type="button" onclick="document.getElementById('death_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                          <input type="file" id="death_file_input" multiple accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('death')" />
+                          <div id="death_file_queue" class="file-queue"></div>
                         </div>
-                        <div id="death_file_list" style="margin-top:8px"></div>
                       </div>
                     </div>
 
@@ -3632,34 +3420,10 @@
                         </a>
                       </div>
                       <div style="flex: 1; min-width: 0">
-                        <div
-                          class="photo-upload-slot"
-                          onclick="triggerFileUpload('ma_returned_photo_file')"
-                        >
-                          <input
-                            type="file"
-                            id="ma_returned_photo_file"
-                            name="ma_returned_photo_file"
-                            style="display: none"
-                            onchange="
-                              showAttachedPreview(this, 'ma_returned_preview')
-                            "
-                          />
-                          <p>Tap to upload supporting document</p>
-                          <span
-                            class="req-badge"
-                            style="
-                              background: rgba(229, 57, 53, 0.1);
-                              color: #e53935;
-                            "
-                            >Required field</span
-                          >
-                          <div
-                            class="upload-preview-indicator"
-                            id="ma_returned_preview"
-                          >
-                            Document Attached!
-                          </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                          <button type="button" onclick="document.getElementById('ma_ret_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                          <input type="file" id="ma_ret_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('ma_ret')" />
+                          <div id="ma_ret_file_queue" class="file-queue"></div>
                         </div>
                       </div>
                     </div>
@@ -3817,34 +3581,10 @@
                         </a>
                       </div>
                       <div style="flex: 1; min-width: 0">
-                        <div
-                          class="photo-upload-slot"
-                          onclick="triggerFileUpload('da_returned_photo_file')"
-                        >
-                          <input
-                            type="file"
-                            id="da_returned_photo_file"
-                            name="da_returned_photo_file"
-                            style="display: none"
-                            onchange="
-                              showAttachedPreview(this, 'da_returned_preview')
-                            "
-                          />
-                          <p>Tap to upload supporting document</p>
-                          <span
-                            class="req-badge"
-                            style="
-                              background: rgba(229, 57, 53, 0.1);
-                              color: #e53935;
-                            "
-                            >Required field</span
-                          >
-                          <div
-                            class="upload-preview-indicator"
-                            id="da_returned_preview"
-                          >
-                            Document Attached!
-                          </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                          <button type="button" onclick="document.getElementById('da_ret_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
+                          <input type="file" id="da_ret_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('da_ret')" />
+                          <div id="da_ret_file_queue" class="file-queue"></div>
                         </div>
                       </div>
                     </div>
@@ -4231,6 +3971,7 @@
     <script src="{% static 'js/Treasurer/auto_employee_id.js' %}"></script>
     <script src="{% static 'js/Treasurer/bulk_upload.js' %}"></script>
     <script src="{% static 'js/Treasurer/membership_fee.js' %}"></script>
+    <script src="{% static 'js/Treasurer/file_queue.js' %}"></script>
     <script src="{% static 'js/Treasurer/monthly_dues_handle.js' %}"></script>
     <script src="{% static 'js/Treasurer/returned_entries.js' %}"></script>
     <script src="{% static 'js/Treasurer/monthly_dues_returned.js' %}"></script>
@@ -4637,36 +4378,6 @@
 
       function closeCustomModal() {
         document.getElementById("customAlertModal").style.display = "none";
-      }
-
-      function triggerFileUpload(id) {
-        document.getElementById(id).click();
-      }
-
-      function showAttachedPreview(input, labelId) {
-        if (input.files && input.files.length > 0) {
-          document.getElementById(labelId).style.display = "block";
-        }
-      }
-
-      function toggleOtcRequiredStatus(prefix = "otc") {
-        const toggle = document.getElementById(
-          prefix + "_receipt_required_toggle",
-        );
-        const badge = document.getElementById(prefix + "_req_badge");
-        const fileInput = document.getElementById(prefix + "_photo_file");
-
-        if (toggle.checked) {
-          badge.innerText = "Required field";
-          badge.style.background = "rgba(229,57,53,0.1)";
-          badge.style.color = "#e53935";
-          fileInput.setAttribute("required", "");
-        } else {
-          badge.innerText = "Optional field";
-          badge.style.background = "rgba(27,94,32,0.1)";
-          badge.style.color = "#1b5e20";
-          fileInput.removeAttribute("required");
-        }
       }
 
       function renderAllComponents() {

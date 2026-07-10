@@ -304,8 +304,7 @@
       }
     }
 
-    const photoInput = document.getElementById("re_fee_photo_file");
-    if (photoInput) photoInput.value = "";
+    FileQueue.clear("re_fee");
 
     const thumbnailContainer = document.getElementById("re_fee_thumbnail_container");
     const thumbnailImg = document.getElementById("re_fee_thumbnail");
@@ -326,6 +325,7 @@
   }
 
   function clearEditForm() {
+    FileQueue.clear("re_fee");
     const sel = getEl(SELECT_RECORD_ID);
     if (sel) sel.value = "";
     syncStatusMode();
@@ -402,10 +402,8 @@
     fd.append("same_auditor", mfSameAuditor ? mfSameAuditor.checked : false);
 
     // Attach photo file if selected
-    const photoInput = document.getElementById("re_fee_photo_file");
-    if (photoInput && photoInput.files && photoInput.files[0]) {
-      fd.append("fee_photo_file", photoInput.files[0]);
-    }
+    var reFeeFiles = FileQueue.getFiles("re_fee");
+    if (reFeeFiles.length > 0) fd.append("fee_photo_file", reFeeFiles[0]);
 
     try {
       isSubmitting = true;
@@ -441,6 +439,8 @@
   }
 
   function wireUp() {
+    FileQueue.init("re_fee", { inputId: "re_fee_file_input", containerId: "re_fee_file_queue", maxFiles: 1 });
+
     const statusSel = getEl(STATUS_SELECT_ID);
     if (statusSel) {
       statusSel.addEventListener("change", syncStatusMode);

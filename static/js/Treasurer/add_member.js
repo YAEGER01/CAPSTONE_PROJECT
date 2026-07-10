@@ -47,12 +47,6 @@
       );
     }
 
-    const photoInput = document.getElementById("prof_photo_file");
-    const photoFile =
-      photoInput && photoInput.files && photoInput.files.length
-        ? photoInput.files[0]
-        : null;
-
     // Profile Validations
     if (!fullName) return showToast("Full Legal Name is required.", true);
     if (!empId) return showToast("Employee/Faculty ID is required.", true);
@@ -69,7 +63,8 @@
     fd.append("prof_contact", contact);
     fd.append("prof_email", email);
     fd.append("prof_status", status);
-    if (photoFile) fd.append("prof_photo_file", photoFile);
+    var profFiles = FileQueue.getFiles("prof");
+    if (profFiles.length > 0) fd.append("prof_photo_file", profFiles[0]);
 
     const csrf = getCSRFToken();
 
@@ -167,6 +162,7 @@
 
         // Clean up interactive template flags post successfully completing save execution
         form.reset();
+        FileQueue.clear("prof");
 
         const profPreview = document.getElementById("prof_preview");
         if (profPreview) profPreview.style.display = "none";
@@ -189,6 +185,8 @@
   }
 
   function init() {
+    FileQueue.init("prof", { inputId: "prof_file_input", containerId: "prof_file_queue", maxFiles: 1 });
+
     const form = document.getElementById(FORM_ID);
     if (!form) return;
 

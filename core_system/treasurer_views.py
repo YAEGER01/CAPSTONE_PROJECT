@@ -1581,6 +1581,142 @@ def treasurer_medical_aid_add(request: HttpRequest):
     return JsonResponse({"ok": True, "aid_id": aid.medical_aid_id_PK})
 
 
+@require_POST
+@transaction.atomic
+def treasurer_medical_aid_batch_add(request: HttpRequest):
+    """Create MedicalAid entries for multiple members in one transaction."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    from core_system.services.membership_fee_rules import is_member_in_good_standing
+
+    try:
+        batch_data = json.loads(request.POST.get("med_batch_data", "[]"))
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid batch data."}, status=400)
+
+    if not isinstance(batch_data, list) or len(batch_data) == 0:
+        return JsonResponse({"ok": False, "error": "No members in batch."}, status=400)
+
+    if len(batch_data) > 5:
+        return JsonResponse({"ok": False, "error": "Maximum 5 members per batch."}, status=400)
+
+    recorded_by = resolve_officer_from_session(request)
+    created_ids = []
+
+    for idx, entry in enumerate(batch_data):
+        member_id = (entry.get("member_id") or "").strip()
+        request_date = (entry.get("request_date") or "").strip()
+        reason = (entry.get("reason") or "").strip()
+        hospital = (entry.get("hospital") or "").strip()
+        hospital_date = (entry.get("hospital_date") or "").strip()
+        bill_str = (entry.get("bill") or "").strip()
+
+        if not member_id or not request_date or not reason or not bill_str:
+            return JsonResponse({
+                "ok": False,
+                "error": f"Card {idx + 1}: Member, Date, Reason, and Bill are required."
+            }, status=400)
+
+        # Resolve member
+        member_obj, err = resolve_member_from_input(member_id)
+        if err:
+            return JsonResponse({
+                "ok": False,
+                "error": f"Card {idx + 1} ({member_id}): Could not resolve member."
+            }, status=400)
+
+        # Once-per-year constraint
+        try:
+            req_year = int(request_date[:4])
+        except (ValueError, IndexError):
+            req_year = timezone.now().year
+        err_msg = check_medical_aid_once_per_year(member_obj, req_year)
+        if err_msg:
+            return JsonResponse({
+                "ok": False,
+                "error": f"Card {idx + 1} ({member_obj.full_name}): {err_msg}"
+            }, status=400)
+
+        # Good standing check
+        if not is_member_in_good_standing(member_obj):
+            return JsonResponse({
+                "ok": False,
+                "error": f"Card {idx + 1} ({member_obj.full_name}): Member is not in good standing."
+            }, status=400)
+
+        # Bill threshold check
+        try:
+            bill_value = float(bill_str)
+        except ValueError:
+            return JsonResponse({
+                "ok": False,
+                "error": f"Card {idx + 1}: Bill must be a valid number."
+            }, status=400)
+
+        threshold = get_accidental_sickness_aid_threshold()
+        if bill_value <= threshold:
+            return JsonResponse({
+                "ok": False,
+                "error": f"Card {idx + 1} ({member_obj.full_name}): Bill must exceed ₱{threshold:,.2f} to qualify."
+            }, status=400)
+
+        # Create MedicalAid record
+        aid = MedicalAid.objects.create(
+            member_id_FK=member_obj,
+            request_date=request_date,
+            requested_amount=str(get_accidental_sickness_aid_benefit()),
+            hospital_name=hospital,
+            hospital_date=hospital_date or None,
+            hospital_bill_amount=bill_str,
+            claim_year=timezone.now().year,
+            document_status=reason,
+            policy_record_status="Pending",
+            validated_aid_amount=get_accidental_sickness_aid_benefit(),
+            status="Pending",
+        )
+
+        TransactionVerification.objects.create(
+            table_name="medical_aid",
+            record_id=aid.medical_aid_id_PK,
+            verification_status="Pending",
+        )
+
+        # Attach files for this card
+        fi = 0
+        while True:
+            key = f"med_file_{idx}_{fi}"
+            f = request.FILES.get(key)
+            if not f or getattr(f, "size", 0) <= 0:
+                break
+            _link_proof_to_record(f, aid, recorded_by)
+            fi += 1
+
+        _record_audit_trail(
+            table="medical_aid",
+            record_id=aid.medical_aid_id_PK,
+            action="CREATED",
+            actor=recorded_by,
+            new={
+                "member": member_obj.full_name,
+                "request_date": request_date,
+                "requested_amount": str(get_accidental_sickness_aid_benefit()),
+                "hospital_name": hospital,
+                "hospital_date": hospital_date,
+                "hospital_bill_amount": bill_str,
+                "status": "Pending",
+                "document_status": reason,
+            },
+            ip=request.META.get("REMOTE_ADDR"),
+        )
+
+        created_ids.append(aid.medical_aid_id_PK)
+
+    _broadcast_treasurer("aids")
+    return JsonResponse({"ok": True, "aid_ids": created_ids, "count": len(created_ids)})
+
+
 @require_GET
 def treasurer_medical_aid_list(request: HttpRequest):
     """Return MedicalAid records for the Treasurer dashboard."""

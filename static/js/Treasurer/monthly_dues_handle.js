@@ -321,22 +321,9 @@ function getCookie(name) {
   }
 
   function init() {
-    // Expose helpers globally
-    window.triggerFileUpload =
-      window.triggerFileUpload ||
-      function (id) {
-        const el = byId(id);
-        if (el) el.click();
-      };
-
-    window.showAttachedPreview =
-      window.showAttachedPreview ||
-      function (input, labelId) {
-        if (input.files && input.files.length > 0) {
-          const el = byId(labelId);
-          if (el) el.style.display = "block";
-        }
-      };
+    FileQueue.init("otc", { inputId: "otc_file_input", containerId: "otc_file_queue", maxFiles: 1 });
+    FileQueue.init("sal", { inputId: "sal_file_input", containerId: "sal_file_queue", maxFiles: 1 });
+    FileQueue.init("bulk", { inputId: "bulk_file_input", containerId: "bulk_file_queue", maxFiles: 1 });
 
     window.fetchSalaryHistory = fetchSalaryHistory;
 
@@ -350,6 +337,8 @@ function getCookie(name) {
         e.preventDefault();
         try {
           const formData = new FormData(otcForm);
+          var otcFiles = FileQueue.getFiles("otc");
+          if (otcFiles.length > 0) formData.append("otc_photo_file", otcFiles[0]);
 
           const out = await apiAddOtcDues(formData);
           if (!out || !out.ok) {
@@ -363,6 +352,7 @@ function getCookie(name) {
           showToast("Over-the-Counter Monthly Dues recorded.", false);
           await fetchAndRenderOtc();
           otcForm.reset();
+          FileQueue.clear("otc");
         } catch (err) {
           showToast("Network/server error while recording OTC dues.", true);
         }
@@ -385,6 +375,9 @@ function getCookie(name) {
         if (salRefValue) {
           formData.set("sal_ref", salRefValue);
         }
+        var salFiles = FileQueue.getFiles("sal");
+        if (salFiles.length > 0) formData.append("sal_photo_file", salFiles[0]);
+
         const out = await apiAddSalaryDues(formData);
         if (!out || !out.ok) {
           showToast(
@@ -397,6 +390,7 @@ function getCookie(name) {
         showToast("Salary deduction remittance recorded.", false);
         await fetchSalaryHistory();
         salaryForm.reset();
+        FileQueue.clear("sal");
 
         const preview = byId("sal_preview");
         if (preview) preview.style.display = "none";
@@ -643,7 +637,6 @@ function getCookie(name) {
         const month = byId("bulk_sal_month");
         const batchRef = byId("bulk_batch_ref");
         const summary = byId("bulk_summary");
-        const fileInput = byId("bulk_photo_file");
 
         if (!month || !month.value) {
           showToast("Please select a deduction month.", true);
@@ -673,9 +666,8 @@ function getCookie(name) {
           fd.set("batch_ref", batchRef.value.trim());
           fd.set("summary", summary ? summary.value.trim() : "");
           fd.set("member_ids", JSON.stringify(checkedIds));
-          if (fileInput && fileInput.files && fileInput.files[0]) {
-            fd.set("sal_photo_file", fileInput.files[0]);
-          }
+          var bulkFiles = FileQueue.getFiles("bulk");
+          if (bulkFiles.length > 0) fd.set("sal_photo_file", bulkFiles[0]);
 
           const resp = await fetch(
             "/api/treasurer/monthly-dues/salary/bulk-process/",
@@ -706,7 +698,7 @@ function getCookie(name) {
           if (month) month.value = "";
           if (batchRef) batchRef.value = "";
           if (summary) summary.value = "";
-          if (fileInput) fileInput.value = "";
+          FileQueue.clear("bulk");
           const bulkPreview = byId("bulk_preview");
           if (bulkPreview) bulkPreview.style.display = "none";
           updateProcessBtn();

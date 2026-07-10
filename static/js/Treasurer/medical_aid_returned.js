@@ -126,6 +126,7 @@
   }
 
   function fillEditForm(record) {
+    FileQueue.clear("ma_ret");
     const sel = getEl(SELECT_RECORD_ID);
     if (sel) sel.value = record.record_id;
 
@@ -205,6 +206,7 @@
   }
 
   function clearEditForm() {
+    FileQueue.clear("ma_ret");
     const sel = getEl(SELECT_RECORD_ID);
     if (sel) sel.value = "";
     const form = getEl(FORM_ID);
@@ -267,10 +269,8 @@
     const maSameAuditor = document.getElementById("ma_same_auditor");
     fd.append("same_auditor", maSameAuditor ? maSameAuditor.checked : false);
 
-    const photoInput = document.getElementById("ma_returned_photo_file");
-    if (photoInput && photoInput.files && photoInput.files[0]) {
-      fd.append("ma_returned_photo_file", photoInput.files[0]);
-    }
+    var maRetFiles = FileQueue.getFiles("ma_ret");
+    if (maRetFiles.length > 0) fd.append("ma_returned_photo_file", maRetFiles[0]);
 
     try {
       isSubmitting = true;
@@ -305,6 +305,8 @@
   }
 
   function wireUp() {
+    FileQueue.init("ma_ret", { inputId: "ma_ret_file_input", containerId: "ma_ret_file_queue", maxFiles: 1 });
+
     const form = getEl(FORM_ID);
     if (form) {
       form.addEventListener("submit", submitCorrection);

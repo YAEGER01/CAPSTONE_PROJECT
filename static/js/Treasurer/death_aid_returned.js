@@ -131,6 +131,7 @@
   }
 
   function fillEditForm(record) {
+    FileQueue.clear("da_ret");
     const sel = getEl(SELECT_RECORD_ID);
     if (sel) sel.value = record.record_id;
 
@@ -209,6 +210,7 @@
   }
 
   function clearEditForm() {
+    FileQueue.clear("da_ret");
     const sel = getEl(SELECT_RECORD_ID);
     if (sel) sel.value = "";
     const form = getEl(FORM_ID);
@@ -261,10 +263,8 @@
     const daSameAuditor = document.getElementById("da_same_auditor");
     fd.append("same_auditor", daSameAuditor ? daSameAuditor.checked : false);
 
-    const photoInput = document.getElementById("da_returned_photo_file");
-    if (photoInput && photoInput.files && photoInput.files[0]) {
-      fd.append("da_returned_photo_file", photoInput.files[0]);
-    }
+    var daRetFiles = FileQueue.getFiles("da_ret");
+    if (daRetFiles.length > 0) fd.append("da_returned_photo_file", daRetFiles[0]);
 
     try {
       isSubmitting = true;
@@ -299,6 +299,8 @@
   }
 
   function wireUp() {
+    FileQueue.init("da_ret", { inputId: "da_ret_file_input", containerId: "da_ret_file_queue", maxFiles: 1 });
+
     const form = getEl(FORM_ID);
     if (form) {
       form.addEventListener("submit", submitCorrection);

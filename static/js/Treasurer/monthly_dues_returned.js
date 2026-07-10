@@ -331,9 +331,6 @@
   }
 
   function setPhotoPreview(prefix, record) {
-    const photoInput = document.getElementById(`${prefix}_photo_file`);
-    if (photoInput) photoInput.value = "";
-
     const thumbnailContainer = document.getElementById(`${prefix}_thumbnail_container`);
     const thumbnailImg = document.getElementById(`${prefix}_thumbnail`);
     const thumbnailLink = document.getElementById(`${prefix}_thumbnail_link`);
@@ -365,6 +362,7 @@
   }
 
   function clearForm() {
+    FileQueue.clear("md_ret");
     const form = getEl(FORM_ID);
     if (form) form.reset();
     const rej = document.getElementById("md_rejection_reason_display");
@@ -378,6 +376,7 @@
   }
 
   function fillForm(record) {
+    FileQueue.clear("md_ret");
     const recordId = getEl(SELECT_RECORD_ID);
     if (recordId) recordId.value = record.dues_id_PK;
 
@@ -460,10 +459,8 @@
     const mdSameAuditor = document.getElementById("md_same_auditor");
     fd.append("same_auditor", mdSameAuditor ? mdSameAuditor.checked : false);
 
-    const photoInput = document.getElementById("md_returned_photo_file");
-    if (photoInput && photoInput.files && photoInput.files[0]) {
-      fd.append("md_returned_photo_file", photoInput.files[0]);
-    }
+    var mdRetFiles = FileQueue.getFiles("md_ret");
+    if (mdRetFiles.length > 0) fd.append("md_returned_photo_file", mdRetFiles[0]);
 
     try {
       isSubmitting = true;
@@ -498,6 +495,8 @@
   }
 
   function wireUp() {
+    FileQueue.init("md_ret", { inputId: "md_ret_file_input", containerId: "md_ret_file_queue", maxFiles: 1 });
+
     const form = getEl(FORM_ID);
     if (form) {
       form.addEventListener("submit", submitCorrection);

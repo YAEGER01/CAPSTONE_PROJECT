@@ -2,6 +2,10 @@
 
 var medSearchActiveIndex = -1;
 
+function escapeAttr(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function formatPhone(num) {
   if (!num) return "";
   var cleaned = num.replace(/[^\d]/g, "");
@@ -44,6 +48,19 @@ async function apiListMedicalAids() {
     credentials: "same-origin",
   });
 }
+
+async function apiAddMedicalAidBatch(formData) {
+  return fetchJson("/api/treasurer/medical-aid/batch-add/", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": getCookie("csrftoken") },
+    body: formData,
+  });
+}
+
+// ---------- Batch Medical Aid state ----------
+var medMembers = [];
+var MED_MAX_MEMBERS = 5;
 
 // ---------------- Death Aid APIs (Claims) ----------------
 async function apiAddDeathAid(formData) {
@@ -94,9 +111,9 @@ function formatCurrencyPHP(num) {
   }).format(n);
 }
 
-function toggleMedHospitalDrawer() {
-  var body = document.getElementById("medHospitalDrawerBody");
-  var chevron = document.getElementById("medHospitalChevron");
+function toggleMedCardHospitalDrawer(idx) {
+  var body = document.getElementById("medCardHospitalDrawer_" + idx);
+  var chevron = document.getElementById("medCardHospitalChevron_" + idx);
   if (!body || !chevron) return;
   var isOpen = body.style.maxHeight && body.style.maxHeight !== "0px";
   if (isOpen) {
@@ -140,21 +157,39 @@ function filterMedMembers(query) {
   var ql = q.toLowerCase();
   var html = "";
   var count = 0;
+  var alreadyIds = {};
+  for (var mi = 0; mi < medMembers.length; mi++)
+    alreadyIds[medMembers[mi].id] = true;
   for (var i = 0; i < sel.options.length; i++) {
     var opt = sel.options[i];
     if (!opt.value) continue;
     if (opt.textContent.toLowerCase().includes(ql)) {
       var val = opt.value;
       var label = opt.textContent;
-      html += '<div class="med-result-row" data-value="' + val + '" onclick="pickMedMember(\'' + val + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;border-bottom:1px solid #f0f0f0;font-size:0.85rem;cursor:pointer;" onmouseover="this.style.background=\'#f5f5f5\'" onmouseout="this.style.background=\'\'">'
-        + '<span>' + label + '</span>'
-        + '<span class="med-pick-badge" onclick="event.stopPropagation();pickMedMember(\'' + val + '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 14px;background:rgba(76,175,80,0.15);color:#2e7d32;border:1px solid rgba(76,175,80,0.3);border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;">Select &#10003;</span>'
-        + '</div>';
+      var added = alreadyIds[val];
+      html +=
+        '<div class="med-result-row" data-value="' +
+        val +
+        '" style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px;border-bottom:1px solid #f0f0f0;font-size:0.85rem;cursor:pointer;" onmouseover="this.style.background=\'#f5f5f5\'" onmouseout="this.style.background=\'\'">' +
+        "<span>" +
+        label +
+        "</span>" +
+        '<span class="med-pick-badge" onclick="event.stopPropagation();addMedMember(\'' +
+        val +
+        '\')" style="display:inline-flex;align-items:center;gap:4px;padding:4px 14px;background:' +
+        (added
+          ? "rgba(158,158,158,0.15);color:#757575;border:1px solid rgba(158,158,158,0.3)"
+          : "rgba(76,175,80,0.15);color:#2e7d32;border:1px solid rgba(76,175,80,0.3)") +
+        ';border-radius:20px;font-size:0.72rem;font-weight:600;cursor:pointer;">' +
+        (added ? "Added" : "Add +") +
+        "</span>" +
+        "</div>";
       count++;
     }
   }
   if (count === 0) {
-    html = '<div style="padding:8px 12px;color:#999;font-size:0.85rem;">No members found</div>';
+    html =
+      '<div style="padding:8px 12px;color:#999;font-size:0.85rem;">No members found</div>';
   }
   results.innerHTML = html;
   results.style.display = "block";
@@ -165,32 +200,48 @@ function handleMedSearchKeydown(e) {
   if (!results || results.style.display !== "block") return;
   var items = results.querySelectorAll(".med-result-row");
   if (!items.length) {
-    if (e.key === "Enter") { e.preventDefault(); }
+    if (e.key === "Enter") {
+      e.preventDefault();
+    }
     return;
   }
   switch (e.key) {
     case "ArrowDown":
       e.preventDefault();
-      items[medSearchActiveIndex >= 0 ? medSearchActiveIndex : 0].classList.remove("med-search-active");
-      medSearchActiveIndex = Math.min(medSearchActiveIndex + 1, items.length - 1);
+      items[
+        medSearchActiveIndex >= 0 ? medSearchActiveIndex : 0
+      ].classList.remove("med-search-active");
+      medSearchActiveIndex = Math.min(
+        medSearchActiveIndex + 1,
+        items.length - 1,
+      );
       items[medSearchActiveIndex].classList.add("med-search-active");
       items[medSearchActiveIndex].scrollIntoView({ block: "nearest" });
       break;
     case "Tab":
       e.preventDefault();
       if (e.shiftKey) {
-        items[medSearchActiveIndex >= 0 ? medSearchActiveIndex : 0].classList.remove("med-search-active");
+        items[
+          medSearchActiveIndex >= 0 ? medSearchActiveIndex : 0
+        ].classList.remove("med-search-active");
         medSearchActiveIndex = Math.max(medSearchActiveIndex - 1, 0);
       } else {
-        items[medSearchActiveIndex >= 0 ? medSearchActiveIndex : 0].classList.remove("med-search-active");
-        medSearchActiveIndex = Math.min(medSearchActiveIndex + 1, items.length - 1);
+        items[
+          medSearchActiveIndex >= 0 ? medSearchActiveIndex : 0
+        ].classList.remove("med-search-active");
+        medSearchActiveIndex = Math.min(
+          medSearchActiveIndex + 1,
+          items.length - 1,
+        );
       }
       items[medSearchActiveIndex].classList.add("med-search-active");
       items[medSearchActiveIndex].scrollIntoView({ block: "nearest" });
       break;
     case "ArrowUp":
       e.preventDefault();
-      items[medSearchActiveIndex >= 0 ? medSearchActiveIndex : 0].classList.remove("med-search-active");
+      items[
+        medSearchActiveIndex >= 0 ? medSearchActiveIndex : 0
+      ].classList.remove("med-search-active");
       medSearchActiveIndex = Math.max(medSearchActiveIndex - 1, 0);
       items[medSearchActiveIndex].classList.add("med-search-active");
       items[medSearchActiveIndex].scrollIntoView({ block: "nearest" });
@@ -198,10 +249,10 @@ function handleMedSearchKeydown(e) {
     case "Enter":
       e.preventDefault();
       if (medSearchActiveIndex >= 0 && medSearchActiveIndex < items.length) {
-        pickMedMember(items[medSearchActiveIndex].getAttribute("data-value"));
+        addMedMember(items[medSearchActiveIndex].getAttribute("data-value"));
       } else {
         var first = items[0];
-        if (first) pickMedMember(first.getAttribute("data-value"));
+        if (first) addMedMember(first.getAttribute("data-value"));
       }
       break;
     case "Escape":
@@ -211,17 +262,225 @@ function handleMedSearchKeydown(e) {
   }
 }
 
-function pickMedMember(val) {
+function addMedMember(val) {
+  if (medMembers.length >= MED_MAX_MEMBERS) {
+    showToast("Maximum of " + MED_MAX_MEMBERS + " members per batch.", true);
+    return;
+  }
+  for (var ci = 0; ci < medMembers.length; ci++) {
+    if (medMembers[ci].id === val) {
+      showToast("Member already added.", true);
+      return;
+    }
+  }
   var sel = document.getElementById("med_member");
+  if (!sel) return;
+  var memberData = null;
+  for (var mi = 0; mi < sel.options.length; mi++) {
+    if (sel.options[mi].value === val) {
+      var opt = sel.options[mi];
+      memberData = {
+        id: val,
+        name: opt.textContent,
+        contact: opt.getAttribute("data-contact") || "",
+        status: opt.getAttribute("data-status") || "",
+        date: "",
+        reason: "",
+        hospital: "",
+        hospitalDate: "",
+        bill: "",
+        files: [],
+      };
+      break;
+    }
+  }
+  if (!memberData) return;
+  medMembers.push(memberData);
   var searchInput = document.getElementById("med_member_search");
-  var results = document.getElementById("med_member_results");
-  if (!sel || !searchInput || !results) return;
-  sel.value = val;
-  var idx = sel.selectedIndex;
-  if (idx > -1) searchInput.value = sel.options[idx].textContent;
-  results.style.display = "none";
-  sel.style.display = "";
-  updateMedMemberInfo();
+  if (searchInput) searchInput.value = "";
+  hideMedResults();
+  renderMedCards();
+  filterMedMembers("");
+}
+
+function removeMedMember(idx) {
+  medMembers.splice(idx, 1);
+  // Shift FileQueues so remaining card files keep their correct index
+  var stash = {};
+  for (var ri = idx; ri < medMembers.length + 1; ri++) {
+    stash["med_" + (ri - 1)] = FileQueue.getFiles("med_" + ri).slice();
+    FileQueue.clear("med_" + ri);
+  }
+  renderMedCards();
+  for (var si = idx; si < medMembers.length; si++) {
+    var saved = stash["med_" + si];
+    if (saved && saved.length) FileQueue.pushFiles("med_" + si, saved);
+  }
+  filterMedMembers("");
+}
+
+function renderMedCards() {
+  var container = document.getElementById("med_member_cards");
+  var counter = document.getElementById("med_member_counter");
+  if (!container) return;
+  if (counter) counter.textContent = medMembers.length;
+  var submitBtn = document.querySelector("#medicalForm button[type=submit]");
+  if (submitBtn)
+    submitBtn.textContent = "Submit All Requests (" + medMembers.length + ")";
+  if (medMembers.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+  var html = "";
+  for (var i = 0; i < medMembers.length; i++) {
+    var m = medMembers[i];
+    html +=
+      '<div class="dashboard-panel" style="margin-bottom:14px;padding:14px;border-left:4px solid #2e7d32;" data-card-idx="' +
+      i +
+      '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+      '<strong style="color:#1b5e20;">' +
+      m.name +
+      "</strong>" +
+      '<button type="button" onclick="removeMedMember(' +
+      i +
+      ')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#e53935;padding:0 4px;">&times;</button>' +
+      "</div>" +
+      '<div class="form-grid-2">' +
+      '<div class="form-group"><label for="med_date_' +
+      i +
+      '">Request Date</label><input type="date" id="med_date_' +
+      i +
+      '" name="med_date_' +
+      i +
+      '" value="' + (m.date || '') + '" oninput="medMembers[' + i + '].date=this.value" required /></div>' +
+      '<div class="form-group"><label for="med_reason_' +
+      i +
+      '">Reason for Hospitalization</label><input type="text" id="med_reason_' +
+      i +
+      '" name="med_reason_' +
+      i +
+      '" placeholder="Type here..." value="' + escapeAttr(m.reason || '') + '" oninput="medMembers[' + i + '].reason=this.value" required /></div>' +
+      "</div>" +
+      '<div class="dashboard-panel" style="margin:10px 0;padding:10px;">' +
+      '<div onclick="toggleMedCardHospitalDrawer(' +
+      i +
+      ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">' +
+      '<h4 style="margin:0;color:#1b5e20;font-size:0.9rem;">&#9656; Hospital Details <span style="font-weight:400;color:#757575;font-size:0.72rem;">(click to expand)</span></h4>' +
+      '<span id="medCardHospitalChevron_' +
+      i +
+      '" style="color:#1b5e20;font-size:0.9rem;transition:transform 0.25s;">&#9656;</span>' +
+      "</div>" +
+      '<div id="medCardHospitalDrawer_' +
+      i +
+      '" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;">' +
+      '<div style="padding-top:10px;">' +
+      '<div class="form-group"><label for="med_hospital_' +
+      i +
+      '">Hospital</label><input type="text" id="med_hospital_' +
+      i +
+      '" name="med_hospital_' +
+      i +
+      '" placeholder="e.g., Cauayan District Hospital" value="' + escapeAttr(m.hospital || '') + '" oninput="medMembers[' + i + '].hospital=this.value" /></div>' +
+      '<div class="form-group"><label for="med_hospital_date_' +
+      i +
+      '">Date of Hospitalization</label><input type="text" id="med_hospital_date_' +
+      i +
+      '" name="med_hospital_date_' +
+      i +
+      '" class="flatpickr-range" placeholder="Select admission and discharge dates" value="' + escapeAttr(m.hospitalDate || '') + '" oninput="medMembers[' + i + '].hospitalDate=this.value" /></div>' +
+      "</div></div></div>" +
+      '<div class="form-group">' +
+      '<label for="med_bill_' +
+      i +
+      '">Total Hospital Bill Amount (₱)</label>' +
+      '<input type="number" step="0.01" id="med_bill_' +
+      i +
+      '" name="med_bill_' +
+      i +
+      '" placeholder="20000 or above" value="' + (m.bill || '') + '" required oninput="medMembers[' + i + '].bill=this.value;updateMedCardBillIndicator(' +
+      i +
+      ')" />' +
+      '<div id="med_bill_indicator_' +
+      i +
+      '" style="margin-top:4px;font-size:0.8rem;font-weight:600;"></div>' +
+      "</div>" +
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:rgba(27,94,32,0.08);border-radius:8px;margin-bottom:8px;font-size:0.82rem;color:#1b5e20;">' +
+      "<span>Estimated Aid Benefit:</span>" +
+      '<span style="font-weight:700;" id="med_estimate_' +
+      i +
+      '" data-threshold="' +
+      (document.getElementById("med_aid_estimate_data")
+        ? document
+            .getElementById("med_aid_estimate_data")
+            .getAttribute("data-threshold")
+        : "20000") +
+      '">₱' +
+      (document.getElementById("med_aid_estimate_data")
+        ? document
+            .getElementById("med_aid_estimate_data")
+            .getAttribute("data-benefit")
+        : "0") +
+      " / member</span>" +
+      "</div>" +
+      '<div class="form-group">' +
+      "<label>Supporting Documents(Accepts Photos and PDF)</label>" +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+      '<button type="button" onclick="document.getElementById(\'med_' +
+      i +
+      '_file_input\').click()" class="file-queue-btn">+ Upload File/Photo</button>' +
+      '<input type="file" id="med_' +
+      i +
+      '_file_input" multiple accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput(\'med_' +
+      i +
+      '\')" />' +
+      '<div id="med_' +
+      i +
+      '_file_queue" class="file-queue"></div>' +
+      "</div></div></div>";
+  }
+  container.innerHTML = html;
+  // Initialize FileQueue for each card + attach flatpickr
+  for (var fi = 0; fi < medMembers.length; fi++) {
+    if (!FileQueue.getFiles("med_" + fi).length) {
+      FileQueue.init("med_" + fi, {
+        inputId: "med_" + fi + "_file_input",
+        containerId: "med_" + fi + "_file_queue",
+        maxFiles: 5,
+        accept: "image/*,.pdf,.docx",
+      });
+    }
+    var dp = document.getElementById("med_hospital_date_" + fi);
+    if (dp && typeof flatpickr !== "undefined" && !dp._flatpickr) {
+      flatpickr(dp, { mode: "range", dateFormat: "Y-m-d" });
+    }
+  }
+}
+
+function updateMedCardBillIndicator(idx) {
+  var billInput = document.getElementById("med_bill_" + idx);
+  var indicator = document.getElementById("med_bill_indicator_" + idx);
+  if (!billInput || !indicator) return;
+  var val = parseFloat(billInput.value);
+  var estimateEl = document.getElementById("med_estimate_" + idx);
+  var threshold = parseFloat(
+    estimateEl ? estimateEl.getAttribute("data-threshold") : "20000",
+  );
+  if (!val || isNaN(val)) {
+    indicator.innerHTML = "";
+    return;
+  }
+  if (val > threshold) {
+    indicator.innerHTML =
+      '<span style="color:#2e7d32;">&#10003; Bill meets the minimum threshold (₱' +
+      threshold.toFixed(2) +
+      ")</span>";
+  } else {
+    indicator.innerHTML =
+      '<span style="color:#c62828;">&#9888; Bill must exceed ₱' +
+      threshold.toFixed(2) +
+      " to qualify</span>";
+  }
 }
 
 function hideMedResults() {
@@ -231,11 +490,6 @@ function hideMedResults() {
   var searchInput = document.getElementById("med_member_search");
   if (results) results.style.display = "none";
   if (sel) sel.style.display = "";
-  if (searchInput && !searchInput.value.trim()) {
-    sel.value = "";
-    var info = document.getElementById("med_member_info");
-    if (info) info.style.display = "none";
-  }
 }
 
 function onMedMemberSelect(sel) {
@@ -243,62 +497,9 @@ function onMedMemberSelect(sel) {
   if (searchInput && sel.selectedIndex > -1 && sel.value) {
     searchInput.value = sel.options[sel.selectedIndex].textContent;
   }
-  updateMedMemberInfo();
-}
-
-function updateMedMemberInfo() {
-  var sel = document.getElementById("med_member");
-  var info = document.getElementById("med_member_info");
-  var nameEl = document.getElementById("med_member_info_name");
-  var contactEl = document.getElementById("med_member_info_contact");
-  var statusEl = document.getElementById("med_member_info_status");
-  if (!sel || !info || !nameEl || !contactEl || !statusEl) return;
-  var idx = sel.selectedIndex;
-  if (idx < 0 || !sel.value) { info.style.display = "none"; return; }
-  var opt = sel.options[idx];
-  nameEl.textContent = opt.textContent;
-  var searchInput = document.getElementById("med_member_search");
-  if (searchInput) searchInput.value = opt.textContent;
-  var contactVal = opt.getAttribute("data-contact") || "";
-  contactEl.textContent = "Contact: " + (formatPhone(contactVal) || "N/A");
-  var memberStatus = opt.getAttribute("data-status") || "";
-  if (memberStatus) {
-    statusEl.innerHTML = "Status: <span style='color:" + (memberStatus.toLowerCase() === "active" ? "#2e7d32" : "#c62828") + ";font-weight:600;'>" + memberStatus + "</span>";
-  } else {
-    statusEl.innerHTML = "";
-  }
-  var year = new Date().getFullYear();
-  var existing = (typeof db !== "undefined" && Array.isArray(db.medical_aids)) ? db.medical_aids : [];
-  var found = false;
-  for (var i = 0; i < existing.length; i++) {
-    var d = existing[i];
-    if (String(d.memberId) === String(sel.value.replace("M-", "")) && d.date && d.date.indexOf(String(year)) === 0) {
-      found = true;
-      break;
-    }
-  }
-  if (found) {
-    statusEl.innerHTML += '<br><span style="color:#c62828;">&#9888; Already filed a claim this year</span>';
-  }
-  info.style.display = "block";
-}
-
-function updateMedBillIndicator() {
-  var billInput = document.getElementById("med_bill");
-  var indicator = document.getElementById("med_bill_indicator");
-  if (!billInput || !indicator) return;
-  var val = parseFloat(billInput.value);
-  var threshold = parseFloat(document.getElementById("med_aid_estimate").getAttribute("data-threshold") || "20000");
-  if (!val || isNaN(val)) { indicator.innerHTML = ""; return; }
-  if (val > threshold) {
-    indicator.innerHTML = '<span style="color:#2e7d32;">&#10003; Bill meets the minimum threshold (₱' + threshold.toFixed(2) + ')</span>';
-  } else {
-    indicator.innerHTML = '<span style="color:#c62828;">&#9888; Bill must exceed ₱' + threshold.toFixed(2) + ' to qualify</span>';
-  }
 }
 
 async function bootMedicalAidTable() {
-  initMedicalMultiUpload();
   populateMedMemberSelect();
   try {
     const data = await apiListMedicalAids();
@@ -313,151 +514,97 @@ async function bootMedicalAidTable() {
 
 document.addEventListener("turbo:load", bootMedicalAidTable);
 
-// ---------- Multi-file management for Medical Aid ----------
-let medFiles = [];
-
-function initMedicalMultiUpload() {
-  var input = document.getElementById("med_photo_files");
-  var list = document.getElementById("med_file_list");
-  if (!input || !list || input._medInit) return;
-  input._medInit = true;
-
-  input.addEventListener("change", function () {
-    for (var fi = 0; fi < this.files.length; fi++) {
-      var file = this.files[fi];
-      var dup = false;
-      for (var di = 0; di < medFiles.length; di++) {
-        if (
-          medFiles[di].name === file.name &&
-          medFiles[di].size === file.size
-        ) {
-          dup = true;
-          break;
-        }
-      }
-      if (!dup) medFiles.push(file);
-    }
-    this.value = "";
-    renderMedFileList();
-  });
-}
-
-function renderMedFileList() {
-  var list = document.getElementById("med_file_list");
-  if (!list) return;
-  list.innerHTML = "";
-  var badge = list.parentElement
-    ? list.parentElement.querySelector(".req-badge")
-    : null;
-  if (medFiles.length > 0) {
-    if (badge) {
-      badge.textContent = "✓ Attached";
-      badge.style.color = "#2e7d32";
-      badge.style.background = "rgba(46,125,50,0.1)";
-    }
-  } else {
-    if (badge) {
-      badge.textContent = "Required";
-      badge.style.color = "#e53935";
-      badge.style.background = "rgba(229,57,53,0.1)";
-    }
-  }
-  for (var fi = 0; fi < medFiles.length; fi++) {
-    var file = medFiles[fi];
-    var div = document.createElement("div");
-    div.style.cssText =
-      "display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:4px;background:#f5f5f5;border-radius:6px;font-size:0.85rem";
-    var preview = document.createElement("span");
-    if (file.type.startsWith("image/")) {
-      var img = document.createElement("img");
-      img.src = URL.createObjectURL(file);
-      img.style.cssText =
-        "width:36px;height:36px;object-fit:cover;border-radius:4px";
-      var imgRef = img;
-      img.onload = function () {
-        URL.revokeObjectURL(imgRef.src);
-      };
-      preview.appendChild(img);
-    } else {
-      var icon = document.createElement("i");
-      icon.className =
-        file.type === "application/pdf"
-          ? "fa-solid fa-file-pdf"
-          : "fa-solid fa-file-word";
-      icon.style.cssText = "font-size:1.3rem;color:#1565c0";
-      preview.appendChild(icon);
-    }
-    div.appendChild(preview);
-    var name = document.createElement("span");
-    name.style.cssText =
-      "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
-    name.textContent = file.name;
-    div.appendChild(name);
-    var size = document.createElement("span");
-    size.style.cssText = "color:#757575;font-size:0.75rem;white-space:nowrap";
-    size.textContent = (file.size / 1024).toFixed(1) + " KB";
-    div.appendChild(size);
-    var removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.innerHTML = "&times;";
-    removeBtn.style.cssText =
-      "background:none;border:none;font-size:1.2rem;cursor:pointer;color:#e53935;padding:0 4px;line-height:1";
-    removeBtn.title = "Remove file";
-    (function (idx) {
-      removeBtn.addEventListener("click", function () {
-        medFiles.splice(idx, 1);
-        renderMedFileList();
-      });
-    })(fi);
-    div.appendChild(removeBtn);
-    list.appendChild(div);
-  }
-}
-
 function handleMedicalSubmit(event) {
   event.preventDefault();
-  const form = event.target;
-  const formData = new FormData(form);
-
-  if (medFiles.length === 0) {
-    showToast("At least one supporting document is required.", true);
+  if (medMembers.length === 0) {
+    showToast("Add at least one member.", true);
     return;
   }
-  medFiles.forEach((f) => formData.append("med_photo_files", f));
-
-  apiAddMedicalAid(formData)
-    .then((data) => {
+  var formData = new FormData();
+  var batch = [];
+  for (var i = 0; i < medMembers.length; i++) {
+    var date = document.getElementById("med_date_" + i);
+    var reason = document.getElementById("med_reason_" + i);
+    var hospital = document.getElementById("med_hospital_" + i);
+    var hospitalDate = document.getElementById("med_hospital_date_" + i);
+    var bill = document.getElementById("med_bill_" + i);
+    if (!date || !reason || !bill) {
+      showToast(
+        "Card " + (i + 1) + ": Date, Reason, and Bill are required.",
+        true,
+      );
+      return;
+    }
+    var dateVal = date.value;
+    var reasonVal = reason.value;
+    var hospitalVal = hospital ? hospital.value : "";
+    var hospitalDateVal = hospitalDate ? hospitalDate.value : "";
+    var billVal = bill.value;
+    if (!dateVal || !reasonVal || !billVal) {
+      showToast(
+        "Card " + (i + 1) + ": Please fill in all required fields.",
+        true,
+      );
+      return;
+    }
+    var medFiles = FileQueue.getFiles("med_" + i);
+    if (medFiles.length === 0) {
+      showToast(
+        "Card " +
+          (i + 1) +
+          " (" +
+          medMembers[i].name +
+          "): At least one supporting document is required.",
+        true,
+      );
+      return;
+    }
+    batch.push({
+      member_id: medMembers[i].id,
+      request_date: dateVal,
+      reason: reasonVal,
+      hospital: hospitalVal,
+      hospital_date: hospitalDateVal,
+      bill: billVal,
+    });
+    for (var f = 0; f < medFiles.length; f++) {
+      formData.append("med_file_" + i + "_" + f, medFiles[f]);
+    }
+  }
+  formData.append("med_batch_data", JSON.stringify(batch));
+  apiAddMedicalAidBatch(formData)
+    .then(function (data) {
       if (!data.ok) {
-        showToast(data.error || "Failed to submit medical aid request.", true);
+        var err = data.error || "Failed to submit batch.";
+        // Try to show which card failed
+        var match = err.match(/Card (\d+)/);
+        if (match) err = "Member " + match[1] + ": " + err;
+        showToast(err, true);
         return null;
       }
       return apiListMedicalAids();
     })
-    .then((data) => {
+    .then(function (data) {
       if (!data) return;
       if (!data.ok) {
-        showToast(data.error || "Medical Aid table refresh failed.", true);
+        showToast(data.error || "Table refresh failed.", true);
         return;
       }
       renderMedicalTableFromApi(data.medical_aids || []);
-      showToast("Medical Aid request submitted successfully.", false);
-      form.reset();
-      medFiles = [];
-      renderMedFileList();
-      var fp = document.getElementById("med_hospital_date");
-      if (fp && fp._flatpickr) fp._flatpickr.clear();
+      showToast(
+        medMembers.length + " medical aid request(s) submitted successfully.",
+        false,
+      );
+      medMembers = [];
+      renderMedCards();
       var searchInput = document.getElementById("med_member_search");
       if (searchInput) searchInput.value = "";
       var sel = document.getElementById("med_member");
       if (sel) sel.style.display = "";
       var results = document.getElementById("med_member_results");
       if (results) results.style.display = "none";
-      var memberInfo = document.getElementById("med_member_info");
-      if (memberInfo) memberInfo.style.display = "none";
-      var billInd = document.getElementById("med_bill_indicator");
-      if (billInd) billInd.innerHTML = "";
     })
-    .catch((err) => {
+    .catch(function (err) {
       console.error(err);
       showToast("Network error while submitting.", true);
     });
@@ -473,26 +620,37 @@ function deathToggleFilter() {
   card.style.display = opening ? "block" : "none";
   if (opening) {
     deathFillFilters();
-    var handler = function(e) {
+    var handler = function (e) {
       var btn = document.querySelector('[onclick="deathToggleFilter()"]');
       if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
       document.removeEventListener("click", handler);
       card.style.display = "none";
       deathApplyFilter();
     };
-    setTimeout(function() { document.addEventListener("click", handler); }, 0);
+    setTimeout(function () {
+      document.addEventListener("click", handler);
+    }, 0);
   }
 }
 
 function deathGetChecked(id) {
-  var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
-  for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+  var cbs = document.querySelectorAll(
+      "#" + id + " input[type=checkbox]:checked",
+    ),
+    vals = [];
+  for (var i = 0; i < cbs.length; i++) {
+    var v = cbs[i].value;
+    if (v !== "") vals.push(v);
+  }
   return vals;
 }
 
 function deathGetAllValues(id) {
-  var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
-  for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+  var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"),
+    vals = [];
+  for (var i = 0; i < cbs.length; i++) {
+    if (cbs[i].value !== "") vals.push(cbs[i].value);
+  }
   return vals;
 }
 
@@ -500,7 +658,9 @@ function deathToggleAll(containerId, checked) {
   var container = document.getElementById(containerId);
   if (!container) return;
   var cbs = container.querySelectorAll('input[type="checkbox"]');
-  for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+  for (var i = 0; i < cbs.length; i++) {
+    if (cbs[i].value !== "") cbs[i].checked = checked;
+  }
   deathApplyFilter();
 }
 
@@ -511,20 +671,43 @@ function deathSyncAll(containerId) {
   var allBox = cbs.length > 0 ? cbs[0] : null;
   if (!allBox) return;
   var allChecked = true;
-  for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
+  for (var i = 1; i < cbs.length; i++) {
+    if (!cbs[i].checked) {
+      allChecked = false;
+      break;
+    }
+  }
   allBox.checked = allChecked;
 }
 
-function deathApplyFilter() { refreshDeathAidTables(); }
+function deathApplyFilter() {
+  refreshDeathAidTables();
+}
 
 function deathFillFilters() {
-  var stats = {}, i, d, arr = (typeof db !== "undefined" && db.death_aids) || window.__deathAidsAll || [];
-  for (i = 0; i < arr.length; i++) { d = arr[i]; if (d.status) stats[d.status] = 1; }
+  var stats = {},
+    i,
+    d,
+    arr =
+      (typeof db !== "undefined" && db.death_aids) ||
+      window.__deathAidsAll ||
+      [];
+  for (i = 0; i < arr.length; i++) {
+    d = arr[i];
+    if (d.status) stats[d.status] = 1;
+  }
   var sk = Object.keys(stats).sort();
   var sc = document.getElementById("deathStatusCheckboxes");
   if (sc) {
-    sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="deathToggleAll(\'deathStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
-    for (i = 0; i < sk.length; i++) sc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(sk[i]) + '" checked onchange="deathSyncAll(\'deathStatusCheckboxes\');deathApplyFilter()"> <span>' + escapeHtml(sk[i]) + '</span></label>';
+    sc.innerHTML =
+      '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="deathToggleAll(\'deathStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+    for (i = 0; i < sk.length; i++)
+      sc.innerHTML +=
+        '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' +
+        escapeHtml(sk[i]) +
+        '" checked onchange="deathSyncAll(\'deathStatusCheckboxes\');deathApplyFilter()"> <span>' +
+        escapeHtml(sk[i]) +
+        "</span></label>";
   }
 }
 
@@ -535,10 +718,16 @@ function renderDeathTableFromApi(deathAids, tableId) {
 
   tbody.innerHTML = "";
 
-  var stats = tableId === "deathTable" ? deathGetChecked("deathStatusCheckboxes") : [];
-  if (tableId === "deathTable" && stats.length === 0) { stats = deathGetAllValues("deathStatusCheckboxes"); deathSyncAll("deathStatusCheckboxes"); }
+  var stats =
+    tableId === "deathTable" ? deathGetChecked("deathStatusCheckboxes") : [];
+  if (tableId === "deathTable" && stats.length === 0) {
+    stats = deathGetAllValues("deathStatusCheckboxes");
+    deathSyncAll("deathStatusCheckboxes");
+  }
 
-  var arr = deathAids || [], flt = [], i;
+  var arr = deathAids || [],
+    flt = [],
+    i;
   for (i = 0; i < arr.length; i++) {
     var d = arr[i];
     if (stats.length && stats.indexOf(d.status) === -1) continue;
@@ -546,7 +735,8 @@ function renderDeathTableFromApi(deathAids, tableId) {
   }
 
   if (flt.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757580;padding:30px;">No death aid claims match current filters.</td></tr>';
+    tbody.innerHTML =
+      '<tr><td colspan="7" style="text-align:center;color:#757580;padding:30px;">No death aid claims match current filters.</td></tr>';
     return;
   }
 
@@ -596,7 +786,6 @@ function renderDeathTableFromApi(deathAids, tableId) {
 }
 
 // ---------- Death Aid Scenario & Form ----------
-let deathFiles = [];
 const IMMEDIATE_RELATIONS = [
   "husband",
   "father",
@@ -655,7 +844,7 @@ function pickDeathMember() {
   var memberOptions = {};
   if (typeof db !== "undefined" && Array.isArray(db.members)) {
     db.members.forEach(function (m) {
-            memberOptions[m.id] = m.name;
+      memberOptions[m.id] = m.name;
     });
   }
   Swal.fire({
@@ -679,6 +868,7 @@ function pickDeathMember() {
 }
 
 function showDeathForm(scenario, memberId) {
+  FileQueue.init("death", { inputId: "death_file_input", containerId: "death_file_queue", maxFiles: 10 });
   document.getElementById("deathAidScenarioArea").style.display = "none";
   document.getElementById("deathAidFormArea").style.display = "block";
 
@@ -719,14 +909,10 @@ function showDeathForm(scenario, memberId) {
         for (var i = 0; i < db.members.length; i++) {
           var m = db.members[i];
           sel.innerHTML +=
-            '<option value="' +
-            m.id +
-            '">' +
-            m.name +
-            "</option>";
+            '<option value="' + m.id + '">' + m.name + "</option>";
         }
       }
-      sel.onchange = function() {
+      sel.onchange = function () {
         var selectedId = this.value;
         var claimantInput = document.getElementById("death_claimant_dep");
         var contactInput = document.getElementById("death_contact_dep");
@@ -745,7 +931,6 @@ function showDeathForm(scenario, memberId) {
   }
 
   filterDeathTableByScenario(scenario);
-  initDeathMultiUpload();
 }
 
 function filterDeathTableByScenario(scenario) {
@@ -768,12 +953,7 @@ function filterDeathTableByScenario(scenario) {
 
 function resetDeathAidForm() {
   document.getElementById("deathForm").reset();
-  deathFiles = [];
-  var list = document.getElementById("death_file_list");
-  if (list) {
-    list.innerHTML = "";
-    renderDeathFileList();
-  }
+  FileQueue.clear("death");
   document.getElementById("deathAidFormArea").style.display = "none";
   document.getElementById("deathAidScenarioArea").style.display = "grid";
   refreshDeathAidTables();
@@ -842,103 +1022,6 @@ const DEATH_REL_MAP = {
 };
 
 // ---------- Multi-file management for Death Aid ----------
-function initDeathMultiUpload() {
-  var input = document.getElementById("death_photo_files");
-  var list = document.getElementById("death_file_list");
-  if (!input || !list || input._deathInit) return;
-  input._deathInit = true;
-
-  input.addEventListener("change", function () {
-    for (var fi = 0; fi < this.files.length; fi++) {
-      var file = this.files[fi];
-      var dup = false;
-      for (var di = 0; di < deathFiles.length; di++) {
-        if (
-          deathFiles[di].name === file.name &&
-          deathFiles[di].size === file.size
-        ) {
-          dup = true;
-          break;
-        }
-      }
-      if (!dup) deathFiles.push(file);
-    }
-    this.value = "";
-    renderDeathFileList();
-  });
-}
-
-function renderDeathFileList() {
-  var list = document.getElementById("death_file_list");
-  if (!list) return;
-  list.innerHTML = "";
-  var badge = list.parentElement
-    ? list.parentElement.querySelector(".req-badge")
-    : null;
-  if (deathFiles.length > 0) {
-    if (badge) {
-      badge.textContent = "✓ Attached";
-      badge.style.color = "#2e7d32";
-      badge.style.background = "rgba(46,125,50,0.1)";
-    }
-  } else {
-    if (badge) {
-      badge.textContent = "Required";
-      badge.style.color = "#e53935";
-      badge.style.background = "rgba(229,57,53,0.1)";
-    }
-  }
-  for (var fi = 0; fi < deathFiles.length; fi++) {
-    var file = deathFiles[fi];
-    var div = document.createElement("div");
-    div.style.cssText =
-      "display:flex;align-items:center;gap:8px;padding:4px 8px;margin-bottom:4px;background:#f5f5f5;border-radius:6px;font-size:0.85rem";
-    var preview = document.createElement("span");
-    if (file.type.startsWith("image/")) {
-      var img = document.createElement("img");
-      img.src = URL.createObjectURL(file);
-      img.style.cssText =
-        "width:36px;height:36px;object-fit:cover;border-radius:4px";
-      img.onload = function () {
-        URL.revokeObjectURL(img.src);
-      };
-      preview.appendChild(img);
-    } else {
-      var icon = document.createElement("i");
-      icon.className =
-        file.type === "application/pdf"
-          ? "fa-solid fa-file-pdf"
-          : "fa-solid fa-file-word";
-      icon.style.cssText = "font-size:1.3rem;color:#1565c0";
-      preview.appendChild(icon);
-    }
-    div.appendChild(preview);
-    var name = document.createElement("span");
-    name.style.cssText =
-      "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap";
-    name.textContent = file.name;
-    div.appendChild(name);
-    var size = document.createElement("span");
-    size.style.cssText = "color:#757575;font-size:0.75rem;white-space:nowrap";
-    size.textContent = (file.size / 1024).toFixed(1) + " KB";
-    div.appendChild(size);
-    var removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.innerHTML = "&times;";
-    removeBtn.style.cssText =
-      "background:none;border:none;font-size:1.2rem;cursor:pointer;color:#e53935;padding:0 4px;line-height:1";
-    removeBtn.title = "Remove file";
-    (function (idx) {
-      removeBtn.addEventListener("click", function () {
-        deathFiles.splice(idx, 1);
-        renderDeathFileList();
-      });
-    })(fi);
-    div.appendChild(removeBtn);
-    list.appendChild(div);
-  }
-}
-
 async function bootDeathAidTable() {
   try {
     var data = await apiListDeathAids();
@@ -1034,15 +1117,16 @@ function handleDeathSubmit(event) {
     : null;
   formData.append("death_rel_group", relGroupEl ? relGroupEl.value : "");
 
-  if (deathFiles.length === 0) {
+  var deathQueue = FileQueue.getFiles("death");
+  if (deathQueue.length === 0) {
     showToast(
       "At least one supporting document (Death Certificate or equivalent) is required.",
       true,
     );
     return;
   }
-  for (var fi = 0; fi < deathFiles.length; fi++) {
-    formData.append("death_photo_files", deathFiles[fi]);
+  for (var fi = 0; fi < deathQueue.length; fi++) {
+    formData.append("death_photo_files", deathQueue[fi]);
   }
 
   apiAddDeathAid(formData)
@@ -1064,8 +1148,7 @@ function handleDeathSubmit(event) {
       refreshDeathAidTables();
       showToast("Death Aid claim submitted successfully.", false);
       form.reset();
-      deathFiles = [];
-      renderDeathFileList();
+      FileQueue.clear("death");
     })
     ["catch"](function (err) {
       console.error(err);
@@ -1100,10 +1183,11 @@ document.addEventListener("turbo:load", bootDeathAidTable);
 // Expose handlers globally for inline form attribute
 window.handleMedicalSubmit = handleMedicalSubmit;
 window.handleDeathSubmit = handleDeathSubmit;
-window.toggleMedHospitalDrawer = toggleMedHospitalDrawer;
 window.filterMedMembers = filterMedMembers;
-window.updateMedBillIndicator = updateMedBillIndicator;
 window.onMedMemberSelect = onMedMemberSelect;
-window.pickMedMember = pickMedMember;
 window.hideMedResults = hideMedResults;
 window.handleMedSearchKeydown = handleMedSearchKeydown;
+window.addMedMember = addMedMember;
+window.removeMedMember = removeMedMember;
+window.updateMedCardBillIndicator = updateMedCardBillIndicator;
+window.toggleMedCardHospitalDrawer = toggleMedCardHospitalDrawer;
