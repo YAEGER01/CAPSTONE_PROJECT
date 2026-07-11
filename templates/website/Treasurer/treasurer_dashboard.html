@@ -16,6 +16,7 @@
     />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
 
@@ -1192,6 +1193,82 @@
       .file-queue-thumb .fq-remove { position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:#e53935;color:#fff;border:none;font-size:11px;cursor:pointer;line-height:18px;text-align:center;padding:0; }
       .file-queue-thumb .fq-remove:hover { background:#c62828; }
       .file-queue-thumb .fq-icon { display:flex;align-items:center;justify-content:center;height:100%;font-size:1.2rem;color:#1565c0;background:#f5f5f5; }
+
+      .overview-card-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1b5e20;
+        text-align: center;
+      }
+
+      .io-item {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        gap: 6px;
+      }
+      .io-item span {
+        display: inline !important;
+      }
+      .io-item .io-sign {
+        font-weight: 700;
+        font-size: 0.85rem;
+        width: 14px;
+        flex-shrink: 0;
+      }
+      .io-item .io-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 0 6px;
+        color: #333;
+        font-weight: 500;
+      }
+      .io-item .io-amount {
+        font-weight: 700;
+        white-space: nowrap;
+        color: inherit;
+      }
+      .io-item .io-date {
+        font-size: 0.7rem;
+        margin-left: 4px;
+        white-space: nowrap;
+        opacity: 0.8;
+        color: inherit;
+      }
+      .io-inflow {
+        color: #00e676;
+        background: rgba(0,230,118,0.08);
+      }
+      .io-outflow {
+        color: #ff1744;
+        background: rgba(255,23,68,0.08);
+      }
+      .io-header-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 4px 0 2px 0;
+        padding: 0 6px;
+      }
+      .io-header-inflow {
+        color: #00e676;
+      }
+      .io-header-outflow {
+        color: #ff1744;
+      }
+      .io-empty {
+        color: #b0bec5;
+        font-size: 0.7rem;
+        font-style: italic;
+        padding: 0 6px;
+      }
     </style>
 
     <!-- SweetAlert2 (Sweet swal) -->
@@ -1799,26 +1876,50 @@
             <div class="overview-grid-3x2">
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Recent Transactions</h3>
+                  <h3 class="panel-title">FUND</h3>
                 </div>
-                <div class="overview-card-content">
-                  <p class="overview-card-placeholder">Content area</p>
+                <div class="overview-card-content" style="flex-direction:column; gap:4px; padding:16px 10px;">
+                  <p class="overview-card-value" id="kpi-funds" style="font-size:2rem; margin-bottom:2px;">₱0.00</p>
+                  <hr style="width:100%; border:none; border-top:1px solid rgba(0,0,0,0.08); margin:4px 0;">
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                      <span style="font-size:0.7rem; font-weight:600; color:#555;">Money In</span>
+                      <div style="display:flex; align-items:center; gap:3px;">
+                        <span style="font-size:0.8rem; font-weight:700; color:#00e676;">▲</span>
+                        <span class="overview-card-value" id="kpi-money-in" style="font-size:0.95rem; color:#00e676;">₱0.00</span>
+                      </div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                      <span style="font-size:0.7rem; font-weight:600; color:#555;">Money Out</span>
+                      <div style="display:flex; align-items:center; gap:3px;">
+                        <span style="font-size:0.8rem; font-weight:700; color:#ff1744;">▼</span>
+                        <span class="overview-card-value" id="kpi-money-out" style="font-size:0.95rem; color:#ff1744;">₱0.00</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Member Statistics</h3>
+                  <h3 class="panel-title">Inflow & Outflow</h3>
                 </div>
-                <div class="overview-card-content">
-                  <p class="overview-card-placeholder">Content area</p>
+                <div class="overview-card-content" style="flex-direction:column; align-items:stretch; gap:0; padding:8px 6px;">
+                  <div id="io-log" style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:2px;"></div>
+                  <p id="io-loading" class="overview-card-placeholder" style="margin:4px 0 0 0;">Loading...</p>
                 </div>
               </div>
-              <div class="dashboard-panel overview-card">
+              <div class="dashboard-panel overview-card" style="min-height:280px;">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Collection Summary</h3>
+                  <h3 class="panel-title">Monthly Inflow vs Outflow</h3>
+                  <div id="chartLegendDots" style="display:flex; align-items:center; gap:10px;">
+                    <span data-index="0" title="Membership Fee" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#00e676; cursor:pointer;"></span>
+                    <span data-index="1" title="Monthly Dues" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#00bcd4; cursor:pointer;"></span>
+                    <span data-index="2" title="Medical Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff1744; cursor:pointer;"></span>
+                    <span data-index="3" title="Death Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff9100; cursor:pointer;"></span>
+                  </div>
                 </div>
-                <div class="overview-card-content">
-                  <p class="overview-card-placeholder">Content area</p>
+                <div class="overview-card-content" style="padding:10px;">
+                  <canvas id="monthlyFlowChart" style="width:100%;height:220px;"></canvas>
                 </div>
               </div>
               <div class="dashboard-panel overview-card">
@@ -2016,6 +2117,18 @@
               
              
                 
+              <div class="form-group" style="max-width: 260px;">
+                <label for="enrollment_amount">Membership Amount (₱)</label>
+                <input
+                  type="text"
+                  id="enrollment_amount"
+                  name="enrollment_amount"
+                  value="{{ membership_fee_amount|default:'500.00' }}"
+                  disabled
+                  readonly
+                  style="background:#f6fbf6;border:1px solid #cfdccc;border-radius:8px;padding:10px 14px;font-weight:600;color:#1b5e20;"
+                />
+              </div>
                 <button type="submit" class="btn-brand btn-brand-primary" style="margin-top: 20px;">
                   Enroll Profile
                 </button>
@@ -4521,8 +4634,10 @@
         if (fundsOutEl) fundsOutEl.innerText = formatCurrencyPHP(releaseSum);
         if (fundsRemainingEl)
           fundsRemainingEl.innerText = formatCurrencyPHP(netTotal);
-        document.getElementById("kpi-funds").innerText =
-          formatCurrencyPHP(netTotal);
+        var fundEl = document.getElementById("kpi-funds");
+        if (fundEl && !fundEl.dataset.liveLoaded) {
+          fundEl.innerText = formatCurrencyPHP(netTotal);
+        }
 
         const medicalCount = db.medical_aids.filter(
           (m) => m.status !== "Released",
@@ -5463,6 +5578,207 @@
           } catch (e) { console.error("Cash flow init failed:", e); }
         }
         document.addEventListener("turbo:load", init);
+      })();
+    </script>
+    <script>
+      (function () {
+        "use strict";
+        function fmt(num) {
+          return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
+        }
+        function escapeHtml(str) {
+          var div = document.createElement("div");
+          div.appendChild(document.createTextNode(str));
+          return div.innerHTML;
+        }
+        function renderInflowOutflow(data) {
+          var log = document.getElementById("io-log");
+          var loading = document.getElementById("io-loading");
+          if (!log) return;
+          if (loading) loading.style.display = "none";
+
+          log.innerHTML = "";
+
+          var all = [];
+
+          if (data.inflows) {
+            data.inflows.forEach(function (item) {
+              all.push({
+                member_name: item.member_name,
+                amount: item.amount,
+                date: item.date,
+                is_inflow: true,
+                type: item.type,
+              });
+            });
+          }
+
+          if (data.outflows) {
+            data.outflows.forEach(function (item) {
+              all.push({
+                member_name: item.member_name,
+                amount: item.amount,
+                date: item.date,
+                is_inflow: false,
+                type: item.type,
+              });
+            });
+          }
+
+          all.sort(function (a, b) { return a.date.localeCompare(b.date); });
+
+          if (all.length === 0) {
+            log.innerHTML = '<div class="io-empty">No entries yet</div>';
+            return;
+          }
+
+          all.forEach(function (item, idx) {
+            var div = document.createElement("div");
+            var cls = item.is_inflow ? "io-inflow" : "io-outflow";
+            div.className = "io-item " + cls;
+
+            var sign = item.is_inflow ? "+" : "-";
+            var typeLabel = "";
+            if (item.is_inflow) {
+              typeLabel = item.type === "Membership Fee" ? "FEE" : "DUES";
+            } else {
+              typeLabel = item.type === "Medical Aid" ? "MED" : "DTH";
+            }
+
+            div.innerHTML =
+              '<span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;line-height:18px;text-align:center;color:#fff;background:' + (item.is_inflow ? '#00e676' : '#ff1744') + ';">' + (idx + 1) + '</span>' +
+              '<span class="io-sign">' + sign + '</span>' +
+              '<span class="io-name">' + escapeHtml(item.member_name) + ' (' + typeLabel + ')</span>' +
+              '<span class="io-amount">' + fmt(item.amount) + '</span>' +
+              '<span class="io-date">' + escapeHtml(item.date) + '</span>';
+
+            log.appendChild(div);
+          });
+        }
+        async function initIO() {
+          try {
+            var res = await fetch("/api/treasurer/dashboard/inflow-outflow/", { method: "GET", credentials: "same-origin" });
+            var data = await res.json();
+            if (data && data.ok) {
+              renderInflowOutflow(data);
+              var fundEl = document.getElementById("kpi-funds");
+              if (fundEl && typeof data.fund_balance === "number") {
+                fundEl.innerText = fmt(data.fund_balance);
+                fundEl.dataset.liveLoaded = "true";
+              }
+              var moneyInEl = document.getElementById("kpi-money-in");
+              var moneyOutEl = document.getElementById("kpi-money-out");
+              if (moneyInEl && typeof data.money_in === "number") moneyInEl.innerText = fmt(data.money_in);
+              if (moneyOutEl && typeof data.money_out === "number") moneyOutEl.innerText = fmt(data.money_out);
+            }
+          } catch (e) { console.error("Inflow/outflow init failed:", e); }
+        }
+        document.addEventListener("turbo:load", initIO);
+      })();
+    </script>
+    <script>
+      (function () {
+        "use strict";
+        var chartInstance = null;
+        function fmtPeso(num) {
+          return "₱" + Number(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        async function initMonthlyChart() {
+          try {
+            var res = await fetch("/api/treasurer/dashboard/monthly-flow/", { method: "GET", credentials: "same-origin" });
+            var data = await res.json();
+            if (!data || !data.ok || !data.months || data.months.length === 0) return;
+
+            var ctx = document.getElementById("monthlyFlowChart");
+            if (!ctx) return;
+
+            if (chartInstance) chartInstance.destroy();
+
+            var config = {
+              type: "bar",
+              data: {
+                labels: data.months,
+                datasets: [
+                  {
+                    label: "Membership Fee",
+                    data: data.membership_fee,
+                    backgroundColor: "rgba(0,230,118,0.7)",
+                    borderColor: "#00e676",
+                    borderWidth: 1,
+                  },
+                  {
+                    label: "Monthly Dues",
+                    data: data.monthly_dues,
+                    backgroundColor: "rgba(0,188,212,0.7)",
+                    borderColor: "#00bcd4",
+                    borderWidth: 1,
+                  },
+                  {
+                    label: "Medical Aid",
+                    data: data.medical_aid,
+                    backgroundColor: "rgba(255,23,68,0.7)",
+                    borderColor: "#ff1744",
+                    borderWidth: 1,
+                  },
+                  {
+                    label: "Death Aid",
+                    data: data.death_aid,
+                    backgroundColor: "rgba(255,145,0,0.7)",
+                    borderColor: "#ff9100",
+                    borderWidth: 1,
+                  },
+                ],
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false,
+                  },
+                  tooltip: {
+                    mode: "index",
+                    intersect: false,
+                    callbacks: {
+                      label: function (ctx) {
+                        return ctx.dataset.label + ": " + fmtPeso(ctx.parsed.y);
+                      },
+                    },
+                  },
+                },
+                scales: {
+                  x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } },
+                  },
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      font: { size: 10 },
+                      callback: function (value) {
+                        return "₱" + value.toLocaleString();
+                      },
+                    },
+                  },
+                },
+              },
+            };
+
+            chartInstance = new Chart(ctx, config);
+
+            var dots = document.querySelectorAll("#chartLegendDots span");
+            dots.forEach(function (dot) {
+              dot.addEventListener("click", function () {
+                var idx = parseInt(this.getAttribute("data-index"), 10);
+                var meta = chartInstance.getDatasetMeta(idx);
+                meta.hidden = meta.hidden === null ? !chartInstance.data.datasets[idx].hidden : !meta.hidden;
+                chartInstance.update();
+                this.style.opacity = meta.hidden ? "0.3" : "1";
+              });
+            });
+          } catch (e) { console.error("Monthly chart init failed:", e); }
+        }
+        document.addEventListener("turbo:load", initMonthlyChart);
       })();
     </script>
     <script src="{% static 'js/Treasurer/AidsAndClaims.js' %}" defer></script>

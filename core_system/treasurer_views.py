@@ -11,7 +11,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
+from django.db.models.functions import TruncMonth
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -114,6 +115,7 @@ def treasurer_dashboard(request):
         "officer_full_name": officer_full_name,
         "officer_role": officer_role,
         "expected_dues_default_amount": get_expected_dues_amount(),
+        "membership_fee_amount": get_membership_fee_amount(),
         "access_token": request.session.get("access_token", ""),
         "sickness_aid_threshold": get_accidental_sickness_aid_threshold(),
         "sickness_aid_benefit": get_accidental_sickness_aid_benefit(),
@@ -616,6 +618,169 @@ def cash_flow_summary(request: HttpRequest):
     })
 
 
+@require_GET
+def treasurer_dashboard_inflow_outflow(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    approved_fee_ids = TransactionVerification.objects.filter(
+        table_name="membership_fee",
+        verification_status="Approved",
+    ).values_list("record_id", flat=True)
+
+    approved_dues_ids = TransactionVerification.objects.filter(
+        table_name="monthly_dues",
+        verification_status="Approved",
+    ).values_list("record_id", flat=True)
+
+    recent_fees = MembershipFee.objects.select_related("member_id_FK").filter(
+        fee_id_PK__in=approved_fee_ids,
+    ).order_by("-payment_date", "-fee_id_PK")[:100]
+
+    recent_dues = MonthlyDues.objects.select_related("member_id_FK").filter(
+        dues_id_PK__in=approved_dues_ids,
+    ).order_by("-payment_date", "-dues_id_PK")[:100]
+
+    inflows = []
+    for fee in recent_fees:
+        inflows.append({
+            "member_name": fee.member_id_FK.full_name,
+            "amount": float(fee.amount),
+            "date": str(fee.payment_date),
+            "type": "Membership Fee",
+        })
+    for due in recent_dues:
+        inflows.append({
+            "member_name": due.member_id_FK.full_name,
+            "amount": float(due.amount),
+            "date": str(due.payment_date),
+            "type": "Monthly Dues",
+        })
+
+    inflows.sort(key=lambda x: x["date"], reverse=True)
+
+    recent_outflows = TransactionArchive.objects.filter(
+        status="Released",
+        transaction_type__in=["medical_aid", "death_aid"],
+    ).order_by("-archived_at")[:20]
+
+    outflows = []
+    for entry in recent_outflows:
+        aid_type = "Medical Aid" if entry.transaction_type == "medical_aid" else "Death Aid"
+        outflows.append({
+            "member_name": entry.member_name,
+            "amount": float(entry.amount or 0),
+            "date": str(entry.archived_at.date()) if entry.archived_at else "",
+            "type": aid_type,
+        })
+
+    total_fees = MembershipFee.objects.filter(
+        fee_id_PK__in=approved_fee_ids,
+    ).aggregate(total=Sum("amount"))["total"] or 0
+
+    total_dues = MonthlyDues.objects.filter(
+        dues_id_PK__in=approved_dues_ids,
+    ).aggregate(total=Sum("amount"))["total"] or 0
+
+    total_in = float(total_fees) + float(total_dues)
+
+    total_out = TransactionArchive.objects.filter(
+        status="Released",
+        transaction_type__in=["medical_aid", "death_aid"],
+    ).aggregate(total=Sum("amount"))["total"] or 0
+
+    fund_balance = total_in - float(total_out)
+
+    return JsonResponse({
+        "ok": True,
+        "fund_balance": fund_balance,
+        "money_in": total_in,
+        "money_out": float(total_out),
+        "inflows": inflows,
+        "outflows": outflows,
+    })
+
+
+@require_GET
+def treasurer_monthly_flow(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    year = timezone.now().year
+
+    approved_fee_ids = TransactionVerification.objects.filter(
+        table_name="membership_fee",
+        verification_status="Approved",
+        record_id__in=MembershipFee.objects.filter(
+            payment_date__year=year,
+        ).values("fee_id_PK"),
+    ).values_list("record_id", flat=True)
+
+    approved_dues_ids = TransactionVerification.objects.filter(
+        table_name="monthly_dues",
+        verification_status="Approved",
+        record_id__in=MonthlyDues.objects.filter(
+            payment_date__year=year,
+        ).values("dues_id_PK"),
+    ).values_list("record_id", flat=True)
+
+    fee_qs = MembershipFee.objects.filter(
+        fee_id_PK__in=approved_fee_ids,
+    ).annotate(month=TruncMonth("payment_date")).values("month").annotate(
+        total=Sum("amount"),
+    ).order_by("month")
+
+    dues_qs = MonthlyDues.objects.filter(
+        dues_id_PK__in=approved_dues_ids,
+    ).annotate(month=TruncMonth("payment_date")).values("month").annotate(
+        total=Sum("amount"),
+    ).order_by("month")
+
+    med_qs = TransactionArchive.objects.filter(
+        status="Released",
+        transaction_type="medical_aid",
+        archived_at__year=year,
+    ).annotate(month=TruncMonth("archived_at")).values("month").annotate(
+        total=Sum("amount"),
+    ).order_by("month")
+
+    dth_qs = TransactionArchive.objects.filter(
+        status="Released",
+        transaction_type="death_aid",
+        archived_at__year=year,
+    ).annotate(month=TruncMonth("archived_at")).values("month").annotate(
+        total=Sum("amount"),
+    ).order_by("month")
+
+    fee_map = {str(r["month"]): float(r["total"]) for r in fee_qs if r["month"]}
+    dues_map = {str(r["month"]): float(r["total"]) for r in dues_qs if r["month"]}
+    med_map = {str(r["month"]): float(r["total"]) for r in med_qs if r["month"]}
+    dth_map = {str(r["month"]): float(r["total"]) for r in dth_qs if r["month"]}
+
+    month_labels = []
+    fee_data = []
+    dues_data = []
+    med_data = []
+    dth_data = []
+
+    for m in range(1, 13):
+        key = f"{year}-{m:02d}-01"
+        month_labels.append(f"{year}-{m:02d}")
+        fee_data.append(fee_map.get(key, 0))
+        dues_data.append(dues_map.get(key, 0))
+        med_data.append(med_map.get(key, 0))
+        dth_data.append(dth_map.get(key, 0))
+
+    return JsonResponse({
+        "ok": True,
+        "months": month_labels,
+        "membership_fee": fee_data,
+        "monthly_dues": dues_data,
+        "medical_aid": med_data,
+        "death_aid": dth_data,
+    })
 
 
     

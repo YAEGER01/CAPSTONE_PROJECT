@@ -126,6 +126,16 @@ urlpatterns = [
         name="treasurer_releases_list",
     ),
     path(
+        "api/treasurer/dashboard/inflow-outflow/",
+        treasurer_views.treasurer_dashboard_inflow_outflow,
+        name="treasurer_dashboard_inflow_outflow",
+    ),
+    path(
+        "api/treasurer/dashboard/monthly-flow/",
+        treasurer_views.treasurer_monthly_flow,
+        name="treasurer_monthly_flow",
+    ),
+    path(
         "api/treasurer/aids/release/",
         treasurer_views.treasurer_release_aid,
         name="treasurer_release_aid",
