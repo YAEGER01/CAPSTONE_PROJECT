@@ -2,12 +2,21 @@
   "use strict";
 
   var WS_TOKEN = window.WS_AUTH_TOKEN || "";
-  var WS_URL = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws/auditor-dashboard/" + (WS_TOKEN ? "?token=" + encodeURIComponent(WS_TOKEN) : "");
+  var WS_URL =
+    (window.location.protocol === "https:" ? "wss://" : "ws://") +
+    window.location.host +
+    "/ws/auditor-dashboard/" +
+    (WS_TOKEN ? "?token=" + encodeURIComponent(WS_TOKEN) : "");
   var ws = null;
   var wsReconnectTimer = null;
 
   function connectWebSocket() {
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+    if (
+      ws &&
+      (ws.readyState === WebSocket.OPEN ||
+        ws.readyState === WebSocket.CONNECTING)
+    )
+      return;
     try {
       ws = new WebSocket(WS_URL);
     } catch (e) {
@@ -34,9 +43,17 @@
   }
 
   function handleWsMessage(msg) {
-    if (msg.type === "ping" || msg.type === "pong" || msg.type === "connection_established") return;
+    if (
+      msg.type === "ping" ||
+      msg.type === "pong" ||
+      msg.type === "connection_established"
+    )
+      return;
 
-    if (msg.type === "dashboard_refresh" || msg.type === "pending_queue_updated") {
+    if (
+      msg.type === "dashboard_refresh" ||
+      msg.type === "pending_queue_updated"
+    ) {
       if (typeof refreshAll === "function") {
         refreshAll();
       }
@@ -50,7 +67,11 @@
       return;
     }
 
-    if (msg.type === "aid_post_created" || msg.type === "contribution_updated" || msg.type === "aid_post_finished") {
+    if (
+      msg.type === "aid_post_created" ||
+      msg.type === "contribution_updated" ||
+      msg.type === "aid_post_finished"
+    ) {
       if (typeof refreshAll === "function") {
         refreshAll();
       }
@@ -58,11 +79,40 @@
     }
   }
 
+  function stopReconnect() {
+    if (wsReconnectTimer) {
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+  }
+
   document.addEventListener("turbo:load", function () {
     connectWebSocket();
   });
+
   document.addEventListener("turbo:before-cache", function () {
-    if (ws) { ws.onclose = null; ws.close(); ws = null; }
-    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+    stopReconnect();
+    if (ws) {
+      // Prevent reconnect churn during page caching/transition.
+      ws.onclose = null;
+      ws.onerror = null;
+      try {
+        ws.close();
+      } catch (e) {}
+      ws = null;
+    }
+  });
+
+  // If the page is being unloaded (tab close / hard refresh), avoid reconnect churn.
+  window.addEventListener("beforeunload", function () {
+    stopReconnect();
+    if (ws) {
+      ws.onclose = null;
+      ws.onerror = null;
+      try {
+        ws.close();
+      } catch (e) {}
+      ws = null;
+    }
   });
 })();

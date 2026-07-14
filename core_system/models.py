@@ -343,6 +343,49 @@ class AuditFindingsReport(models.Model):
         db_table = "AUDIT_FINDINGS_REPORT"
 
 
+class OrganizationFundReport(models.Model):
+    REPORT_TYPE_CHOICES = [
+        ("weekly", "Weekly"),
+        ("monthly", "Monthly"),
+    ]
+    REPORT_STATUS_CHOICES = [
+        ("Draft", "Draft"),
+        ("Submitted", "Submitted"),
+        ("Approved", "Approved"),
+        ("Rejected", "Rejected"),
+    ]
+
+    report_id_PK = models.AutoField(primary_key=True)
+
+    report_period = models.CharField(max_length=20)
+    report_type = models.CharField(max_length=20, choices=REPORT_TYPE_CHOICES)
+    report_status = models.CharField(max_length=50, choices=REPORT_STATUS_CHOICES, default="Draft")
+    file_path = models.CharField(max_length=500, blank=True)
+
+    prepared_by_user_id_FK = models.ForeignKey(
+        "OfficerUser",
+        on_delete=models.RESTRICT,
+        db_column="prepared_by_user_id_FK",
+        related_name="fund_reports_prepared",
+    )
+    approved_by_user_id_FK = models.ForeignKey(
+        "OfficerUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="approved_by_user_id_FK",
+        related_name="fund_reports_approved",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ORGANIZATION_FUND_REPORT"
+        ordering = ["-created_at"]
+
+
 class MedicalAid(models.Model):
     medical_aid_id_PK = models.AutoField(primary_key=True)
 

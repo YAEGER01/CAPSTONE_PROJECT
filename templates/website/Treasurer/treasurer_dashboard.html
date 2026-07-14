@@ -1837,7 +1837,7 @@
             <!--REMOVED-->
 
             <!-- FOLDER CATEGORY 6: REPORTING -->
-            <!--div class="nested-folder">
+            <div class="nested-folder">
               <div
                 class="folder-header"
                 onclick="toggleFolder('folder-reports', this)"
@@ -1881,9 +1881,12 @@
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Reports / Ledgers</span>
                 </a>
+                <a class="menu-item" data-target="view-fund-reports">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Fund Reports</span>
+                </a>
               </div>
             </div>
-          </div-->
 
           <!-- Sidebar Reset Footer -->
           <div class="sidebar-footer">
@@ -4277,7 +4280,90 @@
                 </div>
               </div>
             </div>
-</section>
+          </section>
+
+          <!-- ==========================================================================
+               TAB 11b: ORGANIZATION FUND REPORTS
+               ========================================================================== -->
+          <section id="view-fund-reports" class="dashboard-module module-fade-in">
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
+              "
+            >
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Create Fund Report</h3>
+                </div>
+                <form
+                  class="dashboard-form"
+                  id="fundReportForm"
+                  method="POST"
+                  action=""
+                  onsubmit="handleFundReportSubmit(event)"
+                  autocomplete="off"
+                >
+                  {% csrf_token %}
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="fr_year">Year</label>
+                      <input
+                        type="number"
+                        id="fr_year"
+                        name="fr_year"
+                        placeholder="e.g., 2026"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="fr_month">Month</label>
+                      <input
+                        type="number"
+                        id="fr_month"
+                        name="fr_month"
+                        min="1"
+                        max="12"
+                        placeholder="1-12"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="fr_type">Report Type</label>
+                    <select id="fr_type" name="fr_type">
+                      <option value="monthly">Monthly</option>
+                      <option value="weekly">Weekly</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="btn-brand btn-brand-primary">
+                    Generate Fund Report
+                  </button>
+                </form>
+              </div>
+
+              <div class="dashboard-panel" style="flex: 2">
+                <div class="panel-header-row">
+                  <h3 class="panel-title">Fund Reports</h3>
+                </div>
+                <div class="table-container">
+                    <table class="custom-table" id="fundReportTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; text-align: center;">Period</th>
+                          <th style="padding: 4px 8px; text-align: center;">Type</th>
+                          <th style="padding: 4px 8px; text-align: center;">Status</th>
+                          <th style="padding: 4px 8px; text-align: center;">Prepared By</th>
+                          <th style="padding: 4px 8px; text-align: center;">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                </div>
+              </div>
+            </div>
+          </section>
 
           <!-- PAYROLL BATCHES -->
           <section id="view-payroll-batches" class="dashboard-module module-fade-in">
@@ -6096,6 +6182,84 @@
         showCustomModal(`Coop Ledger File Preview`, outputString);
       }
 
+      function renderFundReportsTable(reports) {
+        const tbody = document.querySelector("#fundReportTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        if (!reports || reports.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757575;">No fund reports found.</td></tr>`;
+          return;
+        }
+        reports.forEach(function (r) {
+          const tr = document.createElement("tr");
+          const statusBadge = r.status === "Approved"
+            ? '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;">Approved</span>'
+            : r.status === "Submitted"
+              ? '<span style="background:#fff3e0;color:#e65100;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;">Submitted</span>'
+              : r.status === "Rejected"
+                ? '<span style="background:#f8d7da;color:#721c24;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;">Rejected</span>'
+                : '<span style="background:#f5f5f5;color:#757575;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;">Draft</span>';
+          tr.innerHTML = `
+            <td style="font-weight:500;">${r.period}</td>
+            <td>${r.report_type}</td>
+            <td>${statusBadge}</td>
+            <td style="color:#757575;font-size:0.8rem;">${r.prepared_by}</td>
+            <td>
+              <button class="btn-brand btn-brand-secondary" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;" onclick="downloadFundReport(${r.report_id})">Download</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function loadFundReports() {
+        fetch("/api/treasurer/fund-reports/", { credentials: "same-origin" })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok) {
+              renderFundReportsTable(data.reports || []);
+            }
+          })
+          .catch(function () {});
+      }
+
+      function handleFundReportSubmit(e) {
+        e.preventDefault();
+        const year = document.getElementById("fr_year").value.trim();
+        const month = document.getElementById("fr_month").value.trim();
+        const reportType = document.getElementById("fr_type").value;
+        if (!year || !month) {
+          showToast("Year and month are required.", true);
+          return;
+        }
+        const fd = new FormData();
+        fd.append("year", year);
+        fd.append("month", month);
+        fd.append("report_type", reportType);
+        const csrf = getCookie("csrftoken");
+        fetch("/api/treasurer/fund-reports/create/", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: csrf ? { "X-CSRFToken": csrf } : {},
+          body: fd,
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.ok || data.report_id) {
+              showToast("Fund report created successfully.", false);
+              document.getElementById("fundReportForm").reset();
+              loadFundReports();
+            } else {
+              showToast(data.error || "Failed to create fund report.", true);
+            }
+          })
+          .catch(function () { showToast("Network error.", true); });
+      }
+
+      function downloadFundReport(reportId) {
+        window.open("/api/treasurer/fund-reports/" + reportId + "/download/", "_blank");
+      }
+
       function confirmLogout() {
         const logoutUrl = "{% url 'logout' %}";
         Swal.fire({
@@ -7175,6 +7339,9 @@
             animate: true,
           });
         });
+        if (typeof loadFundReports === "function") {
+          loadFundReports();
+        }
       });
     </script>
   </body>

@@ -7,6 +7,7 @@ from . import push_views
 from . import settings_views
 from . import report_views
 from . import auditor_report_views
+from . import fund_report_views
 from . import htmx_views
 
 
@@ -454,6 +455,49 @@ urlpatterns = [
         "api/president/auditor-reports/<int:report_id>/request-revision/",
         auditor_report_views.president_request_report_revision,
         name="president_request_report_revision",
+    ),
+    # --- Treasurer: Organization Fund Report ---
+    path(
+        "api/treasurer/fund-reports/",
+        fund_report_views.treasurer_fund_reports_list,
+        name="treasurer_fund_reports_list",
+    ),
+    path(
+        "api/treasurer/fund-reports/create/",
+        fund_report_views.treasurer_create_fund_report,
+        name="treasurer_create_fund_report",
+    ),
+    path(
+        "api/treasurer/fund-reports/<int:report_id>/download/",
+        fund_report_views.treasurer_download_fund_report,
+        name="treasurer_download_fund_report",
+    ),
+    # --- Auditor: Fund Report Submission ---
+    path(
+        "api/auditor/fund-reports/",
+        fund_report_views.auditor_fund_reports_list,
+        name="auditor_fund_reports_list",
+    ),
+    path(
+        "api/auditor/fund-reports/<int:report_id>/submit/",
+        fund_report_views.auditor_submit_fund_report,
+        name="auditor_submit_fund_report",
+    ),
+    # --- President: Fund Report Approval ---
+    path(
+        "api/president/fund-reports/",
+        fund_report_views.president_fund_reports_list,
+        name="president_fund_reports_list",
+    ),
+    path(
+        "api/president/fund-reports/<int:report_id>/approve/",
+        fund_report_views.president_approve_fund_report,
+        name="president_approve_fund_report",
+    ),
+    path(
+        "api/president/fund-reports/<int:report_id>/reject/",
+        fund_report_views.president_reject_fund_report,
+        name="president_reject_fund_report",
     ),
     # --- Treasurer: Mark Aid Post as Finished (sends to Auditor) ---
     path("api/treasurer/aid-post-mark-finished/", treasurer_views.treasurer_aid_post_mark_finished, name="treasurer_aid_post_mark_finished"),
