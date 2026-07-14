@@ -76,23 +76,10 @@
     }
 
     // ==========================================
-    // INSTANT FEEDBACK: show success modal without
-    // waiting for the network round trip, then
-    // process the enrollment in the background.
-    // ==========================================
-    Swal.fire({
-      title: "Enrollment Complete",
-      text: `Member ${fullName} has been added and recorded, and has been notified thru gmail ${email}`,
-      icon: "success",
-      confirmButtonColor: "#1b5e20",
-    });
-
-    // ==========================================
-    // MODULE 4: UNIFIED NETWORK AJAX DESTINATION (background)
+    // MODULE 4: UNIFIED NETWORK AJAX DESTINATION
     // ==========================================
     (async () => {
       try {
-        // Pointing directly to our incoming combined views endpoint mapping
         const resp = await fetch("/api/treasurer/members/add/", {
           method: "POST",
           body: fd,
@@ -108,18 +95,19 @@
               ? data.error
               : "Failed to execute streamlined directory registration.";
           showToast(err, true);
-          Swal.fire({
-            title: "Enrollment Failed",
-            text: err,
-            icon: "error",
-            confirmButtonColor: "#e53935",
-          });
           if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalBtnHTML;
           }
           return;
         }
+
+        Swal.fire({
+          title: "Enrollment Complete",
+          text: `Member ${fullName} has been added and recorded.`,
+          icon: "success",
+          confirmButtonColor: "#1b5e20",
+        });
 
         // Sync window database matrix structure if context array is present
         const activeDb = window.db || (typeof db !== "undefined" ? db : null);

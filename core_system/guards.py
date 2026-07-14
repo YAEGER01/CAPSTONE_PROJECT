@@ -45,17 +45,21 @@ def require_officer_session(request: HttpRequest) -> HttpResponse | None:
     return None
 
 
-def require_role(request: HttpRequest, *, role: str) -> HttpResponse | None:
-    """Require authenticated officer session and matching role."""
+def require_role(request: HttpRequest, *, role: str | list[str] | None) -> HttpResponse | None:
+    """Require authenticated officer session and matching role(s)."""
 
     guard = require_officer_session(request)
     if guard is not None:
         return guard
 
-    officer_role = (request.session.get("role") or "").strip().lower()
-    target_role = (role or "").strip().lower()
+    if role is None:
+        return None
 
-    if officer_role != target_role:
+    officer_role = (request.session.get("role") or "").strip().lower()
+    roles = [role] if isinstance(role, str) else role
+    targets = [r.strip().lower() for r in roles]
+
+    if officer_role not in targets:
         raise PermissionDenied("Forbidden for this role.")
 
     return None

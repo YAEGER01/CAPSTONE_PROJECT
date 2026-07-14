@@ -18,13 +18,13 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
-        font-family: "Poppins", sans-serif;
+        font-family: "Inter", sans-serif;
       }
 
       body,
@@ -354,6 +354,26 @@
         align-items: center;
         gap: 14px;
       }
+
+      .toolbar-bell {
+        background: transparent;
+        border: none;
+        color: #78909c;
+        cursor: pointer;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px;
+        border-radius: 6px;
+        transition: 0.2s;
+      }
+      .toolbar-bell:hover {
+        background: rgba(0, 0, 0, 0.04);
+        color: #1b5e20;
+      }
+      .toolbar-bell.subscribed { color: #00e676; }
+      .toolbar-bell.denied { color: #ff1744; }
 
       .user-profile {
         display: flex;
@@ -694,7 +714,7 @@
         border: none;
         cursor: pointer;
         transition: background 0.25s, transform 0.15s, box-shadow 0.25s;
-        font-family: "Poppins", sans-serif;
+        font-family: "Inter", sans-serif;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1467,13 +1487,9 @@
         <div class="sidebar-top">
           <!-- Sidebar Brand Header -->
           <div class="sidebar-brand">
-            <!--div class="brand-title-wrapper">
-              <span class="logo-mark">C</span>
-              <div class="brand-title-text">
-                <h2 style="font-size: 0.95rem; line-height: 1.2">Terasurer</h2>
-                <span class="role-tag">Executive Space</span>
-              </div>
-            </div-->
+            <div class="brand-title-wrapper">
+              <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA" style="height:32px;width:32px;border-radius:50%;object-fit:cover;" />
+            </div>
             <button
               class="collapse-toggle-btn"
               id="collapseBtn"
@@ -1913,6 +1929,9 @@
             </h1>
           </div>
           <div class="header-right">
+            <button class="toolbar-bell" id="notifBellBtn" title="Enable push notifications" onclick="window.requestPushPermission&amp;window.requestPushPermission()">
+              <i class="fa-regular fa-bell"></i>
+            </button>
             <div class="user-profile">
               <div class="user-info">
                 <p class="user-name">{{ officer_full_name|default:"" }}</p>
@@ -1932,7 +1951,7 @@
 <!-- KPI Stats grid overview -->
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-icon">👤</div>
+                <div class="stat-icon"><i class="fa-solid fa-user"></i></div>
                 <div class="stat-info">
                   <h4>Total Active Members</h4>
                   <div class="stat-value" id="kpi-total-members">0</div>
@@ -1961,7 +1980,7 @@
                 </div>
               </div>
               <div class="stat-card">
-                <div class="stat-icon accent-blue">📂</div>
+                <div class="stat-icon accent-blue"><i class="fa-solid fa-folder-open"></i></div>
                 <div class="stat-info">
                   <h4>Active Claims / Aids</h4>
                   <div class="stat-value" id="kpi-active-claims">0</div>
@@ -2012,7 +2031,7 @@
                     <span data-index="0" title="Membership Fee" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#00e676; cursor:pointer;"></span>
                     <span data-index="1" title="Monthly Dues" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#00bcd4; cursor:pointer;"></span>
                     <span data-index="2" title="Medical Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff1744; cursor:pointer;"></span>
-                    <span data-index="3" title="Death Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff9100; cursor:pointer;"></span>
+                    <span data-index="3" title="Death Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#7c4dff; cursor:pointer;"></span>
                     <span data-index="4" title="Fund Payment" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#7c4dff; cursor:pointer;"></span>
                     <span data-index="5" title="Contribution" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff6f00; cursor:pointer;"></span>
                   </div>
@@ -2204,7 +2223,7 @@
                       name="prof_id"
                       placeholder="Auto Populated"
                       required
-                      disabled
+                      readonly
                     />
                   </div>
                   <div class="form-group">
@@ -2982,9 +3001,9 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                       <strong id="bulk-member-count">0 members</strong>
                       <div style="display: flex; gap: 6px;">
-                        <button type="button" id="bulk_select_all" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;">☑ All</button>
-                        <button type="button" id="bulk_select_none" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;">☐ None</button>
-                        <button type="button" id="bulk_select_invert" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;">⇄ Invert</button>
+                        <button type="button" id="bulk_select_all" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;"><i class="fa-regular fa-square-check"></i> All</button>
+                        <button type="button" id="bulk_select_none" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;"><i class="fa-regular fa-square"></i> None</button>
+                        <button type="button" id="bulk_select_invert" class="btn-brand" style="padding: 4px 10px; font-size: 0.75rem;"><i class="fa-solid fa-arrows-rotate"></i> Invert</button>
                       </div>
                     </div>
                     <div class="table-container" style="max-height: 300px; overflow-y: auto;">
@@ -3609,8 +3628,7 @@
                   </div>
                   <div class="form-grid-2">
                     <div class="form-group">
-                      <label for="ma_returned_status">Status</label>
-                      <input type="text" id="ma_returned_status" name="status" placeholder="e.g., Pending" />
+                      <input type="hidden" id="ma_returned_status" name="status" value="Pending" />
                     </div>
                     <div class="form-group">
                       <label for="ma_returned_validated_amount">Validated Aid Amount (₱)</label>
@@ -3775,8 +3793,7 @@
                     <input type="text" id="da_returned_document_status" name="document_status" placeholder="e.g., Complete" />
                   </div>
                   <div class="form-group">
-                    <label for="da_returned_status">Status</label>
-                    <input type="text" id="da_returned_status" name="status" placeholder="e.g., Pending Verification" />
+                    <input type="hidden" id="da_returned_status" name="status" value="Pending" />
                   </div>
 
                   <div class="form-group">
@@ -4010,10 +4027,10 @@
                   <p class="panel-subtitle" id="rcSelectedPostSubtitle">Select an aid post to view contributions</p>
                 </div>
                 <button id="rcMarkFinishedBtn" disabled style="padding:8px 20px;border-radius:8px;border:1px solid #f9a825;background:#fff8e1;color:#f57f17;font-weight:600;font-size:0.82rem;cursor:not-allowed;white-space:nowrap;opacity:0.5;">
-                  📋 Mark as Finished
+                  <i class="fa-solid fa-clipboard"></i> Mark as Finished
                 </button>
                 <button id="rcPaidWithFundsBtn" style="padding:8px 20px;border-radius:8px;border:none;background:#1b5e20;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
-                  ⚡ Paid with Funds
+                  <i class="fa-solid fa-bolt"></i> Paid with Funds
                 </button>
               </div>
 
@@ -4229,7 +4246,7 @@
                       onclick="event.preventDefault()"
                     >
                       <p>
-                        🚫 No attachment documents are required for compiling
+                        <i class="fa-solid fa-ban"></i> No attachment documents are required for compiling
                         system ledgers
                       </p>
                     </div>
@@ -4532,7 +4549,7 @@
                       <tr>
                         <th style="width:32px;"></th>
                         <th>Member</th>
-                        <th style="width:32px;">👁️</th>
+                        <th style="width:32px;"><i class="fa-solid fa-eye"></i></th>
                       </tr>
                     </thead>
                     <tbody id="member-checklist-body"></tbody>
@@ -6732,8 +6749,8 @@
                   {
                     label: "Death Aid",
                     data: data.death_aid,
-                    backgroundColor: "rgba(255,145,0,0.7)",
-                    borderColor: "#ff9100",
+                    backgroundColor: "rgba(124,77,255,0.7)",
+                    borderColor: "#7c4dff",
                     borderWidth: 1,
                   },
                   {

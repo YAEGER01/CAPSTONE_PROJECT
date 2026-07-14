@@ -192,6 +192,12 @@ def treasurer_add_member(request: HttpRequest):
     if prof_email and "@" not in prof_email:
         return JsonResponse({"ok": False, "error": "Institutional Email looks invalid."}, status=400)
 
+    if Member.objects.filter(employee_id=prof_id).exists():
+        return JsonResponse(
+            {"ok": False, "error": f"Employee ID '{prof_id}' is already registered to another member."},
+            status=409,
+        )
+
     # Resolve Encoder User Identity context
     recorded_by = resolve_officer_from_session(request)
 
@@ -201,8 +207,12 @@ def treasurer_add_member(request: HttpRequest):
             # 1. Store Profile Attachments safely if provided
             prof_uploaded = request.FILES.get("prof_photo_file")
             if prof_uploaded and prof_uploaded.size > 0:
+                import os
+                safe_name = os.path.basename(prof_uploaded.name)
+                if not safe_name:
+                    safe_name = "upload"
                 default_storage.save(
-                    f"member_uploads/{timezone.now().strftime('%Y%m%d')}_{prof_uploaded.name}",
+                    f"member_uploads/{timezone.now().strftime('%Y%m%d')}_{safe_name}",
                     prof_uploaded,
                 )
 
@@ -216,7 +226,7 @@ def treasurer_add_member(request: HttpRequest):
                 email=prof_email,
                 employment_status=prof_status,
                 membership_status=prof_status,
-                member_type=prof_id,
+                member_type=prof_status,
                 date_joined=timezone.now().date(),
             )
 
@@ -298,13 +308,22 @@ def treasurer_member_batch_add(request):
 
     results = []
     recorded_by = resolve_officer_from_session(request)
+    existing_ids = set(
+        Member.objects.filter(
+            employee_id__in=[(e.get("prof_id") or "").strip() for e in entries if e.get("prof_id")]
+        ).values_list("employee_id", flat=True)
+    )
 
     with transaction.atomic():
         for entry in entries:
             name = (entry.get("prof_name") or "").strip()
             emp_id = (entry.get("prof_id") or "").strip()
+            status_val = (entry.get("prof_status") or "Active").strip()
             if not name or not emp_id:
                 results.append({"ok": False, "name": name, "error": "Name and Employee ID are required."})
+                continue
+            if emp_id in existing_ids:
+                results.append({"ok": False, "name": name, "error": f"Employee ID '{emp_id}' is already registered."})
                 continue
             try:
                 member = Member.objects.create(
@@ -314,9 +333,9 @@ def treasurer_member_batch_add(request):
                     position=(entry.get("prof_pos") or "").strip() or None,
                     contact_number=(entry.get("prof_contact") or "").strip() or None,
                     email=(entry.get("prof_email") or "").strip() or None,
-                    employment_status=(entry.get("prof_status") or "Active").strip(),
-                    membership_status=(entry.get("prof_status") or "Active").strip(),
-                    member_type=emp_id,
+                    employment_status=status_val,
+                    membership_status=status_val,
+                    member_type=status_val,
                     date_joined=timezone.now().date(),
                 )
                 if member.membership_status in ("Permanent", "Temporary"):
@@ -609,7 +628,7 @@ def cash_flow_summary(request: HttpRequest):
 
 @require_GET
 def treasurer_dashboard_inflow_outflow(request: HttpRequest):
-    guard = require_role(request, role="Treasurer")
+    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
 
@@ -716,7 +735,7 @@ def treasurer_dashboard_inflow_outflow(request: HttpRequest):
 
 @require_GET
 def treasurer_monthly_flow(request: HttpRequest):
-    guard = require_role(request, role="Treasurer")
+    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
 
@@ -1029,6 +1048,11 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
             return JsonResponse({"ok": False, "error": "Receipt / Reference Number is required."}, status=400)
 
         with transaction.atomic():
+            if MonthlyDues.objects.filter(member_id_FK=member, month_covered=month).exists():
+                return JsonResponse(
+                    {"ok": False, "error": "Monthly dues already recorded for this member and month."},
+                    status=409,
+                )
             dues = MonthlyDues.objects.create(
                 member_id_FK=member,
                 month_covered=month,
@@ -1084,6 +1108,11 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
             return JsonResponse({"ok": False, "error": "Invalid deduction month format."}, status=400)
 
         with transaction.atomic():
+            if MonthlyDues.objects.filter(member_id_FK=member, month_covered=month).exists():
+                return JsonResponse(
+                    {"ok": False, "error": "Monthly dues already recorded for this member and month."},
+                    status=409,
+                )
             dues = MonthlyDues.objects.create(
                 member_id_FK=member,
                 month_covered=month,
@@ -1408,16 +1437,6 @@ def treasurer_salary_bulk_process(request: HttpRequest):
     except ValueError:
         return JsonResponse({"ok": False, "error": "Invalid month format."}, status=400)
 
-    # Constraint: reject if any Salary Deduction records already exist for this month
-    if MonthlyDues.objects.filter(
-        payment_method="Salary Deduction",
-        month_covered=sal_month,
-    ).exists():
-        return JsonResponse({
-            "ok": False,
-            "error": f"Salary deductions for {sal_month} have already been processed. Duplicate month not allowed.",
-        }, status=409)
-
     # Auto-generate batch reference
     batch_ref = _next_batch_ref(sal_month)
 
@@ -1435,6 +1454,16 @@ def treasurer_salary_bulk_process(request: HttpRequest):
     created_dues = []
 
     with transaction.atomic():
+        # Use select_for_update to prevent race conditions
+        if MonthlyDues.objects.select_for_update().filter(
+            payment_method="Salary Deduction",
+            month_covered=sal_month,
+        ).exists():
+            return JsonResponse({
+                "ok": False,
+                "error": f"Salary deductions for {sal_month} have already been processed. Duplicate month not allowed.",
+            }, status=409)
+
         for mid in unique_ids:
             member = members_map.get(mid)
             if not member:
@@ -1605,6 +1634,12 @@ def treasurer_release_aid(request: HttpRequest):
             {"ok": False, "error": "Officer session missing."}, status=401
         )
 
+    if record.status not in ("Approved", "President Approved"):
+        return JsonResponse(
+            {"ok": False, "error": "Aid has not been approved by the President yet. Only approved aids can be released."},
+            status=400,
+        )
+
     record.released_by_user_id_FK = officer
     record.release_reference = release_reference
     record.status = "Released"
@@ -1718,7 +1753,7 @@ def treasurer_medical_aid_add(request: HttpRequest):
             hospital_name=med_hospital,
             hospital_date=med_hospital_date or None,
             hospital_bill_amount=med_bill,
-            claim_year=timezone.now().year,
+            claim_year=req_year,
             document_status=med_reason or "Pending",
             policy_record_status="Pending",
             validated_aid_amount=get_accidental_sickness_aid_benefit(),
@@ -1848,7 +1883,7 @@ def treasurer_medical_aid_batch_add(request: HttpRequest):
             hospital_name=hospital,
             hospital_date=hospital_date or None,
             hospital_bill_amount=bill_str,
-            claim_year=timezone.now().year,
+            claim_year=req_year,
             document_status=reason,
             policy_record_status="Pending",
             validated_aid_amount=get_accidental_sickness_aid_benefit(),
@@ -2028,6 +2063,11 @@ def treasurer_death_aid_add(request: HttpRequest):
 
     from decimal import Decimal
     benefit_amount = Decimal(str(get_death_aid_amount(death_rel)))
+    if benefit_amount <= 0:
+        return JsonResponse(
+            {"ok": False, "error": f"Unknown relationship '{death_rel}' — death aid amount is ₱0. Please select a valid relationship from the list."},
+            status=400,
+        )
 
     claimant_obj, _ = Claimant.objects.get_or_create(
         member_id_FK=member_obj,
@@ -2314,7 +2354,7 @@ def _treasurer_payment_item_to_json(kind: str, obj) -> dict:
 
 @require_GET
 def treasurer_members_list(request):
-    guard = require_role(request, role="Treasurer")
+    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
 

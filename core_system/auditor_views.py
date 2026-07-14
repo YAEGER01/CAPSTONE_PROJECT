@@ -429,7 +429,16 @@ def auditor_verify_payment(request: HttpRequest):
     tv = tv_qs.first()
 
     if tv is not None and not is_pending(tv.verification_status):
-        return JsonResponse({"ok": True})
+        return JsonResponse(
+            {"ok": False, "error": "This record has already been acted upon and cannot be re-verified."},
+            status=400,
+        )
+
+    if tv is not None and tv.auditor_id_FK is not None and tv.auditor_id_FK != officer:
+        return JsonResponse(
+            {"ok": False, "error": "This record is assigned to another auditor and cannot be verified by you."},
+            status=403,
+        )
 
     uploaded = request.FILES.get("p_findings_file")
 
@@ -455,9 +464,10 @@ def auditor_verify_payment(request: HttpRequest):
     evidence_file_hash = ""
 
     if uploaded and getattr(uploaded, "size", 0) > 0:
-        filename = uploaded.name
+        import os
+        safe_name = os.path.basename(uploaded.name) or "evidence"
         evidence_file_path = default_storage.save(
-            f"auditor_payment_evidence/{timezone.now().strftime('%Y%m%d')}_{filename}",
+            f"auditor_payment_evidence/{timezone.now().strftime('%Y%m%d')}_{safe_name}",
             uploaded,
         )
 

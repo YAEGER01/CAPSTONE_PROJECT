@@ -42,6 +42,9 @@ function getCookie(name) {
     const res = await fetch("/api/treasurer/monthly-dues/otc/add/", {
       method: "POST",
       credentials: "same-origin",
+      headers: {
+        "X-CSRFToken": getCookie("csrftoken"),
+      },
       body: formData,
     });
     return res.json();

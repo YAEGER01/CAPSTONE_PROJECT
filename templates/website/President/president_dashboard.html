@@ -16,7 +16,7 @@
     ></script>
 
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
       /* ==========================================================================
        GLOBAL RESET & BRAND VARIABLE PATHS
@@ -25,7 +25,7 @@
         margin: 0;
         padding: 0;
         box-sizing: border-box;
-        font-family: "Poppins", sans-serif;
+        font-family: "Inter", sans-serif;
       }
 
       body,
@@ -372,6 +372,26 @@
         gap: 14px;
       }
 
+      .toolbar-bell {
+        background: transparent;
+        border: none;
+        color: #78909c;
+        cursor: pointer;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px;
+        border-radius: 6px;
+        transition: 0.2s;
+      }
+      .toolbar-bell:hover {
+        background: rgba(0, 0, 0, 0.04);
+        color: #1b5e20;
+      }
+      .toolbar-bell.subscribed { color: #00e676; }
+      .toolbar-bell.denied { color: #ff1744; }
+
       .user-profile {
         display: flex;
         align-items: center;
@@ -699,7 +719,7 @@
         border: none;
         cursor: pointer;
         transition: all 0.25s ease;
-        font-family: "Poppins", sans-serif;
+        font-family: "Inter", sans-serif;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1069,7 +1089,33 @@
         }
       }
     </style>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+      .io-item {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        gap: 6px;
+      }
+      .io-item span { display: inline !important; }
+      .io-item .io-sign { font-weight: 700; font-size: 0.85rem; width: 14px; flex-shrink: 0; }
+      .io-item .io-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; color: #333; font-weight: 500; }
+      .io-item .io-amount { font-weight: 700; white-space: nowrap; color: inherit; }
+      .io-item .io-date { font-size: 0.7rem; margin-left: 4px; white-space: nowrap; opacity: 0.8; color: inherit; }
+      .io-inflow { color: #00e676; background: rgba(0,230,118,0.08); }
+      .io-outflow { color: #ff1744; background: rgba(255,23,68,0.08); }
+      .io-empty { color: #b0bec5; font-size: 0.7rem; font-style: italic; padding: 0 6px; }
+      .overview-card-value { font-size: 1.6rem; font-weight: 700; color: #1b5e20; text-align: center; }
+    </style>
   </head>
   <body>
     <div class="modal-overlay" id="customConfirmModal">
@@ -1144,13 +1190,9 @@
         <div class="sidebar-top">
           <!-- Sidebar Brand Header -->
           <div class="sidebar-brand">
-            <!--div class="brand-title-wrapper">
-              <span class="logo-mark">P</span>
-              <div class="brand-title-text">
-                <h2 style="font-size: 0.95rem; line-height: 1.2">///</h2>
-                <span class="role-tag">Executive Office</span>
-              </div>
-            </div-->
+            <div class="brand-title-wrapper">
+              <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA" style="height:32px;width:32px;border-radius:50%;object-fit:cover;" />
+            </div>
             <button
               class="collapse-toggle-btn"
               id="collapseBtn"
@@ -1449,6 +1491,9 @@
             </h1>
           </div>
           <div class="header-right">
+            <button class="toolbar-bell" id="notifBellBtn" title="Enable push notifications" onclick="window.requestPushPermission&amp;&amp;window.requestPushPermission()">
+              <i class="fa-regular fa-bell"></i>
+            </button>
             <div class="user-profile">
               <div class="user-info">
                 <p class="user-name">{{ officer_full_name|default:"" }}</p>
@@ -1470,21 +1515,21 @@
             <!-- KPI Stats grid overview -->
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-icon">📥</div>
+                <div class="stat-icon"><i class="fa-solid fa-inbox"></i></div>
                 <div class="stat-info">
                   <h4>Verified Dues Awaiting Sign-off</h4>
                   <div class="stat-value" id="kpi-pending-payments">0</div>
                 </div>
               </div>
               <div class="stat-card">
-                <div class="stat-icon accent-yellow">📁</div>
+                <div class="stat-icon accent-yellow"><i class="fa-solid fa-folder"></i></div>
                 <div class="stat-info">
                   <h4>Verified Claims Awaiting Sign-off</h4>
                   <div class="stat-value" id="kpi-pending-claims">0</div>
                 </div>
               </div>
               <div class="stat-card">
-                <div class="stat-icon accent-blue">🛡️</div>
+                <div class="stat-icon accent-blue"><i class="fa-solid fa-shield-halved"></i></div>
                 <div class="stat-info">
                   <h4>Total Executed Approvals</h4>
                   <div class="stat-value" id="kpi-total-audits">0</div>
@@ -1557,26 +1602,52 @@
               </div>
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Recent Reports</h3>
+                  <h3 class="panel-title">FUND</h3>
                 </div>
-                <div class="overview-card-content">
-                  <p class="overview-card-placeholder">Content area</p>
+                <div class="overview-card-content" style="flex-direction:column; gap:4px; padding:16px 10px;">
+                  <p class="overview-card-value" id="kpi-funds" style="font-size:2rem; margin-bottom:2px;">₱0.00</p>
+                  <hr style="width:100%; border:none; border-top:1px solid rgba(0,0,0,0.08); margin:4px 0;">
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                      <span style="font-size:0.7rem; font-weight:600; color:#555;">Money In</span>
+                      <div style="display:flex; align-items:center; gap:3px;">
+                        <span style="font-size:0.8rem; font-weight:700; color:#00e676;">▲</span>
+                        <span class="overview-card-value" id="kpi-money-in" style="font-size:0.95rem; color:#00e676;">₱0.00</span>
+                      </div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                      <span style="font-size:0.7rem; font-weight:600; color:#555;">Money Out</span>
+                      <div style="display:flex; align-items:center; gap:3px;">
+                        <span style="font-size:0.8rem; font-weight:700; color:#ff1744;">▼</span>
+                        <span class="overview-card-value" id="kpi-money-out" style="font-size:0.95rem; color:#ff1744;">₱0.00</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">Compliance Summary</h3>
+                  <h3 class="panel-title">Inflow & Outflow</h3>
                 </div>
-                <div class="overview-card-content">
-                  <p class="overview-card-placeholder">Content area</p>
+                <div class="overview-card-content" style="flex-direction:column; align-items:stretch; gap:0; padding:8px 6px;">
+                  <div id="io-log" style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:2px;"></div>
+                  <p id="io-loading" class="overview-card-placeholder" style="margin:4px 0 0 0;">Loading...</p>
                 </div>
               </div>
-              <div class="dashboard-panel overview-card">
+              <div class="dashboard-panel overview-card" style="min-height:280px;">
                 <div class="panel-header-row">
-                  <h3 class="panel-title">System Updates</h3>
+                  <h3 class="panel-title">Monthly Inflow vs Outflow</h3>
+                  <div id="chartLegendDots" style="display:flex; align-items:center; gap:10px;">
+                    <span data-index="0" title="Membership Fee" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#00e676; cursor:pointer;"></span>
+                    <span data-index="1" title="Monthly Dues" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#00bcd4; cursor:pointer;"></span>
+                    <span data-index="2" title="Medical Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff1744; cursor:pointer;"></span>
+                    <span data-index="3" title="Death Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#7c4dff; cursor:pointer;"></span>
+                    <span data-index="4" title="Fund Payment" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#7c4dff; cursor:pointer;"></span>
+                    <span data-index="5" title="Contribution" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff6f00; cursor:pointer;"></span>
+                  </div>
                 </div>
-                <div class="overview-card-content">
-                  <p class="overview-card-placeholder">Content area</p>
+                <div class="overview-card-content" style="padding:10px; display:block;">
+                  <canvas id="monthlyFlowChart" width="400" height="220" style="width:100%;height:220px;"></canvas>
                 </div>
               </div>
             </div>
@@ -2931,7 +3002,7 @@
                   const b = data.batch; const safe = data.is_safe;
                   let warning = '';
                   if (!safe && data.fund_impact > 0) {
-                    warning = '<div style="background:#fff3cd;color:#856404;padding:12px;border-radius:8px;margin-bottom:16px;">⚠️ This batch will bring the fund to ₱'+data.projected_balance.toFixed(2)+', which is below the safety threshold of ₱'+data.safety_threshold.toFixed(2)+'.</div>';
+                    warning = '<div style="background:#fff3cd;color:#856404;padding:12px;border-radius:8px;margin-bottom:16px;"><i class="fa-solid fa-triangle-exclamation"></i> This batch will bring the fund to ₱'+data.projected_balance.toFixed(2)+', which is below the safety threshold of ₱'+data.safety_threshold.toFixed(2)+'.</div>';
                   }
                   document.getElementById('batch-detail-content').innerHTML = warning + `
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
@@ -3684,7 +3755,7 @@
         document.getElementById("aAuditByText").innerText = item.auditorName;
         document.getElementById("aAuditDateText").innerText = item.auditorDate;
         document.getElementById("aAuditEvidenceText").innerText =
-          `📁 ${item.auditorEvidence}`;
+          `<i class="fa-solid fa-folder"></i> ${item.auditorEvidence}`;
         document.getElementById("aAuditRemarksText").innerText =
           item.auditorRemarks;
         document.getElementById("aReturnCountText").innerText =
@@ -4252,6 +4323,7 @@
       window.VAPID_PUBLIC_KEY =
         "BH_OcUmir3ilJ-ysc_ZWUISngSKIWg2LqLbOQQFwFZPcMTY1iKLS-Kwm6hfAHOH9Tj6CvJ8IDYVMTaQmXQhTbEg";
     </script>
+    <script src="{% static 'js/shared/fund_display.js' %}"></script>
     <script src="{% static 'js/President/sidebarNav.js' %}"></script>
     <script src="{% static 'js/status-utils.js' %}"></script>
     <script src="{% static 'js/President/payments_verification.js' %}"></script>

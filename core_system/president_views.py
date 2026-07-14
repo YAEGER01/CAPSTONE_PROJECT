@@ -54,6 +54,10 @@ from core_system.services.compliance import (
     dues_compliance_summary,
     active_members_qs,
 )
+from core_system.services.email_service import (
+    send_aid_processing_notice,
+    send_aid_bulk_contribution_notice,
+)
 
 
 def permission_denied_view(request, exception=None):
@@ -678,6 +682,12 @@ def submit_presidential_decision(request):
             TransactionVerification, verification_id=target_id
         )
 
+        if not can_president_act(verification.verification_status):
+            return JsonResponse(
+                {"success": False, "message": "Transaction is not in a state that can be acted upon by the President."},
+                status=400,
+            )
+
         if decision == "Approved":
             verification.verification_status = "Approved"
             verification.approved_at = timezone.now()
@@ -813,6 +823,26 @@ def submit_presidential_aid_decision(request):
                 status=400,
             )
 
+        if table_name == "medical_aid" and decision == "Approved":
+            requested = float(record.requested_amount or 0)
+            hospital_bill = float(record.hospital_bill_amount or 0)
+            if approved_amount > requested:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": f"Approved amount (₱{approved_amount:,.2f}) cannot exceed the requested amount (₱{requested:,.2f}).",
+                    },
+                    status=400,
+                )
+            if approved_amount > hospital_bill:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": f"Approved amount (₱{approved_amount:,.2f}) cannot exceed the hospital bill amount (₱{hospital_bill:,.2f}).",
+                    },
+                    status=400,
+                )
+
         record.president_decided_by_user_id_FK = officer
         record.president_decision = decision
         record.status = decision
@@ -880,6 +910,9 @@ def submit_presidential_aid_decision(request):
                     )
                 )
             Contribution.objects.bulk_create(contribution_records)
+
+            send_aid_processing_notice(record.member_id_FK, table_name)
+            send_aid_bulk_contribution_notice(per_member_amount, table_name, exclude_member=record.member_id_FK)
 
             channel_layer = get_channel_layer()
             payload = {
@@ -1122,12 +1155,21 @@ def submit_presidential_aid_decision_batch(request):
                     )
                     total_expected = active_members.count() * per_member_amount
 
+                    if AidTrackingPost.objects.filter(
+                        source_type=v.table_name,
+                        source_id=v.record_id,
+                    ).exists():
+                        skipped += 1
+                        continue
+
                     post = AidTrackingPost.objects.create(
                         archive_id_FK=archive,
                         aid_type=v.table_name,
                         target_month=timezone.now().strftime("%Y-%m"),
                         total_expected=total_expected,
                         total_collected=0,
+                        source_type=v.table_name,
+                        source_id=v.record_id,
                         created_by_user_id_FK=officer,
                     )
 
@@ -1141,6 +1183,9 @@ def submit_presidential_aid_decision_batch(request):
                         )
                         for member in active_members
                     ])
+
+                    send_aid_processing_notice(record.member_id_FK, v.table_name)
+                    send_aid_bulk_contribution_notice(per_member_amount, v.table_name, exclude_member=record.member_id_FK)
 
                     member_name = record.member_id_FK.full_name if record is not None and hasattr(record, "member_id_FK") and record.member_id_FK else ""
                     payload = {

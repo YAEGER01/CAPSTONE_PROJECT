@@ -48,7 +48,7 @@ class Department(models.Model):
 class Member(models.Model):
     member_id_PK = models.AutoField(primary_key=True)
     full_name = models.CharField(max_length=255)
-    employee_id = models.CharField(max_length=50, null=True, blank=True)
+    employee_id = models.CharField(max_length=50, null=True, blank=True, unique=True)
     department = models.CharField(max_length=100, null=True, blank=True)
     department_id_FK = models.ForeignKey(
         Department,

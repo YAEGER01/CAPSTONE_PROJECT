@@ -13,6 +13,7 @@ from core_system.constants.policy_constants import (
     get_membership_fee_amount,
     get_monthly_dues_amount,
 )
+from core_system.models import Member
 
 logger = logging.getLogger(__name__)
 
@@ -80,5 +81,44 @@ def send_member_added_email(member, officer_contact: str | None = None) -> bool:
         subject="Welcome to ISU CAUFA – Membership Registration Confirmed",
         recipient_list=[member.email],
         html_template="emails/member_added.html",
+        context=context,
+    )
+
+
+def send_aid_processing_notice(member, aid_type: str) -> bool:
+    if not member or not member.email:
+        return False
+
+    context = {
+        "member_name": member.full_name,
+    }
+
+    return send_html_email(
+        subject="Notice of Aid Processing",
+        recipient_list=[member.email],
+        html_template="emails/aid_processing_notice.html",
+        context=context,
+    )
+
+
+def send_aid_bulk_contribution_notice(contribution_amount: float, aid_type: str, exclude_member=None) -> bool:
+    members = Member.objects.exclude(membership_status__iexact="Retired")
+    if exclude_member:
+        members = members.exclude(member_id_PK=exclude_member.member_id_PK)
+
+    recipient_emails = list(
+        members.exclude(email__isnull=True).exclude(email__exact="").values_list("email", flat=True)
+    )
+    if not recipient_emails:
+        return False
+
+    context = {
+        "contribution_amount": f"{contribution_amount:,.2f}",
+    }
+
+    return send_html_email(
+        subject="Notice of Active Member Contribution",
+        recipient_list=recipient_emails,
+        html_template="emails/aid_bulk_contribution_notice.html",
         context=context,
     )

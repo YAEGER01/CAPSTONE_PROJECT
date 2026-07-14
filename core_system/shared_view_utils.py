@@ -45,8 +45,8 @@ MODEL_MAP = {
 UPDATABLE_FIELDS = {
     "membership_fee": ["amount", "payment_method", "payment_status", "payment_date", "receipt_number", "deposit_reference"],
     "monthly_dues": ["month_covered", "amount", "payment_method", "payment_status", "receipt_number", "payment_date", "remittance_reference", "deduction_batch_reference"],
-    "medical_aid": ["request_date", "requested_amount", "hospital_name", "hospital_date", "hospital_bill_amount", "document_status", "status", "validated_aid_amount"],
-    "death_aid": ["claim_date", "claim_type", "deceased_name", "relationship_to_member", "relationship_group", "benefit_amount", "bill_amount", "document_status", "status"],
+    "medical_aid": ["request_date", "requested_amount", "hospital_name", "hospital_date", "hospital_bill_amount", "document_status"],
+    "death_aid": ["claim_date", "claim_type", "deceased_name", "relationship_to_member", "relationship_group", "benefit_amount", "bill_amount", "document_status"],
 }
 
 MONTH_COVERED_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")

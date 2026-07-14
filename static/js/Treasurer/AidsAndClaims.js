@@ -28,8 +28,22 @@ function getCookie(name) {
 }
 
 async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  return res.json();
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch (err) {
+    return {ok: false, error: "Network error: " + err.message};
+  }
+  if (!res.ok) {
+    let body;
+    try { body = await res.json(); } catch { body = {}; }
+    return {ok: false, error: body.error || body.message || "HTTP " + res.status, status: res.status};
+  }
+  try {
+    return await res.json();
+  } catch (err) {
+    return {ok: false, error: "Invalid response from server."};
+  }
 }
 
 async function apiAddMedicalAid(formData) {
