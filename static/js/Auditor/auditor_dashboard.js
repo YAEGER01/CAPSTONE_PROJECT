@@ -1414,6 +1414,12 @@
           if (currentModuleTitle)
             currentModuleTitle.innerText = titleEl.innerText;
         }
+
+        var parentContents = item.closest(".folder-contents");
+        if (parentContents && !parentContents.classList.contains("open")) {
+          var folderHeader = parentContents.parentElement && parentContents.parentElement.querySelector(".folder-header");
+          if (folderHeader) toggleFolder(parentContents.id, folderHeader);
+        }
       });
     });
 
@@ -1570,6 +1576,14 @@
     const savedTab = localStorage.getItem("auditor_active_tab");
     if (savedTab) {
       setActiveModule(savedTab);
+      var savedItem = document.querySelector('.menu-item[data-target="' + savedTab + '"]');
+      if (savedItem) {
+        var parentContents = savedItem.closest(".folder-contents");
+        if (parentContents && !parentContents.classList.contains("open")) {
+          var folderHeader = parentContents.parentElement && parentContents.parentElement.querySelector(".folder-header");
+          if (folderHeader) toggleFolder(parentContents.id, folderHeader);
+        }
+      }
     }
 
     clearPaymentUI();

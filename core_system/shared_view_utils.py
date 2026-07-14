@@ -18,19 +18,20 @@ from core_system.constants.policy_constants import (
     is_exempt_from_dues_and_aid,
 )
 from core_system.models import (
+    AuditFindingsReport,
+    DeathAid,
+    FinancialDocumentArchive,
+    GlobalAuditTrail,
+    MedicalAid,
     Member,
     MembershipFee,
     MonthlyDues,
-    MedicalAid,
-    DeathAid,
     OfficerUser,
-    SupportingProof,
-    FinancialDocumentArchive,
-    AuditFindingsReport,
-    TransactionVerification,
-    TransactionArchive,
-    GlobalAuditTrail,
+    PayrollBatch,
     SensitiveReadLog,
+    SupportingProof,
+    TransactionArchive,
+    TransactionVerification,
 )
 
 MODEL_MAP = {
@@ -38,6 +39,7 @@ MODEL_MAP = {
     "monthly_dues": MonthlyDues,
     "medical_aid": MedicalAid,
     "death_aid": DeathAid,
+    "payroll_batch": PayrollBatch,
 }
 
 UPDATABLE_FIELDS = {
@@ -404,6 +406,8 @@ def archive_transaction(table_name, pk, officer=None):
     elif table_name == "death_aid":
         amount = float(getattr(record, "benefit_amount", 0) or 0)
         validated_amount = amount
+    elif table_name == "payroll_batch":
+        amount = float(getattr(record, "total_amount", 0) or 0)
 
     return TransactionArchive.objects.create(
         transaction_type=table_name,

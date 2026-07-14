@@ -14,18 +14,22 @@ from channels.layers import get_channel_layer
 
 from core_system.guards import require_role
 from core_system.models import (
+    AidTrackingPost,
+    Contribution,
+    DeathAid,
+    FinancialDocumentArchive,
+    FundTransaction,
+    GlobalAuditTrail,
+    MedicalAid,
     Member,
     MembershipFee,
     MonthlyDues,
-    MedicalAid,
-    DeathAid,
     OfficerUser,
-    TransactionVerification,
-    FinancialDocumentArchive,
-    GlobalAuditTrail,
+    PayrollBatch,
+    PayrollDeduction,
+    SystemSetting,
     TransactionArchive,
-    AidTrackingPost,
-    Contribution,
+    TransactionVerification,
 )
 from core_system.constants.status_constants import Status, can_president_act, is_approved, is_rejected
 from core_system.constants.policy_constants import (
@@ -698,11 +702,20 @@ def submit_presidential_decision(request):
         verification.save()
 
         if verification.verification_status == "Approved":
-            archive_transaction(
+            archive = archive_transaction(
                 verification.table_name,
                 verification.record_id,
                 officer,
             )
+            if archive and verification.table_name in ("membership_fee", "monthly_dues"):
+                FundTransaction.objects.create(
+                    direction="inflow",
+                    amount=archive.amount,
+                    source_type=verification.table_name,
+                    source_id=verification.record_id,
+                    description=f"{archive.member_name} ({dict(FundTransaction.SOURCE_TYPES).get(verification.table_name, verification.table_name)})",
+                    recorded_by_user_id_FK=officer,
+                )
 
         _record_audit_trail(
             table=verification.table_name,
@@ -811,6 +824,21 @@ def submit_presidential_aid_decision(request):
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
 
         if decision == "Approved":
+            disbursement_source = getattr(record, "disbursement_source", None) or "fund"
+
+            if disbursement_source == "fund":
+                member_name = record.member_id_FK.full_name if hasattr(record, "member_id_FK") and record.member_id_FK else "Unknown"
+                aid_amount = float(approved_amount)
+
+                FundTransaction.objects.create(
+                    direction="outflow",
+                    amount=aid_amount,
+                    source_type=table_name,
+                    source_id=record.pk,
+                    description=f"{'Death aid' if table_name == 'death_aid' else 'Medical aid'} disbursement — {member_name}",
+                    recorded_by_user_id_FK=officer,
+                )
+
             archive = archive_transaction(
                 table_name,
                 record.pk,
@@ -834,6 +862,9 @@ def submit_presidential_aid_decision(request):
                 target_month=timezone.now().strftime("%Y-%m"),
                 total_expected=total_expected,
                 total_collected=0,
+                status="tracking",
+                source_type=table_name,
+                source_id=record.pk,
                 created_by_user_id_FK=officer,
             )
 
@@ -949,7 +980,16 @@ def submit_presidential_decision_batch(request):
             v.save()
 
             if decision == "Approved":
-                archive_transaction(v.table_name, v.record_id, officer)
+                archive = archive_transaction(v.table_name, v.record_id, officer)
+                if archive and v.table_name in ("membership_fee", "monthly_dues"):
+                    FundTransaction.objects.create(
+                        direction="inflow",
+                        amount=archive.amount,
+                        source_type=v.table_name,
+                        source_id=v.record_id,
+                        description=f"{archive.member_name} ({dict(FundTransaction.SOURCE_TYPES).get(v.table_name, v.table_name)})",
+                        recorded_by_user_id_FK=officer,
+                    )
 
             audit_entries.append(GlobalAuditTrail(
                 table_name=v.table_name,
@@ -1215,7 +1255,7 @@ def president_pending_finish_requests(request: HttpRequest):
         return guard
 
     posts = AidTrackingPost.objects.filter(
-        finish_status="pending_approval", is_active=True
+        finish_status__in=["pending_approval", "pending_president"], is_active=True
     ).select_related(
         "archive_id_FK",
         "archive_id_FK__member_id_FK",
@@ -1246,9 +1286,60 @@ def president_pending_finish_requests(request: HttpRequest):
             "amount": str(archive.amount) if archive else "0",
             "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
             "created_at": post.created_at.isoformat() if post.created_at else "",
+            "verified_by_auditor": post.finish_status == "pending_president",
         })
 
     return JsonResponse({"ok": True, "posts": items})
+
+
+@require_GET
+def president_finish_request_details(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    post_id = request.GET.get("post_id", "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "post_id required."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id))
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+
+    contributions = Contribution.objects.filter(
+        aid_tracking_post_id_FK=post
+    ).select_related("member_id_FK").order_by("member_id_FK__full_name")
+
+    details = []
+    total_paid = 0
+    paid_count = 0
+    for c in contributions:
+        member_name = c.member_id_FK.full_name if c.member_id_FK else "Unknown"
+        paid = float(c.paid_amount) if c.paid_amount else 0
+        expected = float(c.expected_amount) if c.expected_amount else 0
+        if c.status == "PAID":
+            total_paid += paid
+            paid_count += 1
+        details.append({
+            "member_name": member_name,
+            "expected_amount": expected,
+            "paid_amount": paid,
+            "status": c.status,
+            "payment_date": c.payment_date.isoformat() if c.payment_date else None,
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "post_id": post.post_id_PK,
+        "aid_type": post.aid_type,
+        "target_month": post.target_month,
+        "total_expected": float(post.total_expected),
+        "total_paid": round(total_paid, 2),
+        "paid_count": paid_count,
+        "total_count": contributions.count(),
+        "details": details,
+    })
 
 
 @require_POST
@@ -1271,7 +1362,10 @@ def president_approve_aid_post_finish(request: HttpRequest):
         return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
 
     try:
-        post = AidTrackingPost.objects.get(post_id_PK=int(post_id), is_active=True, finish_status="pending_approval")
+        post = AidTrackingPost.objects.get(
+            post_id_PK=int(post_id), is_active=True,
+            finish_status__in=["pending_approval", "pending_president"],
+        )
     except (ValueError, AidTrackingPost.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Pending finish request not found."}, status=404)
 
@@ -1289,23 +1383,41 @@ def president_approve_aid_post_finish(request: HttpRequest):
         )
         post.total_collected = totals["total_collected"] or 0
 
+    was_auditor_verified = post.finish_status == "pending_president"
+
     post.finish_status = "approved"
     post.is_active = False
     post.save(update_fields=["finish_status", "is_active", "total_collected"])
 
     archive = post.archive_id_FK
-    if archive is not None:
-        if archive.transaction_type == "death_aid":
-            DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
-        elif archive.transaction_type == "medical_aid":
-            MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+
+    if was_auditor_verified:
+        paid_contributions = Contribution.objects.filter(
+            aid_tracking_post_id_FK=post, status="PAID",
+        ).select_related("member_id_FK")
+
+        for c in paid_contributions:
+            FundTransaction.objects.create(
+                direction="inflow",
+                amount=c.paid_amount,
+                source_type="contribution",
+                source_id=c.contribution_id_PK,
+                description=f"Contribution — {c.member_id_FK.full_name if c.member_id_FK else 'Unknown'} ({post.aid_type})",
+                recorded_by_user_id_FK=president,
+            )
+    else:
+        if archive is not None:
+            if archive.transaction_type == "death_aid":
+                DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
+            elif archive.transaction_type == "medical_aid":
+                MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
 
     _record_audit_trail(
         table="AID_TRACKING_POST",
         record_id=post.post_id_PK,
         action="FINISH_APPROVED",
         actor=president,
-        new={"finish_status": "approved", "is_active": False},
+        new={"finish_status": "approved", "is_active": False, "fund_inflow_created": was_auditor_verified},
         ip=request.META.get("REMOTE_ADDR"),
     )
 
@@ -1345,7 +1457,10 @@ def president_reject_aid_post_finish(request: HttpRequest):
         return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
 
     try:
-        post = AidTrackingPost.objects.get(post_id_PK=int(post_id), is_active=True, finish_status="pending_approval")
+        post = AidTrackingPost.objects.get(
+            post_id_PK=int(post_id), is_active=True,
+            finish_status__in=["pending_approval", "pending_president"],
+        )
     except (ValueError, AidTrackingPost.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Pending finish request not found."}, status=404)
 
@@ -1376,3 +1491,270 @@ def president_reject_aid_post_finish(request: HttpRequest):
     async_to_sync(channel_layer.group_send)("president_dashboard", payload)
 
     return JsonResponse({"ok": True, "message": "Finish request rejected. Post returned to active state."})
+
+
+# ==========================================================================
+# PAYROLL BATCH APPROVAL (PRESIDENT)
+# ==========================================================================
+
+
+@require_GET
+def president_pending_payroll_batches(request: HttpRequest):
+    """List auditor-verified PayrollBatches pending presidential approval."""
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    batches = PayrollBatch.objects.filter(
+        status="Auditor Verified",
+    ).select_related(
+        "recorded_by_user_id_FK",
+        "auditor_verified_by_user_id_FK",
+    ).order_by("-created_at")
+
+    fund_balance = float(FundTransaction.get_balance())
+    safety_threshold = float(SystemSetting.objects.get_or_create(
+        setting_key="safety_threshold", defaults={"setting_value": "20000"}
+    )[0].setting_value)
+
+    items = []
+    for b in batches:
+        fund_impact = PayrollDeduction.objects.filter(
+            batch_id_FK=b, fund_impact="inflow"
+        ).aggregate(total=Sum("amount"))["total"] or 0
+        projected = fund_balance + float(fund_impact)
+
+        items.append({
+            "batch_id": b.batch_id_PK,
+            "payroll_period": b.payroll_period,
+            "total_amount": float(b.total_amount),
+            "member_count": b.member_count,
+            "fund_impact": float(fund_impact),
+            "projected_balance": projected,
+            "notes": b.notes or "",
+            "recorded_by": b.recorded_by_user_id_FK.full_name if b.recorded_by_user_id_FK else "",
+            "verified_by": b.auditor_verified_by_user_id_FK.full_name if b.auditor_verified_by_user_id_FK else "",
+            "created_at": b.created_at.isoformat() if b.created_at else "",
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "batches": items,
+        "fund_balance": fund_balance,
+        "safety_threshold": safety_threshold,
+    })
+
+
+@require_GET
+def president_payroll_batch_detail(request: HttpRequest, batch_id: int):
+    """View a PayrollBatch with fund balance context."""
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id)
+    deductions = PayrollDeduction.objects.filter(batch_id_FK=batch).select_related("member_id_FK")
+
+    fund_balance = float(FundTransaction.get_balance())
+    fund_impact = deductions.filter(fund_impact="inflow").aggregate(
+        total=Sum("amount")
+    )["total"] or 0
+    projected = fund_balance + float(fund_impact)
+    safety_threshold = float(SystemSetting.objects.get_or_create(
+        setting_key="safety_threshold", defaults={"setting_value": "20000"}
+    )[0].setting_value)
+
+    ded_list = []
+    for d in deductions:
+        ded_list.append({
+            "deduction_id": d.deduction_id_PK,
+            "member_id": d.member_id_FK.member_id_PK,
+            "member_name": d.member_id_FK.full_name,
+            "amount": float(d.amount),
+            "category": d.category,
+            "fund_impact": d.fund_impact,
+            "month_covered": d.month_covered or "",
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "batch": {
+            "batch_id": batch.batch_id_PK,
+            "payroll_period": batch.payroll_period,
+            "total_amount": float(batch.total_amount),
+            "member_count": batch.member_count,
+            "hardcopy_reference": batch.hardcopy_reference or "",
+            "notes": batch.notes or "",
+            "status": batch.status,
+            "recorded_by": batch.recorded_by_user_id_FK.full_name if batch.recorded_by_user_id_FK else "",
+            "verified_by": batch.auditor_verified_by_user_id_FK.full_name if batch.auditor_verified_by_user_id_FK else "",
+            "auditor_remarks": batch.auditor_remarks or "",
+            "created_at": batch.created_at.isoformat() if batch.created_at else "",
+        },
+        "deductions": ded_list,
+        "fund_balance": fund_balance,
+        "fund_impact": float(fund_impact),
+        "projected_balance": projected,
+        "safety_threshold": safety_threshold,
+        "is_safe": projected >= safety_threshold,
+    })
+
+
+@require_POST
+@transaction.atomic
+def president_approve_payroll_batch(request: HttpRequest, batch_id: int):
+    """Approve a PayrollBatch — creates FundTransaction entries and archives."""
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id, status="Auditor Verified")
+
+    stored_officer_id = request.session.get("officer_id")
+    try:
+        president = OfficerUser.objects.get(user_id_PK=int(stored_officer_id))
+    except (ValueError, OfficerUser.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Officer not found."}, status=404)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = {}
+
+    remarks = data.get("remarks", "")
+
+    # Approve the batch
+    batch.status = "Approved"
+    batch.president_approved_by_user_id_FK = president
+    batch.president_approved_at = timezone.now()
+    batch.president_remarks = remarks
+    batch.save(update_fields=[
+        "status", "president_approved_by_user_id_FK",
+        "president_approved_at", "president_remarks",
+    ])
+
+    # Create FundTransaction for each deduction with fund_impact="inflow"
+    inflow_deductions = PayrollDeduction.objects.filter(
+        batch_id_FK=batch, fund_impact="inflow"
+    ).select_related("member_id_FK")
+
+    ft_count = 0
+    for d in inflow_deductions:
+        description = _build_payroll_deduction_description(d)
+        FundTransaction.objects.create(
+            direction="inflow",
+            amount=d.amount,
+            source_type="payroll_batch",
+            source_id=batch.pk,
+            description=description,
+            reference_number=batch.hardcopy_reference or "",
+            recorded_by_user_id_FK=president,
+        )
+        ft_count += 1
+
+        # If aid contribution, update the Contribution record for tracking
+        if d.category == "aid_contribution" and d.aid_tracking_post_id_FK:
+            Contribution.objects.update_or_create(
+                aid_tracking_post_id_FK=d.aid_tracking_post_id_FK,
+                member_id_FK=d.member_id_FK,
+                defaults={
+                    "paid_amount": d.amount,
+                    "payment_date": timezone.now().date(),
+                    "status": "PAID",
+                    "updated_by_user_id_FK": president,
+                },
+            )
+
+    # Archive the batch
+    archive_transaction(table_name="payroll_batch", pk=batch.pk, officer=president)
+
+    fund_balance = float(FundTransaction.get_balance())
+
+    _record_audit_trail(
+        table="PAYROLL_BATCH",
+        record_id=batch.pk,
+        action="APPROVED",
+        actor=president,
+        new={
+            "status": "Approved",
+            "total_amount": float(batch.total_amount),
+            "fund_impact_count": ft_count,
+            "remarks": remarks,
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    _broadcast_pending_counts()
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", {
+        "type": "dashboard_refresh", "section": "payroll_batches",
+    })
+    async_to_sync(channel_layer.group_send)("president_dashboard", {
+        "type": "dashboard_refresh", "section": "all",
+    })
+
+    return JsonResponse({
+        "ok": True,
+        "message": "Payroll batch approved.",
+        "fund_balance": fund_balance,
+        "fund_transactions_created": ft_count,
+    })
+
+
+@require_POST
+@transaction.atomic
+def president_reject_payroll_batch(request: HttpRequest, batch_id: int):
+    """Reject a PayrollBatch."""
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id, status="Auditor Verified")
+
+    stored_officer_id = request.session.get("officer_id")
+    try:
+        president = OfficerUser.objects.get(user_id_PK=int(stored_officer_id))
+    except (ValueError, OfficerUser.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Officer not found."}, status=404)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = {}
+
+    reason = data.get("reason", "")
+    batch.status = "Rejected"
+    batch.president_approved_by_user_id_FK = president
+    batch.president_remarks = reason
+    batch.save(update_fields=["status", "president_approved_by_user_id_FK", "president_remarks"])
+
+    _record_audit_trail(
+        table="PAYROLL_BATCH",
+        record_id=batch.pk,
+        action="REJECTED",
+        actor=president,
+        new={"status": "Rejected", "reason": reason},
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    _broadcast_pending_counts()
+
+    return JsonResponse({"ok": True, "message": "Payroll batch rejected."})
+
+
+def _build_payroll_deduction_description(deduction: PayrollDeduction) -> str:
+    """Build a human-readable description for a PayrollDeduction FundTransaction."""
+    member = deduction.member_id_FK
+    member_name = member.full_name if member else "Unknown"
+    if deduction.category == "monthly_dues":
+        period = deduction.month_covered or ""
+        return f"Monthly dues {period} — {member_name}"
+    elif deduction.category == "membership_fee":
+        return f"Membership fee — {member_name}"
+    elif deduction.category == "aid_contribution":
+        post_ref = ""
+        if deduction.aid_tracking_post_id_FK:
+            post = deduction.aid_tracking_post_id_FK
+            post_ref = f" ({post.aid_type}#{post.source_id})"
+        return f"Aid contribution{post_ref} — {member_name}"
+    return f"Deduction — {member_name}"

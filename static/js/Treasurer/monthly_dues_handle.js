@@ -111,7 +111,6 @@ function getCookie(name) {
   function renderSalaryBatchView(thead, tbody, batches) {
     thead.innerHTML = `
       <tr>
-        <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-layer-group" title="Batch Reference"></i></th>
         <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-calendar" title="Month"></i></th>
         <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-users" title="Members"></i></th>
         <th style="padding:4px 8px;text-align:center;"><i class="fa-solid fa-coins" title="Total Amount"></i></th>
@@ -122,7 +121,7 @@ function getCookie(name) {
 
     if (!batches || batches.length === 0) {
       tbody.innerHTML =
-        '<tr><td colspan="5" style="text-align:center;color:#757575;">No batches recorded</td></tr>';
+        '<tr><td colspan="4" style="text-align:center;color:#757575;">No batches recorded</td></tr>';
       return;
     }
 
@@ -131,7 +130,6 @@ function getCookie(name) {
       tr.className = "salary-batch-row";
       tr.style.cursor = "pointer";
       tr.innerHTML = `
-        <td style="font-weight:600;color:#1b5e20;">${escapeHtml(b.batch_reference || "")}</td>
         <td><span class="badge-zero badge-green" style="font-size:0.75rem;">${escapeHtml(b.month || "")}</span></td>
         <td>${b.member_count} member${b.member_count !== 1 ? "s" : ""}</td>
         <td style="font-weight:600;">${escapeHtml(formatCurrencyPHP(b.total_amount))}</td>
@@ -327,120 +325,112 @@ function getCookie(name) {
 
     window.fetchSalaryHistory = fetchSalaryHistory;
 
-    // OTC
-    const otcForm = byId("otcDuesForm");
-    if (otcForm) {
-      // Disable inline handler if it exists; we handle submit here.
-      otcForm.removeAttribute("onsubmit");
+    // --- Event listener setup (runs only once to avoid duplicate listeners) ---
+    if (!window._monthlyDuesListenersAttached) {
+      window._monthlyDuesListenersAttached = true;
 
-      otcForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
+      // OTC
+      const otcForm = byId("otcDuesForm");
+      if (otcForm) {
+        otcForm.removeAttribute("onsubmit");
+
+        otcForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          try {
+            const formData = new FormData(otcForm);
+            var otcFiles = FileQueue.getFiles("otc");
+            if (otcFiles.length > 0) formData.append("otc_photo_file", otcFiles[0]);
+
+            const out = await apiAddOtcDues(formData);
+            if (!out || !out.ok) {
+              showToast(
+                out && out.error ? out.error : "Failed to record OTC dues.",
+                true,
+              );
+              return;
+            }
+
+            showToast("Over-the-Counter Monthly Dues recorded.", false);
+            await fetchAndRenderOtc();
+            otcForm.reset();
+            FileQueue.clear("otc");
+          } catch (err) {
+            showToast("Network/server error while recording OTC dues.", true);
+          }
+        });
+      }
+
+      // Salary global handler
+      window.handleSalarySubmit = async function handleSalarySubmit(event) {
+        event.preventDefault();
+        const salaryForm = byId("salaryForm");
+        if (!salaryForm) return;
+
+        const salRefInput = byId("sal_ref");
+        const salRefValue = salRefInput ? (salRefInput.value || "").trim() : "";
+
         try {
-          const formData = new FormData(otcForm);
-          var otcFiles = FileQueue.getFiles("otc");
-          if (otcFiles.length > 0) formData.append("otc_photo_file", otcFiles[0]);
+          const formData = new FormData(salaryForm);
+          if (salRefValue) {
+            formData.set("sal_ref", salRefValue);
+          }
+          var salFiles = FileQueue.getFiles("sal");
+          if (salFiles.length > 0) formData.append("sal_photo_file", salFiles[0]);
 
-          const out = await apiAddOtcDues(formData);
+          const out = await apiAddSalaryDues(formData);
           if (!out || !out.ok) {
             showToast(
-              out && out.error ? out.error : "Failed to record OTC dues.",
+              out && out.error ? out.error : "Failed to record salary deduction.",
               true,
             );
             return;
           }
 
-          showToast("Over-the-Counter Monthly Dues recorded.", false);
-          await fetchAndRenderOtc();
-          otcForm.reset();
-          FileQueue.clear("otc");
+          showToast("Salary deduction remittance recorded.", false);
+          await fetchSalaryHistory();
+          salaryForm.reset();
+          FileQueue.clear("sal");
+
+          const preview = byId("sal_preview");
+          if (preview) preview.style.display = "none";
         } catch (err) {
-          showToast("Network/server error while recording OTC dues.", true);
-        }
-      });
-
-      fetchAndRenderOtc().catch(() => {});
-    }
-
-    // Salary: ensure global handler used by template runs the Django workflow.
-    window.handleSalarySubmit = async function handleSalarySubmit(event) {
-      event.preventDefault();
-      const salaryForm = byId("salaryForm");
-      if (!salaryForm) return;
-
-      const salRefInput = byId("sal_ref");
-      const salRefValue = salRefInput ? (salRefInput.value || "").trim() : "";
-
-      try {
-        const formData = new FormData(salaryForm);
-        if (salRefValue) {
-          formData.set("sal_ref", salRefValue);
-        }
-        var salFiles = FileQueue.getFiles("sal");
-        if (salFiles.length > 0) formData.append("sal_photo_file", salFiles[0]);
-
-        const out = await apiAddSalaryDues(formData);
-        if (!out || !out.ok) {
           showToast(
-            out && out.error ? out.error : "Failed to record salary deduction.",
+            "Network/server error while recording salary deduction.",
             true,
           );
-          return;
         }
+      };
 
-        showToast("Salary deduction remittance recorded.", false);
-        await fetchSalaryHistory();
-        salaryForm.reset();
-        FileQueue.clear("sal");
-
-        const preview = byId("sal_preview");
-        if (preview) preview.style.display = "none";
-      } catch (err) {
-        showToast(
-          "Network/server error while recording salary deduction.",
-          true,
-        );
-      }
-    };
-
-    // Optional: auto-load salary ledger
-    const salaryTable = byId("salaryTable");
-    if (salaryTable) {
-      fetchSalaryHistory().catch(() => {});
-    }
-
-    // History view toggle
-    document.querySelectorAll(".history-view-toggle").forEach((btn) => {
-      btn.addEventListener("click", function () {
-        historyViewMode = this.dataset.view;
-        document.querySelectorAll(".history-view-toggle").forEach((b) => {
-          b.classList.remove("btn-brand-primary");
-          b.style.opacity = "0.7";
-        });
-        this.classList.add("btn-brand-primary");
-        this.style.opacity = "1";
-        const db = window.db || {};
-        renderSalaryTable({
-          salary_dues: db.salary_deductions || [],
-          batches: db.salary_batches || [],
+      // History view toggle
+      document.querySelectorAll(".history-view-toggle").forEach((btn) => {
+        btn.addEventListener("click", function () {
+          historyViewMode = this.dataset.view;
+          document.querySelectorAll(".history-view-toggle").forEach((b) => {
+            b.classList.remove("btn-brand-primary");
+            b.style.opacity = "0.7";
+          });
+          this.classList.add("btn-brand-primary");
+          this.style.opacity = "1";
+          const db = window.db || {};
+          renderSalaryTable({
+            salary_dues: db.salary_deductions || [],
+            batches: db.salary_batches || [],
+          });
         });
       });
-    });
 
-    // Populate dropdowns from database
-    fetchMembers()
-      .then(populateDuesDropdowns)
-      .catch(() => {});
+      // --- Bulk Salary Deduction ---
+      initBulkSalary();
+    }
 
-    // --- Bulk Salary Deduction ---
-    initBulkSalary();
-  }
+    // --- Data fetching (runs on every turbo:load) ---
+    const otcForm = byId("otcDuesForm");
+    if (otcForm) fetchAndRenderOtc().catch(() => {});
 
-  function generateBatchRef() {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, "0");
-    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `SAL-${y}${m}-${rand}`;
+    const salaryTable = byId("salaryTable");
+    if (salaryTable) fetchSalaryHistory().catch(() => {});
+
+    fetchMembers().then(populateDuesDropdowns).catch(() => {});
   }
 
   function initBulkSalary() {
@@ -468,12 +458,28 @@ function getCookie(name) {
       });
     });
 
-    // Auto-gen batch reference
-    const autoGenBtn = byId("bulk_autogen_ref");
-    const batchRefInput = byId("bulk_batch_ref");
-    if (autoGenBtn && batchRefInput) {
-      autoGenBtn.addEventListener("click", function () {
-        batchRefInput.value = generateBatchRef();
+    // Auto-fetch batch ref on month selection
+    const monthInput = byId("bulk_sal_month");
+    if (monthInput) {
+      monthInput.addEventListener("change", async function () {
+        const display = byId("bulk_batch_ref_display");
+        if (!this.value) {
+          if (display) display.textContent = "\u2014";
+          return;
+        }
+        try {
+          const resp = await fetch(
+            "/api/treasurer/monthly-dues/salary/next-batch-ref/?month=" +
+              encodeURIComponent(this.value),
+            { credentials: "same-origin" },
+          );
+          const data = await resp.json();
+          if (data.ok && display) {
+            display.textContent = data.next_batch_ref;
+          }
+        } catch {
+          // silent fail
+        }
       });
     }
 
@@ -521,6 +527,10 @@ function getCookie(name) {
           previewData = data;
           renderBulkMemberTable(data);
           if (memberSection) memberSection.style.display = "block";
+          const batchRefDisplay = byId("bulk_batch_ref_display");
+          if (batchRefDisplay && data.next_batch_ref) {
+            batchRefDisplay.textContent = data.next_batch_ref;
+          }
           if (statusMsg) {
             const skipped = data.already_processed || 0;
             const total = data.total_active || 0;
@@ -635,15 +645,10 @@ function getCookie(name) {
     if (processBtn) {
       processBtn.addEventListener("click", async function () {
         const month = byId("bulk_sal_month");
-        const batchRef = byId("bulk_batch_ref");
         const summary = byId("bulk_summary");
 
         if (!month || !month.value) {
           showToast("Please select a deduction month.", true);
-          return;
-        }
-        if (!batchRef || !batchRef.value.trim()) {
-          showToast("Please enter a batch reference.", true);
           return;
         }
 
@@ -663,7 +668,6 @@ function getCookie(name) {
         try {
           const fd = new FormData();
           fd.set("sal_month", month.value);
-          fd.set("batch_ref", batchRef.value.trim());
           fd.set("summary", summary ? summary.value.trim() : "");
           fd.set("member_ids", JSON.stringify(checkedIds));
           var bulkFiles = FileQueue.getFiles("bulk");
@@ -687,7 +691,7 @@ function getCookie(name) {
           }
 
           showToast(
-            `Created ${data.processed} salary deductions for ${data.month} (${data.skipped} skipped).`,
+            `Created ${data.processed} salary deductions for ${data.month} — Batch Ref: ${data.batch_ref}`,
             false,
           );
 
@@ -696,7 +700,8 @@ function getCookie(name) {
           if (memberTbody) memberTbody.innerHTML = "";
           if (statusMsg) statusMsg.textContent = "";
           if (month) month.value = "";
-          if (batchRef) batchRef.value = "";
+          const batchRefDisplay = byId("bulk_batch_ref_display");
+          if (batchRefDisplay) batchRefDisplay.textContent = "";
           if (summary) summary.value = "";
           FileQueue.clear("bulk");
           const bulkPreview = byId("bulk_preview");
@@ -729,4 +734,7 @@ function getCookie(name) {
   }
 
   window.addEventListener("turbo:load", init);
+  document.addEventListener("turbo:before-cache", () => {
+    window._monthlyDuesListenersAttached = false;
+  });
 })();

@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Q, Sum
 from django.db.models import ForeignKey
 from django.http import HttpRequest, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
@@ -24,6 +24,7 @@ from core_system.models import (
     Contribution,
     DeathAid,
     FinancialDocumentArchive,
+    FundTransaction,
     GlobalAuditTrail,
     MedicalAid,
     Member,
@@ -31,6 +32,8 @@ from core_system.models import (
     MonthlyDues,
     Notification,
     OfficerUser,
+    PayrollBatch,
+    PayrollDeduction,
     SupportingProof,
     TransactionVerification,
 )
@@ -1257,6 +1260,162 @@ def auditor_aid_post_finish(request: HttpRequest):
 
 
 @require_GET
+def auditor_pending_finish_requests(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    posts = AidTrackingPost.objects.filter(finish_status="pending_auditor").select_related(
+        "archive_id_FK", "archive_id_FK__member_id_FK"
+    )
+    items = []
+    for post in posts:
+        archive = post.archive_id_FK
+        total = Contribution.objects.filter(aid_tracking_post_id_FK=post).count()
+        paid = Contribution.objects.filter(aid_tracking_post_id_FK=post, status="PAID").count()
+        items.append({
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "aid_label": "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid",
+            "member_name": archive.member_name if archive else "",
+            "target_month": post.target_month,
+            "total_expected": float(post.total_expected),
+            "total_collected": float(post.total_collected),
+            "collection_rate": round((paid / total * 100) if total else 0, 1),
+            "paid_count": paid,
+            "total_count": total,
+            "created_at": post.created_at.isoformat() if post.created_at else "",
+        })
+    return JsonResponse({"ok": True, "items": items})
+
+
+@require_GET
+def auditor_finish_request_details(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    post_id = request.GET.get("post_id", "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "post_id required."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id))
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+
+    contributions = Contribution.objects.filter(
+        aid_tracking_post_id_FK=post
+    ).select_related("member_id_FK").order_by("member_id_FK__full_name")
+
+    details = []
+    total_paid = 0
+    paid_count = 0
+    for c in contributions:
+        member_name = c.member_id_FK.full_name if c.member_id_FK else "Unknown"
+        paid = float(c.paid_amount) if c.paid_amount else 0
+        expected = float(c.expected_amount) if c.expected_amount else 0
+        if c.status == "PAID":
+            total_paid += paid
+            paid_count += 1
+        details.append({
+            "member_name": member_name,
+            "expected_amount": expected,
+            "paid_amount": paid,
+            "status": c.status,
+            "payment_date": c.payment_date.isoformat() if c.payment_date else None,
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "post_id": post.post_id_PK,
+        "aid_type": post.aid_type,
+        "target_month": post.target_month,
+        "total_expected": float(post.total_expected),
+        "total_paid": round(total_paid, 2),
+        "paid_count": paid_count,
+        "total_count": contributions.count(),
+        "details": details,
+    })
+
+
+@require_POST
+@transaction.atomic
+def auditor_verify_post_finish(request: HttpRequest):
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    officer = _get_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    decision = (request.POST.get("decision") or "").strip().lower()
+    remarks = (request.POST.get("remarks") or "").strip()
+
+    if not post_id or decision not in ("verified", "rejected"):
+        return JsonResponse({"ok": False, "error": "Invalid request."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id), finish_status="pending_auditor")
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Post not found or not pending auditor."}, status=404)
+
+    archive = post.archive_id_FK
+    member_name = archive.member_name if archive else ""
+
+    if decision == "rejected":
+        post.finish_status = "rejected"
+        post.save(update_fields=["finish_status"])
+
+        GlobalAuditTrail.objects.create(
+            table_name="AID_TRACKING_POST",
+            record_id=post.post_id_PK,
+            action="FINISH_REJECTED",
+            actor_type="Auditor",
+            actor_id=officer.user_id_PK,
+            actor_name=getattr(officer, "full_name", ""),
+            notes=remarks or "Auditor rejected finish request",
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)("treasurer_dashboard", {
+            "type": "aid_post_finish_rejected", "post_id": post.post_id_PK, "member_name": member_name,
+        })
+
+        return JsonResponse({"ok": True, "message": "Finish request rejected.", "status": "rejected"})
+
+    post.finish_status = "pending_president"
+    post.save(update_fields=["finish_status"])
+
+    GlobalAuditTrail.objects.create(
+        table_name="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="FINISH_VERIFIED",
+        actor_type="Auditor",
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        notes=remarks or "Auditor verified finish request",
+        ip_address=request.META.get("REMOTE_ADDR"),
+    )
+
+    channel_layer = get_channel_layer()
+    payload = {
+        "type": "aid_post_finish_requested",
+        "post_id": post.post_id_PK,
+        "member_name": member_name,
+        "stage": "president",
+    }
+    async_to_sync(channel_layer.group_send)("president_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    _broadcast_to_group("auditor_dashboard", {"type": "data_changed", "section": "aids"})
+
+    return JsonResponse({"ok": True, "message": "Finish request verified and sent to President.", "status": "pending_president"})
+
+
+@require_GET
 def auditor_aid_post_history(request: HttpRequest):
     guard = require_role(request, role="Auditor")
     if guard is not None:
@@ -1380,3 +1539,177 @@ def auditor_audited_logs(request: HttpRequest):
         })
 
     return JsonResponse({"ok": True, "logs": items})
+
+
+# ==========================================================================
+# PAYROLL BATCH VERIFICATION (AUDITOR)
+# ==========================================================================
+
+
+@require_GET
+def auditor_pending_payroll_batches(request: HttpRequest):
+    """List PayrollBatches pending auditor verification."""
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    batches = PayrollBatch.objects.filter(
+        status="Pending",
+    ).select_related("recorded_by_user_id_FK").order_by("-created_at")
+
+    items = []
+    for b in batches:
+        items.append({
+            "batch_id": b.batch_id_PK,
+            "payroll_period": b.payroll_period,
+            "total_amount": float(b.total_amount),
+            "member_count": b.member_count,
+            "hardcopy_reference": b.hardcopy_reference or "",
+            "notes": b.notes or "",
+            "recorded_by": b.recorded_by_user_id_FK.full_name if b.recorded_by_user_id_FK else "",
+            "recorded_at": b.created_at.isoformat() if b.created_at else "",
+        })
+
+    return JsonResponse({"ok": True, "batches": items})
+
+
+@require_GET
+def auditor_payroll_batch_detail(request: HttpRequest, batch_id: int):
+    """View a PayrollBatch with all deductions (auditor version)."""
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id)
+    deductions = PayrollDeduction.objects.filter(batch_id_FK=batch).select_related("member_id_FK")
+
+    ded_list = []
+    for d in deductions:
+        ded_list.append({
+            "deduction_id": d.deduction_id_PK,
+            "member_id": d.member_id_FK.member_id_PK,
+            "member_name": d.member_id_FK.full_name,
+            "amount": float(d.amount),
+            "category": d.category,
+            "fund_impact": d.fund_impact,
+            "month_covered": d.month_covered or "",
+            "notes": d.notes or "",
+        })
+
+    proof = SupportingProof.objects.filter(
+        content_type=ContentType.objects.get_for_model(PayrollBatch),
+        object_id=batch.pk,
+    )
+    proof_files = [{
+        "file_name": p.file_name,
+        "url": p.file.url if p.file else "",
+    } for p in proof]
+
+    return JsonResponse({
+        "ok": True,
+        "batch": {
+            "batch_id": batch.batch_id_PK,
+            "payroll_period": batch.payroll_period,
+            "total_amount": float(batch.total_amount),
+            "member_count": batch.member_count,
+            "hardcopy_reference": batch.hardcopy_reference or "",
+            "notes": batch.notes or "",
+            "status": batch.status,
+            "recorded_by": batch.recorded_by_user_id_FK.full_name if batch.recorded_by_user_id_FK else "",
+            "created_at": batch.created_at.isoformat() if batch.created_at else "",
+        },
+        "deductions": ded_list,
+        "supporting_files": proof_files,
+    })
+
+
+@require_POST
+@transaction.atomic
+def auditor_verify_payroll_batch(request: HttpRequest, batch_id: int):
+    """Mark a PayrollBatch as Auditor Verified."""
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id, status="Pending")
+
+    stored_officer_id = request.session.get("officer_id")
+    try:
+        officer = OfficerUser.objects.get(user_id_PK=int(stored_officer_id))
+    except (ValueError, OfficerUser.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Officer not found."}, status=404)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = {}
+
+    batch.status = "Auditor Verified"
+    batch.auditor_verified_by_user_id_FK = officer
+    batch.auditor_verified_at = timezone.now()
+    batch.auditor_remarks = data.get("remarks", "")
+    batch.save(update_fields=["status", "auditor_verified_by_user_id_FK", "auditor_verified_at", "auditor_remarks"])
+
+    GlobalAuditTrail.objects.create(
+        table_name="PAYROLL_BATCH",
+        record_id=batch.pk,
+        action="VERIFIED",
+        actor_type="Auditor",
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        ip_address=request.META.get("REMOTE_ADDR"),
+        new_values={"status": "Auditor Verified", "remarks": data.get("remarks", "")},
+    )
+
+    _broadcast_pending_counts()
+    _broadcast_to_group("auditor_dashboard", {"type": "dashboard_refresh", "section": "all"})
+
+    return JsonResponse({"ok": True, "message": "Payroll batch verified."})
+
+
+@require_POST
+@transaction.atomic
+def auditor_reject_payroll_batch(request: HttpRequest, batch_id: int):
+    """Return a PayrollBatch for revision."""
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id, status="Pending")
+
+    stored_officer_id = request.session.get("officer_id")
+    try:
+        officer = OfficerUser.objects.get(user_id_PK=int(stored_officer_id))
+    except (ValueError, OfficerUser.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Officer not found."}, status=404)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = {}
+
+    reason = data.get("reason", "")
+    if not reason:
+        return JsonResponse({"ok": False, "error": "Reason is required for rejection."}, status=400)
+
+    batch.status = "Returned for Revision"
+    batch.returned_by_user_id_FK = officer
+    batch.returned_reason = reason
+    batch.save(update_fields=["status", "returned_by_user_id_FK", "returned_reason"])
+
+    GlobalAuditTrail.objects.create(
+        table_name="PAYROLL_BATCH",
+        record_id=batch.pk,
+        action="RETURNED",
+        actor_type="Auditor",
+        actor_id=officer.user_id_PK,
+        actor_name=getattr(officer, "full_name", ""),
+        ip_address=request.META.get("REMOTE_ADDR"),
+        notes=reason,
+        new_values={"status": "Returned for Revision", "reason": reason},
+    )
+
+    _broadcast_pending_counts()
+    _broadcast_to_group("auditor_dashboard", {"type": "dashboard_refresh", "section": "all"})
+
+    return JsonResponse({"ok": True, "message": "Payroll batch returned for revision."})

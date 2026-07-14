@@ -1,0 +1,452 @@
+<div class="section-container">
+  <div class="section-header">
+    <h2><i class="fas fa-file-invoice"></i> Payroll Batches</h2>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="showNewPayrollBatchForm()">
+        <i class="fas fa-plus"></i> New Payroll Batch
+      </button>
+    </div>
+  </div>
+
+  <div id="fund-balance-container" hx-get="/api/fund-balance/" hx-trigger="load" hx-target="this"></div>
+
+  <div class="batch-list">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Payroll Period</th>
+          <th>Total Amount</th>
+          <th>Members</th>
+          <th>Status</th>
+          <th>Recorded By</th>
+          <th>Verified By</th>
+          <th>Approved By</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="payroll-batch-table-body">
+        <tr><td colspan="8" class="text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- New Payroll Batch Modal -->
+<div id="payroll-batch-modal" class="modal" style="display:none;">
+  <div class="modal-content modal-lg">
+    <span class="close" onclick="closePayrollBatchModal()">&times;</span>
+    <h3 id="payroll-batch-modal-title">New Payroll Batch</h3>
+    <form id="payroll-batch-form">
+      <input type="hidden" id="batch-id" value="">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Payroll Period <span class="required">*</span></label>
+          <input type="month" id="payroll-period" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>Hardcopy Reference</label>
+          <input type="text" id="hardcopy-ref" class="form-control" placeholder="e.g. PR-2026-07-001">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="batch-notes" class="form-control" rows="2"></textarea>
+      </div>
+
+      <h4>Deductions</h4>
+      <div class="deductions-list">
+        <table class="table table-sm" id="deductions-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Month Covered</th>
+              <th>Aid Post (if applicable)</th>
+              <th>Fund Impact</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="deductions-table-body">
+            <!-- deduction rows added here -->
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="7">
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addDeductionRow()">
+                  <i class="fas fa-plus"></i> Add Row
+                </button>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="batch-summary">
+        <strong>Total: </strong>₱<span id="batch-total">0.00</span>
+        &nbsp;|&nbsp; <strong>Fund Impact: </strong>₱<span id="fund-impact-total">0.00</span>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="closePayrollBatchModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="batch-submit-btn">Save Batch</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- View Batch Detail Modal -->
+<div id="batch-detail-modal" class="modal" style="display:none;">
+  <div class="modal-content modal-lg">
+    <span class="close" onclick="closeBatchDetailModal()">&times;</span>
+    <h3>Payroll Batch Detail</h3>
+    <div id="batch-detail-content"></div>
+  </div>
+</div>
+
+<script>
+let deductionRowCount = 0;
+
+function loadPayrollBatches() {
+  fetch('/api/treasurer/payroll-batches/list/')
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('payroll-batch-table-body');
+      if (!data.batches || data.batches.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">No payroll batches yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.batches.map(b => `
+        <tr>
+          <td>${b.payroll_period}</td>
+          <td>₱${parseFloat(b.total_amount).toFixed(2)}</td>
+          <td>${b.member_count}</td>
+          <td><span class="badge badge-${b.status.toLowerCase().replace(/\s+/g, '-')}">${b.status}</span></td>
+          <td>${b.recorded_by} <small>${new Date(b.recorded_at).toLocaleDateString()}</small></td>
+          <td>${b.verified_by || '—'}</td>
+          <td>${b.approved_by || '—'}</td>
+          <td class="actions">
+            <button class="btn btn-sm btn-outline-info" onclick="viewBatch(${b.batch_id})" title="View">
+              <i class="fas fa-eye"></i>
+            </button>
+            ${b.status === 'Pending' || b.status === 'Returned for Revision' ? `
+              <button class="btn btn-sm btn-outline-primary" onclick="editBatch(${b.batch_id})" title="Edit">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" onclick="deleteBatch(${b.batch_id})" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+            ` : ''}
+          </td>
+        </tr>
+      `).join('');
+    });
+}
+
+function showNewPayrollBatchForm() {
+  document.getElementById('batch-id').value = '';
+  document.getElementById('payroll-batch-modal-title').textContent = 'New Payroll Batch';
+  document.getElementById('payroll-batch-form').reset();
+  document.getElementById('deductions-table-body').innerHTML = '';
+  deductionRowCount = 0;
+  addDeductionRow();
+  document.getElementById('payroll-batch-modal').style.display = 'block';
+}
+
+function closePayrollBatchModal() {
+  document.getElementById('payroll-batch-modal').style.display = 'none';
+}
+
+function addDeductionRow(data) {
+  const rowId = deductionRowCount++;
+  const tbody = document.getElementById('deductions-table-body');
+  const tr = document.createElement('tr');
+  tr.id = `ded-row-${rowId}`;
+  tr.innerHTML = `
+    <td>
+      <select class="form-control member-select" data-row="${rowId}" required>
+        <option value="">Select Member</option>
+      </select>
+    </td>
+    <td>
+      <select class="form-control category-select" data-row="${rowId}" onchange="onCategoryChange(${rowId})" required>
+        <option value="monthly_dues" ${data?.category === 'monthly_dues' ? 'selected' : ''}>Monthly Dues</option>
+        <option value="membership_fee" ${data?.category === 'membership_fee' ? 'selected' : ''}>Membership Fee</option>
+        <option value="aid_contribution" ${data?.category === 'aid_contribution' ? 'selected' : ''}>Aid Contribution</option>
+      </select>
+    </td>
+    <td><input type="number" step="0.01" class="form-control amount-input" data-row="${rowId}" value="${data?.amount || '50'}" required oninput="recalcTotals()"></td>
+    <td><input type="month" class="form-control month-input" data-row="${rowId}" value="${data?.month_covered || ''}"></td>
+    <td>
+      <select class="form-control aid-post-select" data-row="${rowId}" style="display:none;">
+        <option value="">N/A</option>
+      </select>
+    </td>
+    <td>
+      <select class="form-control fund-impact-select" data-row="${rowId}">
+        <option value="inflow" ${data?.fund_impact !== 'none' ? 'selected' : ''}>Inflow (Fund +)</option>
+        <option value="none" ${data?.fund_impact === 'none' ? 'selected' : ''}>None (Pass-through)</option>
+      </select>
+    </td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeDeductionRow(${rowId})"><i class="fas fa-times"></i></button></td>
+  `;
+  tbody.appendChild(tr);
+
+  // Load member options
+  fetch('/api/treasurer/members/list/')
+    .then(r => r.json())
+    .then(m => {
+      const sel = tr.querySelector('.member-select');
+      (m.members || []).forEach(mem => {
+        const opt = document.createElement('option');
+        opt.value = mem.member_id;
+        opt.textContent = `${mem.full_name} (${mem.employee_id || 'N/A'})`;
+        if (data?.member_id == mem.member_id) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    });
+
+  // Load active tracking posts for aid_contribution
+  loadActiveAidPosts(tr, rowId, data?.aid_tracking_post_id);
+  recalcTotals();
+}
+
+function loadActiveAidPosts(tr, rowId, selectedId) {
+  fetch('/api/treasurer/approved-aid-posts/').catch(() => {})
+    .then(r => r.ok ? r.json() : { posts: [] })
+    .then(data => {
+      const sel = tr.querySelector('.aid-post-select');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">Select aid post...</option>';
+      (data.posts || []).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.post_id;
+        opt.textContent = `${p.aid_label || p.aid_type} — ${p.member_name || ''} (₱${p.total_expected})`;
+        if (selectedId && selectedId == p.post_id) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    });
+}
+
+function onCategoryChange(rowId) {
+  const tr = document.getElementById(`ded-row-${rowId}`);
+  if (!tr) return;
+  const cat = tr.querySelector('.category-select').value;
+  const monthInput = tr.querySelector('.month-input');
+  const aidSelect = tr.querySelector('.aid-post-select');
+  const amountInput = tr.querySelector('.amount-input');
+  monthInput.style.display = cat === 'monthly_dues' ? 'inline-block' : 'none';
+  aidSelect.style.display = cat === 'aid_contribution' ? 'inline-block' : 'none';
+  if (cat === 'monthly_dues' && !amountInput.value) amountInput.value = '50';
+  if (cat === 'membership_fee' && !amountInput.value) amountInput.value = '100';
+  recalcTotals();
+}
+
+function removeDeductionRow(rowId) {
+  const tr = document.getElementById(`ded-row-${rowId}`);
+  if (tr) tr.remove();
+  recalcTotals();
+}
+
+function recalcTotals() {
+  const amounts = document.querySelectorAll('.amount-input');
+  let total = 0;
+  let fundImpact = 0;
+  amounts.forEach(inp => {
+    const val = parseFloat(inp.value) || 0;
+    total += val;
+    const row = inp.closest('tr');
+    if (row) {
+      const impact = row.querySelector('.fund-impact-select')?.value;
+      if (impact === 'inflow') fundImpact += val;
+    }
+  });
+  document.getElementById('batch-total').textContent = total.toFixed(2);
+  document.getElementById('fund-impact-total').textContent = fundImpact.toFixed(2);
+}
+
+document.getElementById('payroll-batch-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const batchId = document.getElementById('batch-id').value;
+  const deductions = [];
+  document.querySelectorAll('#deductions-table-body tr').forEach(tr => {
+    deductions.push({
+      member_id: parseInt(tr.querySelector('.member-select')?.value) || 0,
+      category: tr.querySelector('.category-select')?.value || 'monthly_dues',
+      amount: parseFloat(tr.querySelector('.amount-input')?.value) || 0,
+      month_covered: tr.querySelector('.month-input')?.value || '',
+      aid_tracking_post_id: tr.querySelector('.aid-post-select')?.value || null,
+      fund_impact: tr.querySelector('.fund-impact-select')?.value || 'inflow',
+      notes: '',
+    });
+  });
+
+  if (deductions.length === 0) { alert('Add at least one deduction.'); return; }
+
+  const url = batchId
+    ? `/api/treasurer/payroll-batches/${batchId}/edit/`
+    : '/api/treasurer/payroll-batches/create/';
+
+  fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRF()},
+    body: JSON.stringify({
+      payroll_period: document.getElementById('payroll-period').value,
+      hardcopy_reference: document.getElementById('hardcopy-ref').value,
+      notes: document.getElementById('batch-notes').value,
+      deductions: deductions,
+    }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      closePayrollBatchModal();
+      loadPayrollBatches();
+      showToast('Payroll batch saved successfully!');
+    } else {
+      alert(data.error || 'Error saving batch');
+    }
+  })
+  .catch(() => alert('Error saving batch'));
+});
+
+function viewBatch(batchId) {
+  fetch(`/api/treasurer/payroll-batches/${batchId}/`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { alert(data.error); return; }
+      const b = data.batch;
+      let html = `
+        <div class="detail-grid">
+          <div><strong>Period:</strong> ${b.payroll_period}</div>
+          <div><strong>Total:</strong> ₱${parseFloat(b.total_amount).toFixed(2)}</div>
+          <div><strong>Members:</strong> ${b.member_count}</div>
+          <div><strong>Status:</strong> ${b.status}</div>
+          <div><strong>Recorded By:</strong> ${b.recorded_by}</div>
+          <div><strong>Hardcopy Ref:</strong> ${b.hardcopy_reference || '—'}</div>
+        </div>
+        <div class="notes">${b.notes ? `<strong>Notes:</strong> ${b.notes}` : ''}</div>
+        <h4>Deductions</h4>
+        <table class="table table-sm">
+          <thead><tr><th>Member</th><th>Category</th><th>Amount</th><th>Impact</th></tr></thead>
+          <tbody>
+            ${(data.deductions || []).map(d => `
+              <tr>
+                <td>${d.member_name}</td>
+                <td>${d.category}</td>
+                <td>₱${parseFloat(d.amount).toFixed(2)}</td>
+                <td>${d.fund_impact === 'inflow' ? 'Inflow' : 'None'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <a href="#" onclick="event.preventDefault(); fetch('/api/treasurer/payroll-batches/${batchId}/history/').then(r=>r.json()).then(h=>alert('See console for history')||console.log(h));">
+          View Audit Trail
+        </a>
+      `;
+      document.getElementById('batch-detail-content').innerHTML = html;
+      document.getElementById('batch-detail-modal').style.display = 'block';
+    });
+}
+
+function closeBatchDetailModal() {
+  document.getElementById('batch-detail-modal').style.display = 'none';
+}
+
+function editBatch(batchId) {
+  fetch(`/api/treasurer/payroll-batches/${batchId}/`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { alert(data.error); return; }
+      const b = data.batch;
+      document.getElementById('batch-id').value = b.batch_id;
+      document.getElementById('payroll-batch-modal-title').textContent = 'Edit Payroll Batch';
+      document.getElementById('payroll-period').value = b.payroll_period;
+      document.getElementById('hardcopy-ref').value = b.hardcopy_reference || '';
+      document.getElementById('batch-notes').value = b.notes || '';
+      document.getElementById('deductions-table-body').innerHTML = '';
+      deductionRowCount = 0;
+      (data.deductions || []).forEach(d => addDeductionRow(d));
+      if (!data.deductions || data.deductions.length === 0) addDeductionRow();
+      document.getElementById('payroll-batch-modal').style.display = 'block';
+    });
+}
+
+function deleteBatch(batchId) {
+  if (!confirm('Delete this payroll batch?')) return;
+  fetch(`/api/treasurer/payroll-batches/${batchId}/delete/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': getCSRF()},
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) { loadPayrollBatches(); showToast('Batch deleted.'); }
+    else alert(data.error || 'Error deleting');
+  });
+}
+
+function showFundLedger() {
+  fetch('/api/fund-ledger/?per_page=20')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      let html = `
+        <h3>Fund Ledger</h3>
+        <div class="summary-row">
+          <span>Balance: <strong>₱${data.summary.balance.toFixed(2)}</strong></span>
+          <span>In: ₱${data.summary.total_in.toFixed(2)}</span>
+          <span>Out: ₱${data.summary.total_out.toFixed(2)}</span>
+        </div>
+        <table class="table table-sm">
+          <thead><tr><th>Date</th><th>Dir</th><th>Amount</th><th>Description</th><th>By</th></tr></thead>
+          <tbody>
+            ${data.items.map(e => `
+              <tr>
+                <td>${new Date(e.recorded_at).toLocaleDateString()}</td>
+                <td><span class="badge badge-${e.direction}">${e.direction}</span></td>
+                <td>₱${e.amount.toFixed(2)}</td>
+                <td>${e.description}</td>
+                <td>${e.recorded_by}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      const modal = document.getElementById('batch-detail-modal');
+      document.getElementById('batch-detail-content').innerHTML = html;
+      modal.style.display = 'block';
+    });
+}
+
+function getCSRF() {
+  return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+// Load on page show
+document.addEventListener('htmx:afterOnLoad', function() {
+  if (document.getElementById('payroll-batch-table-body')) loadPayrollBatches();
+});
+
+// Load on direct access
+if (document.getElementById('payroll-batch-table-body')) loadPayrollBatches();
+</script>
+
+<style>
+.section-container { padding: 20px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.header-actions .btn { margin-left: 8px; }
+.batch-summary { margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; font-size: 16px; }
+.form-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.badge-pending { background: #ffc107; color: #000; }
+.badge-auditor-verified { background: #17a2b8; color: #fff; }
+.badge-approved { background: #28a745; color: #fff; }
+.badge-rejected { background: #dc3545; color: #fff; }
+.badge-returned-for-revision { background: #fd7e14; color: #fff; }
+.badge-inflow { background: #28a745; color: #fff; }
+.badge-outflow { background: #dc3545; color: #fff; }
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+.modal-content { background: #fff; margin: 5% auto; padding: 24px; border-radius: 12px; max-height: 80vh; overflow-y: auto; }
+.modal-lg { width: 90%; max-width: 1100px; }
+.close { float: right; font-size: 24px; cursor: pointer; }
+</style>

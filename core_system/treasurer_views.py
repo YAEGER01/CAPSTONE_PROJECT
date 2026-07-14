@@ -12,7 +12,7 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import Q, Sum
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import ExtractMonth
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
@@ -21,10 +21,13 @@ from core_system.guards import require_officer_session, require_role
 from core_system.models import (
     AidTrackingPost,
     Contribution,
+    FundTransaction,
     Member,
     MembershipFee,
     OfficerUser,
     MonthlyDues,
+    PayrollBatch,
+    PayrollDeduction,
     TransactionVerification,
     MedicalAid,
     DeathAid,
@@ -34,6 +37,7 @@ from core_system.models import (
     AuditFindingsReport,
     TransactionArchive,
     GlobalAuditTrail,
+    SystemSetting,
 )
 from core_system.constants.policy_constants import (
     check_medical_aid_once_per_year,
@@ -588,33 +592,18 @@ def cash_flow_summary(request: HttpRequest):
     if guard is not None:
         return guard
 
-    funds_in = sum(
-        float(e.amount or 0)
-        for e in TransactionArchive.objects.filter(
-            transaction_type__in=["membership_fee", "monthly_dues"],
-        )
+    totals = FundTransaction.objects.aggregate(
+        funds_in=Sum("amount", filter=Q(direction="inflow")),
+        funds_out=Sum("amount", filter=Q(direction="outflow")),
     )
-
-    funds_out = sum(
-        float(e.amount or 0)
-        for e in TransactionArchive.objects.filter(
-            transaction_type__in=["medical_aid", "death_aid"],
-        )
-    )
-
-    pending = (
-        Contribution.objects.filter(
-            status="NOT_PAID",
-            aid_tracking_post_id_FK__is_active=True,
-        ).aggregate(total=Sum("expected_amount"))["total"]
-        or 0
-    )
+    funds_in = float(totals["funds_in"] or 0)
+    funds_out = float(totals["funds_out"] or 0)
 
     return JsonResponse({
         "ok": True,
-        "funds_in": float(funds_in),
-        "funds_out": float(funds_out),
-        "pending_contributions": float(pending),
+        "funds_in": funds_in,
+        "funds_out": funds_out,
+        "fund_balance": funds_in - funds_out,
     })
 
 
@@ -623,6 +612,14 @@ def treasurer_dashboard_inflow_outflow(request: HttpRequest):
     guard = require_role(request, role="Treasurer")
     if guard is not None:
         return guard
+
+    totals = FundTransaction.objects.aggregate(
+        total_in=Sum("amount", filter=Q(direction="inflow")),
+        total_out=Sum("amount", filter=Q(direction="outflow")),
+    )
+    total_in = float(totals["total_in"] or 0)
+    total_out = float(totals["total_out"] or 0)
+    fund_balance = total_in - total_out
 
     approved_fee_ids = TransactionVerification.objects.filter(
         table_name="membership_fee",
@@ -636,11 +633,11 @@ def treasurer_dashboard_inflow_outflow(request: HttpRequest):
 
     recent_fees = MembershipFee.objects.select_related("member_id_FK").filter(
         fee_id_PK__in=approved_fee_ids,
-    ).order_by("-payment_date", "-fee_id_PK")[:100]
+    ).order_by("-payment_date", "-fee_id_PK")[:50]
 
     recent_dues = MonthlyDues.objects.select_related("member_id_FK").filter(
         dues_id_PK__in=approved_dues_ids,
-    ).order_by("-payment_date", "-dues_id_PK")[:100]
+    ).order_by("-payment_date", "-dues_id_PK")[:50]
 
     inflows = []
     for fee in recent_fees:
@@ -656,6 +653,19 @@ def treasurer_dashboard_inflow_outflow(request: HttpRequest):
             "amount": float(due.amount),
             "date": str(due.payment_date),
             "type": "Monthly Dues",
+        })
+
+    contribution_inflows = FundTransaction.objects.filter(
+        direction="inflow",
+        source_type="contribution",
+    ).order_by("-recorded_at")[:20]
+
+    for ft in contribution_inflows:
+        inflows.append({
+            "member_name": ft.description.replace("Contribution — ", "").rsplit(" (", 1)[0] if "Contribution" in ft.description else "Contribution",
+            "amount": float(ft.amount),
+            "date": str(ft.recorded_at.date()) if ft.recorded_at else "",
+            "type": "Contribution",
         })
 
     inflows.sort(key=lambda x: x["date"], reverse=True)
@@ -675,30 +685,32 @@ def treasurer_dashboard_inflow_outflow(request: HttpRequest):
             "type": aid_type,
         })
 
-    total_fees = MembershipFee.objects.filter(
-        fee_id_PK__in=approved_fee_ids,
-    ).aggregate(total=Sum("amount"))["total"] or 0
+    fund_payments = FundTransaction.objects.filter(
+        direction="outflow",
+        source_type="aid_post_payment",
+    ).order_by("-recorded_at")[:20]
 
-    total_dues = MonthlyDues.objects.filter(
-        dues_id_PK__in=approved_dues_ids,
-    ).aggregate(total=Sum("amount"))["total"] or 0
+    for ft in fund_payments:
+        outflows.append({
+            "member_name": ft.description.replace("Fund disbursement — ", "").rsplit(" (", 1)[0] if "Fund disbursement" in ft.description else "Fund Payment",
+            "amount": float(ft.amount),
+            "date": str(ft.recorded_at.date()) if ft.recorded_at else "",
+            "type": "Fund Payment",
+        })
 
-    total_in = float(total_fees) + float(total_dues)
-
-    total_out = TransactionArchive.objects.filter(
-        status="Released",
-        transaction_type__in=["medical_aid", "death_aid"],
-    ).aggregate(total=Sum("amount"))["total"] or 0
-
-    fund_balance = total_in - float(total_out)
+    safety_threshold = float(SystemSetting.objects.get_or_create(
+        setting_key="safety_threshold", defaults={"setting_value": "20000"}
+    )[0].setting_value)
 
     return JsonResponse({
         "ok": True,
         "fund_balance": fund_balance,
         "money_in": total_in,
-        "money_out": float(total_out),
+        "money_out": total_out,
         "inflows": inflows,
         "outflows": outflows,
+        "safety_threshold": safety_threshold,
+        "available": fund_balance - safety_threshold,
     })
 
 
@@ -710,76 +722,39 @@ def treasurer_monthly_flow(request: HttpRequest):
 
     year = timezone.now().year
 
-    approved_fee_ids = TransactionVerification.objects.filter(
-        table_name="membership_fee",
-        verification_status="Approved",
-        record_id__in=MembershipFee.objects.filter(
-            payment_date__year=year,
-        ).values("fee_id_PK"),
-    ).values_list("record_id", flat=True)
-
-    approved_dues_ids = TransactionVerification.objects.filter(
-        table_name="monthly_dues",
-        verification_status="Approved",
-        record_id__in=MonthlyDues.objects.filter(
-            payment_date__year=year,
-        ).values("dues_id_PK"),
-    ).values_list("record_id", flat=True)
-
-    fee_qs = MembershipFee.objects.filter(
-        fee_id_PK__in=approved_fee_ids,
-    ).annotate(month=TruncMonth("payment_date")).values("month").annotate(
-        total=Sum("amount"),
-    ).order_by("month")
-
-    dues_qs = MonthlyDues.objects.filter(
-        dues_id_PK__in=approved_dues_ids,
-    ).annotate(month=TruncMonth("payment_date")).values("month").annotate(
-        total=Sum("amount"),
-    ).order_by("month")
-
-    med_qs = TransactionArchive.objects.filter(
-        status="Released",
-        transaction_type="medical_aid",
-        archived_at__year=year,
-    ).annotate(month=TruncMonth("archived_at")).values("month").annotate(
-        total=Sum("amount"),
-    ).order_by("month")
-
-    dth_qs = TransactionArchive.objects.filter(
-        status="Released",
-        transaction_type="death_aid",
-        archived_at__year=year,
-    ).annotate(month=TruncMonth("archived_at")).values("month").annotate(
-        total=Sum("amount"),
-    ).order_by("month")
-
-    fee_map = {str(r["month"]): float(r["total"]) for r in fee_qs if r["month"]}
-    dues_map = {str(r["month"]): float(r["total"]) for r in dues_qs if r["month"]}
-    med_map = {str(r["month"]): float(r["total"]) for r in med_qs if r["month"]}
-    dth_map = {str(r["month"]): float(r["total"]) for r in dth_qs if r["month"]}
+    membership_fee_map = {r["m"]: float(r["total"]) for r in MembershipFee.objects.filter(payment_date__year=year).annotate(m=ExtractMonth("payment_date")).values("m").annotate(total=Sum("amount")).order_by("m") if r["m"]}
+    monthly_dues_map = {r["m"]: float(r["total"]) for r in MonthlyDues.objects.filter(payment_date__year=year).annotate(m=ExtractMonth("payment_date")).values("m").annotate(total=Sum("amount")).order_by("m") if r["m"]}
+    medical_aid_map = {r["m"]: float(r["total"]) for r in MedicalAid.objects.filter(request_date__year=year).annotate(m=ExtractMonth("request_date")).values("m").annotate(total=Sum("validated_aid_amount")).order_by("m") if r["m"]}
+    death_aid_map = {r["m"]: float(r["total"]) for r in DeathAid.objects.filter(claim_date__year=year).annotate(m=ExtractMonth("claim_date")).values("m").annotate(total=Sum("benefit_amount")).order_by("m") if r["m"]}
+    fund_payment_map = {r["m"]: float(r["total"]) for r in FundTransaction.objects.filter(direction="outflow", source_type="aid_post_payment", recorded_at__year=year).annotate(m=ExtractMonth("recorded_at")).values("m").annotate(total=Sum("amount")).order_by("m") if r["m"]}
+    contribution_map = {r["m"]: float(r["total"]) for r in Contribution.objects.filter(status="PAID", payment_date__year=year).annotate(m=ExtractMonth("payment_date")).values("m").annotate(total=Sum("paid_amount")).order_by("m") if r["m"]}
 
     month_labels = []
-    fee_data = []
-    dues_data = []
-    med_data = []
-    dth_data = []
+    membership_fee_data = []
+    monthly_dues_data = []
+    medical_aid_data = []
+    death_aid_data = []
+    fund_payment_data = []
+    contribution_data = []
 
     for m in range(1, 13):
-        key = f"{year}-{m:02d}-01"
         month_labels.append(f"{year}-{m:02d}")
-        fee_data.append(fee_map.get(key, 0))
-        dues_data.append(dues_map.get(key, 0))
-        med_data.append(med_map.get(key, 0))
-        dth_data.append(dth_map.get(key, 0))
+        membership_fee_data.append(membership_fee_map.get(m, 0))
+        monthly_dues_data.append(monthly_dues_map.get(m, 0))
+        medical_aid_data.append(medical_aid_map.get(m, 0))
+        death_aid_data.append(death_aid_map.get(m, 0))
+        fund_payment_data.append(fund_payment_map.get(m, 0))
+        contribution_data.append(contribution_map.get(m, 0))
 
     return JsonResponse({
         "ok": True,
         "months": month_labels,
-        "membership_fee": fee_data,
-        "monthly_dues": dues_data,
-        "medical_aid": med_data,
-        "death_aid": dth_data,
+        "membership_fee": membership_fee_data,
+        "monthly_dues": monthly_dues_data,
+        "medical_aid": medical_aid_data,
+        "death_aid": death_aid_data,
+        "fund_payment": fund_payment_data,
+        "contribution": contribution_data,
     })
 
 
@@ -1358,6 +1333,42 @@ def treasurer_salary_bulk_preview(request: HttpRequest):
         "members": members,
         "total_active": active_members.count(),
         "already_processed": len(existing),
+        "next_batch_ref": _next_batch_ref(sal_month),
+    })
+
+
+def _next_batch_ref(month_str):
+    """Generate the next batch reference: ISU-CAUFA-{YY}-{N}."""
+    yy = month_str.split("-")[0][-2:]
+    prefix = f"ISU-CAUFA-{yy}-"
+    existing = MonthlyDues.objects.filter(
+        remittance_reference__startswith=prefix,
+    ).values_list("remittance_reference", flat=True)
+    max_n = 0
+    for ref in existing:
+        try:
+            n = int(ref[len(prefix):])
+            if n > max_n:
+                max_n = n
+        except (ValueError, IndexError):
+            continue
+    return f"{prefix}{max_n + 1}"
+
+
+@require_GET
+def treasurer_next_batch_ref(request: HttpRequest):
+    """Return the next auto-generated batch ref for a given month."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    month = (request.GET.get("month") or "").strip()
+    if not month:
+        return JsonResponse({"ok": False, "error": "month is required."}, status=400)
+
+    return JsonResponse({
+        "ok": True,
+        "next_batch_ref": _next_batch_ref(month),
     })
 
 
@@ -1373,15 +1384,12 @@ def treasurer_salary_bulk_process(request: HttpRequest):
         return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
 
     sal_month = (request.POST.get("sal_month") or "").strip()
-    batch_ref = (request.POST.get("batch_ref") or "").strip()
     summary = (request.POST.get("summary") or "").strip()
     member_ids_raw = (request.POST.get("member_ids") or "").strip()
     uploaded = request.FILES.get("sal_photo_file")
 
     if not sal_month:
         return JsonResponse({"ok": False, "error": "sal_month is required."}, status=400)
-    if not batch_ref:
-        return JsonResponse({"ok": False, "error": "batch_ref is required."}, status=400)
     if not member_ids_raw:
         return JsonResponse({"ok": False, "error": "member_ids is required."}, status=400)
 
@@ -1400,21 +1408,27 @@ def treasurer_salary_bulk_process(request: HttpRequest):
     except ValueError:
         return JsonResponse({"ok": False, "error": "Invalid month format."}, status=400)
 
+    # Constraint: reject if any Salary Deduction records already exist for this month
+    if MonthlyDues.objects.filter(
+        payment_method="Salary Deduction",
+        month_covered=sal_month,
+    ).exists():
+        return JsonResponse({
+            "ok": False,
+            "error": f"Salary deductions for {sal_month} have already been processed. Duplicate month not allowed.",
+        }, status=409)
+
+    # Auto-generate batch reference
+    batch_ref = _next_batch_ref(sal_month)
+
     # Deduplicate member_ids
     unique_ids = list(set(member_ids))
 
-    # Fetch members and existing records in bulk
+    # Fetch members in bulk
     members_map = {
         m.member_id_PK: m
         for m in Member.objects.filter(member_id_PK__in=unique_ids)
     }
-    existing_for_month = set(
-        MonthlyDues.objects.filter(
-            payment_method="Salary Deduction",
-            month_covered=sal_month,
-            member_id_FK__in=unique_ids,
-        ).values_list("member_id_FK", flat=True)
-    )
 
     processed = 0
     skipped = 0
@@ -1427,9 +1441,6 @@ def treasurer_salary_bulk_process(request: HttpRequest):
                 skipped += 1
                 continue
             if str(member.membership_status) == "retired":
-                skipped += 1
-                continue
-            if mid in existing_for_month:
                 skipped += 1
                 continue
 
@@ -1646,6 +1657,7 @@ def treasurer_medical_aid_add(request: HttpRequest):
     med_bill = (request.POST.get("med_bill") or "").strip()
     med_validation = (request.POST.get("med_validation") or "").strip()
     med_reason = (request.POST.get("med_reason") or "").strip()
+    med_source = (request.POST.get("med_source") or "").strip()
 
     if not med_member:
         return JsonResponse({"ok": False, "error": "Beneficiary Member ID is required."}, status=400)
@@ -1711,6 +1723,7 @@ def treasurer_medical_aid_add(request: HttpRequest):
             policy_record_status="Pending",
             validated_aid_amount=get_accidental_sickness_aid_benefit(),
             status=med_validation or "Pending",
+            disbursement_source=med_source if med_source in ("fund", "direct") else None,
         )
 
         TransactionVerification.objects.create(
@@ -1960,6 +1973,7 @@ def treasurer_death_aid_add(request: HttpRequest):
     death_date = (request.POST.get("death_date") or "").strip()
     death_funeral_location = (request.POST.get("death_funeral_location") or "").strip()
     death_interment_date = (request.POST.get("death_interment_date") or "").strip() or None
+    death_source = (request.POST.get("death_source") or "").strip()
 
     if not death_member:
         return JsonResponse(
@@ -2049,6 +2063,7 @@ def treasurer_death_aid_add(request: HttpRequest):
             bill_amount=bill_value,
             document_status="Pending",
             status="Pending Verification",
+            disbursement_source=death_source if death_source in ("fund", "direct") else None,
             treasurer_validated_by_user_id_FK=treasurer_user,
             auditor_verified_by_user_id_FK=None,
             president_decided_by_user_id_FK=None,
@@ -2313,6 +2328,77 @@ def treasurer_members_list(request):
 
 
 @require_GET
+def treasurer_member_details(request, member_id):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    member = get_object_or_404(Member, pk=member_id)
+    year = timezone.now().year
+    expected_dues = get_expected_dues_amount()
+    fee_amount = get_membership_fee_amount()
+
+    paid_months = set(
+        MonthlyDues.objects.filter(
+            member_id_FK=member,
+            payment_date__year=year,
+        ).values_list("month_covered", flat=True)
+    )
+    missed_months = []
+    for m in range(1, 13):
+        key = f"{year}-{m:02d}"
+        if key not in paid_months:
+            missed_months.append(key)
+
+    outstanding_contributions = Contribution.objects.filter(
+        member_id_FK=member,
+        status="NOT_PAID",
+        aid_tracking_post_id_FK__status="tracking",
+    ).select_related("aid_tracking_post_id_FK")
+
+    fee_paid = MembershipFee.objects.filter(
+        member_id_FK=member,
+    ).exclude(
+        payment_status__iexact="unpaid",
+    ).exists()
+
+    active_aids = []
+    for c in outstanding_contributions:
+        post = c.aid_tracking_post_id_FK
+        active_aids.append({
+            "post_id": post.post_id_PK,
+            "aid_type": post.aid_type,
+            "expected_amount": float(c.expected_amount),
+            "paid_amount": float(c.paid_amount),
+            "status": c.status,
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "member_id": member.member_id_PK,
+        "full_name": member.full_name,
+        "employee_id": member.employee_id or "",
+        "membership_status": member.membership_status,
+        "missed_months": missed_months,
+        "membership_fee_paid": fee_paid,
+        "expected_dues_amount": expected_dues,
+        "membership_fee_amount": fee_amount,
+        "active_aid_obligations": active_aids,
+    })
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    members = Member.objects.all().order_by("member_id_PK")
+    return JsonResponse(
+        {
+            "ok": True,
+            "members": [member_to_json(m) for m in members],
+        }
+    )
+
+
+@require_GET
 def treasurer_active_members_count(request):
     guard = require_role(request, role="Treasurer")
     if guard is not None:
@@ -2491,9 +2577,10 @@ def treasurer_approved_aid_posts(request: HttpRequest):
             "total_expected": str(post.total_expected),
             "total_collected": str(post.total_collected),
             "collection_rate": collection_rate,
-            "finish_status": post.finish_status or "",
             "status": archive.status if archive else "",
             "amount": str(archive.amount) if archive else "0",
+            "finish_status": post.finish_status or "",
+            "remaining_balance": max(0, float(post.total_expected) - float(post.total_collected)),
             "created_at": post.created_at.isoformat() if post.created_at else "",
             "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
         })
@@ -2746,6 +2833,174 @@ def treasurer_aid_post_finish(request: HttpRequest):
     return JsonResponse({"ok": True, "message": "Finish request submitted for President approval."})
 
 
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_mark_finished(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id), is_active=True)
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Active post not found."}, status=404)
+
+    if post.finish_status and post.finish_status not in ("paid_with_funds",):
+        return JsonResponse({"ok": False, "error": "A finish request is already " + post.finish_status + "."}, status=400)
+
+    total = Contribution.objects.filter(aid_tracking_post_id_FK=post).count()
+    paid = Contribution.objects.filter(aid_tracking_post_id_FK=post, status="PAID").count()
+    if total == 0:
+        return JsonResponse({"ok": False, "error": "No contributions found for this post."}, status=400)
+    if (paid / total) < 0.7:
+        return JsonResponse({"ok": False, "error": f"At least 70% of members must be PAID (currently {paid}/{total})."}, status=400)
+
+    post.finish_status = "pending_auditor"
+    post.finish_skip_remaining = True
+    post.save(update_fields=["finish_status", "finish_skip_remaining"])
+
+    archive = post.archive_id_FK
+    member_name = archive.member_name if archive else ""
+
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="FINISH_REQUESTED",
+        actor=officer,
+        new={
+            "finish_status": "pending_auditor",
+            "finish_skip_remaining": True,
+            "paid_ratio": f"{paid}/{total}",
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    channel_layer = get_channel_layer()
+    payload = {
+        "type": "aid_post_finish_requested",
+        "post_id": post.post_id_PK,
+        "member_name": member_name,
+        "stage": "auditor",
+    }
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+    _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+
+    return JsonResponse({"ok": True, "message": "Finish request sent to Auditor for verification."})
+
+
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_paid_with_funds(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.select_related("archive_id_FK").get(
+            post_id_PK=int(post_id), is_active=True
+        )
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Active post not found."}, status=404)
+
+    if post.finish_status == "paid_with_funds":
+        return JsonResponse({"ok": False, "error": "Post has already been paid with funds."}, status=400)
+
+    archive = post.archive_id_FK
+    member_name = archive.member_name if archive else "Unknown"
+
+    FundTransaction.objects.create(
+        direction="outflow",
+        amount=post.total_expected,
+        source_type="aid_post_payment",
+        source_id=post.post_id_PK,
+        description=f"Fund disbursement — {member_name} ({post.aid_type})",
+        recorded_by_user_id_FK=officer,
+    )
+
+    post.finish_status = "paid_with_funds"
+    post.save(update_fields=["finish_status"])
+
+    _record_audit_trail(
+        table="aid_tracking_post",
+        record_id=post.post_id_PK,
+        action="PAID_WITH_FUNDS",
+        actor=officer,
+        new={
+            "finish_status": "paid_with_funds",
+            "fund_outflow": float(post.total_expected),
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "treasurer_dashboard",
+        {"type": "data_changed", "section": "aids"},
+    )
+    async_to_sync(channel_layer.group_send)(
+        "treasurer_dashboard",
+        {"type": "fund_updated"},
+    )
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {"type": "data_changed", "section": "aids"},
+    )
+    _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+
+    return JsonResponse({"ok": True, "message": "Post paid with funds successfully."})
+
+
+@require_POST
+def treasurer_aid_post_member_notify(request: HttpRequest):
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    contribution_id = (request.POST.get("contribution_id") or "").strip()
+    if not contribution_id:
+        return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
+
+    try:
+        contribution = Contribution.objects.select_related(
+            "member_id_FK", "aid_tracking_post_id_FK"
+        ).get(contribution_id_PK=int(contribution_id))
+    except (ValueError, Contribution.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
+
+    member = contribution.member_id_FK
+    _record_audit_trail(
+        table="contribution",
+        record_id=contribution.contribution_id_PK,
+        action="NOTIFIED",
+        actor=officer,
+        new={"member": getattr(member, "full_name", str(member.pk))},
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    return JsonResponse({"ok": True, "message": f"Notification sent to {getattr(member, 'full_name', 'member')}."})
+
+
 @require_GET
 def treasurer_aid_post_history(request: HttpRequest):
     guard = require_role(request, role="Treasurer")
@@ -2785,6 +3040,281 @@ def treasurer_aid_post_history(request: HttpRequest):
         })
 
     return JsonResponse({"ok": True, "posts": items})
+
+
+# ============================================================================
+# PAYROLL BATCH CRUD
+# ============================================================================
+
+
+@require_POST
+def treasurer_payroll_batch_create(request: HttpRequest):
+    """Create a PayrollBatch with its per-member deductions."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid JSON."}, status=400)
+
+    deductions_data = data.get("deductions", [])
+    if not deductions_data:
+        return JsonResponse({"ok": False, "error": "At least one deduction required."}, status=400)
+
+    total_amount = sum(d["amount"] for d in deductions_data)
+
+    batch = PayrollBatch.objects.create(
+        payroll_period=data.get("payroll_period", ""),
+        total_amount=total_amount,
+        member_count=len(deductions_data),
+        hardcopy_reference=data.get("hardcopy_reference", ""),
+        notes=data.get("notes", ""),
+        status="Pending",
+        recorded_by_user_id_FK=officer,
+    )
+
+    ded_records = []
+    for d in deductions_data:
+        ded = PayrollDeduction.objects.create(
+            batch_id_FK=batch,
+            member_id_FK_id=d["member_id"],
+            amount=d["amount"],
+            category=d["category"],
+            fund_impact=d.get("fund_impact", "inflow"),
+            month_covered=d.get("month_covered", ""),
+            aid_tracking_post_id_FK_id=d.get("aid_tracking_post_id"),
+            notes=d.get("notes", ""),
+        )
+        ded_records.append(ded)
+
+    for f in request.FILES.getlist("files"):
+        from core_system.shared_view_utils import _sha256_of_uploaded_file, _compute_row_signature
+
+        file_sha256 = _sha256_of_uploaded_file(f)
+        SupportingProof.objects.create(
+            content_type=ContentType.objects.get_for_model(PayrollBatch),
+            object_id=batch.pk,
+            file=f,
+            file_name=f.name,
+            file_type=f.content_type,
+            file_sha256=file_sha256,
+            row_signature=_compute_row_signature(file_sha256, batch.pk),
+            uploaded_by=officer,
+        )
+
+    _record_audit_trail(
+        table="PAYROLL_BATCH",
+        record_id=batch.pk,
+        action="CREATED",
+        actor=officer,
+        new={
+            "payroll_period": batch.payroll_period,
+            "total_amount": float(total_amount),
+            "member_count": len(deductions_data),
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Payroll batch created with {len(deductions_data)} deductions",
+    )
+
+    _broadcast_pending_counts()
+
+    return JsonResponse({
+        "ok": True,
+        "batch_id": batch.pk,
+        "total_amount": float(total_amount),
+        "deduction_count": len(ded_records),
+    })
+
+
+@require_GET
+def treasurer_payroll_batch_list(request: HttpRequest):
+    """List all PayrollBatches for the Treasurer dashboard."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    batches = PayrollBatch.objects.select_related(
+        "recorded_by_user_id_FK",
+        "auditor_verified_by_user_id_FK",
+        "president_approved_by_user_id_FK",
+    ).all().order_by("-created_at")
+
+    items = []
+    for b in batches:
+        items.append({
+            "batch_id": b.batch_id_PK,
+            "payroll_period": b.payroll_period,
+            "total_amount": float(b.total_amount),
+            "member_count": b.member_count,
+            "hardcopy_reference": b.hardcopy_reference or "",
+            "status": b.status,
+            "recorded_by": b.recorded_by_user_id_FK.full_name if b.recorded_by_user_id_FK else "",
+            "recorded_at": b.created_at.isoformat() if b.created_at else "",
+            "verified_by": b.auditor_verified_by_user_id_FK.full_name if b.auditor_verified_by_user_id_FK else "",
+            "approved_by": b.president_approved_by_user_id_FK.full_name if b.president_approved_by_user_id_FK else "",
+        })
+
+    return JsonResponse({"ok": True, "batches": items})
+
+
+@require_GET
+def treasurer_payroll_batch_detail(request: HttpRequest, batch_id: int):
+    """Get a single PayrollBatch with all its deductions."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id)
+    deductions = PayrollDeduction.objects.filter(batch_id_FK=batch).select_related("member_id_FK")
+
+    ded_list = []
+    for d in deductions:
+        ded_list.append({
+            "deduction_id": d.deduction_id_PK,
+            "member_id": d.member_id_FK.member_id_PK,
+            "member_name": d.member_id_FK.full_name,
+            "amount": float(d.amount),
+            "category": d.category,
+            "fund_impact": d.fund_impact,
+            "month_covered": d.month_covered or "",
+            "aid_tracking_post_id": d.aid_tracking_post_id_FK_id,
+            "notes": d.notes or "",
+        })
+
+    return JsonResponse({
+        "ok": True,
+        "batch": {
+            "batch_id": batch.batch_id_PK,
+            "payroll_period": batch.payroll_period,
+            "total_amount": float(batch.total_amount),
+            "member_count": batch.member_count,
+            "hardcopy_reference": batch.hardcopy_reference or "",
+            "notes": batch.notes or "",
+            "status": batch.status,
+            "recorded_by": batch.recorded_by_user_id_FK.full_name if batch.recorded_by_user_id_FK else "",
+            "created_at": batch.created_at.isoformat() if batch.created_at else "",
+            "auditor_remarks": batch.auditor_remarks or "",
+            "returned_reason": batch.returned_reason or "",
+            "president_remarks": batch.president_remarks or "",
+        },
+        "deductions": ded_list,
+    })
+
+
+@require_POST
+def treasurer_payroll_batch_edit(request: HttpRequest, batch_id: int):
+    """Edit a PayrollBatch and its deductions (only if Pending or Returned)."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id)
+    if batch.status not in ("Pending", "Returned for Revision"):
+        return JsonResponse({"ok": False, "error": "Can only edit Pending or Returned batches."}, status=400)
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid JSON."}, status=400)
+
+    deductions_data = data.get("deductions", [])
+    total_amount = sum(d["amount"] for d in deductions_data) if deductions_data else 0
+
+    batch.payroll_period = data.get("payroll_period", batch.payroll_period)
+    batch.total_amount = total_amount
+    batch.member_count = len(deductions_data)
+    batch.hardcopy_reference = data.get("hardcopy_reference", batch.hardcopy_reference)
+    batch.notes = data.get("notes", batch.notes)
+    batch.save(update_fields=[
+        "payroll_period", "total_amount", "member_count",
+        "hardcopy_reference", "notes",
+    ])
+
+    if deductions_data:
+        batch.deductions.all().delete()
+        for d in deductions_data:
+            PayrollDeduction.objects.create(
+                batch_id_FK=batch,
+                member_id_FK_id=d["member_id"],
+                amount=d["amount"],
+                category=d["category"],
+                fund_impact=d.get("fund_impact", "inflow"),
+                month_covered=d.get("month_covered", ""),
+                aid_tracking_post_id_FK_id=d.get("aid_tracking_post_id"),
+                notes=d.get("notes", ""),
+            )
+
+    _record_audit_trail(
+        table="PAYROLL_BATCH",
+        record_id=batch.pk,
+        action="EDITED",
+        actor=officer,
+        new={"total_amount": float(total_amount), "member_count": len(deductions_data)},
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    return JsonResponse({"ok": True, "batch_id": batch.pk})
+
+
+@require_POST
+def treasurer_payroll_batch_delete(request: HttpRequest, batch_id: int):
+    """Delete a PayrollBatch (only if Pending)."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    batch = get_object_or_404(PayrollBatch, pk=batch_id)
+    if batch.status != "Pending":
+        return JsonResponse({"ok": False, "error": "Can only delete Pending batches."}, status=400)
+
+    officer = resolve_officer_from_session(request)
+    batch.delete()
+
+    _record_audit_trail(
+        table="PAYROLL_BATCH",
+        record_id=batch_id,
+        action="DELETED",
+        actor=officer,
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    return JsonResponse({"ok": True, "message": "Batch deleted."})
+
+
+@require_GET
+def treasurer_payroll_batch_history(request: HttpRequest, batch_id: int):
+    """Get audit trail for a PayrollBatch."""
+    guard = require_role(request, role="Treasurer")
+    if guard is not None:
+        return guard
+
+    trails = GlobalAuditTrail.objects.filter(
+        table_name="PAYROLL_BATCH",
+        record_id=batch_id,
+    ).order_by("-timestamp")
+
+    items = []
+    for t in trails:
+        items.append({
+            "action": t.action,
+            "actor": t.actor_name,
+            "timestamp": t.timestamp.isoformat() if t.timestamp else "",
+            "notes": t.notes or "",
+            "old_values": t.old_values,
+            "new_values": t.new_values,
+        })
+
+    return JsonResponse({"ok": True, "history": items})
 
 
 # ============================================================================

@@ -10,7 +10,11 @@ SECRET_KEY = _os.getenv("SECRET_KEY", "django-insecure-change-me-for-production"
 DEBUG = True
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver", "angeline-unprotuberant-vanita.ngrok-free.dev"]
 
-CSRF_TRUSTED_ORIGINS = ["https://angeline-unprotuberant-vanita.ngrok-free.dev"]
+CSRF_TRUSTED_ORIGINS = [
+    "https://angeline-unprotuberant-vanita.ngrok-free.dev",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

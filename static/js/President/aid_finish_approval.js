@@ -191,23 +191,23 @@
       var skipLabel = p.skip_remaining ? "Yes (auto-skip unpaid)" : "No";
 
       tr.innerHTML =
-        "<td><strong>" + escapeHtml(p.member_name || "Unknown") + "</strong></td>" +
+        "<td><strong>" + escapeHtml(p.member_name || "Unknown") + "</strong>" + (p.verified_by_auditor ? ' <span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-size:0.65rem;font-weight:600;margin-left:4px;">Auditor Verified</span>' : '') + "</td>" +
         "<td>" + escapeHtml(p.aid_label || "") + "</td>" +
         "<td>" + formatMoneyPHP(p.total_expected) + "</td>" +
         "<td>" + formatMoneyPHP(p.total_collected) + "</td>" +
         '<td style="font-weight:600;color:' + rateColor + ';">' + p.collection_rate + "%</td>" +
         "<td>" + escapeHtml(skipLabel) + "</td>" +
         "<td style='font-size:0.82rem;color:#90a4ae;'>" + escapeHtml(p.created_by || "") + "<br><small>" + escapeHtml(p.created_at || "") + "</small></td>" +
-        '<td style="white-space:nowrap;">' +
-        '<button class="btn-approve-finish" data-post-id="' + p.post_id + '" style="padding:6px 14px;border-radius:8px;border:1px solid #1b5e20;background:#1b5e20;color:#fff;font-weight:600;font-size:0.75rem;cursor:pointer;font-family:\'Poppins\',sans-serif;margin-right:4px;">Approve</button>' +
-        '<button class="btn-reject-finish" data-post-id="' + p.post_id + '" style="padding:6px 14px;border-radius:8px;border:1px solid #c62828;background:#fff;color:#c62828;font-weight:600;font-size:0.75rem;cursor:pointer;font-family:\'Poppins\',sans-serif;">Reject</button>' +
+        '<td style="white-space:nowrap;text-align:right;">' +
+        '<button class="btn-approve-finish" data-post-id="' + p.post_id + '" style="padding:3px 8px;font-size:0.72rem;margin:0 2px;min-width:60px;border:none;border-radius:20px;color:#fff;cursor:pointer;background:rgba(27,94,32,0.7);">Approve</button>' +
+        '<button class="btn-details-finish" data-post-id="' + p.post_id + '" style="padding:3px 8px;font-size:0.72rem;margin:0 2px;min-width:60px;border:none;border-radius:20px;color:#fff;cursor:pointer;background:rgba(21,101,192,0.7);">Details</button>' +
         "</td>";
 
       tr.querySelector(".btn-approve-finish").addEventListener("click", function () {
         handleApprove(p.post_id, p.member_name);
       });
-      tr.querySelector(".btn-reject-finish").addEventListener("click", function () {
-        handleReject(p.post_id, p.member_name);
+      tr.querySelector(".btn-details-finish").addEventListener("click", function () {
+        handleViewDetails(p.post_id);
       });
 
       tbody.appendChild(tr);
@@ -266,6 +266,39 @@
     } catch (e) {
       showToast(e.message || "Failed to reject finish request.", true);
     }
+  }
+
+  async function handleViewDetails(postId) {
+    try {
+      var res = await fetch("/api/president/finish-request-details/?post_id=" + postId, { credentials: "same-origin" });
+      var data = await res.json();
+      if (!data.ok) { showToast(data.error || "Failed.", true); return; }
+      var rows = data.details.map(function (c) {
+        var statusIcon = c.status === "PAID" ? '<i class="fas fa-check-circle" style="color:#2e7d32;"></i>' : '<i class="fas fa-times-circle" style="color:#9e9e9e;"></i>';
+        return '<tr>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid #eee;">' + escapeHtml(c.member_name) + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid #eee;">' + escapeHtml(c.status) + ' ' + statusIcon + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">₱' + c.expected_amount.toFixed(2) + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:' + (c.status === "PAID" ? "600" : "400") + ';">' + (c.status === "PAID" ? "₱" + c.paid_amount.toFixed(2) : "—") + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">' + (c.payment_date ? escapeHtml(c.payment_date) : "—") + '</td>' +
+          '</tr>';
+      }).join("");
+      var totalRow = data.paid_count > 0 ? '<tr style="font-weight:700;background:#f5f5f5;"><td colspan="2" style="padding:8px;text-align:right;">Total Paid:</td><td style="padding:8px;text-align:right;color:#2e7d32;">₱' + data.total_paid.toFixed(2) + '</td><td colspan="2" style="padding:8px;"></td></tr>' : '';
+      Swal.fire({
+        title: 'Finish Details — ' + escapeHtml(data.target_month),
+        html:
+          '<p style="margin:0 0 6px;font-size:0.85rem;color:#666;">' + data.paid_count + ' / ' + data.total_count + ' members paid | Expected: ₱' + data.total_expected.toFixed(2) + '</p>' +
+          '<div style="max-height:360px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;">' +
+          '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">' +
+          '<thead><tr style="background:#1565c0;color:#fff;"><th style="padding:7px 8px;text-align:left;">Member</th><th style="padding:7px 8px;text-align:left;">Status</th><th style="padding:7px 8px;text-align:right;">Expected</th><th style="padding:7px 8px;text-align:right;">Paid</th><th style="padding:7px 8px;text-align:center;">Date</th></tr></thead>' +
+          '<tbody>' + rows + '</tbody>' +
+          (totalRow ? '<tfoot>' + totalRow + '</tfoot>' : '') +
+          '</table></div>',
+        width: 720,
+        confirmButtonText: "Close",
+        confirmButtonColor: "#1565c0",
+      });
+    } catch (e) { showToast(e.message || "Failed to load details.", true); }
   }
 
   window.AidFinishApproval = {

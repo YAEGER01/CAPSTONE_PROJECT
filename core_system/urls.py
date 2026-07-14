@@ -78,48 +78,16 @@ urlpatterns = [
         treasurer_views.cash_flow_summary,
         name="cash_flow_summary",
     ),
-    # --- Treasurer Monthly Dues (OTC) APIs ---
-    path(
-        "api/treasurer/monthly-dues/add/",
-        treasurer_views.treasurer_monthly_dues_add,
-        name="treasurer_monthly_dues_add",
-    ),
-    path(
-        "api/treasurer/monthly-dues/otc/add/",
-        treasurer_views.treasurer_monthly_dues_otc_add,
-        name="treasurer_monthly_dues_otc_add",
-    ),
-    path(
-        "api/treasurer/monthly-dues/otc/list/",
-        treasurer_views.treasurer_monthly_dues_otc_list,
-        name="treasurer_monthly_dues_otc_list",
-    ),
-    # --- Treasurer Monthly Dues (Salary Deduction) APIs ---
-    path(
-        "api/treasurer/monthly-dues/salary/add/",
-        treasurer_views.treasurer_monthly_dues_salary_add,
-        name="treasurer_monthly_dues_salary_add",
-    ),
-    path(
-        "api/treasurer/monthly-dues/salary/list/",
-        treasurer_views.treasurer_monthly_dues_salary_list,
-        name="treasurer_monthly_dues_salary_list",
-    ),
-    path(
-        "api/treasurer/monthly-dues/salary/bulk-preview/",
-        treasurer_views.treasurer_salary_bulk_preview,
-        name="treasurer_salary_bulk_preview",
-    ),
-    path(
-        "api/treasurer/monthly-dues/salary/bulk-process/",
-        treasurer_views.treasurer_salary_bulk_process,
-        name="treasurer_salary_bulk_process",
-    ),
-    path(
-        "api/treasurer/monthly-dues/tracking/",
-        treasurer_views.treasurer_monthly_dues_tracking,
-        name="treasurer_monthly_dues_tracking",
-    ),
+    # --- Treasurer Monthly Dues OTC / Salary APIs ---
+    path("api/treasurer/monthly-dues/add/", treasurer_views.treasurer_monthly_dues_add, name="treasurer_monthly_dues_add"),
+    path("api/treasurer/monthly-dues/otc/add/", treasurer_views.treasurer_monthly_dues_otc_add, name="treasurer_monthly_dues_otc_add"),
+    path("api/treasurer/monthly-dues/otc/list/", treasurer_views.treasurer_monthly_dues_otc_list, name="treasurer_monthly_dues_otc_list"),
+    path("api/treasurer/monthly-dues/salary/add/", treasurer_views.treasurer_monthly_dues_salary_add, name="treasurer_monthly_dues_salary_add"),
+    path("api/treasurer/monthly-dues/salary/list/", treasurer_views.treasurer_monthly_dues_salary_list, name="treasurer_monthly_dues_salary_list"),
+    path("api/treasurer/monthly-dues/salary/bulk-preview/", treasurer_views.treasurer_salary_bulk_preview, name="treasurer_salary_bulk_preview"),
+    path("api/treasurer/monthly-dues/salary/bulk-process/", treasurer_views.treasurer_salary_bulk_process, name="treasurer_salary_bulk_process"),
+    path("api/treasurer/monthly-dues/salary/next-batch-ref/", treasurer_views.treasurer_next_batch_ref, name="treasurer_next_batch_ref"),
+    path("api/treasurer/monthly-dues/tracking/", treasurer_views.treasurer_monthly_dues_tracking, name="treasurer_monthly_dues_tracking"),
     path(
         "api/treasurer/releases/list/",
         treasurer_views.treasurer_releases_list,
@@ -189,6 +157,43 @@ urlpatterns = [
         treasurer_views.treasurer_member_batch_add,
         name="treasurer_member_batch_add",
     ),
+    path(
+        "api/treasurer/member/<int:member_id>/details/",
+        treasurer_views.treasurer_member_details,
+        name="treasurer_member_details",
+    ),
+
+    # --- Treasurer Payroll Batch APIs ---
+    path(
+        "api/treasurer/payroll-batches/create/",
+        treasurer_views.treasurer_payroll_batch_create,
+        name="treasurer_payroll_batch_create",
+    ),
+    path(
+        "api/treasurer/payroll-batches/list/",
+        treasurer_views.treasurer_payroll_batch_list,
+        name="treasurer_payroll_batch_list",
+    ),
+    path(
+        "api/treasurer/payroll-batches/<int:batch_id>/",
+        treasurer_views.treasurer_payroll_batch_detail,
+        name="treasurer_payroll_batch_detail",
+    ),
+    path(
+        "api/treasurer/payroll-batches/<int:batch_id>/edit/",
+        treasurer_views.treasurer_payroll_batch_edit,
+        name="treasurer_payroll_batch_edit",
+    ),
+    path(
+        "api/treasurer/payroll-batches/<int:batch_id>/delete/",
+        treasurer_views.treasurer_payroll_batch_delete,
+        name="treasurer_payroll_batch_delete",
+    ),
+    path(
+        "api/treasurer/payroll-batches/<int:batch_id>/history/",
+        treasurer_views.treasurer_payroll_batch_history,
+        name="treasurer_payroll_batch_history",
+    ),
 
     # --- Auditor Workspace Endpoints ---
     path("auditor/", auditor_views.auditor_dashboard, name="auditor_dashboard"),
@@ -243,8 +248,50 @@ urlpatterns = [
         auditor_views.auditor_supporting_proof,
         name="auditor_supporting_proof",
     ),
+    # --- Auditor Payroll Batch APIs ---
+    path(
+        "api/auditor/pending-payroll-batches/",
+        auditor_views.auditor_pending_payroll_batches,
+        name="auditor_pending_payroll_batches",
+    ),
+    path(
+        "api/auditor/payroll-batches/<int:batch_id>/",
+        auditor_views.auditor_payroll_batch_detail,
+        name="auditor_payroll_batch_detail",
+    ),
+    path(
+        "api/auditor/payroll-batches/<int:batch_id>/verify/",
+        auditor_views.auditor_verify_payroll_batch,
+        name="auditor_verify_payroll_batch",
+    ),
+    path(
+        "api/auditor/payroll-batches/<int:batch_id>/reject/",
+        auditor_views.auditor_reject_payroll_batch,
+        name="auditor_reject_payroll_batch",
+    ),
     # --- President Workspace Endpoints ---
     path("president/", president_views.president_dashboard, name="president_dashboard"),
+    # --- President Payroll Batch APIs ---
+    path(
+        "api/president/pending-payroll-batches/",
+        president_views.president_pending_payroll_batches,
+        name="president_pending_payroll_batches",
+    ),
+    path(
+        "api/president/payroll-batches/<int:batch_id>/",
+        president_views.president_payroll_batch_detail,
+        name="president_payroll_batch_detail",
+    ),
+    path(
+        "api/president/payroll-batches/<int:batch_id>/approve/",
+        president_views.president_approve_payroll_batch,
+        name="president_approve_payroll_batch",
+    ),
+    path(
+        "api/president/payroll-batches/<int:batch_id>/reject/",
+        president_views.president_reject_payroll_batch,
+        name="president_reject_payroll_batch",
+    ),
     # --- President: auditor-approved payments display ---
     path(
         "api/president/auditor-approved-payments/list/",
@@ -297,6 +344,7 @@ urlpatterns = [
         name="president_kpi_counts",
     ),
     # --- Auditor Aid Tracking Post Endpoints ---
+    # NOTE: approved-aid-posts is kept for the PayrollBatch UI to list active posts
     path(
         "api/auditor/approved-aid-posts/",
         auditor_views.auditor_approved_aid_posts,
@@ -307,21 +355,10 @@ urlpatterns = [
         auditor_views.auditor_aid_post_members,
         name="auditor_aid_post_members",
     ),
-    path(
-        "api/auditor/aid-post-member-pay/",
-        auditor_views.auditor_aid_post_member_pay,
-        name="auditor_aid_post_member_pay",
-    ),
-    path(
-        "api/auditor/aid-post-member-skip/",
-        auditor_views.auditor_aid_post_member_skip,
-        name="auditor_aid_post_member_skip",
-    ),
-    path(
-        "api/auditor/aid-post-finish/",
-        auditor_views.auditor_aid_post_finish,
-        name="auditor_aid_post_finish",
-    ),
+    # DEPRECATED — replaced by PayrollBatch deductions
+    # path("api/auditor/aid-post-member-pay/", auditor_views.auditor_aid_post_member_pay, name="auditor_aid_post_member_pay"),
+    # path("api/auditor/aid-post-member-skip/", auditor_views.auditor_aid_post_member_skip, name="auditor_aid_post_member_skip"),
+    # path("api/auditor/aid-post-finish/", auditor_views.auditor_aid_post_finish, name="auditor_aid_post_finish"),
     path(
         "api/auditor/aid-post-history/",
         auditor_views.auditor_aid_post_history,
@@ -333,6 +370,7 @@ urlpatterns = [
         name="auditor_audited_logs",
     ),
     # --- Treasurer Aid Tracking Post Endpoints ---
+    # NOTE: approved-aid-posts is kept for the PayrollBatch UI to list active posts
     path(
         "api/treasurer/approved-aid-posts/",
         treasurer_views.treasurer_approved_aid_posts,
@@ -343,21 +381,11 @@ urlpatterns = [
         treasurer_views.treasurer_aid_post_members,
         name="treasurer_aid_post_members",
     ),
-    path(
-        "api/treasurer/aid-post-member-pay/",
-        treasurer_views.treasurer_aid_post_member_pay,
-        name="treasurer_aid_post_member_pay",
-    ),
-    path(
-        "api/treasurer/aid-post-member-skip/",
-        treasurer_views.treasurer_aid_post_member_skip,
-        name="treasurer_aid_post_member_skip",
-    ),
-    path(
-        "api/treasurer/aid-post-finish/",
-        treasurer_views.treasurer_aid_post_finish,
-        name="treasurer_aid_post_finish",
-    ),
+    path("api/treasurer/aid-post-member-pay/", treasurer_views.treasurer_aid_post_member_pay, name="treasurer_aid_post_member_pay"),
+    path("api/treasurer/aid-post-member-skip/", treasurer_views.treasurer_aid_post_member_skip, name="treasurer_aid_post_member_skip"),
+    path("api/treasurer/aid-post-finish/", treasurer_views.treasurer_aid_post_finish, name="treasurer_aid_post_finish"),
+    path("api/treasurer/aid-post-paid-with-funds/", treasurer_views.treasurer_aid_post_paid_with_funds, name="treasurer_aid_post_paid_with_funds"),
+    path("api/treasurer/aid-post-member-notify/", treasurer_views.treasurer_aid_post_member_notify, name="treasurer_aid_post_member_notify"),
     path(
         "api/treasurer/aid-post-history/",
         treasurer_views.treasurer_aid_post_history,
@@ -427,22 +455,17 @@ urlpatterns = [
         auditor_report_views.president_request_report_revision,
         name="president_request_report_revision",
     ),
+    # --- Treasurer: Mark Aid Post as Finished (sends to Auditor) ---
+    path("api/treasurer/aid-post-mark-finished/", treasurer_views.treasurer_aid_post_mark_finished, name="treasurer_aid_post_mark_finished"),
+    # --- Auditor: Aid Post Finish Verification ---
+    path("api/auditor/pending-finish-requests/", auditor_views.auditor_pending_finish_requests, name="auditor_pending_finish_requests"),
+    path("api/auditor/aid-post-verify-finish/", auditor_views.auditor_verify_post_finish, name="auditor_verify_post_finish"),
+    path("api/auditor/finish-request-details/", auditor_views.auditor_finish_request_details, name="auditor_finish_request_details"),
     # --- President Aid Tracking Post Finish Approval ---
-    path(
-        "api/president/aid-post-finish-requests/",
-        president_views.president_pending_finish_requests,
-        name="president_pending_finish_requests",
-    ),
-    path(
-        "api/president/aid-post-finish-approve/",
-        president_views.president_approve_aid_post_finish,
-        name="president_approve_aid_post_finish",
-    ),
-    path(
-        "api/president/aid-post-finish-reject/",
-        president_views.president_reject_aid_post_finish,
-        name="president_reject_aid_post_finish",
-    ),
+    path("api/president/aid-post-finish-requests/", president_views.president_pending_finish_requests, name="president_pending_finish_requests"),
+    path("api/president/aid-post-finish-approve/", president_views.president_approve_aid_post_finish, name="president_approve_aid_post_finish"),
+    path("api/president/aid-post-finish-reject/", president_views.president_reject_aid_post_finish, name="president_reject_aid_post_finish"),
+    path("api/president/finish-request-details/", president_views.president_finish_request_details, name="president_finish_request_details"),
 
     # --- HTMX Partial Endpoints ---
     path(
@@ -455,5 +478,37 @@ urlpatterns = [
         htmx_views.hx_treasurer_module,
         name="hx_treasurer_module",
     ),
+    path(
+        "hx/auditor/module/<str:module_name>/",
+        htmx_views.hx_auditor_module,
+        name="hx_auditor_module",
+    ),
+    path(
+        "hx/president/module/<str:module_name>/",
+        htmx_views.hx_president_module,
+        name="hx_president_module",
+    ),
+    # --- Shared Fund Ledger & Transparency APIs ---
+    path(
+        "api/fund-ledger/",
+        views.fund_ledger_list,
+        name="fund_ledger_list",
+    ),
+    path(
+        "api/fund-balance/",
+        views.fund_balance_summary,
+        name="fund_balance_summary",
+    ),
+    path(
+        "api/member-deductions/",
+        views.member_deductions_list,
+        name="member_deductions_list",
+    ),
+    path(
+        "api/member/<int:member_id>/deductions/",
+        views.member_deductions_list,
+        name="member_deductions_by_id",
+    ),
 ]
+
 handler403 = "core_system.president_views.permission_denied_view"

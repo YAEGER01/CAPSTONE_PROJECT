@@ -1,0 +1,255 @@
+<div class="section-container">
+  <div class="section-header">
+    <h2><i class="fas fa-file-signature"></i> Payroll Batches for Approval</h2>
+  </div>
+
+  <div id="fund-balance-summary" class="balance-summary-card">
+    <div class="spinner">Loading fund balance...</div>
+  </div>
+
+  <div id="verified-batches-list" style="margin-top: 20px;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Period</th>
+          <th>Amount</th>
+          <th>Members</th>
+          <th>Fund Impact</th>
+          <th>Projected Balance</th>
+          <th>Verified By</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="verified-batches-tbody">
+        <tr><td colspan="7" class="text-center">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Batch Detail Modal -->
+<div id="batch-detail-modal" class="modal" style="display:none;">
+  <div class="modal-content modal-lg">
+    <span class="close" onclick="closeBatchModal()">&times;</span>
+    <h3>Approve / Reject Payroll Batch</h3>
+    <div id="batch-detail-content"></div>
+    <div class="form-actions" id="approve-actions" style="display:none; margin-top: 20px;">
+      <div class="form-group">
+        <label>Remarks</label>
+        <textarea id="president-remarks" class="form-control" rows="2" placeholder="Optional remarks..."></textarea>
+      </div>
+      <button class="btn btn-danger" onclick="rejectBatch()"><i class="fas fa-times"></i> Reject</button>
+      <button class="btn btn-success" onclick="approveBatch()"><i class="fas fa-check"></i> Approve & Record</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentBatchId = null;
+
+function loadFundBalance() {
+  fetch('/api/fund-balance/')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      document.getElementById('fund-balance-summary').innerHTML = `
+        <div class="balance-cards">
+          <div class="balance-card">
+            <span class="label">Current Balance</span>
+            <span class="value">₱${data.balance.toFixed(2)}</span>
+          </div>
+          <div class="balance-card">
+            <span class="label">Safety Threshold</span>
+            <span class="value warn">₱${data.safety_threshold.toFixed(2)}</span>
+          </div>
+          <div class="balance-card">
+            <span class="label">Available</span>
+            <span class="value ${data.available >= 0 ? 'safe' : 'danger'}">₱${data.available.toFixed(2)}</span>
+          </div>
+          <div class="balance-card">
+            <span class="label">Month In / Out</span>
+            <span class="value">+₱${data.month_in.toFixed(2)} / -₱${data.month_out.toFixed(2)}</span>
+          </div>
+        </div>
+      `;
+    });
+}
+
+function loadPendingApprovals() {
+  fetch('/api/president/pending-payroll-batches/')
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('verified-batches-tbody');
+      if (!data.batches || data.batches.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No batches pending approval.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.batches.map(b => `
+        <tr>
+          <td>${b.payroll_period}</td>
+          <td>₱${parseFloat(b.total_amount).toFixed(2)}</td>
+          <td>${b.member_count}</td>
+          <td>₱${parseFloat(b.fund_impact).toFixed(2)}</td>
+          <td class="${b.projected_balance >= data.safety_threshold ? 'safe' : 'warn'}">
+            ₱${b.projected_balance.toFixed(2)}
+            ${b.projected_balance < data.safety_threshold ? ' ⚠️' : ''}
+          </td>
+          <td>${b.verified_by}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="reviewBatch(${b.batch_id})">
+              <i class="fas fa-search"></i> Review
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    });
+}
+
+function reviewBatch(batchId) {
+  currentBatchId = batchId;
+  fetch(`/api/president/payroll-batches/${batchId}/`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) { alert('Error loading batch'); return; }
+      const b = data.batch;
+      const safe = data.is_safe;
+      let warning = '';
+      if (!safe && data.fund_impact > 0) {
+        warning = `<div class="alert alert-warning">
+          ⚠️ This batch will bring the fund to ₱${data.projected_balance.toFixed(2)},
+          which is below the safety threshold of ₱${data.safety_threshold.toFixed(2)}.
+        </div>`;
+      }
+
+      let html = `
+        ${warning}
+        <div class="detail-grid">
+          <div><strong>Period:</strong> ${b.payroll_period}</div>
+          <div><strong>Total:</strong> ₱${parseFloat(b.total_amount).toFixed(2)}</div>
+          <div><strong>Members:</strong> ${b.member_count}</div>
+          <div><strong>Fund Impact:</strong> ₱${data.fund_impact.toFixed(2)}</div>
+          <div><strong>Verified By:</strong> ${b.verified_by}</div>
+          <div><strong>Auditor Remarks:</strong> ${b.auditor_remarks || '—'}</div>
+        </div>
+        <h4>Fund Impact Summary</h4>
+        <div class="fund-impact-bar">
+          <div class="impact-row">
+            <span>Current Balance:</span>
+            <span>₱${data.fund_balance.toFixed(2)}</span>
+          </div>
+          <div class="impact-row">
+            <span>+ This Batch (inflow):</span>
+            <span class="safe">+₱${data.fund_impact.toFixed(2)}</span>
+          </div>
+          <div class="impact-row total">
+            <span><strong>Projected Balance:</strong></span>
+            <span class="${safe ? 'safe' : 'warn'}"><strong>₱${data.projected_balance.toFixed(2)}</strong></span>
+          </div>
+        </div>
+        <h4>Deductions (${(data.deductions || []).length})</h4>
+        <table class="table table-sm">
+          <thead><tr><th>Member</th><th>Category</th><th>Amount</th><th>Impact</th></tr></thead>
+          <tbody>
+            ${(data.deductions || []).map(d => `
+              <tr>
+                <td>${d.member_name}</td>
+                <td>${d.category}</td>
+                <td>₱${parseFloat(d.amount).toFixed(2)}</td>
+                <td>${d.fund_impact === 'inflow' ? 'Inflow' : 'Pass-through'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      document.getElementById('batch-detail-content').innerHTML = html;
+      document.getElementById('president-remarks').value = '';
+      document.getElementById('approve-actions').style.display = 'flex';
+      document.getElementById('batch-detail-modal').style.display = 'block';
+    });
+}
+
+function approveBatch() {
+  if (!currentBatchId) return;
+  const remarks = document.getElementById('president-remarks').value;
+  fetch(`/api/president/payroll-batches/${currentBatchId}/approve/`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRF()},
+    body: JSON.stringify({ remarks: remarks }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      closeBatchModal();
+      loadPendingApprovals();
+      loadFundBalance();
+      showToast(`Approved! ${data.fund_transactions_created} fund entries created. Balance: ₱${data.fund_balance.toFixed(2)}`);
+    } else {
+      alert(data.error || 'Error approving');
+    }
+  });
+}
+
+function rejectBatch() {
+  if (!currentBatchId) return;
+  const reason = document.getElementById('president-remarks').value;
+  fetch(`/api/president/payroll-batches/${currentBatchId}/reject/`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCSRF()},
+    body: JSON.stringify({ reason: reason }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      closeBatchModal();
+      loadPendingApprovals();
+      showToast('Batch rejected.');
+    } else {
+      alert(data.error || 'Error rejecting');
+    }
+  });
+}
+
+function closeBatchModal() {
+  document.getElementById('batch-detail-modal').style.display = 'none';
+  currentBatchId = null;
+}
+
+function getCSRF() {
+  return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+// Load on page show
+if (document.getElementById('verified-batches-tbody')) {
+  loadFundBalance();
+  loadPendingApprovals();
+}
+document.addEventListener('htmx:afterOnLoad', function() {
+  if (document.getElementById('verified-batches-tbody')) {
+    loadFundBalance();
+    loadPendingApprovals();
+  }
+});
+</script>
+
+<style>
+.section-container { padding: 20px; }
+.section-header { margin-bottom: 20px; }
+.balance-summary-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.balance-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.balance-card { display: flex; flex-direction: column; padding: 12px; background: #f8f9fa; border-radius: 8px; }
+.balance-card .label { font-size: 12px; color: #6c757d; text-transform: uppercase; }
+.balance-card .value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+.safe { color: #28a745; }
+.warn { color: #e9a820; }
+.danger { color: #dc3545; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.fund-impact-bar { background: #f8f9fa; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+.impact-row { display: flex; justify-content: space-between; padding: 4px 0; }
+.impact-row.total { border-top: 2px solid #dee2e6; margin-top: 8px; padding-top: 8px; }
+.form-actions { gap: 8px; justify-content: flex-end; }
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+.modal-content { background: #fff; margin: 5% auto; padding: 24px; border-radius: 12px; max-height: 80vh; overflow-y: auto; }
+.modal-lg { width: 85%; max-width: 950px; }
+.close { float: right; font-size: 24px; cursor: pointer; }
+.alert-warning { background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+</style>

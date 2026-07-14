@@ -394,6 +394,12 @@ class MedicalAid(models.Model):
 
     president_decision = models.CharField(max_length=50, null=True, blank=True)
 
+    disbursement_source = models.CharField(
+        max_length=20, null=True, blank=True,
+        choices=[("fund", "Fund — paid from org fund"), ("direct", "Direct — payroll deduction, no fund impact")],
+        help_text="How was this aid funded?",
+    )
+
     released_by_user_id_FK = models.ForeignKey(
         OfficerUser,
         null=True,
@@ -486,6 +492,12 @@ class DeathAid(models.Model):
     )
 
     president_decision = models.CharField(max_length=50, null=True, blank=True)
+
+    disbursement_source = models.CharField(
+        max_length=20, null=True, blank=True,
+        choices=[("fund", "Fund — paid from org fund"), ("direct", "Direct — payroll deduction, no fund impact")],
+        help_text="How was this aid funded?",
+    )
 
     released_by_user_id_FK = models.ForeignKey(
         OfficerUser,
@@ -639,6 +651,11 @@ class TransactionArchive(models.Model):
 
 
 class AidTrackingPost(models.Model):
+    STATUS_CHOICES = [
+        ("tracking", "Tracking — members are being charged"),
+        ("closed", "Closed — all tracked"),
+    ]
+
     post_id_PK = models.AutoField(primary_key=True)
 
     archive_id_FK = models.ForeignKey(
@@ -652,12 +669,13 @@ class AidTrackingPost(models.Model):
     total_expected = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total_collected = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="tracking")
     notes = models.TextField(blank=True)
 
-    finish_status = models.CharField(max_length=20, blank=True, default="",
-        help_text="'' = no request, 'pending_approval' = awaiting President, 'rejected' = President rejected")
-    finish_skip_remaining = models.BooleanField(default=False,
-        help_text="Whether to auto-skip unpaid contributions when President approves")
+    source_type = models.CharField(max_length=50, null=True, blank=True,
+        help_text="'death_aid' or 'medical_aid' — the aid that triggered this tracking post")
+    source_id = models.IntegerField(null=True, blank=True,
+        help_text="PK of the DeathAid or MedicalAid record")
 
     created_by_user_id_FK = models.ForeignKey(
         OfficerUser,
@@ -668,6 +686,15 @@ class AidTrackingPost(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    finish_status = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text="'' = no request, 'pending_approval' = awaiting President, 'rejected' = President rejected, 'paid_with_funds' = fund disbursement"
+    )
+    finish_skip_remaining = models.BooleanField(
+        default=False,
+        help_text="Whether to auto-skip unpaid contributions when President approves"
+    )
 
     class Meta:
         db_table = "AID_TRACKING_POST"
@@ -786,6 +813,164 @@ class SensitiveReadLog(models.Model):
         indexes = [
             models.Index(fields=["table_name", "record_id"]),
             models.Index(fields=["read_at"]),
+        ]
+
+
+class FundTransaction(models.Model):
+    SOURCE_TYPES = [
+        ("payroll_batch", "Payroll Batch"),
+        ("death_aid", "Death Aid Disbursement"),
+        ("medical_aid", "Medical Aid Disbursement"),
+        ("membership_fee", "Membership Fee"),
+        ("monthly_dues", "Monthly Dues"),
+        ("contribution", "Contribution"),
+        ("manual_adjustment", "Manual Adjustment"),
+        ("aid_post_payment", "Aid Post Fund Payment"),
+    ]
+    DIRECTION_CHOICES = [("inflow", "Inflow"), ("outflow", "Outflow")]
+
+    transaction_id_PK = models.AutoField(primary_key=True)
+    direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    source_type = models.CharField(max_length=50, choices=SOURCE_TYPES)
+    source_id = models.IntegerField(help_text="FK to the source record")
+    description = models.CharField(max_length=255)
+    reference_number = models.CharField(max_length=100, null=True, blank=True, help_text="Official reference / OR number")
+
+    recorded_by_user_id_FK = models.ForeignKey(
+        "OfficerUser",
+        on_delete=models.RESTRICT,
+        db_column="recorded_by_user_id_FK",
+        related_name="fund_transactions",
+    )
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "FUND_TRANSACTION"
+        ordering = ["-recorded_at"]
+        indexes = [
+            models.Index(fields=["direction"]),
+            models.Index(fields=["source_type", "source_id"]),
+        ]
+
+    @staticmethod
+    def get_balance():
+        from django.db.models import Sum, Q
+        totals = FundTransaction.objects.aggregate(
+            total_in=Sum("amount", filter=Q(direction="inflow")),
+            total_out=Sum("amount", filter=Q(direction="outflow")),
+        )
+        return (totals["total_in"] or 0) - (totals["total_out"] or 0)
+
+
+class PayrollBatch(models.Model):
+    STATUS_CHOICES = [
+        ("Pending", "Pending"),
+        ("Auditor Verified", "Auditor Verified"),
+        ("Approved", "Approved"),
+        ("Rejected", "Rejected"),
+        ("Returned for Revision", "Returned for Revision"),
+    ]
+
+    batch_id_PK = models.AutoField(primary_key=True)
+    payroll_period = models.CharField(max_length=7, help_text="YYYY-MM")
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    member_count = models.IntegerField(default=0)
+    notes = models.TextField(blank=True)
+    hardcopy_reference = models.CharField(max_length=100, null=True, blank=True)
+
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="Pending")
+    recorded_by_user_id_FK = models.ForeignKey(
+        "OfficerUser",
+        on_delete=models.RESTRICT,
+        db_column="recorded_by_user_id_FK",
+        related_name="payroll_batches_recorded",
+    )
+
+    auditor_verified_by_user_id_FK = models.ForeignKey(
+        "OfficerUser", null=True, blank=True,
+        on_delete=models.SET_NULL,
+        db_column="auditor_verified_by_user_id_FK",
+        related_name="payroll_batches_verified",
+    )
+    auditor_verified_at = models.DateTimeField(null=True, blank=True)
+    auditor_remarks = models.TextField(null=True, blank=True)
+    returned_by_user_id_FK = models.ForeignKey(
+        "OfficerUser", null=True, blank=True,
+        on_delete=models.SET_NULL,
+        db_column="returned_by_user_id_FK",
+        related_name="payroll_batches_returned",
+    )
+    returned_reason = models.TextField(null=True, blank=True)
+
+    president_approved_by_user_id_FK = models.ForeignKey(
+        "OfficerUser", null=True, blank=True,
+        on_delete=models.SET_NULL,
+        db_column="president_approved_by_user_id_FK",
+        related_name="payroll_batches_approved",
+    )
+    president_approved_at = models.DateTimeField(null=True, blank=True)
+    president_remarks = models.TextField(null=True, blank=True)
+
+    archive_id_FK = models.ForeignKey(
+        "TransactionArchive", null=True, blank=True,
+        on_delete=models.SET_NULL,
+        db_column="archive_id_FK",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "PAYROLL_BATCH"
+        ordering = ["-created_at"]
+
+
+class PayrollDeduction(models.Model):
+    CATEGORY_CHOICES = [
+        ("monthly_dues", "Monthly Dues"),
+        ("membership_fee", "Membership Fee"),
+        ("aid_contribution", "Aid Contribution"),
+    ]
+    FUND_IMPACT_CHOICES = [
+        ("inflow", "Inflow — replenishes the fund"),
+        ("none", "No fund impact — direct pass-through deduction"),
+    ]
+
+    deduction_id_PK = models.AutoField(primary_key=True)
+    batch_id_FK = models.ForeignKey(
+        PayrollBatch,
+        on_delete=models.CASCADE,
+        db_column="batch_id_FK",
+        related_name="deductions",
+    )
+    member_id_FK = models.ForeignKey(
+        Member,
+        on_delete=models.RESTRICT,
+        db_column="member_id_FK",
+    )
+
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    fund_impact = models.CharField(
+        max_length=10, choices=FUND_IMPACT_CHOICES, default="inflow",
+        help_text="'inflow' if replenishes fund, 'none' if direct pass-through",
+    )
+
+    month_covered = models.CharField(max_length=7, null=True, blank=True, help_text="YYYY-MM for monthly_dues")
+    aid_tracking_post_id_FK = models.ForeignKey(
+        "AidTrackingPost", null=True, blank=True,
+        on_delete=models.SET_NULL,
+        db_column="aid_tracking_post_id_FK",
+        help_text="Links to the aid disbursement this contribution repays",
+    )
+
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "PAYROLL_DEDUCTION"
+        indexes = [
+            models.Index(fields=["batch_id_FK", "category"]),
+            models.Index(fields=["member_id_FK"]),
         ]
 
 
