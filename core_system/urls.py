@@ -196,6 +196,33 @@ urlpatterns = [
         name="treasurer_payroll_batch_history",
     ),
 
+    # --- Treasurer Department Visualization APIs ---
+    path(
+        "api/treasurer/department/member-stats/",
+        treasurer_views.treasurer_member_stats_by_department,
+        name="treasurer_member_stats_by_department",
+    ),
+    path(
+        "api/treasurer/department/payment-tracking/",
+        treasurer_views.treasurer_payment_tracking_by_department,
+        name="treasurer_payment_tracking_by_department",
+    ),
+    path(
+        "api/treasurer/department/financial-summary/",
+        treasurer_views.treasurer_financial_summary_by_department,
+        name="treasurer_financial_summary_by_department",
+    ),
+    path(
+        "api/treasurer/department/aid-trends/",
+        treasurer_views.treasurer_aid_trends_by_department,
+        name="treasurer_aid_trends_by_department",
+    ),
+    path(
+        "api/treasurer/department/payroll-analysis/",
+        treasurer_views.treasurer_payroll_analysis_by_department,
+        name="treasurer_payroll_analysis_by_department",
+    ),
+
     # --- Auditor Workspace Endpoints ---
     path("auditor/", auditor_views.auditor_dashboard, name="auditor_dashboard"),
 

@@ -738,6 +738,10 @@ class AidTrackingPost(models.Model):
         default=False,
         help_text="Whether to auto-skip unpaid contributions when President approves"
     )
+    finish_paid_with_funds = models.BooleanField(
+        default=False,
+        help_text="True when the post was paid using organizational funds instead of member contributions"
+    )
 
     class Meta:
         db_table = "AID_TRACKING_POST"
@@ -1015,5 +1019,32 @@ class PayrollDeduction(models.Model):
             models.Index(fields=["batch_id_FK", "category"]),
             models.Index(fields=["member_id_FK"]),
         ]
+
+
+class OutgoingEmail(models.Model):
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+    STATUS_CHOICES = [
+        (PENDING, "Pending"),
+        (SENT, "Sent"),
+        (FAILED, "Failed"),
+    ]
+
+    outgoing_email_id = models.AutoField(primary_key=True)
+    recipient_list = models.JSONField(default=list)
+    subject = models.CharField(max_length=255)
+    html_template = models.CharField(max_length=255)
+    context = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True, default="")
+    retry_count = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = "OUTGOING_EMAIL"
+        ordering = ["created_at"]
 
 

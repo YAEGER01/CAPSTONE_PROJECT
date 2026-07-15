@@ -1,4 +1,6 @@
 import json
+import logging
+import threading
 from typing import Any, Dict, List
 
 from django.db import transaction
@@ -11,6 +13,8 @@ from django.contrib.contenttypes.models import ContentType
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+
+logger = logging.getLogger(__name__)
 
 from core_system.guards import require_role
 from core_system.models import (
@@ -55,8 +59,8 @@ from core_system.services.compliance import (
     active_members_qs,
 )
 from core_system.services.email_service import (
-    send_aid_processing_notice,
-    send_aid_bulk_contribution_notice,
+    queue_aid_emails,
+    process_email_queue,
 )
 
 
@@ -752,6 +756,7 @@ def submit_presidential_decision(request):
 
 
 @require_http_methods(["POST"])
+@transaction.atomic
 def submit_presidential_aid_decision(request):
     try:
         body = json.loads(request.body)
@@ -851,24 +856,8 @@ def submit_presidential_aid_decision(request):
             record.validated_aid_amount = approved_amount
             extra_fields.append("validated_aid_amount")
         record.save(update_fields=extra_fields)
-        _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
 
         if decision == "Approved":
-            disbursement_source = getattr(record, "disbursement_source", None) or "fund"
-
-            if disbursement_source == "fund":
-                member_name = record.member_id_FK.full_name if hasattr(record, "member_id_FK") and record.member_id_FK else "Unknown"
-                aid_amount = float(approved_amount)
-
-                FundTransaction.objects.create(
-                    direction="outflow",
-                    amount=aid_amount,
-                    source_type=table_name,
-                    source_id=record.pk,
-                    description=f"{'Death aid' if table_name == 'death_aid' else 'Medical aid'} disbursement — {member_name}",
-                    recorded_by_user_id_FK=officer,
-                )
-
             archive = archive_transaction(
                 table_name,
                 record.pk,
@@ -883,8 +872,7 @@ def submit_presidential_aid_decision(request):
             active_members = Member.objects.exclude(
                 membership_status__iexact="Retired",
             )
-            active_count = active_members.count()
-            total_expected = active_count * per_member_amount
+            total_expected = active_members.count() * per_member_amount
 
             post = AidTrackingPost.objects.create(
                 archive_id_FK=archive,
@@ -898,35 +886,23 @@ def submit_presidential_aid_decision(request):
                 created_by_user_id_FK=officer,
             )
 
-            contribution_records = []
-            for member in active_members:
-                contribution_records.append(
-                    Contribution(
-                        aid_tracking_post_id_FK=post,
-                        member_id_FK=member,
-                        expected_amount=per_member_amount,
-                        paid_amount=0,
-                        status="NOT_PAID",
-                    )
+            Contribution.objects.bulk_create([
+                Contribution(
+                    aid_tracking_post_id_FK=post,
+                    member_id_FK=member,
+                    expected_amount=per_member_amount,
+                    paid_amount=0,
+                    status="NOT_PAID",
                 )
-            Contribution.objects.bulk_create(contribution_records)
+                for member in active_members
+            ])
 
-            send_aid_processing_notice(record.member_id_FK, table_name)
-            send_aid_bulk_contribution_notice(per_member_amount, table_name, exclude_member=record.member_id_FK)
-
-            channel_layer = get_channel_layer()
-            payload = {
-                "type": "aid_post_created",
-                "post_id": post.post_id_PK,
-                "member_name": record.member_id_FK.full_name
-                if hasattr(record, "member_id_FK") and record.member_id_FK
-                else "",
-                "aid_type": table_name,
-                "total_expected": float(total_expected),
-                "target_month": post.target_month,
-            }
-            async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
-            async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+            transaction.on_commit(
+                lambda: queue_aid_emails(record, table_name, per_member_amount)
+            )
+            transaction.on_commit(
+                lambda: threading.Thread(target=process_email_queue, kwargs={"batch_size": 5}).start()
+            )
 
         TransactionVerification.objects.filter(
             table_name=table_name,
@@ -951,7 +927,24 @@ def submit_presidential_aid_decision(request):
             ip=request.META.get("REMOTE_ADDR"),
         )
 
-        _broadcast_pending_counts()
+        transaction.on_commit(lambda: _broadcast_to_group(
+            "treasurer_dashboard", {"type": "data_changed", "section": "aids"}
+        ))
+        transaction.on_commit(_broadcast_pending_counts)
+        if decision == "Approved":
+            payload = {
+                "type": "aid_post_created",
+                "post_id": post.post_id_PK,
+                "member_name": record.member_id_FK.full_name
+                if hasattr(record, "member_id_FK") and record.member_id_FK
+                else "",
+                "aid_type": table_name,
+                "total_expected": float(total_expected),
+                "target_month": post.target_month,
+            }
+            transaction.on_commit(lambda: async_to_sync(get_channel_layer().group_send)("auditor_dashboard", payload))
+            transaction.on_commit(lambda: async_to_sync(get_channel_layer().group_send)("treasurer_dashboard", payload))
+
         return JsonResponse(
             {
                 "success": True,
@@ -991,6 +984,7 @@ def submit_presidential_decision_batch(request):
         processed = 0
         skipped = 0
         audit_entries = []
+        fund_transactions = []
         ip_address = request.META.get("REMOTE_ADDR")
         for vid in ids:
             v = existing_map.get(vid)
@@ -1015,13 +1009,15 @@ def submit_presidential_decision_batch(request):
             if decision == "Approved":
                 archive = archive_transaction(v.table_name, v.record_id, officer)
                 if archive and v.table_name in ("membership_fee", "monthly_dues"):
-                    FundTransaction.objects.create(
-                        direction="inflow",
-                        amount=archive.amount,
-                        source_type=v.table_name,
-                        source_id=v.record_id,
-                        description=f"{archive.member_name} ({dict(FundTransaction.SOURCE_TYPES).get(v.table_name, v.table_name)})",
-                        recorded_by_user_id_FK=officer,
+                    fund_transactions.append(
+                        FundTransaction(
+                            direction="inflow",
+                            amount=archive.amount,
+                            source_type=v.table_name,
+                            source_id=v.record_id,
+                            description=f"{archive.member_name} ({dict(FundTransaction.SOURCE_TYPES).get(v.table_name, v.table_name)})",
+                            recorded_by_user_id_FK=officer,
+                        )
                     )
 
             audit_entries.append(GlobalAuditTrail(
@@ -1038,6 +1034,9 @@ def submit_presidential_decision_batch(request):
 
         if audit_entries:
             GlobalAuditTrail.objects.bulk_create(audit_entries)
+
+        if fund_transactions:
+            FundTransaction.objects.bulk_create(fund_transactions)
 
         _broadcast_pending_counts()
         return JsonResponse({
@@ -1103,6 +1102,11 @@ def submit_presidential_aid_decision_batch(request):
             key = (tv.table_name, tv.record_id)
             existing_map[key] = tv
 
+        active_members = Member.objects.exclude(
+            membership_status__iexact="Retired",
+        )
+        active_members_count = active_members.count()
+
         processed = 0
         skipped = 0
         audit_entries = []
@@ -1150,10 +1154,7 @@ def submit_presidential_aid_decision_batch(request):
                         relationship = getattr(record, "relationship_to_member", "")
 
                     per_member_amount = get_contribution_amount_for_aid(v.table_name, relationship)
-                    active_members = Member.objects.exclude(
-                        membership_status__iexact="Retired",
-                    )
-                    total_expected = active_members.count() * per_member_amount
+                    total_expected = active_members_count * per_member_amount
 
                     if AidTrackingPost.objects.filter(
                         source_type=v.table_name,
@@ -1184,8 +1185,9 @@ def submit_presidential_aid_decision_batch(request):
                         for member in active_members
                     ])
 
-                    send_aid_processing_notice(record.member_id_FK, v.table_name)
-                    send_aid_bulk_contribution_notice(per_member_amount, v.table_name, exclude_member=record.member_id_FK)
+                    transaction.on_commit(
+                        lambda r=record, tn=v.table_name, pm=per_member_amount: queue_aid_emails(r, tn, pm)
+                    )
 
                     member_name = record.member_id_FK.full_name if record is not None and hasattr(record, "member_id_FK") and record.member_id_FK else ""
                     payload = {
@@ -1216,6 +1218,9 @@ def submit_presidential_aid_decision_batch(request):
 
         _broadcast_pending_counts()
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+        transaction.on_commit(
+            lambda: threading.Thread(target=process_email_queue, kwargs={"batch_size": 5}).start()
+        )
         return JsonResponse({
             "success": True,
             "processed": processed,
@@ -1437,12 +1442,26 @@ def president_approve_aid_post_finish(request: HttpRequest):
     archive = post.archive_id_FK
 
     if was_auditor_verified:
+        pending_ids = list(
+            Contribution.objects.filter(
+                aid_tracking_post_id_FK=post,
+                status="PENDING_VERIFICATION",
+            ).values_list("contribution_id_PK", flat=True)
+        )
+        if pending_ids:
+            Contribution.objects.filter(contribution_id_PK__in=pending_ids).update(status="PAID")
+            totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
+                total_collected=Sum("paid_amount"),
+            )
+            post.total_collected = totals["total_collected"] or 0
+            post.save(update_fields=["total_collected"])
+
         paid_contributions = Contribution.objects.filter(
             aid_tracking_post_id_FK=post, status="PAID",
         ).select_related("member_id_FK")
 
-        for c in paid_contributions:
-            FundTransaction.objects.create(
+        transactions = [
+            FundTransaction(
                 direction="inflow",
                 amount=c.paid_amount,
                 source_type="contribution",
@@ -1450,6 +1469,24 @@ def president_approve_aid_post_finish(request: HttpRequest):
                 description=f"Contribution — {c.member_id_FK.full_name if c.member_id_FK else 'Unknown'} ({post.aid_type})",
                 recorded_by_user_id_FK=president,
             )
+            for c in paid_contributions
+        ]
+
+        if post.finish_paid_with_funds:
+            archive = post.archive_id_FK
+            member_name = archive.member_name if archive else "Unknown"
+            transactions.append(
+                FundTransaction(
+                    direction="outflow",
+                    amount=post.total_expected,
+                    source_type="aid_post_payment",
+                    source_id=post.post_id_PK,
+                    description=f"Fund disbursement — {member_name} ({post.aid_type})",
+                    recorded_by_user_id_FK=president,
+                )
+            )
+
+        FundTransaction.objects.bulk_create(transactions)
     else:
         if archive is not None:
             if archive.transaction_type == "death_aid":
@@ -1462,7 +1499,12 @@ def president_approve_aid_post_finish(request: HttpRequest):
         record_id=post.post_id_PK,
         action="FINISH_APPROVED",
         actor=president,
-        new={"finish_status": "approved", "is_active": False, "fund_inflow_created": was_auditor_verified},
+        new={
+            "finish_status": "approved",
+            "is_active": False,
+            "fund_inflow_created": was_auditor_verified,
+            "paid_with_funds_outflow_created": post.finish_paid_with_funds,
+        },
         ip=request.META.get("REMOTE_ADDR"),
     )
 

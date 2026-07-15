@@ -1037,6 +1037,7 @@ def auditor_approved_aid_posts(request: HttpRequest):
             "total_collected": str(post.total_collected),
             "collection_rate": collection_rate,
             "finish_status": post.finish_status or "",
+            "finish_paid_with_funds": post.finish_paid_with_funds,
             "status": archive.status if archive else "",
             "amount": str(archive.amount) if archive else "0",
             "created_at": post.created_at.isoformat() if post.created_at else "",
@@ -1399,6 +1400,32 @@ def auditor_verify_post_finish(request: HttpRequest):
 
     post.finish_status = "pending_president"
     post.save(update_fields=["finish_status"])
+
+    pending_ids = list(
+        Contribution.objects.filter(
+            aid_tracking_post_id_FK=post,
+            status="PENDING_VERIFICATION",
+        ).values_list("contribution_id_PK", flat=True)
+    )
+    if pending_ids:
+        Contribution.objects.filter(contribution_id_PK__in=pending_ids).update(
+            status="PAID",
+            updated_by_user_id_FK=officer,
+        )
+        totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
+            total_collected=Sum("paid_amount"),
+        )
+        post.total_collected = totals["total_collected"] or 0
+        post.save(update_fields=["total_collected"])
+
+        TransactionVerification.objects.filter(
+            table_name="contribution",
+            record_id__in=pending_ids,
+        ).update(
+            verification_status="Auditor Verified",
+            auditor_id_FK=officer,
+            verified_at=timezone.now(),
+        )
 
     GlobalAuditTrail.objects.create(
         table_name="AID_TRACKING_POST",

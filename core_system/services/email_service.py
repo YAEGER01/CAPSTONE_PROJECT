@@ -6,6 +6,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
+from django.db import connection
 from django.template.loader import render_to_string
 from django.utils import timezone
 
@@ -122,3 +123,83 @@ def send_aid_bulk_contribution_notice(contribution_amount: float, aid_type: str,
         html_template="emails/aid_bulk_contribution_notice.html",
         context=context,
     )
+
+
+# ---------------------------------------------------------------------------
+# Email Queue (fast, non-blocking — replaces threading.Thread)
+# ---------------------------------------------------------------------------
+
+
+def queue_email(subject, recipient_list, html_template, context=None):
+    from core_system.models import OutgoingEmail
+
+    return OutgoingEmail.objects.create(
+        recipient_list=recipient_list,
+        subject=subject,
+        html_template=html_template,
+        context=context or {},
+    )
+
+
+def queue_aid_emails(record, table_name, per_member_amount):
+    """Queue both aid emails (private + bulk). Returns immediately."""
+    if record.member_id_FK and record.member_id_FK.email:
+        queue_email(
+            subject="Notice of Aid Processing",
+            recipient_list=[record.member_id_FK.email],
+            html_template="emails/aid_processing_notice.html",
+            context={"member_name": record.member_id_FK.full_name},
+        )
+
+    queue_email(
+        subject="Notice of Active Member Contribution",
+        recipient_list=[],
+        html_template="emails/aid_bulk_contribution_notice.html",
+        context={
+            "contribution_amount": f"{per_member_amount:,.2f}",
+        },
+    )
+
+
+def _send_queued_email(email_record):
+    from core_system.models import OutgoingEmail, Member
+
+    if email_record.html_template == "emails/aid_bulk_contribution_notice.html":
+        members = Member.objects.exclude(membership_status__iexact="Retired")
+        email_record.recipient_list = list(
+            members.exclude(email__isnull=True).exclude(email__exact="").values_list("email", flat=True)
+        )
+
+    send_html_email(
+        subject=email_record.subject,
+        recipient_list=email_record.recipient_list,
+        html_template=email_record.html_template,
+        context=email_record.context,
+    )
+    email_record.status = OutgoingEmail.SENT
+    email_record.sent_at = timezone.now()
+    email_record.save(update_fields=["status", "sent_at"])
+
+
+def process_email_queue(batch_size=5):
+    """Send pending emails sequentially. Safe to call from any context."""
+    from core_system.models import OutgoingEmail
+
+    pending = OutgoingEmail.objects.filter(status=OutgoingEmail.PENDING).order_by("created_at")[:batch_size]
+    if not pending:
+        return 0
+
+    sent_count = 0
+    for email in pending:
+        try:
+            _send_queued_email(email)
+            sent_count += 1
+        except Exception as exc:
+            email.status = OutgoingEmail.FAILED
+            email.error_message = str(exc)
+            email.retry_count += 1
+            email.save(update_fields=["status", "error_message", "retry_count"])
+            logger.error("Failed to send queued email %s: %s", email.outgoing_email_id, exc)
+
+    connection.close()
+    return sent_count

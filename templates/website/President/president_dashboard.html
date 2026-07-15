@@ -41,6 +41,15 @@
         scroll-behavior: smooth;
       }
 
+      /* Department Analytics */
+      .dept-tab-btn {
+        border-radius: 8px !important;
+        transition: all 0.2s ease !important;
+      }
+      .dept-tab-panel {
+        animation: fadeInSlide 0.3s ease-out;
+      }
+
       /* Master Layout Grid */
       .app-container {
         display: flex;
@@ -1509,34 +1518,150 @@
              TAB 1: PRESIDENTIAL OVERVIEW
              ========================================================================== -->
           <section
-            id="dashboard-overview"
-            class="dashboard-module active module-fade-in"
-          >
-            <!-- KPI Stats grid overview -->
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-icon"><i class="fa-solid fa-inbox"></i></div>
-                <div class="stat-info">
-                  <h4>Verified Dues Awaiting Sign-off</h4>
-                  <div class="stat-value" id="kpi-pending-payments">0</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon accent-yellow"><i class="fa-solid fa-folder"></i></div>
-                <div class="stat-info">
-                  <h4>Verified Claims Awaiting Sign-off</h4>
-                  <div class="stat-value" id="kpi-pending-claims">0</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon accent-blue"><i class="fa-solid fa-shield-halved"></i></div>
-                <div class="stat-info">
-                  <h4>Total Executed Approvals</h4>
-                  <div class="stat-value" id="kpi-total-audits">0</div>
-                </div>
-              </div>
-            </div>
-            <div class="overview-grid-3x2">
+             id="dashboard-overview"
+             class="dashboard-module active module-fade-in"
+           >
+             <!-- KPI Stats grid overview -->
+             <div class="stats-grid">
+               <div class="stat-card">
+                 <div class="stat-icon"><i class="fa-solid fa-inbox"></i></div>
+                 <div class="stat-info">
+                   <h4>Verified Dues Awaiting Sign-off</h4>
+                   <div class="stat-value" id="kpi-pending-payments">0</div>
+                 </div>
+               </div>
+               <div class="stat-card">
+                 <div class="stat-icon accent-yellow"><i class="fa-solid fa-folder"></i></div>
+                 <div class="stat-info">
+                   <h4>Verified Claims Awaiting Sign-off</h4>
+                   <div class="stat-value" id="kpi-pending-claims">0</div>
+                 </div>
+               </div>
+               <div class="stat-card">
+                 <div class="stat-icon accent-blue"><i class="fa-solid fa-shield-halved"></i></div>
+                 <div class="stat-info">
+                   <h4>Total Executed Approvals</h4>
+                   <div class="stat-value" id="kpi-total-audits">0</div>
+                 </div>
+               </div>
+             </div>
+
+             <!-- Department Visualization Section -->
+             <div class="dashboard-panel" style="margin-bottom: 20px;">
+               <div class="panel-header-row">
+                 <h3 class="panel-title"><i class="fas fa-building"></i> Department Analytics</h3>
+                 <div class="header-actions">
+                   <button class="btn-brand btn-brand-primary" onclick="refreshDepartmentData()" style="padding: 4px 12px; font-size: 0.75rem;">
+                     <i class="fas fa-sync-alt"></i> Refresh
+                   </button>
+                 </div>
+               </div>
+               <div style="display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap;">
+                 <button type="button" class="dept-tab-btn btn-brand btn-brand-primary" data-tab="dept-member-stats" style="padding: 6px 14px; font-size: 0.82rem;">Member Stats</button>
+                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-payment-tracking" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Payment Tracking</button>
+                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-financial-summary" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Financial Summary</button>
+                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-aid-trends" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Aid Trends</button>
+                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-payroll-analysis" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Payroll Analysis</button>
+               </div>
+               <div id="dept-member-stats" class="dept-tab-panel">
+                 <div class="table-container">
+                   <table class="custom-table" id="deptMemberStatsTable">
+                     <thead>
+                       <tr>
+                         <th>Department</th>
+                         <th>Total Members</th>
+                         <th>Active</th>
+                         <th>Permanent</th>
+                         <th>Temporary</th>
+                         <th>Retired</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       <tr><td colspan="6" style="text-align:center;color:#6c757d;">Loading...</td></tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+               <div id="dept-payment-tracking" class="dept-tab-panel" style="display:none;">
+                 <div class="table-container">
+                   <table class="custom-table" id="deptPaymentTrackingTable">
+                     <thead>
+                       <tr>
+                         <th>Department</th>
+                         <th>Total Members</th>
+                         <th>Dues Paid (Current Month)</th>
+                         <th>Dues Collection Rate</th>
+                         <th>Membership Fee Paid</th>
+                         <th>Fee Collection Rate</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       <tr><td colspan="6" style="text-align:center;color:#6c757d;">Loading...</td></tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+               <div id="dept-financial-summary" class="dept-tab-panel" style="display:none;">
+                 <div class="table-container">
+                   <table class="custom-table" id="deptFinancialSummaryTable">
+                     <thead>
+                       <tr>
+                         <th>Department</th>
+                         <th>Monthly Dues</th>
+                         <th>Membership Fees</th>
+                         <th>Medical Aid</th>
+                         <th>Death Aid</th>
+                         <th>Total Inflow</th>
+                         <th>Total Outflow</th>
+                         <th>Net Position</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       <tr><td colspan="8" style="text-align:center;color:#6c757d;">Loading...</td></tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+               <div id="dept-aid-trends" class="dept-tab-panel" style="display:none;">
+                 <div class="table-container">
+                   <table class="custom-table" id="deptAidTrendsTable">
+                     <thead>
+                       <tr>
+                         <th>Department</th>
+                         <th>Medical Aid Count</th>
+                         <th>Medical Aid Amount</th>
+                         <th>Death Aid Count</th>
+                         <th>Death Aid Amount</th>
+                         <th>Total Count</th>
+                         <th>Total Amount</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       <tr><td colspan="7" style="text-align:center;color:#6c757d;">Loading...</td></tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+               <div id="dept-payroll-analysis" class="dept-tab-panel" style="display:none;">
+                 <div class="table-container">
+                   <table class="custom-table" id="deptPayrollAnalysisTable">
+                     <thead>
+                       <tr>
+                         <th>Department</th>
+                         <th>Total Deductions</th>
+                         <th>Deduction Count</th>
+                         <th>Average Deduction</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       <tr><td colspan="4" style="text-align:center;color:#6c757d;">Loading...</td></tr>
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+             </div>
+
+             <div class="overview-grid-3x2">
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
                   <h3 class="panel-title"><i class="fas fa-file-invoice"></i> Fees &amp; Dues</h3>
@@ -4363,6 +4488,68 @@
     </script>
     <script src="{% static 'js/push-init.js' %}"></script>
     <script src="{% static 'js/President/aid_finish_approval.js' %}"></script>
+    <script>
+      // Department Analytics Tabs
+      document.addEventListener("turbo:load", function() {
+        var tabBtns = document.querySelectorAll(".dept-tab-btn");
+        tabBtns.forEach(function(btn) {
+          btn.addEventListener("click", function() {
+            var target = btn.getAttribute("data-tab");
+            document.querySelectorAll(".dept-tab-panel").forEach(function(panel) {
+              panel.style.display = "none";
+            });
+            document.getElementById(target).style.display = "block";
+            tabBtns.forEach(function(b) {
+              b.classList.remove("btn-brand-primary");
+              b.style.opacity = "0.7";
+            });
+            btn.classList.add("btn-brand-primary");
+            btn.style.opacity = "1";
+          });
+        });
+
+        var memberStatsTable = document.getElementById("deptMemberStatsTable");
+        if (memberStatsTable && memberStatsTable.getAttribute("data-loaded") !== "true") {
+          fetch("/api/treasurer/department/member-stats/", { credentials: "same-origin" })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (!data.ok) return;
+              memberStatsTable.setAttribute("data-loaded", "true");
+              var tbody = memberStatsTable.getElementsByTagName("tbody")[0];
+              tbody.innerHTML = "";
+              data.departments.forEach(function(dept) {
+                tbody.innerHTML += '<tr>' +
+                  '<td>' + escapeHtml(dept.department) + '</td>' +
+                  '<td>' + (dept.total || 0) + '</td>' +
+                  '<td>' + (dept.active || 0) + '</td>' +
+                  '<td>' + (dept.permanent || 0) + '</td>' +
+                  '<td>' + (dept.temporary || 0) + '</td>' +
+                  '<td>' + (dept.retired || 0) + '</td>' +
+                  '</tr>';
+              });
+              if (data.unassigned_count) {
+                tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
+              }
+            })
+            .catch(function(e) { console.error("Failed to load member stats", e); });
+        }
+      });
+
+      function refreshDepartmentData() {
+        var tables = ["deptMemberStatsTable", "deptPaymentTrackingTable", "deptFinancialSummaryTable", "deptAidTrendsTable", "deptPayrollAnalysisTable"];
+        tables.forEach(function(id) {
+          var table = document.getElementById(id);
+          if (table) table.setAttribute("data-loaded", "false");
+        });
+        document.querySelector(".dept-tab-btn[data-tab='dept-member-stats']").click();
+      }
+
+      function escapeHtml(text) {
+        var div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    </script>
     <script>
       (function () {
         var orig = window.location.reload.bind(window.location);
