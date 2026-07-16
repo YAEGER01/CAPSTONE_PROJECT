@@ -855,6 +855,9 @@ def submit_presidential_aid_decision(request):
         if table_name == "medical_aid" and decision == "Approved" and approved_amount:
             record.validated_aid_amount = approved_amount
             extra_fields.append("validated_aid_amount")
+        if table_name == "death_aid" and decision == "Approved" and approved_amount:
+            record.benefit_amount = approved_amount
+            extra_fields.append("benefit_amount")
         record.save(update_fields=extra_fields)
 
         if decision == "Approved":

@@ -2578,13 +2578,15 @@
                         <label for="a_approved_amount"
                           >Approved Final Payout Amount (₱)</label
                         >
-                        <input
-                          type="number"
-                          id="a_approved_amount"
-                          step="0.01"
-                          required
-                          placeholder="Verify amount limits"
-                        />
+                         <input
+                           type="number"
+                           id="a_approved_amount"
+                           step="0.01"
+                           required
+                           readonly
+                           style="background-color: #eef7ef; cursor: not-allowed"
+                           placeholder="Verify amount limits"
+                         />
                       </div>
                     </div>
 
@@ -3381,9 +3383,20 @@
        ========================================================================== -->
     <script>
       function confirmLogout() {
-        if (confirm("Do you want to log out of the system?")) {
-          window.location.href = "{% url 'logout' %}";
-        }
+        Swal.fire({
+          title: "Logout?",
+          text: "Do you want to log out of the system?",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Yes, logout",
+          cancelButtonText: "Cancel",
+          confirmButtonColor: "#1b5e20",
+          reverseButtons: true,
+        }).then(function (result) {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'logout' %}";
+          }
+        });
       }
       // Clean system database structure ready for backend payload mapping
       let db = {
@@ -3781,12 +3794,16 @@
         if (ids.length === 0) return;
 
         const label = decision === "Approved" ? "Approve" : "Reject";
-        if (
-          !confirm(
-            `${label} ${ids.length} aid entr${ids.length === 1 ? "y" : "ies"}?`,
-          )
-        )
-          return;
+        const paResult = await Swal.fire({
+          title: label + " " + ids.length + " aid entr" + (ids.length === 1 ? "y" : "ies") + "?",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: label,
+          cancelButtonText: "Cancel",
+          confirmButtonColor: decision === "Approved" ? "#1b5e20" : "#c62828",
+          reverseButtons: true,
+        });
+        if (!paResult.isConfirmed) return;
 
         try {
           const resp = await fetch("/api/aids/presidential-decision/batch/", {
