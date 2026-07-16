@@ -110,7 +110,7 @@ function reviewBatch(batchId) {
   fetch(`/api/president/payroll-batches/${batchId}/`)
     .then(r => r.json())
     .then(data => {
-      if (!data.ok) { alert('Error loading batch'); return; }
+      if (!data.ok) { Swal.fire({icon:'error',title:'Error',text:'Error loading batch'}); return; }
       const b = data.batch;
       const safe = data.is_safe;
       let warning = '';
@@ -182,9 +182,9 @@ function approveBatch() {
       closeBatchModal();
       loadPendingApprovals();
       loadFundBalance();
-      showToast(`Approved! ${data.fund_transactions_created} fund entries created. Balance: ₱${data.fund_balance.toFixed(2)}`);
+      Swal.fire({icon:'success',title:'Batch Approved',text:`Approved! ${data.fund_transactions_created} fund entries created. Balance: ₱${data.fund_balance.toFixed(2)}`});
     } else {
-      alert(data.error || 'Error approving');
+      Swal.fire({icon:'error',title:'Error',text:data.error || 'Error approving'});
     }
   });
 }
@@ -202,9 +202,9 @@ function rejectBatch() {
     if (data.ok) {
       closeBatchModal();
       loadPendingApprovals();
-      showToast('Batch rejected.');
+      Swal.fire({icon:'success',title:'Batch Rejected',text:'Batch rejected.'});
     } else {
-      alert(data.error || 'Error rejecting');
+      Swal.fire({icon:'error',title:'Error',text:data.error || 'Error rejecting'});
     }
   });
 }

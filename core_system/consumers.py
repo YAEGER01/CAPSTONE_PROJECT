@@ -114,6 +114,14 @@ class AuditorDashboardConsumer(AsyncWebsocketConsumer):
             "member_name": event.get("member_name"),
         }))
 
+    async def aid_post_finish_requested(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "aid_post_finish_requested",
+            "post_id": event.get("post_id"),
+            "member_name": event.get("member_name"),
+            "stage": event.get("stage"),
+        }))
+
     async def pending_queue_updated(self, event):
         await self.send(text_data=json.dumps({
             "type": "pending_queue_updated",
@@ -238,6 +246,14 @@ class TreasurerDashboardConsumer(AsyncWebsocketConsumer):
             "member_name": event.get("member_name"),
         }))
 
+    async def aid_post_finish_requested(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "aid_post_finish_requested",
+            "post_id": event.get("post_id"),
+            "member_name": event.get("member_name"),
+            "stage": event.get("stage"),
+        }))
+
     async def dashboard_refresh(self, event):
         await self.send(text_data=json.dumps({
             "type": "dashboard_refresh",
@@ -339,6 +355,21 @@ class PresidentDashboardConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "type": "dashboard_refresh",
             "section": event.get("section", "all"),
+        }))
+
+    async def aid_post_finished(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "aid_post_finished",
+            "post_id": event.get("post_id"),
+            "member_name": event.get("member_name"),
+        }))
+
+    async def aid_post_finish_requested(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "aid_post_finish_requested",
+            "post_id": event.get("post_id"),
+            "member_name": event.get("member_name"),
+            "stage": event.get("stage"),
         }))
 
     async def pending_queue_updated(self, event):

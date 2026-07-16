@@ -397,7 +397,8 @@ async function submitPpBatchVerify(decision) {
   if (ids.length === 0) return;
 
   const label = decision === "Approved" ? "Approve" : "Reject";
-  if (!confirm(`${label} ${ids.length} payment entr${ids.length === 1 ? "y" : "ies"}?`)) return;
+  const confirmed = await Swal.fire({title:label + ' ' + ids.length + ' payment entr' + (ids.length === 1 ? 'y' : 'ies') + '?',icon:'question',showCancelButton:true,confirmButtonText:label,cancelButtonText:'Cancel'});
+  if (!confirmed.isConfirmed) return;
 
   try {
     const resp = await fetch("/api/payments/presidential-decision/batch/", {
@@ -658,9 +659,7 @@ async function submitPresidentialPaymentDecision(event) {
   const remarks = document.getElementById("p_remarks").value;
 
   if (!targetId) {
-    alert(
-      "Please pick an active entry package from the ledger list layout beforehand.",
-    );
+    Swal.fire({icon:'warning',title:'No Selection',text:'Please pick an active entry package from the ledger list layout beforehand.'});
     return;
   }
 
@@ -685,7 +684,7 @@ async function submitPresidentialPaymentDecision(event) {
     const result = await response.json();
 
     if (result.success) {
-      alert(result.message);
+      Swal.fire({icon:'success',title:'Transaction Updated',text:result.message});
       await loadPresidentialQueue();
       try {
         clearPaymentApprovalSelection();
@@ -693,14 +692,11 @@ async function submitPresidentialPaymentDecision(event) {
         console.error("UI reset failed after successful submission:", clearErr);
       }
     } else {
-      alert("Execution Error: " + result.message);
+      Swal.fire({icon:'error',title:'Error',text:"Execution Error: " + result.message});
     }
     } catch (error) {
     console.error("Transmission layout communication interruption: ", error);
-    alert(
-      "Critical failure submitting transaction ruling updates.\n\nDetails: " +
-        (error.message || error),
-    );
+    Swal.fire({icon:'error',title:'Critical Failure',text:"Critical failure submitting transaction ruling updates.\n\nDetails: " + (error.message || error)});
   }
 }
 

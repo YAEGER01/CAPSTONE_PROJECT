@@ -1,7 +1,8 @@
 Django>=5.1,<6.0
 channels>=4.0,<5.0
 daphne>=4.0,<5.0
-mysqlclient>=2.0,<3.0
+twisted[http2,tls]
+pymysql>=1.1,<2.0
 psycopg2>=2.9,<3.0
 redis>=4.0,<5.0
 pyjwt>=2.0,<3.0
@@ -16,3 +17,5 @@ pywebpush>=2.0,<3.0
 python-dotenv>=1.0,<2.0
 openpyxl>=3.1,<4.0
 apscheduler>=3.10,<4.0
+django-browser-reload>=1.0,<2.0
+watchfiles>=0.21,<1.0

@@ -3123,7 +3123,7 @@
               function reviewBatch(batchId) {
                 currentBatchId = batchId;
                 fetch('/api/president/payroll-batches/'+batchId+'/').then(r=>r.json()).then(data => {
-                  if (!data.ok) { alert('Error loading batch'); return; }
+                  if (!data.ok) { Swal.fire({icon:'error',title:'Error',text:'Error loading batch'}); return; }
                   const b = data.batch; const safe = data.is_safe;
                   let warning = '';
                   if (!safe && data.fund_impact > 0) {
@@ -3162,8 +3162,8 @@
                   method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]')?.value||''},
                   body: JSON.stringify({remarks: document.getElementById('president-remarks').value}),
                 }).then(r=>r.json()).then(data => {
-                  if (data.ok) { closeBatchModal(); loadPendingApprovals(); loadFundBalance(); alert('Approved! Balance: ₱'+data.fund_balance.toFixed(2)); }
-                  else alert(data.error||'Error approving');
+                  if (data.ok) { closeBatchModal(); loadPendingApprovals(); loadFundBalance(); Swal.fire({icon:'success',title:'Batch Approved',text:'Approved! Balance: ₱'+data.fund_balance.toFixed(2)}); }
+                  else Swal.fire({icon:'error',title:'Error',text:data.error||'Error approving'});
                 });
               }
               function rejectBatch() {
@@ -3172,8 +3172,8 @@
                   method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]')?.value||''},
                   body: JSON.stringify({reason: document.getElementById('president-remarks').value}),
                 }).then(r=>r.json()).then(data => {
-                  if (data.ok) { closeBatchModal(); loadPendingApprovals(); alert('Batch rejected.'); }
-                  else alert(data.error||'Error rejecting');
+                  if (data.ok) { closeBatchModal(); loadPendingApprovals(); Swal.fire({icon:'info',title:'Rejected',text:'Batch rejected.'}); }
+                  else Swal.fire({icon:'error',title:'Error',text:data.error||'Error rejecting'});
                 });
               }
               function closeBatchModal() { document.getElementById('batch-detail-modal').style.display='none'; currentBatchId=null; }
@@ -3328,7 +3328,7 @@
                 try {
                   const resp = await fetch(`/api/member/${memberId}/deductions/`);
                   const data = await resp.json();
-                  if (!data.ok) { alert(data.error || "Error fetching deductions"); return; }
+                  if (!data.ok) { Swal.fire({icon:'error',title:'Error',text:data.error || "Error fetching deductions"}); return; }
                   nameH4.textContent = `Deductions for: ${data.member_name}`;
                   totalDiv.textContent = `Total Deducted: ₱${data.total_deducted.toFixed(2)}`;
                   tbody.innerHTML = "";
@@ -3500,7 +3500,7 @@
       function showToast(message, isError) {
         var host = document.getElementById("toastContainer");
         if (!host) {
-          alert(message);
+          Swal.fire({icon:isError?'error':'info',title:isError?'Error':null,text:message});
           return;
         }
         var toast = document.createElement("div");
@@ -3879,7 +3879,7 @@
         // Populate Auditor Summary Notes
         document.getElementById("aAuditByText").innerText = item.auditorName;
         document.getElementById("aAuditDateText").innerText = item.auditorDate;
-        document.getElementById("aAuditEvidenceText").innerText =
+        document.getElementById("aAuditEvidenceText").innerHTML =
           `<i class="fa-solid fa-folder"></i> ${item.auditorEvidence}`;
         document.getElementById("aAuditRemarksText").innerText =
           item.auditorRemarks;
@@ -4052,27 +4052,18 @@
             await loadPresidentialAidsQueue();
             clearAidApprovalSelection();
 
+            var msg = result.message || "Presidential decision saved.";
             if (decision === "Approved") {
-              showCustomModal(
-                "Executive Disbursement Clearance Granted",
-                `Disbursement for Request ID ${targetId} authorized at ₱${approvedAmount.toFixed(2)}. Payout document routed to Landbank system draft.`,
-              );
+              Swal.fire({icon:'success',title:'Executive Disbursement Clearance Granted',text:`Disbursement for Request ID ${targetId} authorized at ₱${approvedAmount.toFixed(2)}. Payout document routed to Landbank system draft.`});
             } else {
-              showCustomModal(
-                "Rejection Notice Registered",
-                `Claim Deficiencies flagged. Claim file ${targetId} closed with negative ruling: "${remarks}"`,
-              );
+              Swal.fire({icon:'info',title:'Rejection Notice Registered',text:`Claim Deficiencies flagged. Claim file ${targetId} closed with negative ruling: "${remarks}"`});
             }
-            showToast("Presidential decision saved.", false);
           } else {
-            alert("Execution Error: " + result.message);
+            Swal.fire({icon:'error',title:'Error',text:"Execution Error: " + result.message});
           }
         } catch (error) {
           console.error("Error submitting aid decision:", error);
-          alert(
-            "Critical failure submitting claim ruling updates.\n\nDetails: " +
-              (error.message || error),
-          );
+          Swal.fire({icon:'error',title:'Critical Failure',text:"Critical failure submitting claim ruling updates.\n\nDetails: " + (error.message || error)});
         }
       }
 
@@ -4374,7 +4365,7 @@
         Oversight Summary: This certificate verifies that all listed transactions in this period are fully reviewed and locked.
         Disbursements align securely with treasurer entries and verified compliance checkpoints.
       `;
-        showCustomModal(`Executive Certification File`, outputString);
+        Swal.fire({icon:'info',title:'Executive Certification File',text:outputString});
       }
     </script>
     <!-- Diff View Modal -->
@@ -4490,6 +4481,99 @@
     <script src="{% static 'js/President/aid_finish_approval.js' %}"></script>
     <script>
       // Department Analytics Tabs
+      var deptEndpoints = {
+        "dept-member-stats": {
+          tableId: "deptMemberStatsTable",
+          url: "/api/treasurer/department/member-stats/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + (dept.total || 0) + '</td>' +
+                '<td>' + (dept.active || 0) + '</td>' +
+                '<td>' + (dept.permanent || 0) + '</td>' +
+                '<td>' + (dept.temporary || 0) + '</td>' +
+                '<td>' + (dept.retired || 0) + '</td>' +
+                '</tr>';
+            });
+            if (data.unassigned_count) {
+              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
+            }
+          }
+        },
+        "dept-payment-tracking": {
+          tableId: "deptPaymentTrackingTable",
+          url: "/api/treasurer/department/payment-tracking/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + (dept.total_members || 0) + '</td>' +
+                '<td>' + (dept.dues_paid_current_month || 0) + '</td>' +
+                '<td>' + (dept.dues_collection_rate || 0) + '%</td>' +
+                '<td>' + (dept.membership_fee_paid || 0) + '</td>' +
+                '<td>' + (dept.fee_collection_rate || 0) + '%</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-financial-summary": {
+          tableId: "deptFinancialSummaryTable",
+          url: "/api/treasurer/department/financial-summary/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + Number(dept.monthly_dues).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.membership_fees).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.medical_aid).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.death_aid).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.total_inflow).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.total_outflow).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.net_position).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-aid-trends": {
+          tableId: "deptAidTrendsTable",
+          url: "/api/treasurer/department/aid-trends/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              var medCount = dept.medical_aid_counts.reduce(function(a, b) { return a + b; }, 0);
+              var medAmount = dept.medical_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
+              var deathCount = dept.death_aid_counts.reduce(function(a, b) { return a + b; }, 0);
+              var deathAmount = dept.death_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
+              var totalCount = dept.total_counts.reduce(function(a, b) { return a + b; }, 0);
+              var totalAmount = dept.total_amounts.reduce(function(a, b) { return a + b; }, 0);
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + medCount + '</td>' +
+                '<td>' + Number(medAmount).toLocaleString() + '</td>' +
+                '<td>' + deathCount + '</td>' +
+                '<td>' + Number(deathAmount).toLocaleString() + '</td>' +
+                '<td>' + totalCount + '</td>' +
+                '<td>' + Number(totalAmount).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-payroll-analysis": {
+          tableId: "deptPayrollAnalysisTable",
+          url: "/api/treasurer/department/payroll-analysis/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + Number(dept.total_deductions).toLocaleString() + '</td>' +
+                '<td>' + (dept.deduction_count || 0) + '</td>' +
+                '<td>' + Number(dept.average_deduction).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        }
+      };
+
       document.addEventListener("turbo:load", function() {
         var tabBtns = document.querySelectorAll(".dept-tab-btn");
         tabBtns.forEach(function(btn) {
@@ -4505,34 +4589,26 @@
             });
             btn.classList.add("btn-brand-primary");
             btn.style.opacity = "1";
+
+            var ep = deptEndpoints[target];
+            if (!ep) return;
+            var table = document.getElementById(ep.tableId);
+            if (table && table.getAttribute("data-loaded") !== "true") {
+              fetch(ep.url, { credentials: "same-origin" })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                  if (!data.ok) return;
+                  table.setAttribute("data-loaded", "true");
+                  var tbody = table.getElementsByTagName("tbody")[0];
+                  tbody.innerHTML = "";
+                  ep.render(data, tbody);
+                })
+                .catch(function(e) { console.error("Failed to load " + ep.url, e); });
+            }
           });
         });
 
-        var memberStatsTable = document.getElementById("deptMemberStatsTable");
-        if (memberStatsTable && memberStatsTable.getAttribute("data-loaded") !== "true") {
-          fetch("/api/treasurer/department/member-stats/", { credentials: "same-origin" })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-              if (!data.ok) return;
-              memberStatsTable.setAttribute("data-loaded", "true");
-              var tbody = memberStatsTable.getElementsByTagName("tbody")[0];
-              tbody.innerHTML = "";
-              data.departments.forEach(function(dept) {
-                tbody.innerHTML += '<tr>' +
-                  '<td>' + escapeHtml(dept.department) + '</td>' +
-                  '<td>' + (dept.total || 0) + '</td>' +
-                  '<td>' + (dept.active || 0) + '</td>' +
-                  '<td>' + (dept.permanent || 0) + '</td>' +
-                  '<td>' + (dept.temporary || 0) + '</td>' +
-                  '<td>' + (dept.retired || 0) + '</td>' +
-                  '</tr>';
-              });
-              if (data.unassigned_count) {
-                tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
-              }
-            })
-            .catch(function(e) { console.error("Failed to load member stats", e); });
-        }
+        document.querySelector(".dept-tab-btn[data-tab='dept-member-stats']").click();
       });
 
       function refreshDepartmentData() {

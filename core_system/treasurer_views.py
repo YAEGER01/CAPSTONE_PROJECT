@@ -2738,6 +2738,14 @@ def treasurer_aid_post_members(request: HttpRequest, post_id: int):
     })
 
 
+def _recalculate_total_collected(post_id: int) -> None:
+    total = Contribution.objects.filter(
+        aid_tracking_post_id_FK=post_id,
+        status__in=["PAID", "PENDING_VERIFICATION"],
+    ).aggregate(total=Sum("paid_amount"))["total"] or 0
+    AidTrackingPost.objects.filter(post_id_PK=post_id).update(total_collected=total)
+
+
 @require_POST
 @transaction.atomic
 def treasurer_aid_post_member_pay(request: HttpRequest):
@@ -2812,6 +2820,8 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
         },
     )
 
+    _recalculate_total_collected(post.post_id_PK)
+
     _broadcast_pending_counts()
 
     return JsonResponse({"ok": True, "status": "PENDING_VERIFICATION"})
@@ -2880,6 +2890,8 @@ def treasurer_aid_post_member_skip(request: HttpRequest):
             "paid_amount": 0,
         },
     )
+
+    _recalculate_total_collected(contribution.aid_tracking_post_id_FK_id)
 
     return JsonResponse({"ok": True, "status": "SKIPPED"})
 
@@ -2973,7 +2985,7 @@ def treasurer_aid_post_mark_finished(request: HttpRequest):
     if total == 0:
         return JsonResponse({"ok": False, "error": "No contributions found for this post."}, status=400)
     if (paid_or_pending / total) < 0.7:
-        return JsonResponse({"ok": False, "error": f"At least 70% of members must be PAID (currently {paid}/{total})."}, status=400)
+        return JsonResponse({"ok": False, "error": f"At least 70% of members must be PAID (currently {paid_or_pending}/{total})."}, status=400)
 
     post.finish_status = "pending_auditor"
     post.finish_skip_remaining = True
@@ -2990,7 +3002,7 @@ def treasurer_aid_post_mark_finished(request: HttpRequest):
         new={
             "finish_status": "pending_auditor",
             "finish_skip_remaining": True,
-            "paid_ratio": f"{paid}/{total}",
+            "paid_ratio": f"{paid_or_pending}/{total}",
         },
         ip=request.META.get("REMOTE_ADDR"),
     )
@@ -3069,6 +3081,8 @@ def treasurer_aid_post_paid_with_funds(request: HttpRequest):
         "treasurer_dashboard",
         {"type": "data_changed", "section": "aids"},
     )
+
+    _recalculate_total_collected(post.post_id_PK)
 
     return JsonResponse({"ok": True, "status": "pending_auditor", "message": "Fund disbursement sent to Auditor for verification."})
 
@@ -3494,7 +3508,7 @@ def treasurer_payment_tracking_by_department(request: HttpRequest):
 
     dept_fees_paid = dict(
         MembershipFee.objects.filter(
-            payment_status__in=['Full Payment', 'Partial']
+            payment_status__in=['Full Payment', 'Partial', 'Pending']
         ).values('member_id_FK__department').annotate(
             fees_paid=Count('member_id_FK', distinct=True)
         ).values_list('member_id_FK__department', 'fees_paid')

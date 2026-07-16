@@ -4597,9 +4597,9 @@
                       c.expected_amount.toFixed(2) +
                       "</td>" +
                       '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:' +
-                      (c.status === "PAID" ? "600" : "400") +
+                      (c.status === "PAID" || c.status === "PENDING_VERIFICATION" ? "600" : "400") +
                       ';">' +
-                      (c.status === "PAID"
+                      (c.status === "PAID" || c.status === "PENDING_VERIFICATION"
                         ? "₱" + c.paid_amount.toFixed(2)
                         : "—") +
                       "</td>" +
@@ -5211,6 +5211,99 @@
     <script src="{% static 'js/push-init.js' %}"></script>
     <script>
       // Department Analytics Tabs
+      var deptEndpoints = {
+        "dept-member-stats": {
+          tableId: "deptMemberStatsTable",
+          url: "/api/treasurer/department/member-stats/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + (dept.total || 0) + '</td>' +
+                '<td>' + (dept.active || 0) + '</td>' +
+                '<td>' + (dept.permanent || 0) + '</td>' +
+                '<td>' + (dept.temporary || 0) + '</td>' +
+                '<td>' + (dept.retired || 0) + '</td>' +
+                '</tr>';
+            });
+            if (data.unassigned_count) {
+              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
+            }
+          }
+        },
+        "dept-payment-tracking": {
+          tableId: "deptPaymentTrackingTable",
+          url: "/api/treasurer/department/payment-tracking/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + (dept.total_members || 0) + '</td>' +
+                '<td>' + (dept.dues_paid_current_month || 0) + '</td>' +
+                '<td>' + (dept.dues_collection_rate || 0) + '%</td>' +
+                '<td>' + (dept.membership_fee_paid || 0) + '</td>' +
+                '<td>' + (dept.fee_collection_rate || 0) + '%</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-financial-summary": {
+          tableId: "deptFinancialSummaryTable",
+          url: "/api/treasurer/department/financial-summary/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + Number(dept.monthly_dues).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.membership_fees).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.medical_aid).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.death_aid).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.total_inflow).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.total_outflow).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.net_position).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-aid-trends": {
+          tableId: "deptAidTrendsTable",
+          url: "/api/treasurer/department/aid-trends/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              var medCount = dept.medical_aid_counts.reduce(function(a, b) { return a + b; }, 0);
+              var medAmount = dept.medical_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
+              var deathCount = dept.death_aid_counts.reduce(function(a, b) { return a + b; }, 0);
+              var deathAmount = dept.death_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
+              var totalCount = dept.total_counts.reduce(function(a, b) { return a + b; }, 0);
+              var totalAmount = dept.total_amounts.reduce(function(a, b) { return a + b; }, 0);
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + medCount + '</td>' +
+                '<td>' + Number(medAmount).toLocaleString() + '</td>' +
+                '<td>' + deathCount + '</td>' +
+                '<td>' + Number(deathAmount).toLocaleString() + '</td>' +
+                '<td>' + totalCount + '</td>' +
+                '<td>' + Number(totalAmount).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-payroll-analysis": {
+          tableId: "deptPayrollAnalysisTable",
+          url: "/api/treasurer/department/payroll-analysis/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + Number(dept.total_deductions).toLocaleString() + '</td>' +
+                '<td>' + (dept.deduction_count || 0) + '</td>' +
+                '<td>' + Number(dept.average_deduction).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        }
+      };
+
       document.addEventListener("turbo:load", function() {
         var tabBtns = document.querySelectorAll(".dept-tab-btn");
         tabBtns.forEach(function(btn) {
@@ -5226,34 +5319,26 @@
             });
             btn.classList.add("btn-brand-primary");
             btn.style.opacity = "1";
+
+            var ep = deptEndpoints[target];
+            if (!ep) return;
+            var table = document.getElementById(ep.tableId);
+            if (table && table.getAttribute("data-loaded") !== "true") {
+              fetch(ep.url, { credentials: "same-origin" })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                  if (!data.ok) return;
+                  table.setAttribute("data-loaded", "true");
+                  var tbody = table.getElementsByTagName("tbody")[0];
+                  tbody.innerHTML = "";
+                  ep.render(data, tbody);
+                })
+                .catch(function(e) { console.error("Failed to load " + ep.url, e); });
+            }
           });
         });
 
-        var memberStatsTable = document.getElementById("deptMemberStatsTable");
-        if (memberStatsTable && memberStatsTable.getAttribute("data-loaded") !== "true") {
-          fetch("/api/treasurer/department/member-stats/", { credentials: "same-origin" })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-              if (!data.ok) return;
-              memberStatsTable.setAttribute("data-loaded", "true");
-              var tbody = memberStatsTable.getElementsByTagName("tbody")[0];
-              tbody.innerHTML = "";
-              data.departments.forEach(function(dept) {
-                tbody.innerHTML += '<tr>' +
-                  '<td>' + escapeHtml(dept.department) + '</td>' +
-                  '<td>' + (dept.total || 0) + '</td>' +
-                  '<td>' + (dept.active || 0) + '</td>' +
-                  '<td>' + (dept.permanent || 0) + '</td>' +
-                  '<td>' + (dept.temporary || 0) + '</td>' +
-                  '<td>' + (dept.retired || 0) + '</td>' +
-                  '</tr>';
-              });
-              if (data.unassigned_count) {
-                tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
-              }
-            })
-            .catch(function(e) { console.error("Failed to load member stats", e); });
-        }
+        document.querySelector(".dept-tab-btn[data-tab='dept-member-stats']").click();
       });
 
       function refreshDepartmentData() {

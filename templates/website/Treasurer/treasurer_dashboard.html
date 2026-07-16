@@ -4150,15 +4150,18 @@
             <div class="dashboard-panel" id="rcMembersPanel" style="display:none;">
               <div class="panel-header-row">
                 <div>
-                  <h3 class="panel-title" id="rcSelectedPostTitle">Member Contributions</h3>
+                  <h3 class="panel-title" id="rcSelectedPostTitle" style="display:inline;">Member Contributions</h3>
+                  <span id="rcPendingBadge" style="display:none;margin-left:8px;padding:3px 12px;border-radius:12px;background:#fff8e1;color:#f57f17;font-size:0.72rem;font-weight:700;white-space:nowrap;vertical-align:middle;"><i class="fa-regular fa-clock"></i> members paid — pending verification</span>
                   <p class="panel-subtitle" id="rcSelectedPostSubtitle">Select an aid post to view contributions</p>
                 </div>
-                <button id="rcMarkFinishedBtn" disabled style="padding:8px 20px;border-radius:8px;border:1px solid #f9a825;background:#fff8e1;color:#f57f17;font-weight:600;font-size:0.82rem;cursor:not-allowed;white-space:nowrap;opacity:0.5;">
-                  <i class="fa-solid fa-clipboard"></i> Mark as Finished
-                </button>
-                <button id="rcPaidWithFundsBtn" style="padding:8px 20px;border-radius:8px;border:none;background:#1b5e20;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
-                  <i class="fa-solid fa-bolt"></i> Paid with Funds
-                </button>
+                <div style="display:flex;gap:8px;">
+                  <button id="rcPaidWithFundsBtn" style="padding:8px 20px;border-radius:8px;border:none;background:#1b5e20;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+                    <i class="fa-solid fa-bolt"></i> Paid with Funds
+                  </button>
+                  <button id="rcMarkFinishedBtn" disabled style="padding:8px 20px;border-radius:8px;border:1px solid #f9a825;background:#fff8e1;color:#f57f17;font-weight:600;font-size:0.82rem;cursor:not-allowed;white-space:nowrap;opacity:0.5;">
+                    <i class="fa-solid fa-clipboard"></i> Mark as Finished
+                  </button>
+                </div>
               </div>
 
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
@@ -4166,6 +4169,7 @@
                 <select id="rcStatusFilter" style="padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
                   <option value="All">All Status</option>
                   <option value="NOT_PAID">NOT PAID</option>
+                  <option value="PENDING_VERIFICATION">Paid - Pending Verification</option>
                   <option value="PAID">PAID</option>
                   <option value="SKIPPED">SKIPPED</option>
                 </select>
@@ -6541,6 +6545,8 @@
           if (subtitle) subtitle.textContent = post.aid_label + " | " + post.target_month + " | Target: " + rcFmt(post.total_expected);
           if (panel) panel.style.display = "block";
 
+          document.getElementById("rcPendingBadge").style.display = "none";
+
           var paidBtn = document.getElementById("rcPaidWithFundsBtn");
           if (paidBtn) {
             if (post.finish_status === "paid_with_funds" || post.finish_paid_with_funds) {
@@ -6580,6 +6586,9 @@
           else if (action === "notify") endpoint = "/api/treasurer/aid-post-member-notify/";
           if (!endpoint) return;
 
+          var row = document.querySelector('#rcMembersTableBody tr[data-contribution-id="' + contributionId + '"]');
+          var memberName = row ? row.querySelector("td:nth-child(3)").textContent.trim() : "Member";
+
           var fd = new FormData();
           fd.set("contribution_id", contributionId);
 
@@ -6587,7 +6596,10 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
               if (data.ok) {
-                showToast(data.message || data.status || "Done.", false);
+                var toastMsg = action === "pay" ? memberName + " paid - pending" :
+                               action === "skip" ? memberName + " skipped" :
+                               "Done.";
+                showToast(toastMsg, false);
                 if (rcState.selectedPostId) rcLoadMembers(rcState.selectedPostId);
               } else {
                 showToast(data.error || "Action failed.", true);
@@ -6623,6 +6635,7 @@
               tbody.innerHTML = filtered.map(function (m) {
                 var statusBadge = "";
                 if (m.status === "PAID") statusBadge = "<span style=\"background:#e8f5e9;color:#2e7d32;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">PAID</span>";
+                else if (m.status === "PENDING_VERIFICATION") statusBadge = "<span style=\"background:#fff8e1;color:#f57f17;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">Paid - Pending Verification</span>";
                 else if (m.status === "SKIPPED") statusBadge = "<span style=\"background:#fff3e0;color:#e65100;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">SKIPPED</span>";
                 else statusBadge = "<span style=\"background:#f5f5f5;color:#757575;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">NOT PAID</span>";
                 return "<tr data-contribution-id=\"" + m.contribution_id + "\">" +
@@ -6647,6 +6660,7 @@
               rcBindCheckboxes();
               rcUpdateBulkBar();
               rcUpdateFinishBtnState(members);
+              rcUpdateLockState(members);
             })
             .catch(function () {
               tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#d32f2f;padding:30px;">Network error loading contributions.</td></tr>';
@@ -6657,9 +6671,9 @@
           var finishBtn = document.getElementById("rcMarkFinishedBtn");
           if (!finishBtn) return;
           var total = members.length;
-          var paid = members.filter(function (m) { return m.status === "PAID"; }).length;
+          var paid = members.filter(function (m) { return m.status === "PAID" || m.status === "PENDING_VERIFICATION"; }).length;
           var pct = total > 0 ? (paid / total) * 100 : 0;
-          if (pct >= 70) {
+          if (paid > 0 || pct >= 70) {
             finishBtn.disabled = false;
             finishBtn.style.opacity = "1";
             finishBtn.style.cursor = "pointer";
@@ -6669,6 +6683,39 @@
             finishBtn.style.opacity = "0.5";
             finishBtn.style.cursor = "not-allowed";
             finishBtn.title = "Need at least 70% paid (currently " + Math.round(pct) + "%)";
+          }
+        }
+
+        function rcUpdateLockState(members) {
+          var badge = document.getElementById("rcPendingBadge");
+          var paidBtn = document.getElementById("rcPaidWithFundsBtn");
+          var finishBtn = document.getElementById("rcMarkFinishedBtn");
+          var isLocked = members.length > 0 && members.every(function (m) { return m.status === "PENDING_VERIFICATION"; });
+
+          if (badge) badge.style.display = isLocked ? "inline" : "none";
+
+          var rowBtns = [
+            document.querySelectorAll("#rcMembersTableBody .rc-pay-btn"),
+            document.querySelectorAll("#rcMembersTableBody .rc-skip-btn"),
+            document.querySelectorAll("#rcMembersTableBody .rc-notify-btn"),
+          ];
+          rowBtns.forEach(function (btns) {
+            btns.forEach(function (b) {
+              b.disabled = isLocked;
+              b.style.opacity = isLocked ? "0.5" : "";
+              b.style.cursor = isLocked ? "not-allowed" : "";
+            });
+          });
+
+          if (paidBtn) {
+            paidBtn.disabled = isLocked;
+            paidBtn.style.opacity = isLocked ? "0.5" : "";
+            paidBtn.style.cursor = isLocked ? "not-allowed" : "";
+          }
+          if (finishBtn) {
+            finishBtn.disabled = isLocked;
+            finishBtn.style.opacity = isLocked ? "0.5" : "";
+            finishBtn.style.cursor = isLocked ? "not-allowed" : "";
           }
         }
 
@@ -7456,6 +7503,99 @@
     </script>
     <script>
       // Department Analytics Tabs
+      var deptEndpoints = {
+        "dept-member-stats": {
+          tableId: "deptMemberStatsTable",
+          url: "/api/treasurer/department/member-stats/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + (dept.total || 0) + '</td>' +
+                '<td>' + (dept.active || 0) + '</td>' +
+                '<td>' + (dept.permanent || 0) + '</td>' +
+                '<td>' + (dept.temporary || 0) + '</td>' +
+                '<td>' + (dept.retired || 0) + '</td>' +
+                '</tr>';
+            });
+            if (data.unassigned_count) {
+              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
+            }
+          }
+        },
+        "dept-payment-tracking": {
+          tableId: "deptPaymentTrackingTable",
+          url: "/api/treasurer/department/payment-tracking/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + (dept.total_members || 0) + '</td>' +
+                '<td>' + (dept.dues_paid_current_month || 0) + '</td>' +
+                '<td>' + (dept.dues_collection_rate || 0) + '%</td>' +
+                '<td>' + (dept.membership_fee_paid || 0) + '</td>' +
+                '<td>' + (dept.fee_collection_rate || 0) + '%</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-financial-summary": {
+          tableId: "deptFinancialSummaryTable",
+          url: "/api/treasurer/department/financial-summary/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + Number(dept.monthly_dues).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.membership_fees).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.medical_aid).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.death_aid).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.total_inflow).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.total_outflow).toLocaleString() + '</td>' +
+                '<td>' + Number(dept.net_position).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-aid-trends": {
+          tableId: "deptAidTrendsTable",
+          url: "/api/treasurer/department/aid-trends/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              var medCount = dept.medical_aid_counts.reduce(function(a, b) { return a + b; }, 0);
+              var medAmount = dept.medical_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
+              var deathCount = dept.death_aid_counts.reduce(function(a, b) { return a + b; }, 0);
+              var deathAmount = dept.death_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
+              var totalCount = dept.total_counts.reduce(function(a, b) { return a + b; }, 0);
+              var totalAmount = dept.total_amounts.reduce(function(a, b) { return a + b; }, 0);
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + medCount + '</td>' +
+                '<td>' + Number(medAmount).toLocaleString() + '</td>' +
+                '<td>' + deathCount + '</td>' +
+                '<td>' + Number(deathAmount).toLocaleString() + '</td>' +
+                '<td>' + totalCount + '</td>' +
+                '<td>' + Number(totalAmount).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        },
+        "dept-payroll-analysis": {
+          tableId: "deptPayrollAnalysisTable",
+          url: "/api/treasurer/department/payroll-analysis/",
+          render: function(data, tbody) {
+            data.departments.forEach(function(dept) {
+              tbody.innerHTML += '<tr>' +
+                '<td>' + escapeHtml(dept.department) + '</td>' +
+                '<td>' + Number(dept.total_deductions).toLocaleString() + '</td>' +
+                '<td>' + (dept.deduction_count || 0) + '</td>' +
+                '<td>' + Number(dept.average_deduction).toLocaleString() + '</td>' +
+                '</tr>';
+            });
+          }
+        }
+      };
+
       document.addEventListener("turbo:load", function() {
         var tabBtns = document.querySelectorAll(".dept-tab-btn");
         tabBtns.forEach(function(btn) {
@@ -7471,34 +7611,26 @@
             });
             btn.classList.add("btn-brand-primary");
             btn.style.opacity = "1";
+
+            var ep = deptEndpoints[target];
+            if (!ep) return;
+            var table = document.getElementById(ep.tableId);
+            if (table && table.getAttribute("data-loaded") !== "true") {
+              fetch(ep.url, { credentials: "same-origin" })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                  if (!data.ok) return;
+                  table.setAttribute("data-loaded", "true");
+                  var tbody = table.getElementsByTagName("tbody")[0];
+                  tbody.innerHTML = "";
+                  ep.render(data, tbody);
+                })
+                .catch(function(e) { console.error("Failed to load " + ep.url, e); });
+            }
           });
         });
 
-        var memberStatsTable = document.getElementById("deptMemberStatsTable");
-        if (memberStatsTable && memberStatsTable.getAttribute("data-loaded") !== "true") {
-          memberStatsTable.setAttribute("data-loaded", "true");
-          fetch("/api/treasurer/department/member-stats/", { credentials: "same-origin" })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-              if (!data.ok) return;
-              var tbody = memberStatsTable.getElementsByTagName("tbody")[0];
-              tbody.innerHTML = "";
-              data.departments.forEach(function(dept) {
-                tbody.innerHTML += '<tr>' +
-                  '<td>' + escapeHtml(dept.department) + '</td>' +
-                  '<td>' + (dept.total || 0) + '</td>' +
-                  '<td>' + (dept.active || 0) + '</td>' +
-                  '<td>' + (dept.permanent || 0) + '</td>' +
-                  '<td>' + (dept.temporary || 0) + '</td>' +
-                  '<td>' + (dept.retired || 0) + '</td>' +
-                  '</tr>';
-              });
-              if (data.unassigned_count) {
-                tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
-              }
-            })
-            .catch(function(e) { console.error("Failed to load member stats", e); });
-        }
+        document.querySelector(".dept-tab-btn[data-tab='dept-member-stats']").click();
       });
 
       function refreshDepartmentData() {

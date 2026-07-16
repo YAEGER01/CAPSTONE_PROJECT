@@ -18,9 +18,19 @@ def main() -> None:
             else:
                 port = addrport
         if any(a in sys.argv for a in ("--help", "-h")):
-            subprocess.call([sys.executable, "-m", "daphne", "--help"])
+            subprocess.call([sys.executable, "-m", "uvicorn", "--help"])
             return
-        cmd = [sys.executable, "-m", "daphne", "-b", host, "-p", port, "caufa_portal.asgi:application"]
+        cmd = [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "caufa_portal.asgi:application",
+            "--host",
+            host,
+            "--port",
+            port,
+            "--reload",
+        ]
         sys.exit(subprocess.call(cmd))
 
     try:

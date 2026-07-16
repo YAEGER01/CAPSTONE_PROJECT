@@ -1283,7 +1283,7 @@ def auditor_pending_finish_requests(request: HttpRequest):
     for post in posts:
         archive = post.archive_id_FK
         total = Contribution.objects.filter(aid_tracking_post_id_FK=post).count()
-        paid = Contribution.objects.filter(aid_tracking_post_id_FK=post, status="PAID").count()
+        paid = Contribution.objects.filter(aid_tracking_post_id_FK=post, status__in=["PAID", "PENDING_VERIFICATION"]).count()
         items.append({
             "post_id": post.post_id_PK,
             "aid_type": post.aid_type,
@@ -1326,7 +1326,7 @@ def auditor_finish_request_details(request: HttpRequest):
         member_name = c.member_id_FK.full_name if c.member_id_FK else "Unknown"
         paid = float(c.paid_amount) if c.paid_amount else 0
         expected = float(c.expected_amount) if c.expected_amount else 0
-        if c.status == "PAID":
+        if c.status in ("PAID", "PENDING_VERIFICATION"):
             total_paid += paid
             paid_count += 1
         details.append({

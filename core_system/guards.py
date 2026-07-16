@@ -77,7 +77,7 @@ def require_role(request: HttpRequest, *, role: str | list[str] | None) -> HttpR
             except AccessSession.DoesNotExist:
                 officer_role = ""
 
-    logger.warning(
+    logger.debug(
         "require_role check: path=%s officer_role=%r targets=%r",
         getattr(request, "path", None),
         officer_role,

@@ -211,7 +211,7 @@
       const enrolledNames = results.filter((r) => r.ok).map((r) => r.name);
       if (failed.length === 0) {
         Swal.fire({
-          title: "Bulk Enrollment Complete",
+          title: "Batch Enrollment Complete",
           html: `<b>Enrolled ${succeeded} member(s):</b><br><br>` +
             enrolledNames.map((n) => `• ${n}`).join("<br>"),
           icon: "success",
@@ -219,7 +219,7 @@
         });
       } else {
         Swal.fire({
-          title: "Bulk Enrollment Finished",
+          title: "Batch Enrollment Finished",
           html: `<b>${succeeded} enrolled, ${failed.length} failed.</b><br><br>` +
             `<b>Enrolled:</b><br>` + enrolledNames.map((n) => `• ${n}`).join("<br>") +
             `<br><br><b>Failed:</b><br>` + failed.map((f) => `• ${f.name}: ${f.error}`).join("<br>"),

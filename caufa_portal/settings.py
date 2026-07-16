@@ -8,13 +8,16 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = _os.getenv("SECRET_KEY", "django-insecure-change-me-for-production")
 DEBUG = True
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver", "angeline-unprotuberant-vanita.ngrok-free.dev"]
+ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://angeline-unprotuberant-vanita.ngrok-free.dev",
     "http://127.0.0.1:8000",
     "http://localhost:8000",
+    "https://*.ngrok-free.app",
+    "https://*.ngrok.io",
 ]
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -30,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core_system.middleware.NoCacheMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
