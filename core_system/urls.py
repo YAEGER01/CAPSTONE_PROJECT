@@ -528,6 +528,9 @@ urlpatterns = [
     ),
     # --- Treasurer: Mark Aid Post as Finished (sends to Auditor) ---
     path("api/treasurer/aid-post-mark-finished/", treasurer_views.treasurer_aid_post_mark_finished, name="treasurer_aid_post_mark_finished"),
+    # --- Treasurer: Release Aid Post (record fund in/out and close) ---
+    path("api/treasurer/aid-post-release/", treasurer_views.treasurer_aid_post_release, name="treasurer_aid_post_release"),
+    path("api/treasurer/aid-post-close-repayment/", treasurer_views.treasurer_aid_post_close_repayment, name="treasurer_aid_post_close_repayment"),
     # --- Auditor: Aid Post Finish Verification ---
     path("api/auditor/pending-finish-requests/", auditor_views.auditor_pending_finish_requests, name="auditor_pending_finish_requests"),
     path("api/auditor/aid-post-verify-finish/", auditor_views.auditor_verify_post_finish, name="auditor_verify_post_finish"),

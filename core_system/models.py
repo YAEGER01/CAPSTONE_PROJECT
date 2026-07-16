@@ -732,7 +732,7 @@ class AidTrackingPost(models.Model):
 
     finish_status = models.CharField(
         max_length=20, blank=True, default="",
-        help_text="'' = no request, 'pending_approval' = awaiting President, 'rejected' = President rejected, 'paid_with_funds' = fund disbursement"
+        help_text="'' = no request, 'pending_approval' = awaiting President, 'rejected' = rejected, 'pending_release' = awaiting Treasurer fund release, 'pending_auditor' = awaiting Auditor verification, 'pending_president' = awaiting President, 'repayment' = fund released, members still owe"
     )
     finish_skip_remaining = models.BooleanField(
         default=False,

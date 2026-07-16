@@ -1,6 +1,8 @@
 param(
   [switch]$NoNgrok,
   [switch]$NoMigrate,
+  [switch]$NoDeps,
+  [switch]$NoReload,
   [int]$DaphnePort = 5000
 )
 
@@ -23,13 +25,24 @@ if (Test-Path $VenvActivate) {
   exit 1
 }
 
-Write-Host "[2/4] Checking dependencies..." -ForegroundColor Yellow
-$pipResult = & $VenvPython -m pip install -q -r "$ProjectRoot\requirements.txt" 2>&1
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "  -> pip reported issues (shown below), but continuing..." -ForegroundColor Yellow
-  $pipResult | ForEach-Object { Write-Host "     $_" -ForegroundColor DarkGray }
+if (-not $NoDeps) {
+  Write-Host "[2/4] Checking dependencies..." -ForegroundColor Yellow
+  $reqHash = if (Test-Path "$ProjectRoot\requirements.txt") { Get-FileHash "$ProjectRoot\requirements.txt" -Algorithm MD5 | Select-Object -ExpandProperty Hash } else { "" }
+  $cachedHash = if (Test-Path "$ProjectRoot\.reqhash") { Get-Content "$ProjectRoot\.reqhash" -Raw | ForEach-Object { $_.Trim() } } else { "" }
+  if ($reqHash -and $reqHash -ne $cachedHash) {
+    $pipResult = & $VenvPython -m pip install -q -r "$ProjectRoot\requirements.txt" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+      Write-Host "  -> pip reported issues (shown below), but continuing..." -ForegroundColor Yellow
+      $pipResult | ForEach-Object { Write-Host "     $_" -ForegroundColor DarkGray }
+    } else {
+      Write-Host "  -> Dependencies installed." -ForegroundColor Green
+    }
+    $reqHash | Set-Content "$ProjectRoot\.reqhash"
+  } else {
+    Write-Host "  -> Dependencies up to date (cached)." -ForegroundColor Green
+  }
 } else {
-  Write-Host "  -> Dependencies up to date." -ForegroundColor Green
+  Write-Host "[2/4] Skipping dependency check (-NoDeps)." -ForegroundColor Gray
 }
 
 if (-not $NoMigrate) {
@@ -48,13 +61,15 @@ if (-not $NoMigrate) {
 Write-Host "[4/4] Launching service terminals..." -ForegroundColor Yellow
 $pidList = @()
 
-# --- Terminal A: Daphne ASGI + uvicorn auto-reload ---
+# --- Terminal A: Daphne ASGI (with optional auto-reload) ---
+$reloadFlag = if ($NoReload) { '' } else { '--reload' }
 $reloadCmd = @"
+`$env:WATCHFILES_FORCE_POLLING = 'true'
 cd '$ProjectRoot'
 .\.venv\Scripts\Activate.ps1
 `$Host.UI.RawUI.WindowTitle = 'DAPHNE (:$DaphnePort)'
-Write-Host 'Daphne ASGI + auto-reload — Ctrl+C to stop' -ForegroundColor Cyan
-python reload.py $DaphnePort
+Write-Host 'Daphne ASGI — Ctrl+C to stop' -ForegroundColor Cyan
+python reload.py $DaphnePort $reloadFlag
 "@
 $p = Start-Process powershell -WindowStyle Normal -PassThru -ArgumentList "-NoExit", "-Command", $reloadCmd
 $pidList += $p.Id

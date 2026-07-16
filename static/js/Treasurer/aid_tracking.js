@@ -136,10 +136,18 @@
     } else if (msg.type === "aid_post_finish_requested") {
       var fp = state.posts.find(function (x) { return x.post_id === msg.post_id; });
       if (fp) {
-        fp.finish_status = "pending_approval";
+        fp.finish_status = msg.stage === "auditor" ? "pending_auditor" : msg.stage === "president" ? "pending_president" : "pending_approval";
       }
       renderCards();
       highlightSelectedCard();
+    } else if (msg.type === "aid_post_release_pending") {
+      var rp = state.posts.find(function (x) { return x.post_id === msg.post_id; });
+      if (rp) {
+        rp.finish_status = "pending_release";
+      }
+      renderCards();
+      highlightSelectedCard();
+      showToast((msg.member_name || "A post") + " is ready for fund release.", false);
     } else if (msg.type === "aid_post_finish_rejected") {
       var rp = state.posts.find(function (x) { return x.post_id === msg.post_id; });
       if (rp) {

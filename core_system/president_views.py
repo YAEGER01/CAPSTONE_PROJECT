@@ -1419,7 +1419,7 @@ def president_approve_aid_post_finish(request: HttpRequest):
     except (ValueError, AidTrackingPost.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Pending finish request not found."}, status=404)
 
-    if post.finish_skip_remaining:
+    if post.finish_skip_remaining and not post.finish_paid_with_funds:
         Contribution.objects.filter(
             aid_tracking_post_id_FK=post,
             status="NOT_PAID",
@@ -1435,11 +1435,8 @@ def president_approve_aid_post_finish(request: HttpRequest):
 
     was_auditor_verified = post.finish_status == "pending_president"
 
-    post.finish_status = "approved"
-    post.is_active = False
-    post.save(update_fields=["finish_status", "is_active", "total_collected"])
-
     archive = post.archive_id_FK
+    member_name = archive.member_name if archive else ""
 
     if was_auditor_verified:
         pending_ids = list(
@@ -1454,72 +1451,64 @@ def president_approve_aid_post_finish(request: HttpRequest):
                 total_collected=Sum("paid_amount"),
             )
             post.total_collected = totals["total_collected"] or 0
-            post.save(update_fields=["total_collected"])
 
-        paid_contributions = Contribution.objects.filter(
-            aid_tracking_post_id_FK=post, status="PAID",
-        ).select_related("member_id_FK")
+        post.finish_status = "pending_release"
+        post.save(update_fields=["finish_status", "total_collected"])
 
-        transactions = [
-            FundTransaction(
-                direction="inflow",
-                amount=c.paid_amount,
-                source_type="contribution",
-                source_id=c.contribution_id_PK,
-                description=f"Contribution — {c.member_id_FK.full_name if c.member_id_FK else 'Unknown'} ({post.aid_type})",
-                recorded_by_user_id_FK=president,
-            )
-            for c in paid_contributions
-        ]
+        _record_audit_trail(
+            table="AID_TRACKING_POST",
+            record_id=post.post_id_PK,
+            action="FINISH_APPROVED",
+            actor=president,
+            new={"finish_status": "pending_release"},
+            ip=request.META.get("REMOTE_ADDR"),
+        )
 
-        if post.finish_paid_with_funds:
-            archive = post.archive_id_FK
-            member_name = archive.member_name if archive else "Unknown"
-            transactions.append(
-                FundTransaction(
-                    direction="outflow",
-                    amount=post.total_expected,
-                    source_type="aid_post_payment",
-                    source_id=post.post_id_PK,
-                    description=f"Fund disbursement — {member_name} ({post.aid_type})",
-                    recorded_by_user_id_FK=president,
-                )
-            )
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)("treasurer_dashboard", {
+            "type": "aid_post_release_pending",
+            "post_id": post.post_id_PK,
+            "member_name": member_name,
+        })
+        async_to_sync(channel_layer.group_send)("auditor_dashboard", {
+            "type": "data_changed", "section": "aids",
+        })
+        async_to_sync(channel_layer.group_send)("president_dashboard", {
+            "type": "data_changed", "section": "aids",
+        })
 
-        FundTransaction.objects.bulk_create(transactions)
+        return JsonResponse({"ok": True, "message": "Finish approved. The Treasurer must now release the funds to close this post."})
     else:
+        post.finish_status = "approved"
+        post.is_active = False
+        post.save(update_fields=["finish_status", "is_active", "total_collected"])
+
         if archive is not None:
             if archive.transaction_type == "death_aid":
                 DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
             elif archive.transaction_type == "medical_aid":
                 MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
 
-    _record_audit_trail(
-        table="AID_TRACKING_POST",
-        record_id=post.post_id_PK,
-        action="FINISH_APPROVED",
-        actor=president,
-        new={
-            "finish_status": "approved",
-            "is_active": False,
-            "fund_inflow_created": was_auditor_verified,
-            "paid_with_funds_outflow_created": post.finish_paid_with_funds,
-        },
-        ip=request.META.get("REMOTE_ADDR"),
-    )
+        _record_audit_trail(
+            table="AID_TRACKING_POST",
+            record_id=post.post_id_PK,
+            action="FINISH_APPROVED",
+            actor=president,
+            new={"finish_status": "approved", "is_active": False},
+            ip=request.META.get("REMOTE_ADDR"),
+        )
 
-    member_name = archive.member_name if archive else ""
-    channel_layer = get_channel_layer()
-    payload = {
-        "type": "aid_post_finished",
-        "post_id": post.post_id_PK,
-        "member_name": member_name,
-    }
-    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
-    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
-    async_to_sync(channel_layer.group_send)("president_dashboard", payload)
+        channel_layer = get_channel_layer()
+        payload = {
+            "type": "aid_post_finished",
+            "post_id": post.post_id_PK,
+            "member_name": member_name,
+        }
+        async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+        async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+        async_to_sync(channel_layer.group_send)("president_dashboard", payload)
 
-    return JsonResponse({"ok": True, "message": "Finish request approved. Post moved to history."})
+        return JsonResponse({"ok": True, "message": "Finish request approved. Post moved to history."})
 
 
 @require_POST

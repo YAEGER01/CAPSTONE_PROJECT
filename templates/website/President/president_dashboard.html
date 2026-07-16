@@ -4626,13 +4626,5 @@
         return div.innerHTML;
       }
     </script>
-    <script>
-      (function () {
-        var orig = window.location.reload.bind(window.location);
-        window.location.reload = function () {
-          Turbo.visit(window.location.href, { action: "replace" });
-        };
-      })();
-    </script>
   </body>
 </html>

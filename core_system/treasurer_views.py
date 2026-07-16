@@ -2757,74 +2757,76 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
     if officer is None:
         return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
 
-    contribution_id = (request.POST.get("contribution_id") or "").strip()
-    if not contribution_id:
+    contribution_ids = request.POST.getlist("contribution_id")
+    if not contribution_ids:
         return JsonResponse({"ok": False, "error": "Missing contribution_id."}, status=400)
 
-    try:
-        contribution = Contribution.objects.select_related(
-            "aid_tracking_post_id_FK"
-        ).get(contribution_id_PK=int(contribution_id))
-    except (ValueError, Contribution.DoesNotExist):
-        return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
+    contributions = Contribution.objects.select_related(
+        "aid_tracking_post_id_FK", "member_id_FK"
+    ).filter(contribution_id_PK__in=[int(cid) for cid in contribution_ids if cid.strip()])
 
-    contribution.paid_amount = contribution.expected_amount
-    contribution.payment_date = timezone.now().date()
-    contribution.status = "PENDING_VERIFICATION"
-    contribution.is_manually_overridden = False
-    contribution.updated_by_user_id_FK = officer
-    contribution.save()
+    if not contributions:
+        return JsonResponse({"ok": False, "error": "No valid contributions found."}, status=404)
 
-    post = contribution.aid_tracking_post_id_FK
-
-    TransactionVerification.objects.update_or_create(
-        table_name="contribution",
-        record_id=contribution.contribution_id_PK,
-        defaults={
-            "verification_status": "Pending Verification",
-            "target_category": "aid_contribution",
-        },
-    )
-
-    GlobalAuditTrail.objects.create(
-        table_name="contribution",
-        record_id=contribution.contribution_id_PK,
-        action="PAYMENT_RECORDED",
-        actor_type=getattr(officer, "role", "Treasurer"),
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
-        ip_address=request.META.get("REMOTE_ADDR"),
-    )
-
+    post = None
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "treasurer_dashboard",
-        {
-            "type": "contribution_updated",
-            "post_id": post.post_id_PK,
-            "contribution_id": contribution.contribution_id_PK,
-            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
-            "status": "PENDING_VERIFICATION",
-            "paid_amount": float(contribution.expected_amount),
-        },
-    )
-    async_to_sync(channel_layer.group_send)(
-        "auditor_dashboard",
-        {
-            "type": "contribution_updated",
-            "post_id": post.post_id_PK,
-            "contribution_id": contribution.contribution_id_PK,
-            "member_name": getattr(contribution.member_id_FK, "full_name", ""),
-            "status": "PENDING_VERIFICATION",
-            "paid_amount": float(contribution.expected_amount),
-        },
-    )
 
-    _recalculate_total_collected(post.post_id_PK)
+    for contribution in contributions:
+        post = contribution.aid_tracking_post_id_FK
+        contribution.paid_amount = contribution.expected_amount
+        contribution.payment_date = timezone.now().date()
+        contribution.status = "PENDING_VERIFICATION"
+        contribution.is_manually_overridden = False
+        contribution.updated_by_user_id_FK = officer
+        contribution.save()
 
-    _broadcast_pending_counts()
+        TransactionVerification.objects.update_or_create(
+            table_name="contribution",
+            record_id=contribution.contribution_id_PK,
+            defaults={
+                "verification_status": "Pending Verification",
+                "target_category": "aid_contribution",
+            },
+        )
 
-    return JsonResponse({"ok": True, "status": "PENDING_VERIFICATION"})
+        GlobalAuditTrail.objects.create(
+            table_name="contribution",
+            record_id=contribution.contribution_id_PK,
+            action="PAYMENT_RECORDED",
+            actor_type=getattr(officer, "role", "Treasurer"),
+            actor_id=officer.user_id_PK,
+            actor_name=getattr(officer, "full_name", ""),
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
+
+        async_to_sync(channel_layer.group_send)(
+            "treasurer_dashboard",
+            {
+                "type": "contribution_updated",
+                "post_id": post.post_id_PK,
+                "contribution_id": contribution.contribution_id_PK,
+                "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+                "status": "PENDING_VERIFICATION",
+                "paid_amount": float(contribution.expected_amount),
+            },
+        )
+        async_to_sync(channel_layer.group_send)(
+            "auditor_dashboard",
+            {
+                "type": "contribution_updated",
+                "post_id": post.post_id_PK,
+                "contribution_id": contribution.contribution_id_PK,
+                "member_name": getattr(contribution.member_id_FK, "full_name", ""),
+                "status": "PENDING_VERIFICATION",
+                "paid_amount": float(contribution.expected_amount),
+            },
+        )
+
+    if post:
+        _recalculate_total_collected(post.post_id_PK)
+        _broadcast_pending_counts()
+
+    return JsonResponse({"ok": True, "status": "PENDING_VERIFICATION", "paid": len(contributions)})
 
 
 @require_POST
@@ -3742,6 +3744,224 @@ def treasurer_payroll_analysis_by_department(request: HttpRequest):
         "ok": True,
         "departments": departments,
     })
+
+
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_release(request: HttpRequest):
+    """Treasurer releases the aid payout: records fund in/out and closes the post."""
+    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.select_related("archive_id_FK").get(
+            post_id_PK=int(post_id), is_active=True, finish_status="pending_release"
+        )
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Post not found or not pending release."}, status=404)
+
+    archive = post.archive_id_FK
+    member_name = archive.member_name if archive else "Unknown"
+
+    transactions = []
+
+    if post.finish_paid_with_funds:
+        # Fund already covered the aid — record outflow for the full expected amount
+        transactions.append(
+            FundTransaction(
+                direction="outflow",
+                amount=post.total_expected,
+                source_type="aid_post_payment",
+                source_id=post.post_id_PK,
+                description=f"Fund disbursement — {member_name} ({post.aid_type})",
+                recorded_by_user_id_FK=officer,
+            )
+        )
+    else:
+        # Record inflow for each PAID member contribution
+        paid_contributions = Contribution.objects.filter(
+            aid_tracking_post_id_FK=post, status="PAID",
+        ).select_related("member_id_FK")
+
+        for c in paid_contributions:
+            transactions.append(
+                FundTransaction(
+                    direction="inflow",
+                    amount=c.paid_amount,
+                    source_type="contribution",
+                    source_id=c.contribution_id_PK,
+                    description=f"Contribution — {c.member_id_FK.full_name if c.member_id_FK else 'Unknown'} ({post.aid_type})",
+                    recorded_by_user_id_FK=officer,
+                )
+            )
+
+        # Record outflow for the total collected amount (aid disbursement to member)
+        transactions.append(
+            FundTransaction(
+                direction="outflow",
+                amount=post.total_collected,
+                source_type=archive.transaction_type if archive else "aid_post_payment",
+                source_id=archive.record_id if archive else post.post_id_PK,
+                description=f"Aid disbursement — {member_name} ({post.aid_type})",
+                recorded_by_user_id_FK=officer,
+            )
+        )
+
+    FundTransaction.objects.bulk_create(transactions)
+
+    channel_layer = get_channel_layer()
+
+    if post.finish_paid_with_funds:
+        # Mark aid as Released (fund paid the recipient)
+        if archive is not None:
+            if archive.transaction_type == "death_aid":
+                DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
+            elif archive.transaction_type == "medical_aid":
+                MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+
+        # Enter repayment phase — members still owe the fund
+        post.finish_status = "repayment"
+        post.save(update_fields=["finish_status"])
+
+        _record_audit_trail(
+            table="AID_TRACKING_POST",
+            record_id=post.post_id_PK,
+            action="FINISH_RELEASED",
+            actor=officer,
+            new={
+                "finish_status": "repayment",
+                "is_active": True,
+                "members_still_owe": float(post.total_expected - post.total_collected),
+            },
+            ip=request.META.get("REMOTE_ADDR"),
+        )
+
+        async_to_sync(channel_layer.group_send)("treasurer_dashboard", {
+            "type": "data_changed", "section": "aids",
+        })
+        async_to_sync(channel_layer.group_send)("auditor_dashboard", {
+            "type": "data_changed", "section": "aids",
+        })
+        async_to_sync(channel_layer.group_send)("president_dashboard", {
+            "type": "data_changed", "section": "aids",
+        })
+
+        return JsonResponse({"ok": True, "message": "Funds disbursed. Members still owe repayments to replenish the fund.", "status": "repayment"})
+    else:
+        # Close the post normally
+        if archive is not None:
+            if archive.transaction_type == "death_aid":
+                DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
+            elif archive.transaction_type == "medical_aid":
+                MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+
+        post.finish_status = "approved"
+        post.is_active = False
+        post.save(update_fields=["finish_status", "is_active"])
+
+        _record_audit_trail(
+            table="AID_TRACKING_POST",
+            record_id=post.post_id_PK,
+            action="FINISH_RELEASED",
+            actor=officer,
+            new={
+                "finish_status": "approved",
+                "is_active": False,
+                "inflow_count": sum(1 for t in transactions if t.direction == "inflow"),
+                "outflow_count": sum(1 for t in transactions if t.direction == "outflow"),
+            },
+            ip=request.META.get("REMOTE_ADDR"),
+        )
+
+        payload = {
+            "type": "aid_post_finished",
+            "post_id": post.post_id_PK,
+            "member_name": member_name,
+        }
+        async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+        async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+        async_to_sync(channel_layer.group_send)("president_dashboard", payload)
+
+        return JsonResponse({"ok": True, "message": "Funds released. Aid post closed."})
+
+
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_close_repayment(request: HttpRequest):
+    """Close a paid-with-funds post after members have repaid or been skipped."""
+    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    post_id = (request.POST.get("post_id") or "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(
+            post_id_PK=int(post_id), finish_status="repayment"
+        )
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Repayment post not found."}, status=404)
+
+    # Skip any remaining NOT_PAID contributions
+    skipped = Contribution.objects.filter(
+        aid_tracking_post_id_FK=post, status="NOT_PAID",
+    ).update(
+        status="SKIPPED", is_manually_overridden=True, paid_amount=0,
+    )
+
+    totals = Contribution.objects.filter(aid_tracking_post_id_FK=post).aggregate(
+        total_collected=Sum("paid_amount"),
+    )
+    post.total_collected = totals["total_collected"] or 0
+    post.finish_status = "approved"
+    post.is_active = False
+    post.save(update_fields=["finish_status", "is_active", "total_collected"])
+
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="REPAYMENT_CLOSED",
+        actor=officer,
+        new={
+            "finish_status": "approved",
+            "is_active": False,
+            "skipped_count": skipped,
+            "total_collected": float(post.total_collected),
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    member_name = ""
+    archive = post.archive_id_FK
+    if archive:
+        member_name = archive.member_name or ""
+
+    channel_layer = get_channel_layer()
+    payload = {
+        "type": "aid_post_finished",
+        "post_id": post.post_id_PK,
+        "member_name": member_name,
+    }
+    async_to_sync(channel_layer.group_send)("treasurer_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
+    async_to_sync(channel_layer.group_send)("president_dashboard", payload)
+
+    return JsonResponse({"ok": True, "message": f"Repayment closed. {skipped} members skipped. Total collected: ₱{post.total_collected:.2f}"})
 
 
 # ============================================================================

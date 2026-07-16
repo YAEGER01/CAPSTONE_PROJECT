@@ -4155,6 +4155,12 @@
                   <p class="panel-subtitle" id="rcSelectedPostSubtitle">Select an aid post to view contributions</p>
                 </div>
                 <div style="display:flex;gap:8px;">
+                  <button id="rcReleaseBtn" style="display:none;padding:8px 20px;border-radius:8px;border:none;background:#0d47a1;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+                    <i class="fa-solid fa-hand-holding-dollar"></i> Release
+                  </button>
+                  <button id="rcCloseRepaymentBtn" style="display:none;padding:8px 20px;border-radius:8px;border:none;background:#4a148c;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+                    <i class="fa-solid fa-check-double"></i> Close Repayment
+                  </button>
                   <button id="rcPaidWithFundsBtn" style="padding:8px 20px;border-radius:8px;border:none;background:#1b5e20;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
                     <i class="fa-solid fa-bolt"></i> Paid with Funds
                   </button>
@@ -4177,8 +4183,7 @@
 
               <div id="rcBulkBar" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:#f0f7f0;border-radius:10px;margin-bottom:12px;border:1px solid #c8e6c9;">
                 <span id="rcSelectedCount" style="font-weight:600;font-size:0.85rem;color:#1b5e20;">0 selected</span>
-                <button id="rcBulkSubmit" style="padding:6px 16px;border-radius:8px;border:1px solid #1b5e20;background:#1b5e20;color:#fff;font-weight:600;font-size:0.78rem;cursor:pointer;">Submit Contribution</button>
-                <button id="rcBulkClear" style="padding:6px 16px;border-radius:8px;border:1px solid #757575;background:#fff;color:#757575;font-weight:600;font-size:0.78rem;cursor:pointer;">Clear Selection</button>
+                <button id="rcBulkSubmit" style="padding:6px 16px;border-radius:8px;border:1px solid #1b5e20;background:#1b5e20;color:#fff;font-weight:600;font-size:0.78rem;cursor:pointer;"><i class="fa-solid fa-check"></i> Pay Selected</button>
               </div>
 
               <div class="table-container">
@@ -6509,8 +6514,9 @@
           container.innerHTML = posts.map(function (p) {
             var rate = p.collection_rate || 0;
             var barColor = rate >= 100 ? "#2e7d32" : rate >= 50 ? "#f9a825" : "#d32f2f";
+            var borderColor = p.finish_status === "pending_release" ? "#0d47a1" : p.finish_status === "repayment" ? "#4a148c" : (active ? '#1b5e20' : '#e0e0e0');
             var active = rcState.selectedPostId === p.post_id ? "selected" : "";
-            return '<div class="rc-card" data-post-id="' + p.post_id + '" style="background:#fafdfa;border:2px solid ' + (active ? '#1b5e20' : '#e0e0e0') + ';border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s;">' +
+            return '<div class="rc-card" data-post-id="' + p.post_id + '" style="background:#fafdfa;border:2px solid ' + borderColor + ';border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s;">' +
               '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">' +
               '<span style="background:' + (p.aid_type === "medical_aid" ? "#e3f2fd" : "#fce4ec") + ';color:' + (p.aid_type === "medical_aid" ? "#1565c0" : "#c62828") + ';padding:2px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;">' + p.aid_label + '</span>' +
               '<span style="font-size:0.72rem;color:#757575;">' + p.target_month + '</span>' +
@@ -6523,6 +6529,12 @@
               '<div style="text-align:right;font-size:0.72rem;color:' + barColor + ';margin-top:4px;font-weight:600;">' + rate + '%</div>' +
               (p.finish_paid_with_funds && p.finish_status !== "approved"
                 ? '<div style="margin-top:8px;padding:4px 10px;border-radius:6px;background:rgba(230,81,0,0.12);border:1px solid rgba(230,81,0,0.4);color:#bf360c;font-size:0.72rem;font-weight:600;text-align:center;">Paid with Funds — Members still owe ' + rcFmt(p.remaining_balance) + ' — PENDING</div>'
+                : '') +
+              (p.finish_status === "pending_release"
+                ? '<div style="margin-top:8px;padding:4px 10px;border-radius:6px;background:rgba(13,71,161,0.12);border:1px solid rgba(13,71,161,0.4);color:#0d47a1;font-size:0.72rem;font-weight:600;text-align:center;"><i class="fa-solid fa-hand-holding-dollar"></i> Pending Release — Click to release funds</div>'
+                : '') +
+              (p.finish_status === "repayment"
+                ? '<div style="margin-top:8px;padding:4px 10px;border-radius:6px;background:rgba(74,20,140,0.12);border:1px solid rgba(74,20,140,0.4);color:#4a148c;font-size:0.72rem;font-weight:600;text-align:center;"><i class="fa-solid fa-rotate-left"></i> Repayment — Members still owe ' + rcFmt(p.remaining_balance) + '</div>'
                 : '') +
               '</div>';
           }).join("");
@@ -6548,12 +6560,31 @@
           document.getElementById("rcPendingBadge").style.display = "none";
 
           var paidBtn = document.getElementById("rcPaidWithFundsBtn");
-          if (paidBtn) {
-            if (post.finish_status === "paid_with_funds" || post.finish_paid_with_funds) {
-              paidBtn.style.display = "none";
-            } else {
-              paidBtn.style.display = "";
+          var releaseBtn = document.getElementById("rcReleaseBtn");
+          var finishBtn = document.getElementById("rcMarkFinishedBtn");
+          var closeRepayBtn = document.getElementById("rcCloseRepaymentBtn");
+
+          if (post.finish_status === "pending_release") {
+            if (paidBtn) paidBtn.style.display = "none";
+            if (finishBtn) finishBtn.style.display = "none";
+            if (closeRepayBtn) closeRepayBtn.style.display = "none";
+            if (releaseBtn) releaseBtn.style.display = "";
+          } else if (post.finish_status === "repayment") {
+            if (releaseBtn) releaseBtn.style.display = "none";
+            if (paidBtn) paidBtn.style.display = "none";
+            if (finishBtn) finishBtn.style.display = "none";
+            if (closeRepayBtn) closeRepayBtn.style.display = "";
+          } else {
+            if (releaseBtn) releaseBtn.style.display = "none";
+            if (closeRepayBtn) closeRepayBtn.style.display = "none";
+            if (paidBtn) {
+              if (post.finish_status === "paid_with_funds" || post.finish_paid_with_funds) {
+                paidBtn.style.display = "none";
+              } else {
+                paidBtn.style.display = "";
+              }
             }
+            if (finishBtn) finishBtn.style.display = "";
           }
 
           rcRenderPosts(rcState.posts);
@@ -6689,7 +6720,6 @@
         function rcUpdateLockState(members) {
           var badge = document.getElementById("rcPendingBadge");
           var paidBtn = document.getElementById("rcPaidWithFundsBtn");
-          var finishBtn = document.getElementById("rcMarkFinishedBtn");
           var isLocked = members.length > 0 && members.every(function (m) { return m.status === "PENDING_VERIFICATION"; });
 
           if (badge) badge.style.display = isLocked ? "inline" : "none";
@@ -6712,11 +6742,7 @@
             paidBtn.style.opacity = isLocked ? "0.5" : "";
             paidBtn.style.cursor = isLocked ? "not-allowed" : "";
           }
-          if (finishBtn) {
-            finishBtn.disabled = isLocked;
-            finishBtn.style.opacity = isLocked ? "0.5" : "";
-            finishBtn.style.cursor = isLocked ? "not-allowed" : "";
-          }
+          // finish button is controlled by rcUpdateFinishBtnState — not locked here
         }
 
         function rcBindRowActions() {
@@ -6790,15 +6816,19 @@
           if (statusFilter) statusFilter.addEventListener("change", function () { if (rcState.selectedPostId) rcLoadMembers(rcState.selectedPostId); });
 
           var bulkSubmit = document.getElementById("rcBulkSubmit");
-          var bulkClear = document.getElementById("rcBulkClear");
           if (bulkSubmit) bulkSubmit.addEventListener("click", rcBulkSubmitHandler);
-          if (bulkClear) bulkClear.addEventListener("click", rcBulkClearHandler);
 
           var paidBtn = document.getElementById("rcPaidWithFundsBtn");
           if (paidBtn) paidBtn.addEventListener("click", rcPaidWithFunds);
 
           var finishBtn = document.getElementById("rcMarkFinishedBtn");
           if (finishBtn) finishBtn.addEventListener("click", rcMarkFinished);
+
+          var releaseBtn = document.getElementById("rcReleaseBtn");
+          if (releaseBtn) releaseBtn.addEventListener("click", rcReleasePost);
+
+          var closeRepayBtn = document.getElementById("rcCloseRepaymentBtn");
+          if (closeRepayBtn) closeRepayBtn.addEventListener("click", rcCloseRepayment);
         }
 
         function rcBulkSubmitHandler() {
@@ -6821,13 +6851,6 @@
               }
             })
             .catch(function () { showToast("Network error.", true); });
-        }
-
-        function rcBulkClearHandler() {
-          document.querySelectorAll("#rcMembersTableBody .rc-row-cb").forEach(function (cb) { cb.checked = false; });
-          var selectAll = document.getElementById("rcSelectAll");
-          if (selectAll) selectAll.checked = false;
-          rcUpdateBulkBar();
         }
 
         function rcFilterPosts() {
@@ -6912,6 +6935,94 @@
                   showToast("Post paid with funds successfully.", false);
                 } else {
                   showToast(data.error || "Failed to process payment.", true);
+                }
+              })
+              .catch(function () { showToast("Network error.", true); });
+          });
+        }
+
+        function rcReleasePost() {
+          var post = rcState.posts.find(function (p) { return p.post_id === rcState.selectedPostId; });
+          if (!post) return;
+
+          var itemCount = post.finish_paid_with_funds ? 0 : (post.total_collected_contributions || 0);
+          var inflowLine = post.finish_paid_with_funds
+            ? ''
+            : '<br><strong>Inflow:</strong> ' + (itemCount || (post.total_collected > 0 ? 'all PAID' : '0')) + ' contribution(s) → fund';
+          var outflowLine = post.finish_paid_with_funds
+            ? '<strong>Outflow:</strong> ' + rcFmt(post.total_expected) + ' from fund → ' + escapeHtml(post.member_name)
+            : '<strong>Outflow:</strong> ' + rcFmt(post.total_collected) + ' from fund → ' + escapeHtml(post.member_name);
+
+          Swal.fire({
+            title: "Release Funds?",
+            html: 'Record fund transactions and close <strong>' + escapeHtml(post.member_name) + "</strong>'s " + post.aid_label + ' post?' + inflowLine + '<br>' + outflowLine,
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Yes, Release",
+            cancelButtonText: "Cancel",
+            confirmButtonColor: "#0d47a1",
+            reverseButtons: true,
+            customClass: { popup: "swal-custom-animated" },
+          }).then(function (result) {
+            if (!result.isConfirmed) return;
+            var fd = new FormData();
+            fd.append("post_id", post.post_id);
+            fetch("/api/treasurer/aid-post-release/", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "X-CSRFToken": getCookie("csrftoken") },
+              body: fd,
+            })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.ok) {
+                  document.getElementById("rcMembersPanel").style.display = "none";
+                  rcInit();
+                  if (typeof initIO === "function") initIO();
+                  if (typeof initMonthlyChart === "function") initMonthlyChart();
+                  Swal.fire({icon:"success",title:"Released",text:data.message || "Funds released."});
+                } else {
+                  showToast(data.error || "Failed to release.", true);
+                }
+              })
+              .catch(function () { showToast("Network error.", true); });
+          });
+        }
+
+        function rcCloseRepayment() {
+          var post = rcState.posts.find(function (p) { return p.post_id === rcState.selectedPostId; });
+          if (!post) return;
+
+          Swal.fire({
+            title: "Close Repayment?",
+            html: 'Close <strong>' + escapeHtml(post.member_name) + "</strong>'s " + post.aid_label + ' repayment?<br>Remaining NOT_PAID members will be <strong>skipped</strong>.<br>Total collected: ' + rcFmt(post.total_collected) + ' of ' + rcFmt(post.total_expected),
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonText: "Yes, Close Repayment",
+            cancelButtonText: "Cancel",
+            confirmButtonColor: "#4a148c",
+            reverseButtons: true,
+            customClass: { popup: "swal-custom-animated" },
+          }).then(function (result) {
+            if (!result.isConfirmed) return;
+            var fd = new FormData();
+            fd.append("post_id", post.post_id);
+            fetch("/api/treasurer/aid-post-close-repayment/", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "X-CSRFToken": getCookie("csrftoken") },
+              body: fd,
+            })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.ok) {
+                  document.getElementById("rcMembersPanel").style.display = "none";
+                  rcInit();
+                  if (typeof initIO === "function") initIO();
+                  if (typeof initMonthlyChart === "function") initMonthlyChart();
+                  Swal.fire({icon:"success",title:"Closed",text:data.message || "Repayment closed."});
+                } else {
+                  showToast(data.error || "Failed to close repayment.", true);
                 }
               })
               .catch(function () { showToast("Network error.", true); });
@@ -7491,14 +7602,6 @@
         }
 
         document.addEventListener("turbo:load", function() { setTimeout(dtInit, 100); });
-      })();
-    </script>
-    <script>
-      (function(){
-        var orig = window.location.reload.bind(window.location);
-        window.location.reload = function() {
-          Turbo.visit(window.location.href, { action: "replace" });
-        };
       })();
     </script>
     <script>
