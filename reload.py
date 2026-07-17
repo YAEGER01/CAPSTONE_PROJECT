@@ -11,18 +11,25 @@ if __name__ == "__main__":
     kwargs = {
         "host": "127.0.0.1",
         "port": port,
-        "reload_dirs": [str(BASE)] if do_reload else None,
+        "reload_dirs": [
+            str(BASE / "caufa_portal"),
+            str(BASE / "core_system"),
+            str(BASE / "templates"),
+            str(BASE / "static"),
+        ] if do_reload else None,
     }
     if do_reload:
         print(f"[reload] Watching: {BASE}")
         kwargs["reload"] = True
+        kwargs["timeout_graceful_shutdown"] = 1
         kwargs["reload_includes"] = [
             "*.py", "*.html", "*.js", "*.css", "*.json", "*.txt",
             "*.yml", "*.yaml", "*.toml", "*.env",
         ]
         kwargs["reload_excludes"] = [
             "*.pyc", "*.pyo", "__pycache__", ".git", ".venv",
-            "venv", "node_modules", ".migrations", "*.log",
+            "venv", "node_modules", ".kilo", ".opencode",
+            ".aider*", ".migrations", "*.log",
             "*.sqlite3", "*.db",
         ]
     else:

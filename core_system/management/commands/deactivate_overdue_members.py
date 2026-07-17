@@ -5,9 +5,9 @@ from django.utils import timezone
 
 from core_system.models import (
     Member,
-    GlobalAuditTrail,
     SystemSetting,
 )
+from core_system.shared_view_utils import _record_audit_trail
 from core_system.services.compliance import (
     member_dues_status,
     _get_grace_period_days,
@@ -55,12 +55,13 @@ class Command(BaseCommand):
                     member.membership_status = "Deactivated"
                     member.save(update_fields=["membership_status"])
 
-                    GlobalAuditTrail.objects.create(
-                        table_name="MEMBER",
+                    _record_audit_trail(
+                        table="MEMBER",
                         record_id=member.member_id_PK,
                         action="DEACTIVATED",
-                        actor_type="SYSTEM",
-                        actor_name="Auto-Deactivation Cron",
+                        actor=None,
+                        actor_type_override="SYSTEM",
+                        actor_name_override="Auto-Deactivation Cron",
                         notes=(
                             f"Auto-deactivated after {days_overdue} days overdue "
                             f"(grace period: {grace_days} days). "

@@ -17,7 +17,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from core_system.api_utils import member_to_json
-from core_system.guards import require_officer_session, require_role
+from core_system.guards import check_zero_trust, require_officer_session, require_role
 from core_system.models import (
     AidTrackingPost,
     Contribution,
@@ -123,6 +123,12 @@ def treasurer_dashboard(request):
         "access_token": request.session.get("access_token", ""),
         "sickness_aid_threshold": get_accidental_sickness_aid_threshold(),
         "sickness_aid_benefit": get_accidental_sickness_aid_benefit(),
+        "available_officers": list(
+            OfficerUser.objects.filter(account_status__iexact="active", linked_member_profiles__isnull=True)
+            .select_related("department_id_FK")
+            .order_by("full_name")
+            .distinct()
+        ),
     }
 
     # If full_name missing/empty: use the fallback as required by the spec.
@@ -218,6 +224,7 @@ def treasurer_add_member(request: HttpRequest):
     prof_status = (request.POST.get("prof_status") or "Active").strip()
     prof_dept = (request.POST.get("prof_dept") or "").strip()
     prof_pos = (request.POST.get("prof_pos") or "").strip()
+    officer_user_id = (request.POST.get("officer_user_id") or request.POST.get("linked_officer_id") or "").strip()
 
     # Validations: Member
     if not prof_name:
@@ -241,6 +248,17 @@ def treasurer_add_member(request: HttpRequest):
             status=409,
         )
 
+    linked_officer = None
+    if officer_user_id:
+        linked_officer = OfficerUser.objects.filter(user_id_PK=int(officer_user_id)).select_related("department_id_FK").first()
+        if linked_officer is None:
+            return JsonResponse({"ok": False, "error": "Selected officer was not found."}, status=400)
+        if Member.objects.filter(officer_user_id_FK=linked_officer).exists():
+            return JsonResponse({"ok": False, "error": "Selected officer is already linked to a member profile."}, status=409)
+        prof_name = linked_officer.full_name or prof_name
+        prof_dept = prof_dept or (linked_officer.department_id_FK.name if linked_officer.department_id_FK else "")
+        prof_pos = prof_pos or linked_officer.role or "Officer-Member"
+
     # Resolve Encoder User Identity context
     recorded_by = resolve_officer_from_session(request)
 
@@ -263,13 +281,14 @@ def treasurer_add_member(request: HttpRequest):
             member = Member.objects.create(
                 full_name=prof_name,
                 employee_id=prof_id,
+                officer_user_id_FK=linked_officer,
                 department=prof_dept or None,
                 position=prof_pos or None,
                 contact_number=prof_contact,
                 email=prof_email,
                 employment_status=prof_status,
                 membership_status=prof_status,
-                member_type=prof_status,
+                member_type="Officer-Member" if linked_officer else prof_status,
                 date_joined=timezone.now().date(),
             )
 
@@ -327,6 +346,7 @@ def treasurer_add_member(request: HttpRequest):
                 "membership_status": member.membership_status,
                 "employment_status": member.employment_status,
                 "member_type": member.member_type or member.employee_id,
+                "officer_user_id": member.officer_user_id_FK_id,
                 "date_joined": str(member.date_joined),
             }
         }
@@ -683,81 +703,30 @@ def treasurer_dashboard_inflow_outflow(request: HttpRequest):
     total_out = float(totals["total_out"] or 0)
     fund_balance = total_in - total_out
 
-    approved_fee_ids = TransactionVerification.objects.filter(
-        table_name="membership_fee",
-        verification_status="Approved",
-    ).values_list("record_id", flat=True)
+    recent_inflows = FundTransaction.objects.filter(
+        direction="inflow",
+    ).order_by("-recorded_at")[:50]
 
-    approved_dues_ids = TransactionVerification.objects.filter(
-        table_name="monthly_dues",
-        verification_status="Approved",
-    ).values_list("record_id", flat=True)
-
-    recent_fees = MembershipFee.objects.select_related("member_id_FK").filter(
-        fee_id_PK__in=approved_fee_ids,
-    ).order_by("-payment_date", "-fee_id_PK")[:50]
-
-    recent_dues = MonthlyDues.objects.select_related("member_id_FK").filter(
-        dues_id_PK__in=approved_dues_ids,
-    ).order_by("-payment_date", "-dues_id_PK")[:50]
+    recent_outflows = FundTransaction.objects.filter(
+        direction="outflow",
+    ).order_by("-recorded_at")[:50]
 
     inflows = []
-    for fee in recent_fees:
+    for ft in recent_inflows:
         inflows.append({
-            "member_name": fee.member_id_FK.full_name,
-            "amount": float(fee.amount),
-            "date": str(fee.payment_date),
-            "type": "Membership Fee",
-        })
-    for due in recent_dues:
-        inflows.append({
-            "member_name": due.member_id_FK.full_name,
-            "amount": float(due.amount),
-            "date": str(due.payment_date),
-            "type": "Monthly Dues",
-        })
-
-    contribution_inflows = FundTransaction.objects.filter(
-        direction="inflow",
-        source_type="contribution",
-    ).order_by("-recorded_at")[:20]
-
-    for ft in contribution_inflows:
-        inflows.append({
-            "member_name": ft.description.replace("Contribution — ", "").rsplit(" (", 1)[0] if "Contribution" in ft.description else "Contribution",
+            "description": ft.description,
+            "source_type": ft.source_type,
             "amount": float(ft.amount),
-            "date": str(ft.recorded_at.date()) if ft.recorded_at else "",
-            "type": "Contribution",
+            "recorded_at": str(ft.recorded_at.date()) if ft.recorded_at else "",
         })
-
-    inflows.sort(key=lambda x: x["date"], reverse=True)
-
-    recent_outflows = TransactionArchive.objects.filter(
-        status="Released",
-        transaction_type__in=["medical_aid", "death_aid"],
-    ).order_by("-archived_at")[:20]
 
     outflows = []
-    for entry in recent_outflows:
-        aid_type = "Medical Aid" if entry.transaction_type == "medical_aid" else "Death Aid"
+    for ft in recent_outflows:
         outflows.append({
-            "member_name": entry.member_name,
-            "amount": float(entry.amount or 0),
-            "date": str(entry.archived_at.date()) if entry.archived_at else "",
-            "type": aid_type,
-        })
-
-    fund_payments = FundTransaction.objects.filter(
-        direction="outflow",
-        source_type="aid_post_payment",
-    ).order_by("-recorded_at")[:20]
-
-    for ft in fund_payments:
-        outflows.append({
-            "member_name": ft.description.replace("Fund disbursement — ", "").rsplit(" (", 1)[0] if "Fund disbursement" in ft.description else "Fund Payment",
+            "description": ft.description,
+            "source_type": ft.source_type,
             "amount": float(ft.amount),
-            "date": str(ft.recorded_at.date()) if ft.recorded_at else "",
-            "type": "Fund Payment",
+            "recorded_at": str(ft.recorded_at.date()) if ft.recorded_at else "",
         })
 
     safety_threshold = float(SystemSetting.objects.get_or_create(
@@ -1654,6 +1623,9 @@ def treasurer_releases_list(request: HttpRequest):
 def treasurer_release_aid(request: HttpRequest):
     """Backend release endpoint for MedicalAid / DeathAid."""
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -2752,6 +2724,9 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -2789,14 +2764,20 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
             },
         )
 
-        GlobalAuditTrail.objects.create(
-            table_name="contribution",
+        _record_audit_trail(
+            table="contribution",
             record_id=contribution.contribution_id_PK,
             action="PAYMENT_RECORDED",
-            actor_type=getattr(officer, "role", "Treasurer"),
-            actor_id=officer.user_id_PK,
-            actor_name=getattr(officer, "full_name", ""),
-            ip_address=request.META.get("REMOTE_ADDR"),
+            actor=officer,
+            new={
+                "status": "PENDING_VERIFICATION",
+                "paid_amount": str(contribution.expected_amount),
+                "payment_date": str(contribution.payment_date),
+                "aid_tracking_post_id": post.post_id_PK,
+                "member_id": getattr(contribution.member_id_FK, "member_id_PK", None),
+            },
+            ip=request.META.get("REMOTE_ADDR"),
+            notes="Contribution payment recorded; verification pending.",
         )
 
         async_to_sync(channel_layer.group_send)(
@@ -2835,6 +2816,9 @@ def treasurer_aid_post_member_skip(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -2858,15 +2842,19 @@ def treasurer_aid_post_member_skip(request: HttpRequest):
     contribution.updated_by_user_id_FK = officer
     contribution.save()
 
-    GlobalAuditTrail.objects.create(
-        table_name="contribution",
+    _record_audit_trail(
+        table="contribution",
         record_id=contribution.contribution_id_PK,
         action="SKIPPED",
-        actor_type=getattr(officer, "role", "Treasurer"),
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
+        actor=officer,
+        old={"status": "PAID"},
+        new={
+            "status": "SKIPPED",
+            "paid_amount": "0",
+            "notes": notes or "",
+        },
+        ip=request.META.get("REMOTE_ADDR"),
         notes=notes or None,
-        ip_address=request.META.get("REMOTE_ADDR"),
     )
 
     channel_layer = get_channel_layer()
@@ -2902,6 +2890,9 @@ def treasurer_aid_post_member_skip(request: HttpRequest):
 @transaction.atomic
 def treasurer_aid_post_finish(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -2960,6 +2951,9 @@ def treasurer_aid_post_finish(request: HttpRequest):
 @transaction.atomic
 def treasurer_aid_post_mark_finished(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -3027,6 +3021,9 @@ def treasurer_aid_post_mark_finished(request: HttpRequest):
 @transaction.atomic
 def treasurer_aid_post_paid_with_funds(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -3394,6 +3391,9 @@ def treasurer_payroll_batch_delete(request: HttpRequest, batch_id: int):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     batch = get_object_or_404(PayrollBatch, pk=batch_id)
     if batch.status != "Pending":
@@ -3753,6 +3753,9 @@ def treasurer_aid_post_release(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -3899,6 +3902,9 @@ def treasurer_aid_post_release(request: HttpRequest):
 def treasurer_aid_post_close_repayment(request: HttpRequest):
     """Close a paid-with-funds post after members have repaid or been skipped."""
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 

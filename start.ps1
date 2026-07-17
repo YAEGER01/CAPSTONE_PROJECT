@@ -59,12 +59,24 @@ if (-not $NoMigrate) {
 }
 
 Write-Host "[4/4] Launching service terminals..." -ForegroundColor Yellow
+
+# --- Terminal C: Backup scheduler (autobackup) ---
+$backupCmd = @"
+Set-Location '$ProjectRoot'
+. $VenvActivate
+Write-Host 'Backup scheduler — Ctrl+C to stop' -ForegroundColor Cyan
+python manage.py run_backup_scheduler
+"@
+$pBackup = Start-Process powershell -WindowStyle Normal -PassThru -ArgumentList "-NoExit", "-Command $backupCmd"
+$pidList += $pBackup.Id
+Write-Host "  -> Backup scheduler terminal launched (PID $($pBackup.Id))" -ForegroundColor Green
+Start-Sleep -Seconds 2
+
 $pidList = @()
 
 # --- Terminal A: Daphne ASGI (with optional auto-reload) ---
 $reloadFlag = if ($NoReload) { '' } else { '--reload' }
 $reloadCmd = @"
-`$env:WATCHFILES_FORCE_POLLING = 'true'
 cd '$ProjectRoot'
 .\.venv\Scripts\Activate.ps1
 `$Host.UI.RawUI.WindowTitle = 'DAPHNE (:$DaphnePort)'

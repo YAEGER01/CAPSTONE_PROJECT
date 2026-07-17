@@ -1,0 +1,63 @@
+MFA — activate_mfa command
+================================
+
+Enable / disable / toggle / show MFA for any officer by username, or all officers at once.
+
+Usage:
+  python manage.py activate_mfa <username> [--status {on,off,toggle,show}]
+  python manage.py activate_mfa --all [--status {on,off,toggle,show}]
+
+Examples:
+  # Enable MFA for a specific user
+  python manage.py activate_mfa president_admin --status on
+
+  # Disable MFA for a specific user
+  python manage.py activate_mfa president_admin --status off
+
+  # Toggle MFA for a specific user
+  python manage.py activate_mfa president_admin --status toggle
+
+  # Check current status for a specific user
+  python manage.py activate_mfa president_admin --status show
+
+  # Enable MFA for all officers
+  python manage.py activate_mfa --all --status on
+
+  # Disable MFA for all officers
+  python manage.py activate_mfa --all --status off
+
+  # Toggle MFA for all officers
+  python manage.py activate_mfa --all --status toggle
+
+  # Show MFA status for all officers
+  python manage.py activate_mfa --all --status show
+
+  # Treasurer
+  python manage.py activate_mfa treasurer_admin --status on
+
+  # Auditor
+  python manage.py activate_mfa auditor_admin --status on
+
+  # Any other officer
+  python manage.py activate_mfa some_officer --status show
+
+Notes:
+- --status defaults to "on" if omitted.
+- The command prints the generated secret on enable, but normally you don't need to do anything with it — the next login will automatically trigger the MFA challenge.
+- Works for any OfficerUser role: President, Treasurer, Auditor, etc.
+- --all applies the action to every officer in the database.
+
+
+
+
+# Enable MFA for everyone
+python manage.py activate_mfa --all --status on
+
+# Disable MFA for everyone
+python manage.py activate_mfa --all --status off
+
+# Toggle MFA for everyone
+python manage.py activate_mfa --all --status toggle
+
+# Show MFA status for all officers
+python manage.py activate_mfa --all --status show

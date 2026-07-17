@@ -1261,9 +1261,6 @@
         border-radius: 4px;
         gap: 6px;
       }
-      .io-item span {
-        display: inline !important;
-      }
       .io-item .io-sign {
         font-weight: 700;
         font-size: 0.85rem;
@@ -1272,12 +1269,25 @@
       }
       .io-item .io-name {
         flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 0 6px;
+        color: #333;
+      }
+      .io-item .io-desc {
+        font-weight: 500;
+        font-size: 0.75rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        padding: 0 6px;
-        color: #333;
-        font-weight: 500;
+        line-height: 1.3;
+      }
+      .io-item .io-stype {
+        font-size: 0.62rem;
+        opacity: 0.6;
+        text-transform: capitalize;
+        line-height: 1.2;
       }
       .io-item .io-amount {
         font-weight: 700;
@@ -1956,6 +1966,7 @@
 
         <!-- Central Scrollable Dashboard Viewport Area -->
         <div class="content-viewport" id="contentViewport">
+          <div id="termWarningBanner" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;"></div>
           <!-- ==========================================================================
              TAB 1: SYSTEM EXECUTIVE OVERVIEW
              ========================================================================== -->
@@ -2258,7 +2269,7 @@
               <!-- BULK ENROLL FORM (revealed when Bulk Upload is clicked) -->
               <form class="dashboard-form" id="bulkMemberForm" method="POST" enctype="multipart/form-data" autocomplete="off">
                 {% csrf_token %}
-                <p style="margin: 0 0 12px; color: #757575;">Fill up to 5 members at once. Employee/Faculty ID auto-populates from the name.</p>
+                <p style="margin: 0 0 12px; color: #757575;">Fill up to 5 members at once. System Ref ID auto-populates from the name.</p>
                 <div id="bulkMemberRows"></div>
                 <button type="submit" class="btn-brand btn-brand-primary" style="margin-top: 20px;">
                   Enroll 5 Members
@@ -2341,42 +2352,48 @@
                     />
                   </div>
                 </div>
-                <div class="form-grid-2">
-                  <div class="form-group">
-                    <label for="prof_id">System Employee Ref-ID</label>
-                    <input
-                      type="text"
-                      id="prof_id"
-                      name="prof_id"
-                      placeholder="Auto Populated"
-                      required
-                      readonly
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label for="prof_dept">Department</label>
-                    <select id="prof_dept" name="prof_dept" required>
-                      <option value="">-- Select Department / College --</option>
-                      <option value="College of Education">College of Education</option>
-                      <option value="College of Agriculture">College of Agriculture</option>
-                      <option value="College of Information Technology">Information Technology</option>
-                      <option value="College of Criminology">Criminology</option>
-                      <option value="College of Business Management">Business Management</option>
-                      <option value="Add Option">Add Option</option>
-                    </select>
-                  </div>
-                </div>
+                 <div class="form-grid-2">
+                   <div class="form-group">
+                     <label for="prof_id">System Employee Ref-ID</label>
+                     <input
+                       type="text"
+                       id="prof_id"
+                       name="prof_id"
+                       placeholder="Auto Populated"
+                       required
+                       readonly
+                     />
+                   </div>
+                   <div class="form-group">
+                     <label for="prof_dept">Department</label>
+                     <select id="prof_dept" name="prof_dept" required>
+                       <option value="">-- Select Department / College --</option>
+                       <option value="College of Education">College of Education</option>
+                       <option value="College of Agriculture">College of Agriculture</option>
+                       <option value="College of Information Technology">Information Technology</option>
+                       <option value="College of Criminology">Criminology</option>
+                       <option value="College of Business Management">Business Management</option>
+                       <option value="Add Option">Add Option</option>
+                     </select>
+                   </div>
+                 </div>
+                 <div class="form-group">
+                   <label for="linked_officer_id">Link Existing Officer (optional)</label>
+                   <select id="linked_officer_id" name="linked_officer_id">
+                     <option value="">-- None — enroll as regular member --</option>
+                   </select>
+                 </div>
               
               
               
                 <div class="form-grid-2">
                   <div class="form-group">
-                    <label for="prof_email">Institutional Email</label>
+                    <label for="prof_email">Institutional Email Address</label>
                     <input
                       type="email"
                       id="prof_email"
                       name="prof_email"
-                      placeholder="e.g., evelyn.v@government.gov"
+                      placeholder="Institutional Email Address"
                       required
                     />
                   </div>
@@ -2426,30 +2443,33 @@
                     <button onclick="memberToggleFilter()" style="padding:6px 12px;border:1px solid #cfdccc;border-radius:6px;background:#fff;cursor:pointer;font-size:0.78rem;display:flex;align-items:center;gap:5px;">
                       <i class="fa-solid fa-filter"></i> Filter
                     </button>
-                    <div id="memberFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
-                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Department</div>
-                      <div id="memberDeptCheckboxes"></div>
-                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Academic Rank</div>
-                      <div id="memberPosCheckboxes"></div>
-                      <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Status</div>
-                      <div id="memberStatusCheckboxes"></div>
-                      <button onclick="memberApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
-                    </div>
+                     <div id="memberFilterCard" style="display:none;position:absolute;top:100%;right:0;z-index:100;background:#fff;border:1px solid #cfdccc;border-radius:10px;padding:14px;min-width:220px;box-shadow:0 8px 24px rgba(0,0,0,0.12);margin-top:6px;">
+                       <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-bottom:6px;">Department</div>
+                       <div id="memberDeptCheckboxes"></div>
+                       <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Academic Rank</div>
+                       <div id="memberPosCheckboxes"></div>
+                       <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Status</div>
+                       <div id="memberStatusCheckboxes"></div>
+                       <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Member Type</div>
+                       <div id="memberTypeCheckboxes"></div>
+                       <button onclick="memberApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                     </div>
                   </div>
                 </div>
                 <div class="table-container">
-                  <table class="custom-table" id="memberTable">
-                    <thead>
-                      <tr>
-                        <th style="padding: 4px 8px; display: none;"><i class="fa-solid fa-id-card" title="Employee ID" style="cursor: pointer;"></i></th>
-                        <th style="padding: 4px 8px;"><i class="fa-solid fa-user" title="Name" style="cursor: pointer;"></i></th>
-                        <th style="padding: 4px 8px;"><i class="fa-solid fa-briefcase" title="Department & Position" style="cursor: pointer;"></i></th>
-                        <th style="padding: 4px 8px;"><i class="fa-solid fa-flag" title="Status" style="cursor: pointer;"></i></th>
-                        <th style="padding: 4px 8px;"><i class="fa-solid fa-gears" title="Action" style="cursor: pointer;"></i></th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
+                    <table class="custom-table" id="memberTable">
+                      <thead>
+                        <tr>
+                          <th style="padding: 4px 8px; display: none;"><i class="fa-solid fa-id-card" title="Employee ID" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px;"><i class="fa-solid fa-user" title="Name" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px;"><i class="fa-solid fa-briefcase" title="Department & Position" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px;"><i class="fa-solid fa-flag" title="Status" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px;"><i class="fa-solid fa-tag" title="Type" style="cursor: pointer;"></i></th>
+                          <th style="padding: 4px 8px;"><i class="fa-solid fa-gears" title="Action" style="cursor: pointer;"></i></th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
                 </div>
               </div>
             </div>
@@ -3098,7 +3118,7 @@
                     <input type="month" id="bulk_sal_month" name="bulk_sal_month" required />
                   </div>
                   <div class="form-group">
-                    <label>Batch Reference</label>
+                    <label>System Batch Reference</label>
                     <div style="background:rgba(255,255,255,0.05);border:1px solid var(--border,#333);border-radius:6px;padding:8px 12px;font-size:0.9rem;color:var(--text-muted,#aaa);">
                       Auto-generated: <strong id="bulk_batch_ref_display" style="color:var(--text-muted,#aaa);font-family:monospace;">—</strong>
                     </div>
@@ -3108,7 +3128,7 @@
                     <textarea id="bulk_summary" name="bulk_summary" rows="2" placeholder="e.g., Payroll deductions for July 2026"></textarea>
                   </div>
                   <div class="form-group">
-                    <label for="bulk_file_input">Payroll Summary Document (optional)</label>
+                    <label for="bulk_file_input">Payroll Summary Document</label>
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                       <button type="button" onclick="document.getElementById('bulk_file_input').click()" class="file-queue-btn">+ Upload File/Photo</button>
                       <input type="file" id="bulk_file_input" accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput('bulk')" />
@@ -3622,7 +3642,7 @@
                     <!-- Card 2: Funeral & Interment (collapsible) -->
                     <div class="dashboard-panel" style="margin-bottom:16px">
                       <div onclick="toggleFuneralDrawer()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;">
-                        <h4 style="margin:0;color:#1b5e20">Funeral &amp; Interment Details</h4>
+                        <h4 style="margin:0;color:#1b5e20">Funeral &amp; Interment Details (optional)</h4>
                         <span id="funeralChevron" style="color:#1b5e20;font-size:1.1rem;transition:transform 0.25s;">&#9656;</span>
                       </div>
                       <div id="funeralDrawerBody" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;">
@@ -4314,6 +4334,7 @@
                   id="reportForm"
                   method="POST"
                   action=""
+                  data-turbo="false"
                   onsubmit="handleReportSubmit(event)"
                   autocomplete="off"
                 >
@@ -4435,6 +4456,7 @@
                   id="fundReportForm"
                   method="POST"
                   action=""
+                  data-turbo="false"
                   onsubmit="handleFundReportSubmit(event)"
                   autocomplete="off"
                 >
@@ -5618,10 +5640,16 @@
       }
 
       function memberFillFilters() {
-        var depts = {}, poses = {}, stats = {}, i, m, arr = db.members || [];
-        for (i = 0; i < arr.length; i++) { m = arr[i]; if (m.department) depts[m.department] = 1; if (m.position) poses[m.position] = 1; if (m.status) stats[m.status] = 1; }
-        var dk = Object.keys(depts).sort(), pk = Object.keys(poses).sort(), sk = Object.keys(stats).sort();
-        var dc = document.getElementById("memberDeptCheckboxes"), pc = document.getElementById("memberPosCheckboxes"), sc = document.getElementById("memberStatusCheckboxes");
+        var depts = {}, poses = {}, stats = {}, types = {}, i, m, arr = db.members || [];
+        for (i = 0; i < arr.length; i++) {
+          m = arr[i];
+          if (m.department) depts[m.department] = 1;
+          if (m.position) poses[m.position] = 1;
+          if (m.status) stats[m.status] = 1;
+          if (m.type) types[m.type] = 1;
+        }
+        var dk = Object.keys(depts).sort(), pk = Object.keys(poses).sort(), sk = Object.keys(stats).sort(), tk = Object.keys(types).sort();
+        var dc = document.getElementById("memberDeptCheckboxes"), pc = document.getElementById("memberPosCheckboxes"), sc = document.getElementById("memberStatusCheckboxes"), tc = document.getElementById("memberTypeCheckboxes");
         if (dc) {
           dc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="memberToggleAll(\'memberDeptCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
           for (i = 0; i < dk.length; i++) dc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + memberEsc(dk[i]) + '" checked onchange="memberSyncAll(\'memberDeptCheckboxes\');memberApplyFilter()"> <span>' + memberEsc(dk[i]) + '</span></label>';
@@ -5633,6 +5661,10 @@
         if (sc) {
           sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="memberToggleAll(\'memberStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
           for (i = 0; i < sk.length; i++) sc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + memberEsc(sk[i]) + '" checked onchange="memberSyncAll(\'memberStatusCheckboxes\');memberApplyFilter()"> <span>' + memberEsc(sk[i]) + '</span></label>';
+        }
+        if (tc) {
+          tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="memberToggleAll(\'memberTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+          for (i = 0; i < tk.length; i++) tc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + memberEsc(tk[i]) + '" checked onchange="memberSyncAll(\'memberTypeCheckboxes\');memberApplyFilter()"> <span>' + memberEsc(tk[i]) + '</span></label>';
         }
       }
 
@@ -5662,14 +5694,15 @@
         const tbody = document.querySelector("#memberTable tbody");
         if (!tbody) return;
 
-        var depts = memberGetChecked("memberDeptCheckboxes"), poses = memberGetChecked("memberPosCheckboxes"), stats = memberGetChecked("memberStatusCheckboxes");
+        var depts = memberGetChecked("memberDeptCheckboxes"), poses = memberGetChecked("memberPosCheckboxes"), stats = memberGetChecked("memberStatusCheckboxes"), types = memberGetChecked("memberTypeCheckboxes");
         if (depts.length === 0) { depts = memberGetAllValues("memberDeptCheckboxes"); memberSyncAll("memberDeptCheckboxes"); }
         if (poses.length === 0) { poses = memberGetAllValues("memberPosCheckboxes"); memberSyncAll("memberPosCheckboxes"); }
         if (stats.length === 0) { stats = memberGetAllValues("memberStatusCheckboxes"); memberSyncAll("memberStatusCheckboxes"); }
+        if (types.length === 0) { types = memberGetAllValues("memberTypeCheckboxes"); memberSyncAll("memberTypeCheckboxes"); }
 
         tbody.innerHTML = "";
         if (!db.members || db.members.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757575;">No enrolled Association member</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#757575;">No enrolled Association member</td></tr>`;
           return;
         }
 
@@ -5679,11 +5712,12 @@
           if (depts.length && depts.indexOf(m.department) === -1) continue;
           if (poses.length && poses.indexOf(m.position) === -1) continue;
           if (stats.length && stats.indexOf(m.status) === -1) continue;
+          if (types.length && types.indexOf((m.type || "").toLowerCase()) === -1 && types.indexOf(m.type || "") === -1) continue;
           flt.push(m);
         }
 
         if (flt.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#757580;padding:30px;">No members match current filters.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#757580;padding:30px;">No members match current filters.</td></tr>`;
           return;
         }
 
@@ -5695,12 +5729,19 @@
                 ? "badge-yellow"
                 : "badge-red";
 
+          var typeLabel = m.type || "Member";
+          var typeBadge = '<span class="badge-zero" style="background:#e3f2fd;color:#1565c0;">' + memberEsc(typeLabel) + '</span>';
+          if ((m.type || "").toLowerCase() === "officer-member" || m.self_enrolled) {
+            typeBadge = '<span class="badge-zero" style="background:#fff3e0;color:#e65100;">Officer-Member</span>';
+          }
+
           const tr = document.createElement("tr");
           tr.innerHTML = `
         <td style="font-weight:600;color:#1b5e20;display:none;">${memberEsc(m.id)}</td>
         <td>${memberEsc(m.name)}</td>
         <td>${memberEsc(m.department)} <br><span style="font-size:0.75rem;color:#1b5e20;font-weight:500;">${memberEsc(m.position)}</span></td>
         <td><span class="badge-zero ${badgeClass}">${memberEsc(m.status)}</span></td>
+        <td>${typeBadge}</td>
         <td>
           <select class="action-dropdown" onchange="handleAction(this, '${m.id}')">
             <option value="" disabled selected hidden>Actions</option>
@@ -5751,7 +5792,7 @@
                 </div>
 
                 <div class="form-group" style="margin:0;">
-                  <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Institutional Email</label>
+                  <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Institutional Email Address</label>
                   <input id="edit_prof_email" type="email" autocomplete="off" value="${member.email || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
                 </div>
               </div>
@@ -5924,6 +5965,8 @@
             contact: m.contact_number || m.contact || "",
             email: m.email || "",
             status: m.membership_status || m.status || "Pending",
+            type: m.member_type || m.type || "Member",
+            self_enrolled: !!m.officer_user_id || !!m.self_enrolled,
           }));
 
           // Hash by stable fields (id + status + updated ordering)
@@ -5975,6 +6018,8 @@
               contact: m.contact_number || m.contact || "",
               email: m.email || "",
               status: m.membership_status || m.status || "Pending",
+              type: m.member_type || m.type || "Member",
+              self_enrolled: !!m.officer_user_id || !!m.self_enrolled,
             }));
 
             renderAllComponents();
@@ -6277,25 +6322,40 @@
 
       function handleReportSubmit(e) {
         e.preventDefault();
-        const id = "REP-" + Date.now().toString().slice(-4);
-        const timestamp = new Date().toLocaleString();
-        const newReport = {
-          id: id,
-          timestamp: timestamp,
-          type: document.getElementById("rep_type").value,
-          range: `${document.getElementById("rep_start").value} to ${document.getElementById("rep_end").value}`,
-          by: document.getElementById("rep_by").value,
-          auditedBy: document.getElementById("rep_export").value,
-        };
-
-        db.reports.push(newReport);
-        renderAllComponents();
-
-        document.getElementById("reportForm").reset();
-        showToast(
-          `Consolidated system report ${id} has been generated.`,
-          false,
-        );
+        try {
+          const startVal = document.getElementById("rep_start").value.trim();
+          const endVal = document.getElementById("rep_end").value.trim();
+          const year = startVal ? new Date(startVal).getFullYear() : new Date().getFullYear();
+          const month = startVal ? new Date(startVal).getMonth() + 1 : new Date().getMonth() + 1;
+          const fd = new FormData();
+          fd.append("year", year);
+          fd.append("month", month);
+          fd.append("report_type", "monthly");
+          const csrf = getCookie("csrftoken");
+          fetch("/api/treasurer/reports/generate/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: csrf ? { "X-CSRFToken": csrf } : {},
+            body: fd,
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data.ok || data.report_id) {
+                showToast("Unified report generated successfully.", false);
+                document.getElementById("reportForm").reset();
+                loadFundReports();
+              } else {
+                showToast(data.error || "Failed to generate report.", true);
+              }
+            })
+            .catch(function (err) {
+              console.error("Report generation failed:", err);
+              showToast("Network error.", true);
+            });
+        } catch (err) {
+          console.error("Report generation error:", err);
+          showToast("An error occurred while generating the report.", true);
+        }
       }
 
       function showReportPreview(id) {
@@ -6358,35 +6418,43 @@
 
       function handleFundReportSubmit(e) {
         e.preventDefault();
-        const year = document.getElementById("fr_year").value.trim();
-        const month = document.getElementById("fr_month").value.trim();
-        const reportType = document.getElementById("fr_type").value;
-        if (!year || !month) {
-          showToast("Year and month are required.", true);
-          return;
-        }
-        const fd = new FormData();
-        fd.append("year", year);
-        fd.append("month", month);
-        fd.append("report_type", reportType);
-        const csrf = getCookie("csrftoken");
-        fetch("/api/treasurer/fund-reports/create/", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: csrf ? { "X-CSRFToken": csrf } : {},
-          body: fd,
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.ok || data.report_id) {
-              showToast("Fund report created successfully.", false);
-              document.getElementById("fundReportForm").reset();
-              loadFundReports();
-            } else {
-              showToast(data.error || "Failed to create fund report.", true);
-            }
+        try {
+          const year = document.getElementById("fr_year").value.trim();
+          const month = document.getElementById("fr_month").value.trim();
+          const reportType = document.getElementById("fr_type").value;
+          if (!year || !month) {
+            showToast("Year and month are required.", true);
+            return;
+          }
+          const fd = new FormData();
+          fd.append("year", year);
+          fd.append("month", month);
+          fd.append("report_type", reportType);
+          const csrf = getCookie("csrftoken");
+          fetch("/api/treasurer/reports/generate/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: csrf ? { "X-CSRFToken": csrf } : {},
+            body: fd,
           })
-          .catch(function () { showToast("Network error.", true); });
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data.ok || data.report_id) {
+                showToast("Unified report generated successfully.", false);
+                document.getElementById("fundReportForm").reset();
+                loadFundReports();
+              } else {
+                showToast(data.error || "Failed to generate report.", true);
+              }
+            })
+            .catch(function (err) {
+              console.error("Fund report generation failed:", err);
+              showToast("Network error.", true);
+            });
+        } catch (err) {
+          console.error("Fund report generation error:", err);
+          showToast("An error occurred while generating the report.", true);
+        }
       }
 
       function downloadFundReport(reportId) {
@@ -7078,11 +7146,11 @@
           if (data.inflows) {
             data.inflows.forEach(function (item) {
               all.push({
-                member_name: item.member_name,
+                description: item.description,
+                source_type: item.source_type,
                 amount: item.amount,
-                date: item.date,
+                date: item.recorded_at,
                 is_inflow: true,
-                type: item.type,
               });
             });
           }
@@ -7090,11 +7158,11 @@
           if (data.outflows) {
             data.outflows.forEach(function (item) {
               all.push({
-                member_name: item.member_name,
+                description: item.description,
+                source_type: item.source_type,
                 amount: item.amount,
-                date: item.date,
+                date: item.recorded_at,
                 is_inflow: false,
-                type: item.type,
               });
             });
           }
@@ -7112,17 +7180,13 @@
             div.className = "io-item " + cls;
 
             var sign = item.is_inflow ? "+" : "-";
-            var typeLabel = "";
-            if (item.is_inflow) {
-              typeLabel = item.type === "Membership Fee" ? "FEE" : "DUES";
-            } else {
-              typeLabel = item.type === "Medical Aid" ? "MED" : "DTH";
-            }
+            var desc = escapeHtml(item.description || "");
+            var stype = (item.source_type || "").replace(/_/g, " ");
 
             div.innerHTML =
               '<span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;line-height:18px;text-align:center;color:#fff;background:' + (item.is_inflow ? '#00e676' : '#ff1744') + ';">' + (idx + 1) + '</span>' +
               '<span class="io-sign">' + sign + '</span>' +
-              '<span class="io-name">' + escapeHtml(item.member_name) + ' (' + typeLabel + ')</span>' +
+              '<span class="io-name"><span class="io-desc">' + desc + '</span><span class="io-stype">' + stype + '</span></span>' +
               '<span class="io-amount">' + fmt(item.amount) + '</span>' +
               '<span class="io-date">' + escapeHtml(item.date) + '</span>';
 
@@ -7750,7 +7814,43 @@
         div.textContent = text;
         return div.innerHTML;
       }
+
+      async function loadTermWarning() {
+        var banner = document.getElementById("termWarningBanner");
+        if (!banner) return;
+        try {
+          var resp = await fetch("/api/auth/term-info/", { credentials: "same-origin" });
+          var data = await resp.json();
+          if (!data || !data.ok) return;
+          if (data.is_expired) {
+            banner.style.display = "block";
+            banner.style.background = "#ffebee";
+            banner.style.color = "#c62828";
+            banner.style.border = "1px solid #ef9a9a";
+            banner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Your officer term has expired. Please contact the board.';
+          } else if (data.days_until_expiry !== null && data.days_until_expiry !== undefined && data.days_until_expiry <= 7) {
+            banner.style.display = "block";
+            banner.style.background = "#fff3e0";
+            banner.style.color = "#e65100";
+            banner.style.border = "1px solid #ffcc80";
+            banner.innerHTML = '<i class="fa-solid fa-clock"></i> Your officer term expires in ' + data.days_until_expiry + ' day(s). Please contact the board for renewal.';
+          } else if (data.days_until_expiry !== null && data.days_until_expiry !== undefined && data.days_until_expiry <= 30) {
+            banner.style.display = "block";
+            banner.style.background = "#fff8e1";
+            banner.style.color = "#f57f17";
+            banner.style.border = "1px solid #ffe082";
+            banner.innerHTML = '<i class="fa-solid fa-info-circle"></i> Your officer term expires in ' + data.days_until_expiry + ' day(s).';
+          }
+        } catch (e) {
+          console.error("Failed to load term info", e);
+        }
+      }
+
+      document.addEventListener("turbo:load", function () {
+        loadTermWarning();
+      });
     </script>
+    <script src="{% static 'js/shared/zero_trust.js' %}"></script>
   </body>
 </html>
 

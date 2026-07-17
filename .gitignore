@@ -4,14 +4,31 @@ __pycache__/
 db.sqlite3
 .env
 .vscode/
+.pytest_cache
 
-media
 *.md
 .kilo 
-resourcefromJas
+.aider*
+.opencode
+.blackbox
+.qodo
 
+
+*.jpg
+*.docx
+*.pdf
+*.xlsx
+*.png
+
+/media/*.jpg
+/media/*.png
+/media/*.jpeg
+/media/*.gif
+/media/*.docx
+/media/*.pdf
+/media/*.xlsx
+/md
+/resourcefromJas
 templates/Old
 templates\website\Treasurer\legacy_do_not_touch
-
-issue_list
-.aider*
+.txt

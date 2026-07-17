@@ -63,6 +63,8 @@
     fd.append("prof_contact", contact);
     fd.append("prof_email", email);
     fd.append("prof_status", status);
+    var linkedOfficer = getFormValue("linked_officer_id");
+    if (linkedOfficer) fd.append("officer_user_id", linkedOfficer);
     var profFiles = FileQueue.getFiles("prof");
     if (profFiles.length > 0) fd.append("prof_photo_file", profFiles[0]);
 
@@ -122,6 +124,8 @@
             contact: contact,
             email: email,
             status: data.member.membership_status,
+            type: data.member.member_type || "Member",
+            self_enrolled: !!data.member.officer_user_id,
           };
           activeDb.members.push(newMember);
         }
@@ -174,12 +178,49 @@
 
   function init() {
     FileQueue.init("prof", { inputId: "prof_file_input", containerId: "prof_file_queue", maxFiles: 1 });
+    loadOfficerDropdown();
+
+    var officerSelect = document.getElementById("linked_officer_id");
+    if (officerSelect) {
+      officerSelect.addEventListener("change", function () {
+        var officerId = this.value;
+        if (!officerId) return;
+        var officers = window.__officersCache || [];
+        var officer = officers.find(function (o) { return String(o.id) === String(officerId); });
+        if (!officer) return;
+        var nameEl = document.getElementById("prof_name");
+        var deptEl = document.getElementById("prof_dept");
+        var posEl = document.getElementById("prof_pos");
+        if (nameEl && !nameEl.value) nameEl.value = officer.full_name || "";
+        if (deptEl && !deptEl.value && officer.department_name) deptEl.value = officer.department_name;
+        if (posEl && !posEl.value && officer.role) posEl.value = officer.role;
+      });
+    }
 
     const form = document.getElementById(FORM_ID);
     if (!form) return;
 
     window.handleMemberSubmit = handleSubmit;
     form.addEventListener("submit", handleSubmit);
+  }
+
+  async function loadOfficerDropdown() {
+    var select = document.getElementById("linked_officer_id");
+    if (!select) return;
+    try {
+      var resp = await fetch("/api/president/officers/", { credentials: "same-origin" });
+      var data = await resp.json();
+      if (!data || !data.ok || !data.officers) return;
+      window.__officersCache = data.officers || [];
+      data.officers.forEach(function (o) {
+        var opt = document.createElement("option");
+        opt.value = o.id;
+        opt.textContent = (o.full_name || "") + " (" + (o.role || "Officer") + ")";
+        select.appendChild(opt);
+      });
+    } catch (e) {
+      console.error("Failed to load officers", e);
+    }
   }
 
   document.addEventListener("turbo:load", init);

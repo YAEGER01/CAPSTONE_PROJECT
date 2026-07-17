@@ -33,6 +33,8 @@ def create_access_session(
         device_info=device_info,
         expires_at=timezone.now() + timedelta(hours=8),
         session_status="Active",
+        trusted_device=False,
+        session_policy={},
     )
     return session, token_id
 

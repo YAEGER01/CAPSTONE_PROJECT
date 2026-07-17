@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import json
 
+from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from core_system.guards import require_role
 from core_system.models import OfficerUser, PushSubscription
+
+
+def vapid_public_key(request: HttpRequest) -> JsonResponse:
+    return JsonResponse({"publicKey": settings.VAPID_PUBLIC_KEY})
 
 
 @require_POST

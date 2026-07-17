@@ -3,7 +3,12 @@
 var medSearchActiveIndex = -1;
 
 function escapeAttr(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function formatPhone(num) {
@@ -32,17 +37,25 @@ async function fetchJson(url, options = {}) {
   try {
     res = await fetch(url, options);
   } catch (err) {
-    return {ok: false, error: "Network error: " + err.message};
+    return { ok: false, error: "Network error: " + err.message };
   }
   if (!res.ok) {
     let body;
-    try { body = await res.json(); } catch { body = {}; }
-    return {ok: false, error: body.error || body.message || "HTTP " + res.status, status: res.status};
+    try {
+      body = await res.json();
+    } catch {
+      body = {};
+    }
+    return {
+      ok: false,
+      error: body.error || body.message || "HTTP " + res.status,
+      status: res.status,
+    };
   }
   try {
     return await res.json();
   } catch (err) {
-    return {ok: false, error: "Invalid response from server."};
+    return { ok: false, error: "Invalid response from server." };
   }
 }
 
@@ -367,14 +380,22 @@ function renderMedCards() {
       i +
       '" name="med_date_' +
       i +
-      '" value="' + (m.date || '') + '" oninput="medMembers[' + i + '].date=this.value" required /></div>' +
+      '" value="' +
+      (m.date || "") +
+      '" oninput="medMembers[' +
+      i +
+      '].date=this.value" required /></div>' +
       '<div class="form-group"><label for="med_reason_' +
       i +
       '">Reason for Hospitalization</label><input type="text" id="med_reason_' +
       i +
       '" name="med_reason_' +
       i +
-      '" placeholder="Type here..." value="' + escapeAttr(m.reason || '') + '" oninput="medMembers[' + i + '].reason=this.value" required /></div>' +
+      '" placeholder="Type here..." value="' +
+      escapeAttr(m.reason || "") +
+      '" oninput="medMembers[' +
+      i +
+      '].reason=this.value" required /></div>' +
       "</div>" +
       '<div class="dashboard-panel" style="margin:10px 0;padding:10px;">' +
       '<div onclick="toggleMedCardHospitalDrawer(' +
@@ -395,14 +416,22 @@ function renderMedCards() {
       i +
       '" name="med_hospital_' +
       i +
-      '" placeholder="e.g., Cauayan District Hospital" value="' + escapeAttr(m.hospital || '') + '" oninput="medMembers[' + i + '].hospital=this.value" /></div>' +
+      '" placeholder="e.g., Cauayan District Hospital" value="' +
+      escapeAttr(m.hospital || "") +
+      '" oninput="medMembers[' +
+      i +
+      '].hospital=this.value" /></div>' +
       '<div class="form-group"><label for="med_hospital_date_' +
       i +
       '">Date of Hospitalization</label><input type="text" id="med_hospital_date_' +
       i +
       '" name="med_hospital_date_' +
       i +
-      '" class="flatpickr-range" placeholder="Select admission and discharge dates" value="' + escapeAttr(m.hospitalDate || '') + '" oninput="medMembers[' + i + '].hospitalDate=this.value" /></div>' +
+      '" class="flatpickr-range" placeholder="Select admission and discharge dates" value="' +
+      escapeAttr(m.hospitalDate || "") +
+      '" oninput="medMembers[' +
+      i +
+      '].hospitalDate=this.value" /></div>' +
       "</div></div></div>" +
       '<div class="form-group">' +
       '<label for="med_bill_' +
@@ -412,7 +441,11 @@ function renderMedCards() {
       i +
       '" name="med_bill_' +
       i +
-      '" placeholder="20000 or above" value="' + (m.bill || '') + '" required oninput="medMembers[' + i + '].bill=this.value;updateMedCardBillIndicator(' +
+      '" placeholder="20000 or above" value="' +
+      (m.bill || "") +
+      '" required oninput="medMembers[' +
+      i +
+      "].bill=this.value;updateMedCardBillIndicator(" +
       i +
       ')" />' +
       '<div id="med_bill_indicator_' +
@@ -420,7 +453,7 @@ function renderMedCards() {
       '" style="margin-top:4px;font-size:0.8rem;font-weight:600;"></div>' +
       "</div>" +
       '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:rgba(27,94,32,0.08);border-radius:8px;margin-bottom:8px;font-size:0.82rem;color:#1b5e20;">' +
-      "<span>Estimated Aid Benefit:</span>" +
+      "<span>Aid Benefit:</span>" +
       '<span style="font-weight:700;" id="med_estimate_' +
       i +
       '" data-threshold="' +
@@ -447,7 +480,7 @@ function renderMedCards() {
       i +
       '_file_input" multiple accept="image/*,.pdf,.docx" style="display:none" onchange="FileQueue.handleInput(\'med_' +
       i +
-      '\')" />' +
+      "')\" />" +
       '<div id="med_' +
       i +
       '_file_queue" class="file-queue"></div>' +
@@ -882,7 +915,11 @@ function pickDeathMember() {
 }
 
 function showDeathForm(scenario, memberId) {
-  FileQueue.init("death", { inputId: "death_file_input", containerId: "death_file_queue", maxFiles: 10 });
+  FileQueue.init("death", {
+    inputId: "death_file_input",
+    containerId: "death_file_queue",
+    maxFiles: 10,
+  });
   document.getElementById("deathAidScenarioArea").style.display = "none";
   document.getElementById("deathAidFormArea").style.display = "block";
 

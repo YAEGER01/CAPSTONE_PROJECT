@@ -8,11 +8,10 @@ from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 
-from core_system.guards import require_role
+from core_system.guards import require_role, check_zero_trust
 from core_system.models import OfficerUser, OrganizationFundReport, Member
 from core_system.services.reporting import (
-    generate_organization_fund_report,
-    create_organization_fund_report,
+    generate_unified_report,
 )
 from core_system.services.email_service import send_html_email
 
@@ -71,8 +70,31 @@ def treasurer_create_fund_report(request: HttpRequest):
     except OfficerUser.DoesNotExist:
         return JsonResponse({"error": "Officer not found."}, status=400)
 
-    result = create_organization_fund_report(officer, year_int, month_int, report_type)
-    return JsonResponse(result, status=201)
+    wb = generate_unified_report(year_int, month_int)
+    period = f"{year_int}-{month_int:02d}"
+    filename = f"unified_report_{report_type}_{period}.xlsx"
+    file_path = f"reports/{filename}"
+
+    default_storage_path = getattr(settings, "MEDIA_ROOT", "")
+    full_path = os.path.join(str(default_storage_path), file_path) if default_storage_path else file_path
+    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    wb.save(full_path)
+
+    report = OrganizationFundReport.objects.create(
+        report_period=period,
+        report_type=report_type,
+        report_status="Draft",
+        file_path=file_path,
+        prepared_by_user_id_FK=officer,
+    )
+
+    return JsonResponse({
+        "report_id": report.report_id_PK,
+        "period": report.report_period,
+        "report_type": report.report_type,
+        "status": report.report_status,
+        "file_path": report.file_path,
+    })
 
 
 @require_GET
@@ -133,6 +155,9 @@ def auditor_submit_fund_report(request: HttpRequest, report_id: int):
     guard = require_role(request, role="Auditor")
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     report = get_object_or_404(OrganizationFundReport, pk=report_id)
     if report.report_status != "Draft":
@@ -175,6 +200,9 @@ def president_approve_fund_report(request: HttpRequest, report_id: int):
     guard = require_role(request, role="President")
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer_id = request.session.get("officer_id")
     try:
@@ -200,6 +228,9 @@ def president_approve_fund_report(request: HttpRequest, report_id: int):
 @require_POST
 def president_reject_fund_report(request: HttpRequest, report_id: int):
     guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 

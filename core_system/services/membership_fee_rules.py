@@ -7,12 +7,12 @@ from django.contrib.contenttypes.models import ContentType
 
 from core_system.models import (
     FinancialDocumentArchive,
-    GlobalAuditTrail,
     Member,
     MembershipFee,
     OfficerUser,
     TransactionVerification,
 )
+from core_system.shared_view_utils import _record_audit_trail
 
 
 # ==========================================================================
@@ -189,16 +189,14 @@ def create_correction_artifacts_for_membership_fee(
         uploaded_by_user_id_FK=officer,
     )
 
-    GlobalAuditTrail.objects.create(
-        table_name="membership_fee",
+    _record_audit_trail(
+        table="membership_fee",
         record_id=fee.fee_id_PK,
         action="CORRECTION_REQUIRED",
-        actor_type="Treasurer",
-        actor_id=officer.user_id_PK,
-        actor_name=officer.full_name or "",
-        ip_address=request.META.get("REMOTE_ADDR", "0.0.0.0"),
+        actor=officer,
+        new=snapshot,
+        ip=request.META.get("REMOTE_ADDR", "0.0.0.0"),
         notes="Payment requires correction: " + "; ".join(validation_errors),
-        new_values=snapshot,
     )
 
 
@@ -217,14 +215,12 @@ def record_membership_fee_policy_exception(*, member: Member, reason: str, offic
         uploaded_by_user_id_FK=officer,
     )
 
-    GlobalAuditTrail.objects.create(
-        table_name="membership_fee",
+    _record_audit_trail(
+        table="membership_fee",
         record_id=member.member_id_PK,
         action="POLICY_EXCEPTION",
-        actor_type="Treasurer",
-        actor_id=officer.user_id_PK,
-        actor_name=officer.full_name or "",
-        ip_address=request.META.get("REMOTE_ADDR", "0.0.0.0"),
+        actor=officer,
+        ip=request.META.get("REMOTE_ADDR", "0.0.0.0"),
         notes=f"Membership fee policy exception: {reason}",
     )
 

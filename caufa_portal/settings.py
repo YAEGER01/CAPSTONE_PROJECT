@@ -36,6 +36,7 @@ MIDDLEWARE = [
     "django_browser_reload.middleware.BrowserReloadMiddleware",
     "core_system.middleware.NoCacheMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "core_system.middleware.ZeroTrustMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",

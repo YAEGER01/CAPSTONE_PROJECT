@@ -19,6 +19,7 @@ from core_system.constants.policy_constants import (
 )
 from core_system.models import (
     AuditFindingsReport,
+    Contribution,
     DeathAid,
     FinancialDocumentArchive,
     GlobalAuditTrail,
@@ -40,6 +41,7 @@ MODEL_MAP = {
     "medical_aid": MedicalAid,
     "death_aid": DeathAid,
     "payroll_batch": PayrollBatch,
+    "contribution": Contribution,
 }
 
 UPDATABLE_FIELDS = {
@@ -253,6 +255,19 @@ def _serialize_for_audit(data):
     return result
 
 
+def _compute_entry_hash(
+    previous_hash, table, record_id, action, old_str, new_str, timestamp_str
+):
+    chain_str = f"{previous_hash}:{table}:{record_id}:{action}:{old_str}:{new_str}:{timestamp_str}"
+    entry_hash = hashlib.sha256(chain_str.encode()).hexdigest()
+    hmac_sig = hmac.new(
+        settings.SECRET_KEY.encode(),
+        entry_hash.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return entry_hash, hmac_sig
+
+
 def _record_audit_trail(
     table,
     record_id,
@@ -262,7 +277,55 @@ def _record_audit_trail(
     new=None,
     ip=None,
     notes=None,
+    actor_type_override=None,
+    actor_name_override=None,
 ):
+    actor_id = None
+    actor_name = ""
+    actor_type = ""
+    if actor is not None:
+        actor_id = getattr(actor, "user_id_PK", None)
+        actor_name = actor_name_override or getattr(actor, "full_name", "") or str(actor)
+        actor_type = actor_type_override or getattr(actor, "role", "") or ""
+
+    latest = GlobalAuditTrail.objects.order_by("-trail_id").first()
+    previous_hash = latest.entry_hash if (latest and latest.entry_hash) else "0" * 64
+
+    old_serialized = _serialize_for_audit(old)
+    new_serialized = _serialize_for_audit(new)
+
+    entry = GlobalAuditTrail.objects.create(
+        table_name=table,
+        record_id=int(record_id),
+        action=action,
+        old_values=old_serialized,
+        new_values=new_serialized,
+        actor_type=actor_type,
+        actor_id=actor_id,
+        actor_name=actor_name,
+        ip_address=ip,
+        notes=notes.strip() if isinstance(notes, str) else notes,
+        previous_hash=previous_hash,
+    )
+
+    old_str = json.dumps(old_serialized, sort_keys=True) if old_serialized else ""
+    new_str = json.dumps(new_serialized, sort_keys=True) if new_serialized else ""
+    timestamp_str = entry.timestamp.isoformat()
+
+    entry.entry_hash, entry.hmac_signature = _compute_entry_hash(
+        previous_hash, table, record_id, action, old_str, new_str, timestamp_str
+    )
+    entry.save(update_fields=["entry_hash", "hmac_signature"])
+
+
+def _record_bulk_audit_trail(entries, actor):
+    """Bulk-create audit entries with hash-chain integrity.
+
+    `entries` is a list of dicts, each with keys:
+        table, record_id, action, [old], [new], [ip], [notes]
+    All entries share the same `actor`.
+    Each entry is chained to the previous via `previous_hash`.
+    """
     actor_id = None
     actor_name = ""
     actor_type = ""
@@ -271,18 +334,42 @@ def _record_audit_trail(
         actor_name = getattr(actor, "full_name", "") or str(actor)
         actor_type = getattr(actor, "role", "") or ""
 
-    GlobalAuditTrail.objects.create(
-        table_name=table,
-        record_id=int(record_id),
-        action=action,
-        old_values=_serialize_for_audit(old),
-        new_values=_serialize_for_audit(new),
-        actor_type=actor_type,
-        actor_id=actor_id,
-        actor_name=actor_name,
-        ip_address=ip,
-        notes=notes.strip() if isinstance(notes, str) else notes,
-    )
+    latest = GlobalAuditTrail.objects.order_by("-trail_id").first()
+    prev_hash = latest.entry_hash if (latest and latest.entry_hash) else "0" * 64
+
+    now = timezone.now()
+    instances = []
+    for e in entries:
+        old_serialized = _serialize_for_audit(e.get("old"))
+        new_serialized = _serialize_for_audit(e.get("new"))
+        old_str = json.dumps(old_serialized, sort_keys=True) if old_serialized else ""
+        new_str = json.dumps(new_serialized, sort_keys=True) if new_serialized else ""
+        timestamp_str = now.isoformat()
+
+        entry_hash, hmac_sig = _compute_entry_hash(
+            prev_hash, e["table"], e["record_id"], e["action"],
+            old_str, new_str, timestamp_str,
+        )
+
+        instances.append(GlobalAuditTrail(
+            table_name=e["table"],
+            record_id=int(e["record_id"]),
+            action=e["action"],
+            old_values=old_serialized,
+            new_values=new_serialized,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            actor_name=actor_name,
+            ip_address=e.get("ip"),
+            notes=e.get("notes", "").strip() if isinstance(e.get("notes"), str) else e.get("notes"),
+            previous_hash=prev_hash,
+            entry_hash=entry_hash,
+            hmac_signature=hmac_sig,
+        ))
+        prev_hash = entry_hash
+
+    GlobalAuditTrail.objects.bulk_create(instances)
+
 
 
 def _log_sensitive_read(request, table_name, record_ids, description=""):
@@ -310,14 +397,12 @@ def _log_sensitive_read(request, table_name, record_ids, description=""):
     ]
     SensitiveReadLog.objects.bulk_create(batch)
 
-    GlobalAuditTrail.objects.create(
-        table_name=table_name,
+    _record_audit_trail(
+        table=table_name,
         record_id=0,
         action="READ",
-        actor_type=actor_type,
-        actor_id=actor_id,
-        actor_name=actor_name,
-        ip_address=ip,
+        actor=officer,
+        ip=ip,
         notes=f"{description} ({len(record_ids)} records)",
     )
 
@@ -408,6 +493,9 @@ def archive_transaction(table_name, pk, officer=None):
         validated_amount = amount
     elif table_name == "payroll_batch":
         amount = float(getattr(record, "total_amount", 0) or 0)
+    elif table_name == "contribution":
+        amount = float(getattr(record, "paid_amount", 0) or 0)
+        verified_at = getattr(record, "payment_date", None)
 
     return TransactionArchive.objects.create(
         transaction_type=table_name,
@@ -482,9 +570,13 @@ def _broadcast_pending_counts(target_groups: Optional[list[str]] = None) -> None
 def _send_push_notifications(auditor_pending: int, president_pending: int) -> None:
     from core_system.models import PushSubscription, OfficerUser
     from pywebpush import webpush
+    import logging
+
+    logger = logging.getLogger(__name__)
 
     vapid_private_key = settings.VAPID_PRIVATE_KEY
     vapid_public_key = settings.VAPID_PUBLIC_KEY
+    vapid_aud = getattr(settings, "PUSH_VAPID_AUD", "http://127.0.0.1:8000")
 
     auditor_officers = OfficerUser.objects.filter(role="Auditor").values_list("user_id_PK", flat=True)
     if auditor_pending > 0 and auditor_officers:
@@ -505,11 +597,11 @@ def _send_push_notifications(auditor_pending: int, president_pending: int) -> No
                     vapid_private_key=vapid_private_key,
                     vapid_claims={
                         "sub": "mailto:admin@caufa.local",
-                        "aud": "https://localhost:5000",
+                        "aud": vapid_aud,
                     },
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Push notification failed for auditor subscription %s: %s", sub.pk, exc)
 
     president_officers = OfficerUser.objects.filter(role="President").values_list("user_id_PK", flat=True)
     if president_pending > 0 and president_officers:
@@ -530,8 +622,8 @@ def _send_push_notifications(auditor_pending: int, president_pending: int) -> No
                     vapid_private_key=vapid_private_key,
                     vapid_claims={
                         "sub": "mailto:admin@caufa.local",
-                        "aud": "https://localhost:5000",
+                        "aud": vapid_aud,
                     },
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Push notification failed for president subscription %s: %s", sub.pk, exc)

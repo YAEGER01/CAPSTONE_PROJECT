@@ -9,7 +9,8 @@ from . import report_views
 from . import auditor_report_views
 from . import fund_report_views
 from . import htmx_views
-
+from . import public_views
+from . import auth_views
 
 
 urlpatterns = [
@@ -299,6 +300,14 @@ urlpatterns = [
     ),
     # --- President Workspace Endpoints ---
     path("president/", president_views.president_dashboard, name="president_dashboard"),
+    path("api/president/officers/", president_views.president_officers_list, name="president_officers_list"),
+    path("api/president/officers/create/", president_views.president_officers_create, name="president_officers_create"),
+    path("api/president/officers/<int:officer_id>/update/", president_views.president_officers_update, name="president_officers_update"),
+    path("api/president/officers/<int:officer_id>/reset-password/", president_views.president_officers_reset_password, name="president_officers_reset_password"),
+    path("api/president/officers/<int:officer_id>/deactivate/", president_views.president_officers_deactivate, name="president_officers_deactivate"),
+    path("api/president/profile/", president_views.president_profile, name="president_profile"),
+    path("api/president/profile/update/", president_views.president_profile_update, name="president_profile_update"),
+    path("api/president/officers/self-enroll/", president_views.president_officer_self_enroll, name="president_officer_self_enroll"),
     # --- President Payroll Batch APIs ---
     path(
         "api/president/pending-payroll-batches/",
@@ -419,9 +428,22 @@ urlpatterns = [
         treasurer_views.treasurer_aid_post_history,
         name="treasurer_aid_post_history",
     ),
+    # --- Public (no-auth) Bylaws / Policy viewing for landing page ---
+    path("api/public/bylaws/", public_views.public_bylaws, name="public_bylaws"),
+    path(
+        "api/public/bylaws/file/<int:document_id>/",
+        public_views.public_bylaws_file,
+        name="public_bylaws_file",
+    ),
+    path(
+        "api/public/bylaws/render/<int:document_id>/",
+        public_views.public_bylaws_render,
+        name="public_bylaws_render",
+    ),
     # --- Logout (custom officer session) ---
     path("logout/", views.logout_view, name="logout"),
     # --- Push Notification Subscriptions ---
+    path("api/push/vapid-key/", push_views.vapid_public_key, name="push_vapid_key"),
     path("api/push/subscribe/", push_views.push_subscribe, name="push_subscribe"),
     path("api/push/unsubscribe/", push_views.push_unsubscribe, name="push_unsubscribe"),
     # --- System Settings API Endpoints ---
@@ -450,6 +472,11 @@ urlpatterns = [
         "api/reports/contributions/",
         report_views.download_contribution_report,
         name="download_contribution_report",
+    ),
+    path(
+        "api/treasurer/reports/generate/",
+        report_views.generate_unified_report_view,
+        name="generate_unified_report",
     ),
     # --- Auditor Report Endpoints ---
     path(
@@ -540,6 +567,14 @@ urlpatterns = [
     path("api/president/aid-post-finish-approve/", president_views.president_approve_aid_post_finish, name="president_approve_aid_post_finish"),
     path("api/president/aid-post-finish-reject/", president_views.president_reject_aid_post_finish, name="president_reject_aid_post_finish"),
     path("api/president/finish-request-details/", president_views.president_finish_request_details, name="president_finish_request_details"),
+    # --- President ByLaws Constants Management ---
+    path("api/president/pending-contributions/", president_views.president_pending_contributions, name="president_pending_contributions"),
+    path("api/president/contribution-decision/", president_views.submit_presidential_contribution_decision, name="president_contribution_decision"),
+    path("api/president/bylaws/constants/", president_views.get_policy_constants, name="president_bylaws_constants"),
+    path("api/president/bylaws/constants/update/", president_views.update_policy_constant, name="president_bylaws_constant_update"),
+    path("api/president/bylaws/files/", president_views.bylaws_files_api, name="president_bylaws_files"),
+    path("api/president/bylaws/files/upload/", president_views.upload_bylaws_file, name="president_bylaws_file_upload"),
+    path("api/president/bylaws/files/<int:document_id>/delete/", president_views.delete_bylaws_file, name="president_bylaws_file_delete"),
 
     # --- HTMX Partial Endpoints ---
     path(
@@ -583,6 +618,15 @@ urlpatterns = [
         views.member_deductions_list,
         name="member_deductions_by_id",
     ),
+    # --- MFA API ---
+    path("api/auth/mfa/enable/", auth_views.mfa_enable, name="mfa_enable"),
+    path("api/auth/mfa/disable/", auth_views.mfa_disable, name="mfa_disable"),
+    path("api/auth/mfa/challenge/", auth_views.mfa_challenge, name="mfa_challenge"),
+    path("api/auth/mfa/verify/", auth_views.mfa_verify, name="mfa_verify"),
+    path("mfa/challenge/", auth_views.mfa_challenge_page, name="mfa_challenge_page"),
+    path("api/auth/zero-trust/challenge/", auth_views.zero_trust_challenge, name="zero_trust_challenge"),
+    path("api/auth/zero-trust/verify/", auth_views.zero_trust_verify, name="zero_trust_verify"),
+    path("api/auth/term-info/", auth_views.term_info, name="term_info"),
 ]
 
 handler403 = "core_system.president_views.permission_denied_view"

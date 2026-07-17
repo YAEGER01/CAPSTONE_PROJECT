@@ -11,10 +11,20 @@ class OfficerUser(models.Model):
     username = models.CharField(max_length=150, unique=True)
     password_hash = models.CharField(max_length=255)
     role = models.CharField(max_length=50)
+    department_id_FK = models.ForeignKey(
+        "Department",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="department_id_FK",
+        related_name="officers",
+    )
     account_status = models.CharField(max_length=50)
     term_start = models.DateField(null=True, blank=True)
     term_end = models.DateField(null=True, blank=True)
+    mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=255, null=True, blank=True)
+    last_mfa_email_sent_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -49,6 +59,14 @@ class Member(models.Model):
     member_id_PK = models.AutoField(primary_key=True)
     full_name = models.CharField(max_length=255)
     employee_id = models.CharField(max_length=50, null=True, blank=True, unique=True)
+    officer_user_id_FK = models.ForeignKey(
+        OfficerUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_column="officer_user_id_FK",
+        related_name="linked_member_profiles",
+    )
     department = models.CharField(max_length=100, null=True, blank=True)
     department_id_FK = models.ForeignKey(
         Department,
@@ -105,6 +123,10 @@ class AccessSession(models.Model):
     expires_at = models.DateTimeField()
     revoked_at = models.DateTimeField(null=True, blank=True)
     session_status = models.CharField(max_length=50)
+
+    trusted_device = models.BooleanField(default=False)
+    last_verified_location = models.JSONField(null=True, blank=True)
+    session_policy = models.JSONField(null=True, blank=True)
 
     class Meta:
         db_table = "ACCESS_SESSION"
@@ -234,6 +256,8 @@ class FinancialDocumentArchive(models.Model):
     document_type = models.CharField(max_length=100)
 
     file_path = models.CharField(max_length=500)
+    file_name = models.CharField(max_length=255)
+    file_type = models.CharField(max_length=100)
     file_hash = models.CharField(max_length=255)
     verification_status = models.CharField(max_length=50)
 
@@ -246,6 +270,28 @@ class FinancialDocumentArchive(models.Model):
 
     class Meta:
         db_table = "FINANCIAL_DOCUMENT_ARCHIVE"
+
+
+class BylawsFile(models.Model):
+    bylaws_file_id = models.AutoField(primary_key=True)
+
+    file_name = models.CharField(max_length=255)
+    file_type = models.CharField(max_length=100)
+    file_data = models.BinaryField()
+    file_size = models.IntegerField()
+    file_hash = models.CharField(max_length=255)
+
+    verification_status = models.CharField(max_length=50, default="Active")
+
+    uploaded_by_user_id_FK = models.ForeignKey(
+        OfficerUser,
+        on_delete=models.RESTRICT,
+        db_column="uploaded_by_user_id_FK",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "bylaws_files"
 
 
 class SupportingProof(models.Model):
@@ -812,6 +858,10 @@ class GlobalAuditTrail(models.Model):
 
     timestamp = models.DateTimeField(auto_now_add=True)
 
+    previous_hash = models.CharField(max_length=64, null=True, blank=True)
+    entry_hash = models.CharField(max_length=64, null=True, blank=True)
+    hmac_signature = models.CharField(max_length=64, null=True, blank=True)
+
     class Meta:
         db_table = "GLOBAL_AUDIT_TRAIL"
         indexes = [
@@ -1019,6 +1069,41 @@ class PayrollDeduction(models.Model):
             models.Index(fields=["batch_id_FK", "category"]),
             models.Index(fields=["member_id_FK"]),
         ]
+
+
+class BackupJob(models.Model):
+    STATUS_PENDING = "Pending"
+    STATUS_COMPLETED = "Completed"
+    STATUS_FAILED = "Failed"
+
+    TYPE_DB = "db"
+    TYPE_MEDIA = "media"
+    TYPE_CONFIG = "config"
+
+    job_id = models.AutoField(primary_key=True)
+
+    backup_type = models.CharField(max_length=20, choices=[
+        (TYPE_DB, "Database"),
+        (TYPE_MEDIA, "Media"),
+        (TYPE_CONFIG, "Config"),
+    ])
+
+    backup_status = models.CharField(max_length=20, choices=[
+        (STATUS_PENDING, "Pending"),
+        (STATUS_COMPLETED, "Completed"),
+        (STATUS_FAILED, "Failed"),
+    ], default=STATUS_PENDING)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    db_dump_path = models.CharField(max_length=500, null=True, blank=True)
+    media_archive_path = models.CharField(max_length=500, null=True, blank=True)
+
+    metadata_json = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        db_table = "BACKUP_JOB"
+        ordering = ["-created_at"]
 
 
 class OutgoingEmail(models.Model):

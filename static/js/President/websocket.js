@@ -82,6 +82,11 @@
         window.AidFinishApproval.loadRequests();
       }
     }
+    if (section === "all" || section === "contributions") {
+      if (typeof loadContributionsQueue === "function") {
+        loadContributionsQueue();
+      }
+    }
   }
 
   document.addEventListener("turbo:load", function () {

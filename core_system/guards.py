@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from django.http import HttpRequest, HttpResponse
+from datetime import timedelta
+
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
+from django.utils import timezone
+from functools import wraps
 import logging
 
 from core_system.models import AccessSession
@@ -31,9 +35,6 @@ def require_officer_session(request: HttpRequest) -> HttpResponse | None:
     if sess.revoked_at is not None:
         request.session.pop("access_token", None)
         return redirect("login")
-
-    # `expires_at` is required in schema.
-    from django.utils import timezone
 
     now = timezone.now()
     if sess.expires_at <= now:
@@ -88,3 +89,92 @@ def require_role(request: HttpRequest, *, role: str | list[str] | None) -> HttpR
         raise PermissionDenied("Forbidden for this role.")
 
     return None
+
+
+_ZT_TIMEOUTS = {
+    "read": None,
+    "verify": timedelta(minutes=15),
+    "approve": timedelta(minutes=5),
+}
+
+
+def _zt_challenge_response(level: str) -> JsonResponse:
+    response = JsonResponse({
+        "ok": False,
+        "zero_trust_challenge": True,
+        "error": f"Zero Trust verification required for {level} access.",
+    }, status=403)
+    response["X-Zero-Trust-Challenge"] = "true"
+    return response
+
+
+def check_zero_trust(request: HttpRequest, level: str = "verify") -> HttpResponse | None:
+    """Inline guard: returns None if allowed, or an error response if ZT challenge needed.
+
+    Use inside view functions alongside require_role():
+        guard = check_zero_trust(request, level="approve")
+        if guard is not None:
+            return guard
+    """
+    token = request.session.get("access_token")
+    if not token:
+        return redirect("login")
+
+    try:
+        sess = AccessSession.objects.get(token_id=token)
+    except AccessSession.DoesNotExist:
+        return redirect("login")
+
+    if level == "read":
+        return None
+
+    if not sess.trusted_device:
+        return _zt_challenge_response(level)
+
+    timeout = _ZT_TIMEOUTS.get(level)
+    if timeout is not None:
+        policy = sess.session_policy or {}
+        verified_at_str = policy.get("zt_verified_at")
+        if verified_at_str:
+            try:
+                verified_at = timezone.datetime.fromisoformat(verified_at_str)
+                if timezone.is_naive(verified_at):
+                    verified_at = timezone.make_aware(verified_at)
+                if timezone.now() - verified_at > timeout:
+                    return _zt_challenge_response(level)
+            except (ValueError, TypeError):
+                return _zt_challenge_response(level)
+        else:
+            return _zt_challenge_response(level)
+
+    return None
+
+
+def require_zero_trust(level="verify"):
+    """Decorator: require Zero Trust verification at the given level.
+
+    Usage:
+        @require_zero_trust(level="approve")
+        def my_view(request):
+            ...
+    """
+    if callable(level):
+        func = level
+        level = "verify"
+        return require_zero_trust(level)(func)
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            guard = require_officer_session(request)
+            if guard is not None:
+                return guard
+
+            guard = check_zero_trust(request, level=level)
+            if guard is not None:
+                return guard
+
+            return view_func(request, *args, **kwargs)
+        return _wrapped_view
+    return decorator
+

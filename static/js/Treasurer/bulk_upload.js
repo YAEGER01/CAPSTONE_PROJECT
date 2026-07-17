@@ -55,13 +55,8 @@
 
   function generateEmployeeId(fullName) {
     const year = String(new Date().getFullYear()).slice(-2);
-    const parts = (fullName || "")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-    const initials = parts
-      .map((p) => p.charAt(0).toUpperCase())
-      .join("");
+    const parts = (fullName || "").trim().split(/\s+/).filter(Boolean);
+    const initials = parts.map((p) => p.charAt(0).toUpperCase()).join("");
     return `EMPL-${year}-${initials}`;
   }
 
@@ -75,7 +70,7 @@
         <legend style="color: ${color};">Member ${n}</legend>
         <div class="form-group">
           <label for="bulk_name_${i}">Full Legal Name</label>
-          <input type="text" id="bulk_name_${i}" name="member_${i}_name" autocomplete="off" placeholder="e.g., Senator Evelyn Vance" />
+          <input type="text" id="bulk_name_${i}" name="member_${i}_name" autocomplete="off" placeholder="Enter Full Legal Name" />
         </div>
         <div class="form-grid-2">
           <div class="form-group">
@@ -89,7 +84,7 @@
         </div>
         <div class="form-grid-2">
           <div class="form-group">
-            <label for="bulk_id_${i}">Employee/Faculty ID</label>
+            <label for="bulk_id_${i}">System Ref ID</label>
             <input type="text" id="bulk_id_${i}" name="member_${i}_id" autocomplete="off" readonly placeholder="Auto Populated" />
           </div>
           <div class="form-group">
@@ -99,8 +94,8 @@
         </div>
         <div class="form-grid-2">
           <div class="form-group">
-            <label for="bulk_email_${i}">Institutional Email</label>
-            <input type="email" id="bulk_email_${i}" name="member_${i}_email" autocomplete="off" placeholder="e.g., evelyn.v@government.gov" />
+            <label for="bulk_email_${i}">Institutional Email Address</label>
+            <input type="email" id="bulk_email_${i}" name="member_${i}_email" autocomplete="off" placeholder="Institutional Email Address" />
           </div>
           <div class="form-group">
             <label for="bulk_status_${i}">Membership Status</label>
@@ -129,7 +124,8 @@
         idInput.value = generateEmployeeId(nameInput.value);
       });
       const contactInput = document.getElementById(`bulk_contact_${i}`);
-      if (contactInput && typeof window.formatPhoneInput === "function") window.formatPhoneInput(contactInput);
+      if (contactInput && typeof window.formatPhoneInput === "function")
+        window.formatPhoneInput(contactInput);
     }
   }
 
@@ -158,25 +154,41 @@
 
     const entries = [];
     for (let i = 0; i < BULK_COUNT; i++) {
-      const name = (document.getElementById(`bulk_name_${i}`).value || "").trim();
+      const name = (
+        document.getElementById(`bulk_name_${i}`).value || ""
+      ).trim();
       if (!name) continue;
-      const email = (document.getElementById(`bulk_email_${i}`).value || "").trim();
+      const email = (
+        document.getElementById(`bulk_email_${i}`).value || ""
+      ).trim();
       if (email && !email.includes("@")) {
-        return showToast(`Member ${i + 1}: Institutional Email looks invalid.`, true);
+        return showToast(
+          `Member ${i + 1}: Institutional Email looks invalid.`,
+          true,
+        );
       }
       entries.push({
         prof_name: name,
         prof_id: (document.getElementById(`bulk_id_${i}`).value || "").trim(),
         prof_pos: (document.getElementById(`bulk_pos_${i}`).value || "").trim(),
-        prof_contact: (document.getElementById(`bulk_contact_${i}`).value || "").trim(),
-        prof_dept: (document.getElementById(`bulk_dept_${i}`).value || "").trim(),
+        prof_contact: (
+          document.getElementById(`bulk_contact_${i}`).value || ""
+        ).trim(),
+        prof_dept: (
+          document.getElementById(`bulk_dept_${i}`).value || ""
+        ).trim(),
         prof_email: email,
-        prof_status: (document.getElementById(`bulk_status_${i}`).value || "Permanent").trim(),
+        prof_status: (
+          document.getElementById(`bulk_status_${i}`).value || "Permanent"
+        ).trim(),
       });
     }
 
     if (entries.length === 0) {
-      return showToast("Please fill in at least one member's Full Legal Name.", true);
+      return showToast(
+        "Please fill in at least one member's Full Legal Name.",
+        true,
+      );
     }
 
     btn.disabled = true;
@@ -212,7 +224,8 @@
       if (failed.length === 0) {
         Swal.fire({
           title: "Batch Enrollment Complete",
-          html: `<b>Enrolled ${succeeded} member(s):</b><br><br>` +
+          html:
+            `<b>Enrolled ${succeeded} member(s):</b><br><br>` +
             enrolledNames.map((n) => `• ${n}`).join("<br>"),
           icon: "success",
           confirmButtonColor: "#1b5e20",
@@ -220,9 +233,12 @@
       } else {
         Swal.fire({
           title: "Batch Enrollment Finished",
-          html: `<b>${succeeded} enrolled, ${failed.length} failed.</b><br><br>` +
-            `<b>Enrolled:</b><br>` + enrolledNames.map((n) => `• ${n}`).join("<br>") +
-            `<br><br><b>Failed:</b><br>` + failed.map((f) => `• ${f.name}: ${f.error}`).join("<br>"),
+          html:
+            `<b>${succeeded} enrolled, ${failed.length} failed.</b><br><br>` +
+            `<b>Enrolled:</b><br>` +
+            enrolledNames.map((n) => `• ${n}`).join("<br>") +
+            `<br><br><b>Failed:</b><br>` +
+            failed.map((f) => `• ${f.name}: ${f.error}`).join("<br>"),
           icon: "warning",
           confirmButtonColor: "#e53935",
         });

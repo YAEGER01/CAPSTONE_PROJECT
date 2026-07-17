@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from typing import Any, Dict, List, Optional
+
+from django.conf import settings
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.storage import default_storage
@@ -18,7 +21,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from core_system.constants.status_constants import Status, is_pending
-from core_system.guards import require_role
+from core_system.guards import require_role, check_zero_trust
 from core_system.models import (
     AidTrackingPost,
     Contribution,
@@ -51,6 +54,9 @@ from core_system.shared_view_utils import (
     _broadcast_pending_counts,
     _broadcast_to_group,
     _log_sensitive_read,
+    _record_audit_trail,
+    _record_bulk_audit_trail,
+    _serialize_for_audit,
 )
 
 
@@ -177,6 +183,132 @@ def auditor_dashboard(request):
         context["officer_full_name"] = context["officer_role"]
 
     return render(request, "website/Auditor/auditor_dashboard.html", context)
+
+
+@require_GET
+def auditor_audit_trail_verify(request: HttpRequest, table_name: str, record_id: int):
+    """
+    Verify audit-log hash-chain integrity for a specific (table_name, record_id).
+
+    Returns:
+      {
+        ok: true,
+        table_name,
+        record_id,
+        total_entries,
+        valid: bool,
+        issues: [ ... ],
+      }
+    """
+    guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+
+    table_name = (table_name or "").strip()
+    issues = []
+
+    qs = (
+        GlobalAuditTrail.objects.filter(
+            table_name=table_name,
+            record_id=int(record_id),
+        )
+        .order_by("timestamp", "trail_id")
+    )
+
+    entries = list(qs)
+    total = len(entries)
+    if total == 0:
+        return JsonResponse(
+            {
+                "ok": True,
+                "table_name": table_name,
+                "record_id": record_id,
+                "total_entries": 0,
+                "valid": True,
+                "issues": [],
+            }
+        )
+
+    expected_previous = "0" * 64
+    for idx, entry in enumerate(entries):
+        previous_hash = entry.previous_hash if getattr(entry, "previous_hash", None) else None
+        prev_hash_effective = previous_hash or ("0" * 64)
+
+        if prev_hash_effective != expected_previous:
+            issues.append(
+                {
+                    "index": idx,
+                    "trail_id": entry.trail_id,
+                    "issue": "previous_hash_mismatch",
+                    "expected": expected_previous,
+                    "actual": prev_hash_effective,
+                }
+            )
+
+        old_serialized = (
+            entry.old_values
+            if isinstance(entry.old_values, dict)
+            else (json.loads(entry.old_values) if entry.old_values else None)
+        )
+        new_serialized = (
+            entry.new_values
+            if isinstance(entry.new_values, dict)
+            else (json.loads(entry.new_values) if entry.new_values else None)
+        )
+
+        old_serialized = _serialize_for_audit(old_serialized) if old_serialized is not None else None
+        new_serialized = _serialize_for_audit(new_serialized) if new_serialized is not None else None
+
+        old_str = json.dumps(old_serialized, sort_keys=True) if old_serialized else ""
+        new_str = json.dumps(new_serialized, sort_keys=True) if new_serialized else ""
+        timestamp_str = entry.timestamp.isoformat() if entry.timestamp else ""
+
+        chain_str = f"{expected_previous}:{entry.table_name}:{entry.record_id}:{entry.action}:{old_str}:{new_str}:{timestamp_str}"
+        computed_entry_hash = hashlib.sha256(chain_str.encode()).hexdigest()
+
+        expected_hmac = hmac.new(
+            settings.SECRET_KEY.encode(),
+            computed_entry_hash.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+
+        stored_entry_hash = getattr(entry, "entry_hash", None)
+        stored_hmac = getattr(entry, "hmac_signature", None)
+
+        if stored_entry_hash and stored_entry_hash != computed_entry_hash:
+            issues.append(
+                {
+                    "index": idx,
+                    "trail_id": entry.trail_id,
+                    "issue": "entry_hash_mismatch",
+                    "expected": computed_entry_hash,
+                    "actual": stored_entry_hash,
+                }
+            )
+
+        if stored_hmac and stored_hmac != expected_hmac:
+            issues.append(
+                {
+                    "index": idx,
+                    "trail_id": entry.trail_id,
+                    "issue": "hmac_signature_mismatch",
+                    "expected": expected_hmac,
+                    "actual": stored_hmac,
+                }
+            )
+
+        expected_previous = computed_entry_hash
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "table_name": table_name,
+            "record_id": record_id,
+            "total_entries": total,
+            "valid": len(issues) == 0,
+            "issues": issues,
+        }
+    )
 
 
 @require_GET
@@ -369,6 +501,9 @@ def auditor_verify_payment(request: HttpRequest):
     guard = require_role(request, role="Auditor")
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer = _get_officer_from_session(request)
     if officer is None:
@@ -513,16 +648,14 @@ def auditor_verify_payment(request: HttpRequest):
     audit_action = "VERIFIED" if result == "Verified" else "RETURNED"
     audit_actor_type = getattr(officer, "role", "Auditor")
 
-    GlobalAuditTrail.objects.create(
-        table_name=tv_table,
+    _record_audit_trail(
+        table=tv_table,
         record_id=related_record_id,
         action=audit_action,
-        actor_type=audit_actor_type,
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
-        ip_address=request.META.get("REMOTE_ADDR"),
+        actor=officer,
+        new=snapshot,
+        ip=request.META.get("REMOTE_ADDR"),
         notes=remarks or None,
-        new_values=snapshot,
     )
 
     _broadcast_pending_counts()
@@ -534,6 +667,9 @@ def auditor_verify_payment(request: HttpRequest):
 @transaction.atomic
 def auditor_verify_aid(request: HttpRequest):
     guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -653,16 +789,14 @@ def auditor_verify_aid(request: HttpRequest):
         ).update(return_count=F("return_count") + 1)
 
     audit_action = "VERIFIED" if is_verify else "RETURNED"
-    GlobalAuditTrail.objects.create(
-        table_name=target_table,
+    _record_audit_trail(
+        table=target_table,
         record_id=related_record_id,
         action=audit_action,
-        actor_type=getattr(officer, "role", "Auditor"),
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
-        ip_address=request.META.get("REMOTE_ADDR"),
+        actor=officer,
+        new=snapshot,
+        ip=request.META.get("REMOTE_ADDR"),
         notes=remarks or None,
-        new_values=snapshot,
     )
 
     _broadcast_pending_counts()
@@ -733,6 +867,9 @@ def auditor_verify_membership_fee(request: HttpRequest):
 @transaction.atomic
 def auditor_verify_membership_fee_batch(request: HttpRequest):
     guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -838,25 +975,21 @@ def _batch_verify_core(request, officer, items, result, remarks):
                     tv.return_count = (tv.return_count or 0) + 1
                 tv.save()
 
-            audit_entries.append(GlobalAuditTrail(
-                table_name=tn,
-                record_id=rid,
-                action=audit_action,
-                actor_type=getattr(officer, "role", "Auditor"),
-                actor_id=officer.user_id_PK,
-                actor_name=getattr(officer, "full_name", ""),
-                ip_address=request.META.get("REMOTE_ADDR"),
-                notes=remarks or None,
-            ))
+            audit_entries.append({
+                "table": tn,
+                "record_id": rid,
+                "action": audit_action,
+                "ip": request.META.get("REMOTE_ADDR"),
+                "notes": remarks or None,
+            })
             processed += 1
 
-        # Always sync the model status even if TV was already non-Pending
         if model_info is not None:
             model_cls, pk_field, status_field = model_info
             model_cls.objects.filter(**{pk_field: rid}).update(**{status_field: canonical_status})
 
     if audit_entries:
-        GlobalAuditTrail.objects.bulk_create(audit_entries)
+        _record_bulk_audit_trail(audit_entries, actor=officer)
 
     _broadcast_pending_counts()
     _broadcast_to_group("auditor_dashboard", {"type": "dashboard_refresh", "section": "all"})
@@ -868,6 +1001,9 @@ def _batch_verify_core(request, officer, items, result, remarks):
 @transaction.atomic
 def auditor_verify_batch(request: HttpRequest):
     guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -892,6 +1028,9 @@ def auditor_verify_batch(request: HttpRequest):
 def reject_transaction(request: HttpRequest):
 
     guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -948,16 +1087,14 @@ def reject_transaction(request: HttpRequest):
             "returned_by_auditor_id_FK", "returned_reason", "return_count",
         ])
 
-    GlobalAuditTrail.objects.create(
-        table_name=table_name,
+    _record_audit_trail(
+        table=table_name,
         record_id=int(record_id),
         action="RETURNED",
-        actor_type=getattr(officer, "role", "Auditor"),
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
-        ip_address=request.META.get("REMOTE_ADDR"),
+        actor=officer,
+        new=snapshot,
+        ip=request.META.get("REMOTE_ADDR"),
         notes=rejection_reason or None,
-        new_values=snapshot,
     )
 
     _broadcast_pending_counts()
@@ -1100,6 +1237,9 @@ def auditor_aid_post_member_pay(request: HttpRequest):
     guard = require_role(request, role="Auditor")
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer = _get_officer_from_session(request)
     if officer is None:
@@ -1130,14 +1270,12 @@ def auditor_aid_post_member_pay(request: HttpRequest):
     post.total_collected = totals["total_collected"] or 0
     post.save(update_fields=["total_collected"])
 
-    GlobalAuditTrail.objects.create(
-        table_name="contribution",
+    _record_audit_trail(
+        table="contribution",
         record_id=contribution.contribution_id_PK,
         action="PAID",
-        actor_type=getattr(officer, "role", "Auditor"),
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
-        ip_address=request.META.get("REMOTE_ADDR"),
+        actor=officer,
+        ip=request.META.get("REMOTE_ADDR"),
     )
 
     channel_layer = get_channel_layer()
@@ -1159,6 +1297,9 @@ def auditor_aid_post_member_pay(request: HttpRequest):
 @transaction.atomic
 def auditor_aid_post_member_skip(request: HttpRequest):
     guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -1184,15 +1325,13 @@ def auditor_aid_post_member_skip(request: HttpRequest):
     contribution.updated_by_user_id_FK = officer
     contribution.save()
 
-    GlobalAuditTrail.objects.create(
-        table_name="contribution",
+    _record_audit_trail(
+        table="contribution",
         record_id=contribution.contribution_id_PK,
         action="SKIPPED",
-        actor_type=getattr(officer, "role", "Auditor"),
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
+        actor=officer,
+        ip=request.META.get("REMOTE_ADDR"),
         notes=notes or None,
-        ip_address=request.META.get("REMOTE_ADDR"),
     )
 
     channel_layer = get_channel_layer()
@@ -1214,6 +1353,9 @@ def auditor_aid_post_member_skip(request: HttpRequest):
 @transaction.atomic
 def auditor_aid_post_finish(request: HttpRequest):
     guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -1239,18 +1381,13 @@ def auditor_aid_post_finish(request: HttpRequest):
     post.finish_skip_remaining = skip_remaining
     post.save(update_fields=["finish_status", "finish_skip_remaining"])
 
-    GlobalAuditTrail.objects.create(
-        table_name="AID_TRACKING_POST",
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
         record_id=post.post_id_PK,
         action="FINISH_REQUESTED",
-        actor_type=getattr(officer, "role", "Auditor"),
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
-        new_values={
-            "finish_status": "pending_approval",
-            "finish_skip_remaining": skip_remaining,
-        },
-        ip_address=request.META.get("REMOTE_ADDR"),
+        actor=officer,
+        new={"finish_status": "pending_approval", "finish_skip_remaining": skip_remaining},
+        ip=request.META.get("REMOTE_ADDR"),
     )
 
     archive = post.archive_id_FK
@@ -1356,6 +1493,9 @@ def auditor_verify_post_finish(request: HttpRequest):
     guard = require_role(request, role="Auditor")
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer = _get_officer_from_session(request)
     if officer is None:
@@ -1380,15 +1520,13 @@ def auditor_verify_post_finish(request: HttpRequest):
         post.finish_status = "rejected"
         post.save(update_fields=["finish_status"])
 
-        GlobalAuditTrail.objects.create(
-            table_name="AID_TRACKING_POST",
+        _record_audit_trail(
+            table="AID_TRACKING_POST",
             record_id=post.post_id_PK,
             action="FINISH_REJECTED",
-            actor_type="Auditor",
-            actor_id=officer.user_id_PK,
-            actor_name=getattr(officer, "full_name", ""),
+            actor=officer,
+            ip=request.META.get("REMOTE_ADDR"),
             notes=remarks or "Auditor rejected finish request",
-            ip_address=request.META.get("REMOTE_ADDR"),
         )
 
         channel_layer = get_channel_layer()
@@ -1427,15 +1565,13 @@ def auditor_verify_post_finish(request: HttpRequest):
             verified_at=timezone.now(),
         )
 
-    GlobalAuditTrail.objects.create(
-        table_name="AID_TRACKING_POST",
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
         record_id=post.post_id_PK,
         action="FINISH_VERIFIED",
-        actor_type="Auditor",
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
+        actor=officer,
+        ip=request.META.get("REMOTE_ADDR"),
         notes=remarks or "Auditor verified finish request",
-        ip_address=request.META.get("REMOTE_ADDR"),
     )
 
     channel_layer = get_channel_layer()
@@ -1667,6 +1803,9 @@ def auditor_verify_payroll_batch(request: HttpRequest, batch_id: int):
     guard = require_role(request, role="Auditor")
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     batch = get_object_or_404(PayrollBatch, pk=batch_id, status="Pending")
 
@@ -1687,15 +1826,13 @@ def auditor_verify_payroll_batch(request: HttpRequest, batch_id: int):
     batch.auditor_remarks = data.get("remarks", "")
     batch.save(update_fields=["status", "auditor_verified_by_user_id_FK", "auditor_verified_at", "auditor_remarks"])
 
-    GlobalAuditTrail.objects.create(
-        table_name="PAYROLL_BATCH",
+    _record_audit_trail(
+        table="PAYROLL_BATCH",
         record_id=batch.pk,
         action="VERIFIED",
-        actor_type="Auditor",
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
-        ip_address=request.META.get("REMOTE_ADDR"),
-        new_values={"status": "Auditor Verified", "remarks": data.get("remarks", "")},
+        actor=officer,
+        ip=request.META.get("REMOTE_ADDR"),
+        new={"status": "Auditor Verified", "remarks": data.get("remarks", "")},
     )
 
     _broadcast_pending_counts()
@@ -1709,6 +1846,9 @@ def auditor_verify_payroll_batch(request: HttpRequest, batch_id: int):
 def auditor_reject_payroll_batch(request: HttpRequest, batch_id: int):
     """Return a PayrollBatch for revision."""
     guard = require_role(request, role="Auditor")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -1734,16 +1874,14 @@ def auditor_reject_payroll_batch(request: HttpRequest, batch_id: int):
     batch.returned_reason = reason
     batch.save(update_fields=["status", "returned_by_user_id_FK", "returned_reason"])
 
-    GlobalAuditTrail.objects.create(
-        table_name="PAYROLL_BATCH",
+    _record_audit_trail(
+        table="PAYROLL_BATCH",
         record_id=batch.pk,
         action="RETURNED",
-        actor_type="Auditor",
-        actor_id=officer.user_id_PK,
-        actor_name=getattr(officer, "full_name", ""),
-        ip_address=request.META.get("REMOTE_ADDR"),
+        actor=officer,
+        ip=request.META.get("REMOTE_ADDR"),
         notes=reason,
-        new_values={"status": "Returned for Revision", "reason": reason},
+        new={"status": "Returned for Revision", "reason": reason},
     )
 
     _broadcast_pending_counts()

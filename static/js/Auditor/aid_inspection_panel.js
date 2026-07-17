@@ -77,12 +77,14 @@
       label: "Assigned Contribution Amount",
       icon: "",
       value: function (item) {
-        return formatMoneyPHP(
-          item.validated_aid_amount ||
-            item.reqAmount ||
-            item.requested_amount ||
-            0,
-        ) + " /per member";
+        return (
+          formatMoneyPHP(
+            item.validated_aid_amount ||
+              item.reqAmount ||
+              item.requested_amount ||
+              0,
+          ) + " /per member"
+        );
       },
     },
     {
@@ -103,7 +105,7 @@
     },
     {
       key: "hospital_date",
-      label: "Date of Hospitalization / Illness",
+      label: "Date range of Admission to Discharge",
       icon: "",
       value: function (item) {
         return item.hospital_date || "\u2014";
@@ -197,7 +199,10 @@
       label: "Assigned Contribution Amount",
       icon: "",
       value: function (item) {
-        return formatMoneyPHP(item.benefit_amount || item.benefit || 0) + " /per member";
+        return (
+          formatMoneyPHP(item.benefit_amount || item.benefit || 0) +
+          " /per member"
+        );
       },
     },
     {

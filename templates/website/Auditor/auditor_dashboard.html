@@ -1290,9 +1290,6 @@
         border-radius: 4px;
         gap: 6px;
       }
-      .io-item span {
-        display: inline !important;
-      }
       .io-item .io-sign {
         font-weight: 700;
         font-size: 0.85rem;
@@ -1301,12 +1298,25 @@
       }
       .io-item .io-name {
         flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 0 6px;
+        color: #333;
+      }
+      .io-item .io-desc {
+        font-weight: 500;
+        font-size: 0.75rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        padding: 0 6px;
-        color: #333;
-        font-weight: 500;
+        line-height: 1.3;
+      }
+      .io-item .io-stype {
+        font-size: 0.62rem;
+        opacity: 0.6;
+        text-transform: capitalize;
+        line-height: 1.2;
       }
       .io-item .io-amount {
         font-weight: 700;
@@ -1835,6 +1845,7 @@
 
         <!-- Central Scrollable Dashboard Viewport Area -->
         <div class="content-viewport" id="contentViewport">
+          <div id="termWarningBanner" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;"></div>
           <!-- ==========================================================================
              TAB 1: AUDITOR OVERVIEW
              ========================================================================== -->
@@ -5164,6 +5175,7 @@
       </main>
     </div>
     <script src="{% static 'js/Auditor/toast.js' %}"></script>
+    <script src="{% static 'js/shared/zero_trust.js' %}"></script>
     <script src="{% static 'js/status-utils.js' %}"></script>
     <script src="{% static 'js/shared/fund_display.js' %}"></script>
     <script src="{% static 'js/Auditor/auditor_dashboard.js' %}"></script>
@@ -5355,6 +5367,41 @@
         div.textContent = text;
         return div.innerHTML;
       }
+
+      async function loadTermWarning() {
+        var banner = document.getElementById("termWarningBanner");
+        if (!banner) return;
+        try {
+          var resp = await fetch("/api/auth/term-info/", { credentials: "same-origin" });
+          var data = await resp.json();
+          if (!data || !data.ok) return;
+          if (data.is_expired) {
+            banner.style.display = "block";
+            banner.style.background = "#ffebee";
+            banner.style.color = "#c62828";
+            banner.style.border = "1px solid #ef9a9a";
+            banner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Your officer term has expired. Please contact the board.';
+          } else if (data.days_until_expiry !== null && data.days_until_expiry !== undefined && data.days_until_expiry <= 7) {
+            banner.style.display = "block";
+            banner.style.background = "#fff3e0";
+            banner.style.color = "#e65100";
+            banner.style.border = "1px solid #ffcc80";
+            banner.innerHTML = '<i class="fa-solid fa-clock"></i> Your officer term expires in ' + data.days_until_expiry + ' day(s). Please contact the board for renewal.';
+          } else if (data.days_until_expiry !== null && data.days_until_expiry !== undefined && data.days_until_expiry <= 30) {
+            banner.style.display = "block";
+            banner.style.background = "#fff8e1";
+            banner.style.color = "#f57f17";
+            banner.style.border = "1px solid #ffe082";
+            banner.innerHTML = '<i class="fa-solid fa-info-circle"></i> Your officer term expires in ' + data.days_until_expiry + ' day(s).';
+          }
+        } catch (e) {
+          console.error("Failed to load term info", e);
+        }
+      }
+
+      document.addEventListener("turbo:load", function () {
+        loadTermWarning();
+      });
     </script>
   </body>
 </html>

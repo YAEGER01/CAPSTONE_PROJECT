@@ -4,10 +4,9 @@ from django.utils import timezone
 from core_system.models import (
     TransactionArchive,
     TransactionVerification,
-    GlobalAuditTrail,
 )
 from core_system.constants.status_constants import Status
-from core_system.shared_view_utils import archive_transaction
+from core_system.shared_view_utils import archive_transaction, _record_audit_trail
 
 
 FINAL_STATUSES = {Status.APPROVED, Status.RELEASED, Status.PRESIDENT_APPROVED}
@@ -65,12 +64,13 @@ class Command(BaseCommand):
                 fiscal_term__isnull=True,
             ).update(fiscal_term=term)
 
-            GlobalAuditTrail.objects.create(
-                table_name="TRANSACTION_ARCHIVE",
+            _record_audit_trail(
+                table="TRANSACTION_ARCHIVE",
                 record_id=tv.record_id,
                 action="TERM_ARCHIVED",
-                actor_type="SYSTEM",
-                actor_name="Term Archive Cron",
+                actor=None,
+                actor_type_override="SYSTEM",
+                actor_name_override="Term Archive Cron",
                 notes=f"Archived for fiscal term {term}",
             )
             archived_count += 1

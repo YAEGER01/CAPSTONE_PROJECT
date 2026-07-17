@@ -71,16 +71,17 @@ def _fmt(num):
 def generate_overall_report(
     year: int | None = None,
     month: int | None = None,
+    wb=None,
 ):
     today = timezone.localdate()
     year = year or today.year
     month = month or today.month
-
-    wb = Workbook()
-
-    # Sheet 1: Summary
-    ws = wb.active
-    ws.title = "Summary"
+    if wb is None:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Overall Summary"
+    else:
+        ws = wb.create_sheet("Overall Summary")
     ws.cell(row=1, column=1, value=f"Compliance Report - {year}-{month:02d}").font = Font(
         bold=True, size=14
     )
@@ -159,6 +160,8 @@ def generate_department_report(
     dept_id: int,
     year: int | None = None,
     month: int | None = None,
+    wb=None,
+    sheet_name: str | None = None,
 ):
     today = timezone.localdate()
     year = year or today.year
@@ -173,11 +176,15 @@ def generate_department_report(
         membership_status__iexact="retired"
     ).order_by("full_name")
 
-    wb = Workbook()
+    dues_sheet = sheet_name or "Dues Compliance"
+    contrib_sheet = f"{sheet_name} - Contribution Compliance" if sheet_name else "Contribution Compliance"
 
-    # Sheet 1: Dues Compliance
-    ws = wb.active
-    ws.title = "Dues Compliance"
+    if wb is None:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = dues_sheet
+    else:
+        ws = wb.create_sheet(dues_sheet)
     ws.cell(row=1, column=1, value=f"{dept.name} - Dues Compliance ({year}-{month:02d})").font = Font(
         bold=True, size=12
     )
@@ -196,8 +203,7 @@ def generate_department_report(
         ws.cell(row=ri, column=4, value=dues_overdue_bucket(m, year, month) or "")
     _auto_width(ws, len(headers))
 
-    # Sheet 2: Contribution Compliance
-    ws2 = wb.create_sheet("Contribution Compliance")
+    ws2 = wb.create_sheet(contrib_sheet)
     posts = AidTrackingPost.objects.filter(is_active=True)
     headers2 = ["Member Name", "Employee ID", "Post", "Aid Type", "Status"]
     for ci, h in enumerate(headers2, 1):
@@ -219,10 +225,13 @@ def generate_department_report(
     return wb
 
 
-def generate_contribution_report(post_id: int | None = None):
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Contribution Report"
+def generate_contribution_report(post_id: int | None = None, wb=None):
+    if wb is None:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Contribution Report"
+    else:
+        ws = wb.create_sheet("Contribution Report")
 
     posts = AidTrackingPost.objects.filter(is_active=True)
     if post_id:
@@ -350,11 +359,16 @@ def create_auditor_report(year: int, month: int, officer) -> dict:
     }
 
 
-def generate_organization_fund_report(year: int, month: int, report_type: str = "monthly"):
+def generate_organization_fund_report(year: int, month: int, report_type: str = "monthly", wb=None):
     from datetime import date
     from calendar import monthrange
 
-    wb = Workbook()
+    if wb is None:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Fund Summary"
+    else:
+        ws = wb.create_sheet("Fund Summary")
 
     period_start = date(year, month, 1)
     last_day = monthrange(year, month)[1]
@@ -490,3 +504,36 @@ def create_organization_fund_report(officer, year: int, month: int, report_type:
         "status": report.report_status,
         "file_path": report.file_path,
     }
+
+
+def generate_unified_report(
+    year: int | None = None,
+    month: int | None = None,
+    sections: list[str] | None = None,
+) -> Workbook:
+    today = timezone.localdate()
+    year = year or today.year
+    month = month or today.month
+
+    if sections is None:
+        sections = ["overall", "department", "contribution", "fund"]
+
+    wb = Workbook()
+    default_sheet = wb.active
+    wb.remove(default_sheet)
+
+    if "overall" in sections:
+        generate_overall_report(year, month, wb)
+
+    if "department" in sections:
+        departments = Department.objects.filter(is_active=True).order_by("name")
+        for dept in departments:
+            generate_department_report(dept.department_id_PK, year, month, wb, sheet_name=dept.name)
+
+    if "contribution" in sections:
+        generate_contribution_report(None, wb)
+
+    if "fund" in sections:
+        generate_organization_fund_report(year, month, "monthly", wb)
+
+    return wb

@@ -16,7 +16,7 @@ if not officer:
         account_status='Active',
     )
 
-session, token = create_access_session(officer, '127.0.0.1', 'test')
+session, token = create_access_session(officer=officer, ip_address='127.0.0.1', device_info='test')
 
 c = Client()
 s = c.session

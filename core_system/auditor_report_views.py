@@ -3,7 +3,7 @@ import json
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-from core_system.guards import require_role
+from core_system.guards import require_role, check_zero_trust
 from core_system.models import AuditFindingsReport
 from core_system.services.reporting import (
     create_auditor_report,
@@ -16,6 +16,9 @@ from core_system.services.reporting import (
 def auditor_create_report(request: HttpRequest):
     guard = require_role(request, role="auditor")
     if guard:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
         return guard
 
     try:
@@ -113,6 +116,9 @@ def president_approve_report(request: HttpRequest, report_id: int):
     guard = require_role(request, role="president")
     if guard:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer_id = request.session.get("officer_id")
     from core_system.models import OfficerUser
@@ -132,6 +138,9 @@ def president_approve_report(request: HttpRequest, report_id: int):
 def president_request_report_revision(request: HttpRequest, report_id: int):
     guard = require_role(request, role="president")
     if guard:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
         return guard
 
     officer_id = request.session.get("officer_id")

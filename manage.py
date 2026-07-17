@@ -2,8 +2,9 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
-import subprocess
+from pathlib import Path
 
+import uvicorn
 
 def main() -> None:
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "caufa_portal.settings")
@@ -18,20 +19,33 @@ def main() -> None:
             else:
                 port = addrport
         if any(a in sys.argv for a in ("--help", "-h")):
-            subprocess.call([sys.executable, "-m", "uvicorn", "--help"])
+            os.execv(sys.executable, [sys.executable, "-m", "uvicorn", "--help"])
             return
-        cmd = [
-            sys.executable,
-            "-m",
-            "uvicorn",
+
+        uvicorn.run(
             "caufa_portal.asgi:application",
-            "--host",
-            host,
-            "--port",
-            port,
-            "--reload",
-        ]
-        sys.exit(subprocess.call(cmd))
+            host=host,
+            port=int(port),
+            reload=True,
+            timeout_graceful_shutdown=0,
+            reload_dirs=[
+                str(Path(__file__).parent / "core_system"),
+                str(Path(__file__).parent / "templates"),
+                str(Path(__file__).parent / "static"),
+                str(Path(__file__).parent / "caufa_portal"),
+            ],
+            reload_includes=[
+                "*.py", "*.html", "*.js", "*.css", "*.json", "*.txt",
+                "*.yml", "*.yaml", "*.toml", "*.env",
+            ],
+            reload_excludes=[
+                "*.pyc", "*.pyo", "__pycache__", ".git", ".venv",
+                "venv", "node_modules", ".kilo", ".opencode",
+                ".aider*", ".migrations", "*.log",
+                "*.sqlite3", "*.db",
+            ],
+        )
+        return
 
     try:
         from django.core.management import execute_from_command_line

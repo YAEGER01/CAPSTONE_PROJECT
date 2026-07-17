@@ -22,7 +22,8 @@ function updatePresidentNotifDots() {
     const aidsCount =
       (typeof db !== "undefined" && db.pendingAids && db.pendingAids.length) || 0;
     const finishCount = (typeof window.__finishApprovalCount !== "undefined" ? window.__finishApprovalCount : 0) || 0;
-    const total = paymentsCount + aidsCount + finishCount;
+    const contribCount = (typeof contributionsCache !== "undefined" ? contributionsCache.length : 0) || 0;
+    const total = paymentsCount + aidsCount + finishCount + contribCount;
     dot.style.display = total > 0 ? "inline-flex" : "none";
     dot.textContent = total > 0 ? total : "";
   }

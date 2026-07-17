@@ -20,12 +20,12 @@
     var all = [];
     if (data.inflows) {
       data.inflows.forEach(function (item) {
-        all.push({ member_name: item.member_name, amount: item.amount, date: item.date, is_inflow: true, type: item.type });
+        all.push({ description: item.description, source_type: item.source_type, amount: item.amount, date: item.recorded_at, is_inflow: true });
       });
     }
     if (data.outflows) {
       data.outflows.forEach(function (item) {
-        all.push({ member_name: item.member_name, amount: item.amount, date: item.date, is_inflow: false, type: item.type });
+        all.push({ description: item.description, source_type: item.source_type, amount: item.amount, date: item.recorded_at, is_inflow: false });
       });
     }
 
@@ -42,17 +42,13 @@
       div.className = "io-item " + cls;
 
       var sign = item.is_inflow ? "+" : "-";
-      var typeLabel = "";
-      if (item.is_inflow) {
-        typeLabel = item.type === "Membership Fee" ? "FEE" : item.type === "Monthly Dues" ? "DUES" : "CONT";
-      } else {
-        typeLabel = item.type === "Medical Aid" ? "MED" : item.type === "Death Aid" ? "DTH" : "FUND";
-      }
+      var desc = (item.description || "").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      var stype = (item.source_type || "").replace(/_/g, " ");
 
       div.innerHTML =
         '<span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;line-height:18px;text-align:center;color:#fff;background:' + (item.is_inflow ? '#00e676' : '#ff1744') + ';">' + (idx + 1) + '</span>' +
         '<span class="io-sign">' + sign + '</span>' +
-        '<span class="io-name">' + (item.member_name ? item.member_name.replace(/</g,"&lt;").replace(/>/g,"&gt;") : "") + ' (' + typeLabel + ')</span>' +
+        '<span class="io-name"><span class="io-desc">' + desc + '</span><span class="io-stype">' + stype + '</span></span>' +
         '<span class="io-amount">' + fmt(item.amount) + '</span>' +
         '<span class="io-date">' + (item.date || "") + '</span>';
 

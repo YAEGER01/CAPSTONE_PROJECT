@@ -398,8 +398,12 @@
         background: rgba(0, 0, 0, 0.04);
         color: #1b5e20;
       }
-      .toolbar-bell.subscribed { color: #00e676; }
-      .toolbar-bell.denied { color: #ff1744; }
+      .toolbar-bell.subscribed {
+        color: #00e676;
+      }
+      .toolbar-bell.denied {
+        color: #ff1744;
+      }
 
       .user-profile {
         display: flex;
@@ -531,6 +535,11 @@
       .stat-icon.accent-blue {
         background: rgba(33, 150, 243, 0.1);
         color: #2196f3;
+      }
+
+      .stat-icon.accent-green {
+        background: rgba(76, 175, 80, 0.1);
+        color: #4caf50;
       }
 
       .stat-info h4 {
@@ -968,7 +977,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0,0,0,0.5);
+        background: rgba(0, 0, 0, 0.5);
         z-index: 3000;
         overflow-y: auto;
       }
@@ -980,8 +989,15 @@
         max-height: 80vh;
         overflow-y: auto;
       }
-      .modal-lg { width: 90%; max-width: 1100px; }
-      .close-btn { float: right; font-size: 24px; cursor: pointer; }
+      .modal-lg {
+        width: 90%;
+        max-width: 1100px;
+      }
+      .close-btn {
+        float: right;
+        font-size: 24px;
+        cursor: pointer;
+      }
 
       .modal-overlay {
         position: fixed;
@@ -1115,15 +1131,66 @@
         border-radius: 4px;
         gap: 6px;
       }
-      .io-item span { display: inline !important; }
-      .io-item .io-sign { font-weight: 700; font-size: 0.85rem; width: 14px; flex-shrink: 0; }
-      .io-item .io-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; color: #333; font-weight: 500; }
-      .io-item .io-amount { font-weight: 700; white-space: nowrap; color: inherit; }
-      .io-item .io-date { font-size: 0.7rem; margin-left: 4px; white-space: nowrap; opacity: 0.8; color: inherit; }
-      .io-inflow { color: #00e676; background: rgba(0,230,118,0.08); }
-      .io-outflow { color: #ff1744; background: rgba(255,23,68,0.08); }
-      .io-empty { color: #b0bec5; font-size: 0.7rem; font-style: italic; padding: 0 6px; }
-      .overview-card-value { font-size: 1.6rem; font-weight: 700; color: #1b5e20; text-align: center; }
+      .io-item .io-sign {
+        font-weight: 700;
+        font-size: 0.85rem;
+        width: 14px;
+        flex-shrink: 0;
+      }
+      .io-item .io-name {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: 0 6px;
+        color: #333;
+      }
+      .io-item .io-desc {
+        font-weight: 500;
+        font-size: 0.75rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.3;
+      }
+      .io-item .io-stype {
+        font-size: 0.62rem;
+        opacity: 0.6;
+        text-transform: capitalize;
+        line-height: 1.2;
+      }
+      .io-item .io-amount {
+        font-weight: 700;
+        white-space: nowrap;
+        color: inherit;
+      }
+      .io-item .io-date {
+        font-size: 0.7rem;
+        margin-left: 4px;
+        white-space: nowrap;
+        opacity: 0.8;
+        color: inherit;
+      }
+      .io-inflow {
+        color: #00e676;
+        background: rgba(0, 230, 118, 0.08);
+      }
+      .io-outflow {
+        color: #ff1744;
+        background: rgba(255, 23, 68, 0.08);
+      }
+      .io-empty {
+        color: #b0bec5;
+        font-size: 0.7rem;
+        font-style: italic;
+        padding: 0 6px;
+      }
+      .overview-card-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1b5e20;
+        text-align: center;
+      }
     </style>
   </head>
   <body>
@@ -1200,7 +1267,16 @@
           <!-- Sidebar Brand Header -->
           <div class="sidebar-brand">
             <div class="brand-title-wrapper">
-              <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA" style="height:32px;width:32px;border-radius:50%;object-fit:cover;" />
+              <img
+                src="{% static 'img/isu_caufa_official.png' %}"
+                alt="CAUFA"
+                style="
+                  height: 32px;
+                  width: 32px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                "
+              />
             </div>
             <button
               class="collapse-toggle-btn"
@@ -1319,6 +1395,11 @@
                   <span class="menu-text">Finish Approvals</span>
                   <span id="pres-finish-dot" class="notif-dot"></span>
                 </a>
+                <a class="menu-item" data-target="president-contributions">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Contributions & Releases</span>
+                  <span id="pres-contributions-dot" class="notif-dot"></span>
+                </a>
                 {% comment %}
                 <a class="menu-item" data-target="approve-payroll-batches">
                   <span class="menu-icon sub-icon">&#8226;</span>
@@ -1330,17 +1411,43 @@
 
             <!-- FUND LEDGER -->
             <div class="nested-folder">
-              <div class="folder-header" onclick="toggleFolder('folder-fund', this)">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-fund', this)"
+              >
                 <div class="folder-title-wrapper">
                   <span class="menu-icon">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <line x1="12" y1="1" x2="12" y2="23"></line>
+                      <path
+                        d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"
+                      ></path>
                     </svg>
                   </span>
                   <span class="menu-text">Fund Ledger</span>
                 </div>
                 <span class="chevron-icon">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
                 </span>
               </div>
               <div class="folder-contents" id="folder-fund">
@@ -1454,6 +1561,114 @@
                 </a>
               </div>
             </div>
+
+            <!-- FOLDER CATEGORY 4: BYLAWS CONSTANTS -->
+            <div class="nested-folder">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-bylaws', this)"
+              >
+                <div class="folder-title-wrapper">
+                  <span class="menu-icon">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                      ></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                  </span>
+                  <span class="menu-text">Bylaws Constants</span>
+                </div>
+                <span class="chevron-icon">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="folder-contents" id="folder-bylaws">
+                <a class="menu-item" data-target="bylaws-constants">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Policy Constants</span>
+                </a>
+                <a class="menu-item" data-target="bylaws-documents">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Bylaws Documents</span>
+                </a>
+              </div>
+            </div>
+
+            <!-- FOLDER CATEGORY 5: ADMINISTRATION -->
+            <div class="nested-folder">
+              <div
+                class="folder-header"
+                onclick="toggleFolder('folder-admin', this)"
+              >
+                <div class="folder-title-wrapper">
+                  <span class="menu-icon">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+                      ></path>
+                    </svg>
+                  </span>
+                  <span class="menu-text">Administration</span>
+                </div>
+                <span class="chevron-icon">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              <div class="folder-contents" id="folder-admin">
+                <a class="menu-item" data-target="administration-officers">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Account Management</span>
+                </a>
+                <a class="menu-item" data-target="administration-self-enroll">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Self-Enrollment</span>
+                </a>
+              </div>
+            </div>
           </div>
 
           <!-- Sidebar Reset Footer -->
@@ -1500,7 +1715,15 @@
             </h1>
           </div>
           <div class="header-right">
-            <button class="toolbar-bell" id="notifBellBtn" title="Enable push notifications" onclick="window.requestPushPermission&amp;&amp;window.requestPushPermission()">
+            <button
+              class="toolbar-bell"
+              id="notifBellBtn"
+              title="Enable push notifications"
+              onclick="
+                window.requestPushPermission & amp;
+                window.requestPushPermission();
+              "
+            >
               <i class="fa-regular fa-bell"></i>
             </button>
             <div class="user-profile">
@@ -1514,213 +1737,456 @@
 
         <!-- Central Scrollable Dashboard Viewport Area -->
         <div class="content-viewport" id="contentViewport">
+          <div id="termWarningBanner" style="display: none; margin-bottom: 16px; padding: 12px 16px; border-radius: 10px; font-size: 0.85rem; font-weight: 600;"></div>
           <!-- ==========================================================================
              TAB 1: PRESIDENTIAL OVERVIEW
              ========================================================================== -->
           <section
-             id="dashboard-overview"
-             class="dashboard-module active module-fade-in"
-           >
-             <!-- KPI Stats grid overview -->
-             <div class="stats-grid">
-               <div class="stat-card">
-                 <div class="stat-icon"><i class="fa-solid fa-inbox"></i></div>
-                 <div class="stat-info">
-                   <h4>Verified Dues Awaiting Sign-off</h4>
-                   <div class="stat-value" id="kpi-pending-payments">0</div>
-                 </div>
-               </div>
-               <div class="stat-card">
-                 <div class="stat-icon accent-yellow"><i class="fa-solid fa-folder"></i></div>
-                 <div class="stat-info">
-                   <h4>Verified Claims Awaiting Sign-off</h4>
-                   <div class="stat-value" id="kpi-pending-claims">0</div>
-                 </div>
-               </div>
-               <div class="stat-card">
-                 <div class="stat-icon accent-blue"><i class="fa-solid fa-shield-halved"></i></div>
-                 <div class="stat-info">
-                   <h4>Total Executed Approvals</h4>
-                   <div class="stat-value" id="kpi-total-audits">0</div>
-                 </div>
-               </div>
-             </div>
+            id="dashboard-overview"
+            class="dashboard-module active module-fade-in"
+          >
+            <!-- KPI Stats grid overview -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon"><i class="fa-solid fa-inbox"></i></div>
+                <div class="stat-info">
+                  <h4>Verified Dues Awaiting Sign-off</h4>
+                  <div class="stat-value" id="kpi-pending-payments">0</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon accent-yellow">
+                  <i class="fa-solid fa-folder"></i>
+                </div>
+                <div class="stat-info">
+                  <h4>Verified Claims Awaiting Sign-off</h4>
+                  <div class="stat-value" id="kpi-pending-claims">0</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon accent-green">
+                  <i class="fa-solid fa-hand-holding-dollar"></i>
+                </div>
+                <div class="stat-info">
+                  <h4>Contributions Awaiting Sign-off</h4>
+                  <div class="stat-value" id="kpi-pending-contributions">0</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon accent-blue">
+                  <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="stat-info">
+                  <h4>Total Executed Approvals</h4>
+                  <div class="stat-value" id="kpi-total-audits">0</div>
+                </div>
+              </div>
+            </div>
 
-             <!-- Department Visualization Section -->
-             <div class="dashboard-panel" style="margin-bottom: 20px;">
-               <div class="panel-header-row">
-                 <h3 class="panel-title"><i class="fas fa-building"></i> Department Analytics</h3>
-                 <div class="header-actions">
-                   <button class="btn-brand btn-brand-primary" onclick="refreshDepartmentData()" style="padding: 4px 12px; font-size: 0.75rem;">
-                     <i class="fas fa-sync-alt"></i> Refresh
-                   </button>
-                 </div>
-               </div>
-               <div style="display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap;">
-                 <button type="button" class="dept-tab-btn btn-brand btn-brand-primary" data-tab="dept-member-stats" style="padding: 6px 14px; font-size: 0.82rem;">Member Stats</button>
-                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-payment-tracking" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Payment Tracking</button>
-                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-financial-summary" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Financial Summary</button>
-                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-aid-trends" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Aid Trends</button>
-                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-payroll-analysis" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Payroll Analysis</button>
-               </div>
-               <div id="dept-member-stats" class="dept-tab-panel">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptMemberStatsTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Total Members</th>
-                         <th>Active</th>
-                         <th>Permanent</th>
-                         <th>Temporary</th>
-                         <th>Retired</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="6" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-               <div id="dept-payment-tracking" class="dept-tab-panel" style="display:none;">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptPaymentTrackingTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Total Members</th>
-                         <th>Dues Paid (Current Month)</th>
-                         <th>Dues Collection Rate</th>
-                         <th>Membership Fee Paid</th>
-                         <th>Fee Collection Rate</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="6" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-               <div id="dept-financial-summary" class="dept-tab-panel" style="display:none;">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptFinancialSummaryTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Monthly Dues</th>
-                         <th>Membership Fees</th>
-                         <th>Medical Aid</th>
-                         <th>Death Aid</th>
-                         <th>Total Inflow</th>
-                         <th>Total Outflow</th>
-                         <th>Net Position</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="8" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-               <div id="dept-aid-trends" class="dept-tab-panel" style="display:none;">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptAidTrendsTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Medical Aid Count</th>
-                         <th>Medical Aid Amount</th>
-                         <th>Death Aid Count</th>
-                         <th>Death Aid Amount</th>
-                         <th>Total Count</th>
-                         <th>Total Amount</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="7" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-               <div id="dept-payroll-analysis" class="dept-tab-panel" style="display:none;">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptPayrollAnalysisTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Total Deductions</th>
-                         <th>Deduction Count</th>
-                         <th>Average Deduction</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="4" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-             </div>
+            <!-- Department Visualization Section -->
+            <div class="dashboard-panel" style="margin-bottom: 20px">
+              <div class="panel-header-row">
+                <h3 class="panel-title">
+                  <i class="fas fa-building"></i> Department Analytics
+                </h3>
+                <div class="header-actions">
+                  <button
+                    class="btn-brand btn-brand-primary"
+                    onclick="refreshDepartmentData()"
+                    style="padding: 4px 12px; font-size: 0.75rem"
+                  >
+                    <i class="fas fa-sync-alt"></i> Refresh
+                  </button>
+                </div>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  gap: 4px;
+                  margin-bottom: 16px;
+                  flex-wrap: wrap;
+                "
+              >
+                <button
+                  type="button"
+                  class="dept-tab-btn btn-brand btn-brand-primary"
+                  data-tab="dept-member-stats"
+                  style="padding: 6px 14px; font-size: 0.82rem"
+                >
+                  Member Stats
+                </button>
+                <button
+                  type="button"
+                  class="dept-tab-btn btn-brand"
+                  data-tab="dept-payment-tracking"
+                  style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7"
+                >
+                  Payment Tracking
+                </button>
+                <button
+                  type="button"
+                  class="dept-tab-btn btn-brand"
+                  data-tab="dept-financial-summary"
+                  style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7"
+                >
+                  Financial Summary
+                </button>
+                <button
+                  type="button"
+                  class="dept-tab-btn btn-brand"
+                  data-tab="dept-aid-trends"
+                  style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7"
+                >
+                  Aid Trends
+                </button>
+                <button
+                  type="button"
+                  class="dept-tab-btn btn-brand"
+                  data-tab="dept-payroll-analysis"
+                  style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7"
+                >
+                  Payroll Analysis
+                </button>
+              </div>
+              <div id="dept-member-stats" class="dept-tab-panel">
+                <div class="table-container">
+                  <table class="custom-table" id="deptMemberStatsTable">
+                    <thead>
+                      <tr>
+                        <th>Department</th>
+                        <th>Total Members</th>
+                        <th>Active</th>
+                        <th>Permanent</th>
+                        <th>Temporary</th>
+                        <th>Retired</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td
+                          colspan="6"
+                          style="text-align: center; color: #6c757d"
+                        >
+                          Loading...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div
+                id="dept-payment-tracking"
+                class="dept-tab-panel"
+                style="display: none"
+              >
+                <div class="table-container">
+                  <table class="custom-table" id="deptPaymentTrackingTable">
+                    <thead>
+                      <tr>
+                        <th>Department</th>
+                        <th>Total Members</th>
+                        <th>Dues Paid (Current Month)</th>
+                        <th>Dues Collection Rate</th>
+                        <th>Membership Fee Paid</th>
+                        <th>Fee Collection Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td
+                          colspan="6"
+                          style="text-align: center; color: #6c757d"
+                        >
+                          Loading...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div
+                id="dept-financial-summary"
+                class="dept-tab-panel"
+                style="display: none"
+              >
+                <div class="table-container">
+                  <table class="custom-table" id="deptFinancialSummaryTable">
+                    <thead>
+                      <tr>
+                        <th>Department</th>
+                        <th>Monthly Dues</th>
+                        <th>Membership Fees</th>
+                        <th>Medical Aid</th>
+                        <th>Death Aid</th>
+                        <th>Total Inflow</th>
+                        <th>Total Outflow</th>
+                        <th>Net Position</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td
+                          colspan="8"
+                          style="text-align: center; color: #6c757d"
+                        >
+                          Loading...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div
+                id="dept-aid-trends"
+                class="dept-tab-panel"
+                style="display: none"
+              >
+                <div class="table-container">
+                  <table class="custom-table" id="deptAidTrendsTable">
+                    <thead>
+                      <tr>
+                        <th>Department</th>
+                        <th>Medical Aid Count</th>
+                        <th>Medical Aid Amount</th>
+                        <th>Death Aid Count</th>
+                        <th>Death Aid Amount</th>
+                        <th>Total Count</th>
+                        <th>Total Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td
+                          colspan="7"
+                          style="text-align: center; color: #6c757d"
+                        >
+                          Loading...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div
+                id="dept-payroll-analysis"
+                class="dept-tab-panel"
+                style="display: none"
+              >
+                <div class="table-container">
+                  <table class="custom-table" id="deptPayrollAnalysisTable">
+                    <thead>
+                      <tr>
+                        <th>Department</th>
+                        <th>Total Deductions</th>
+                        <th>Deduction Count</th>
+                        <th>Average Deduction</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td
+                          colspan="4"
+                          style="text-align: center; color: #6c757d"
+                        >
+                          Loading...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
 
-             <div class="overview-grid-3x2">
+            <div class="overview-grid-3x2">
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
-                  <h3 class="panel-title"><i class="fas fa-file-invoice"></i> Fees &amp; Dues</h3>
+                  <h3 class="panel-title">
+                    <i class="fas fa-file-invoice"></i> Fees &amp; Dues
+                  </h3>
                 </div>
-                <div class="overview-card-content" style="display:block;text-align:left;padding:14px 12px;">
-                  <div style="font-size:0.78rem;color:#37474f;line-height:1.6;">
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#e8f5e9;border-radius:6px;border-left:3px solid #2e7d32;">
-                      <strong style="color:#1b5e20;">1.</strong> Go to <strong>Verified Registry → Fees &amp; Dues</strong>
+                <div
+                  class="overview-card-content"
+                  style="display: block; text-align: left; padding: 14px 12px"
+                >
+                  <div
+                    style="font-size: 0.78rem; color: #37474f; line-height: 1.6"
+                  >
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #e8f5e9;
+                        border-radius: 6px;
+                        border-left: 3px solid #2e7d32;
+                      "
+                    >
+                      <strong style="color: #1b5e20">1.</strong> Go to
+                      <strong>Verified Registry → Fees &amp; Dues</strong>
                     </div>
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#f1f8e9;border-radius:6px;border-left:3px solid #558b2f;">
-                      <strong style="color:#1b5e20;">2.</strong> Review items already <strong>verified by Auditor</strong>
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #f1f8e9;
+                        border-radius: 6px;
+                        border-left: 3px solid #558b2f;
+                      "
+                    >
+                      <strong style="color: #1b5e20">2.</strong> Review items
+                      already <strong>verified by Auditor</strong>
                     </div>
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#fff8e1;border-radius:6px;border-left:3px solid #f57f17;">
-                      <strong style="color:#1b5e20;">3.</strong> Click <strong>Approve</strong> to confirm or <strong>Reject</strong> with a reason
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #fff8e1;
+                        border-radius: 6px;
+                        border-left: 3px solid #f57f17;
+                      "
+                    >
+                      <strong style="color: #1b5e20">3.</strong> Click
+                      <strong>Approve</strong> to confirm or
+                      <strong>Reject</strong> with a reason
                     </div>
-                    <div style="padding:6px 10px;background:#e3f2fd;border-radius:6px;border-left:3px solid #1565c0;">
-                      <strong style="color:#1b5e20;">4.</strong> Fund <strong>inflow</strong> recorded automatically on approval
+                    <div
+                      style="
+                        padding: 6px 10px;
+                        background: #e3f2fd;
+                        border-radius: 6px;
+                        border-left: 3px solid #1565c0;
+                      "
+                    >
+                      <strong style="color: #1b5e20">4.</strong> Fund
+                      <strong>inflow</strong> recorded automatically on approval
                     </div>
                   </div>
                 </div>
               </div>
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
-                  <h3 class="panel-title"><i class="fas fa-hand-holding-heart"></i> Aids</h3>
+                  <h3 class="panel-title">
+                    <i class="fas fa-hand-holding-heart"></i> Aids
+                  </h3>
                 </div>
-                <div class="overview-card-content" style="display:block;text-align:left;padding:14px 12px;">
-                  <div style="font-size:0.78rem;color:#37474f;line-height:1.6;">
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#e8f5e9;border-radius:6px;border-left:3px solid #2e7d32;">
-                      <strong style="color:#1b5e20;">1.</strong> Review <strong>Medical Aid</strong> / <strong>Death Aid</strong> requests
+                <div
+                  class="overview-card-content"
+                  style="display: block; text-align: left; padding: 14px 12px"
+                >
+                  <div
+                    style="font-size: 0.78rem; color: #37474f; line-height: 1.6"
+                  >
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #e8f5e9;
+                        border-radius: 6px;
+                        border-left: 3px solid #2e7d32;
+                      "
+                    >
+                      <strong style="color: #1b5e20">1.</strong> Review
+                      <strong>Medical Aid</strong> /
+                      <strong>Death Aid</strong> requests
                     </div>
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#f1f8e9;border-radius:6px;border-left:3px solid #558b2f;">
-                      <strong style="color:#1b5e20;">2.</strong> Approve or reject — <strong>Fund OUTFLOW</strong> created if approved
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #f1f8e9;
+                        border-radius: 6px;
+                        border-left: 3px solid #558b2f;
+                      "
+                    >
+                      <strong style="color: #1b5e20">2.</strong> Approve or
+                      reject — <strong>Fund OUTFLOW</strong> created if approved
                     </div>
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#fff8e1;border-radius:6px;border-left:3px solid #f57f17;">
-                      <strong style="color:#1b5e20;">3.</strong> Check <strong>Finish Approvals</strong> for Treasurer's close-out
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #fff8e1;
+                        border-radius: 6px;
+                        border-left: 3px solid #f57f17;
+                      "
+                    >
+                      <strong style="color: #1b5e20">3.</strong> Check
+                      <strong>Finish Approvals</strong> for Treasurer's
+                      close-out
                     </div>
-                    <div style="padding:6px 10px;background:#e3f2fd;border-radius:6px;border-left:3px solid #1565c0;">
-                      <strong style="color:#1b5e20;">4.</strong> Approve finish → <strong>Fund INFLOW</strong> per PAID contribution
+                    <div
+                      style="
+                        padding: 6px 10px;
+                        background: #e3f2fd;
+                        border-radius: 6px;
+                        border-left: 3px solid #1565c0;
+                      "
+                    >
+                      <strong style="color: #1b5e20">4.</strong> Approve finish
+                      → <strong>Fund INFLOW</strong> per PAID contribution
                     </div>
                   </div>
                 </div>
               </div>
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
-                  <h3 class="panel-title"><i class="fas fa-chart-line"></i> Reports</h3>
+                  <h3 class="panel-title">
+                    <i class="fas fa-chart-line"></i> Reports
+                  </h3>
                 </div>
-                <div class="overview-card-content" style="display:block;text-align:left;padding:14px 12px;">
-                  <div style="font-size:0.78rem;color:#37474f;line-height:1.6;">
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#e8f5e9;border-radius:6px;border-left:3px solid #2e7d32;">
-                      <strong style="color:#1b5e20;">1.</strong> View the <strong>Fund Balance</strong> and <strong>Inflow/Outflow</strong> charts
+                <div
+                  class="overview-card-content"
+                  style="display: block; text-align: left; padding: 14px 12px"
+                >
+                  <div
+                    style="font-size: 0.78rem; color: #37474f; line-height: 1.6"
+                  >
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #e8f5e9;
+                        border-radius: 6px;
+                        border-left: 3px solid #2e7d32;
+                      "
+                    >
+                      <strong style="color: #1b5e20">1.</strong> View the
+                      <strong>Fund Balance</strong> and
+                      <strong>Inflow/Outflow</strong> charts
                     </div>
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#f1f8e9;border-radius:6px;border-left:3px solid #558b2f;">
-                      <strong style="color:#1b5e20;">2.</strong> Check <strong>Monthly Inflow vs Outflow</strong> for trends
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #f1f8e9;
+                        border-radius: 6px;
+                        border-left: 3px solid #558b2f;
+                      "
+                    >
+                      <strong style="color: #1b5e20">2.</strong> Check
+                      <strong>Monthly Inflow vs Outflow</strong> for trends
                     </div>
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#fff8e1;border-radius:6px;border-left:3px solid #f57f17;">
-                      <strong style="color:#1b5e20;">3.</strong> Monitor <strong>compliance</strong> and approval rates
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #fff8e1;
+                        border-radius: 6px;
+                        border-left: 3px solid #f57f17;
+                      "
+                    >
+                      <strong style="color: #1b5e20">3.</strong> Monitor
+                      <strong>compliance</strong> and approval rates
                     </div>
-                    <div style="padding:6px 10px;background:#e3f2fd;border-radius:6px;border-left:3px solid #1565c0;">
-                      <strong style="color:#1b5e20;">4.</strong> Use <strong>Audited Logs</strong> for full transaction history
+                    <div
+                      style="
+                        padding: 6px 10px;
+                        background: #e3f2fd;
+                        border-radius: 6px;
+                        border-left: 3px solid #1565c0;
+                      "
+                    >
+                      <strong style="color: #1b5e20">4.</strong> Use
+                      <strong>Audited Logs</strong> for full transaction history
                     </div>
                   </div>
                 </div>
@@ -1729,22 +2195,89 @@
                 <div class="panel-header-row">
                   <h3 class="panel-title">FUND</h3>
                 </div>
-                <div class="overview-card-content" style="flex-direction:column; gap:4px; padding:16px 10px;">
-                  <p class="overview-card-value" id="kpi-funds" style="font-size:2rem; margin-bottom:2px;">₱0.00</p>
-                  <hr style="width:100%; border:none; border-top:1px solid rgba(0,0,0,0.08); margin:4px 0;">
-                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-                      <span style="font-size:0.7rem; font-weight:600; color:#555;">Money In</span>
-                      <div style="display:flex; align-items:center; gap:3px;">
-                        <span style="font-size:0.8rem; font-weight:700; color:#00e676;">▲</span>
-                        <span class="overview-card-value" id="kpi-money-in" style="font-size:0.95rem; color:#00e676;">₱0.00</span>
+                <div
+                  class="overview-card-content"
+                  style="flex-direction: column; gap: 4px; padding: 16px 10px"
+                >
+                  <p
+                    class="overview-card-value"
+                    id="kpi-funds"
+                    style="font-size: 2rem; margin-bottom: 2px"
+                  >
+                    ₱0.00
+                  </p>
+                  <hr
+                    style="
+                      width: 100%;
+                      border: none;
+                      border-top: 1px solid rgba(0, 0, 0, 0.08);
+                      margin: 4px 0;
+                    "
+                  />
+                  <div
+                    style="
+                      display: grid;
+                      grid-template-columns: 1fr 1fr;
+                      gap: 8px;
+                      width: 100%;
+                    "
+                  >
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 4px;
+                      "
+                    >
+                      <span
+                        style="font-size: 0.7rem; font-weight: 600; color: #555"
+                        >Money In</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 3px">
+                        <span
+                          style="
+                            font-size: 0.8rem;
+                            font-weight: 700;
+                            color: #00e676;
+                          "
+                          >▲</span
+                        >
+                        <span
+                          class="overview-card-value"
+                          id="kpi-money-in"
+                          style="font-size: 0.95rem; color: #00e676"
+                          >₱0.00</span
+                        >
                       </div>
                     </div>
-                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-                      <span style="font-size:0.7rem; font-weight:600; color:#555;">Money Out</span>
-                      <div style="display:flex; align-items:center; gap:3px;">
-                        <span style="font-size:0.8rem; font-weight:700; color:#ff1744;">▼</span>
-                        <span class="overview-card-value" id="kpi-money-out" style="font-size:0.95rem; color:#ff1744;">₱0.00</span>
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 4px;
+                      "
+                    >
+                      <span
+                        style="font-size: 0.7rem; font-weight: 600; color: #555"
+                        >Money Out</span
+                      >
+                      <div style="display: flex; align-items: center; gap: 3px">
+                        <span
+                          style="
+                            font-size: 0.8rem;
+                            font-weight: 700;
+                            color: #ff1744;
+                          "
+                          >▼</span
+                        >
+                        <span
+                          class="overview-card-value"
+                          id="kpi-money-out"
+                          style="font-size: 0.95rem; color: #ff1744"
+                          >₱0.00</span
+                        >
                       </div>
                     </div>
                   </div>
@@ -1754,25 +2287,128 @@
                 <div class="panel-header-row">
                   <h3 class="panel-title">Inflow & Outflow</h3>
                 </div>
-                <div class="overview-card-content" style="flex-direction:column; align-items:stretch; gap:0; padding:8px 6px;">
-                  <div id="io-log" style="max-height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:2px;"></div>
-                  <p id="io-loading" class="overview-card-placeholder" style="margin:4px 0 0 0;">Loading...</p>
+                <div
+                  class="overview-card-content"
+                  style="
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 0;
+                    padding: 8px 6px;
+                  "
+                >
+                  <div
+                    id="io-log"
+                    style="
+                      max-height: 260px;
+                      overflow-y: auto;
+                      display: flex;
+                      flex-direction: column;
+                      gap: 2px;
+                    "
+                  ></div>
+                  <p
+                    id="io-loading"
+                    class="overview-card-placeholder"
+                    style="margin: 4px 0 0 0"
+                  >
+                    Loading...
+                  </p>
                 </div>
               </div>
-              <div class="dashboard-panel overview-card" style="min-height:280px;">
+              <div
+                class="dashboard-panel overview-card"
+                style="min-height: 280px"
+              >
                 <div class="panel-header-row">
                   <h3 class="panel-title">Monthly Inflow vs Outflow</h3>
-                  <div id="chartLegendDots" style="display:flex; align-items:center; gap:10px;">
-                    <span data-index="0" title="Membership Fee" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#00e676; cursor:pointer;"></span>
-                    <span data-index="1" title="Monthly Dues" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#00bcd4; cursor:pointer;"></span>
-                    <span data-index="2" title="Medical Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff1744; cursor:pointer;"></span>
-                    <span data-index="3" title="Death Aid" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#7c4dff; cursor:pointer;"></span>
-                    <span data-index="4" title="Fund Payment" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#7c4dff; cursor:pointer;"></span>
-                    <span data-index="5" title="Contribution" style="display:inline-block; width:13px; height:13px; border-radius:50%; background:#ff6f00; cursor:pointer;"></span>
+                  <div
+                    id="chartLegendDots"
+                    style="display: flex; align-items: center; gap: 10px"
+                  >
+                    <span
+                      data-index="0"
+                      title="Membership Fee"
+                      style="
+                        display: inline-block;
+                        width: 13px;
+                        height: 13px;
+                        border-radius: 50%;
+                        background: #00e676;
+                        cursor: pointer;
+                      "
+                    ></span>
+                    <span
+                      data-index="1"
+                      title="Monthly Dues"
+                      style="
+                        display: inline-block;
+                        width: 13px;
+                        height: 13px;
+                        border-radius: 50%;
+                        background: #00bcd4;
+                        cursor: pointer;
+                      "
+                    ></span>
+                    <span
+                      data-index="2"
+                      title="Medical Aid"
+                      style="
+                        display: inline-block;
+                        width: 13px;
+                        height: 13px;
+                        border-radius: 50%;
+                        background: #ff1744;
+                        cursor: pointer;
+                      "
+                    ></span>
+                    <span
+                      data-index="3"
+                      title="Death Aid"
+                      style="
+                        display: inline-block;
+                        width: 13px;
+                        height: 13px;
+                        border-radius: 50%;
+                        background: #7c4dff;
+                        cursor: pointer;
+                      "
+                    ></span>
+                    <span
+                      data-index="4"
+                      title="Fund Payment"
+                      style="
+                        display: inline-block;
+                        width: 13px;
+                        height: 13px;
+                        border-radius: 50%;
+                        background: #7c4dff;
+                        cursor: pointer;
+                      "
+                    ></span>
+                    <span
+                      data-index="5"
+                      title="Contribution"
+                      style="
+                        display: inline-block;
+                        width: 13px;
+                        height: 13px;
+                        border-radius: 50%;
+                        background: #ff6f00;
+                        cursor: pointer;
+                      "
+                    ></span>
                   </div>
                 </div>
-                <div class="overview-card-content" style="padding:10px; display:block;">
-                  <canvas id="monthlyFlowChart" width="400" height="220" style="width:100%;height:220px;"></canvas>
+                <div
+                  class="overview-card-content"
+                  style="padding: 10px; display: block"
+                >
+                  <canvas
+                    id="monthlyFlowChart"
+                    width="400"
+                    height="220"
+                    style="width: 100%; height: 220px"
+                  ></canvas>
                 </div>
               </div>
             </div>
@@ -2578,15 +3214,15 @@
                         <label for="a_approved_amount"
                           >Approved Final Payout Amount (₱)</label
                         >
-                         <input
-                           type="number"
-                           id="a_approved_amount"
-                           step="0.01"
-                           required
-                           readonly
-                           style="background-color: #eef7ef; cursor: not-allowed"
-                           placeholder="Verify amount limits"
-                         />
+                        <input
+                          type="number"
+                          id="a_approved_amount"
+                          step="0.01"
+                          required
+                          readonly
+                          style="background-color: #eef7ef; cursor: not-allowed"
+                          placeholder="Verify amount limits"
+                        />
                       </div>
                     </div>
 
@@ -2737,6 +3373,167 @@
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             TAB: CONTRIBUTIONS & RELEASES
+             ========================================================================== -->
+          <section
+            id="president-contributions"
+            class="dashboard-module module-fade-in"
+          >
+            <div class="audit-split-workspace">
+              <div>
+                <div class="dashboard-panel" style="padding: 24px">
+                  <div class="panel-header-row" style="margin-bottom: 15px">
+                    <div>
+                      <h3 class="panel-title">
+                        Contributions & Releases Queue
+                      </h3>
+                      <p class="panel-subtitle">
+                        Approve auditor-verified aid contributions to record
+                        fund inflows
+                      </p>
+                    </div>
+                  </div>
+                  <div class="table-container">
+                    <table class="custom-table" id="pendingContributionsTable">
+                      <thead>
+                        <tr>
+                          <th style="width: 36px">
+                            <input
+                              type="checkbox"
+                              id="pc-select-all"
+                              title="Select all"
+                            />
+                          </th>
+                          <th>Member</th>
+                          <th>Expected Amount</th>
+                          <th>Paid Amount</th>
+                          <th>Payment Date</th>
+                          <th>Aid Type</th>
+                          <th>Verified By</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                    <div
+                      id="pc-batch-bar"
+                      style="
+                        display: none;
+                        margin-top: 12px;
+                        padding: 10px 16px;
+                        background: #f5f5f5;
+                        border-radius: 8px;
+                        align-items: center;
+                        gap: 12px;
+                        flex-wrap: wrap;
+                      "
+                    >
+                      <span
+                        id="pc-selected-count"
+                        style="font-weight: 600; color: #333"
+                        >0 selected</span
+                      >
+                      <button
+                        class="btn-brand-primary"
+                        id="pc-batch-approve"
+                        style="padding: 6px 18px; font-size: 0.85rem"
+                      >
+                        Approve Selected
+                      </button>
+                      <button
+                        class="btn-red"
+                        id="pc-batch-reject"
+                        style="padding: 6px 18px; font-size: 0.85rem"
+                      >
+                        Reject Selected
+                      </button>
+                      <button
+                        id="pc-batch-clear"
+                        style="
+                          padding: 6px 14px;
+                          border: 1px solid #ccc;
+                          border-radius: 6px;
+                          background: #fff;
+                          cursor: pointer;
+                          font-size: 0.85rem;
+                        "
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right side: Contribution Details / Decision Panel -->
+              <div>
+                <div class="dashboard-panel" style="padding: 24px">
+                  <h3 class="panel-title" style="margin-bottom: 16px">
+                    Contribution Details
+                  </h3>
+                  <div id="pc-details-content">
+                    <p style="color: #888; text-align: center; padding: 20px">
+                      Select a contribution to review
+                    </p>
+                  </div>
+
+                  <form
+                    id="contributionApprovalForm"
+                    onsubmit="submitContributionDecision(event)"
+                    style="
+                      display: none;
+                      margin-top: 20px;
+                      border-top: 1px solid #e0e0e0;
+                      padding-top: 20px;
+                    "
+                  >
+                    <input type="hidden" id="pc_target_id" />
+                    <div class="form-grid-2">
+                      <div class="form-group">
+                        <label>President's Decision</label>
+                        <select
+                          id="pc_decision"
+                          required
+                          onchange="handleContributionDecisionChange()"
+                        >
+                          <option value="">-- Choose Decision --</option>
+                          <option value="Approved">
+                            Approved (Record Inflow & Finalize)
+                          </option>
+                          <option value="Rejected">
+                            Rejected (Flag Deficient)
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label id="pc_remarks_label"
+                        >Decision Remarks (Mandatory for rejections)</label
+                      >
+                      <textarea id="pc_remarks" rows="3"></textarea>
+                    </div>
+                    <div
+                      style="
+                        display: flex;
+                        gap: 10px;
+                        justify-content: flex-end;
+                      "
+                    >
+                      <button
+                        type="button"
+                        onclick="clearContributionSelection()"
+                      >
+                        Back to List
+                      </button>
+                      <button type="submit">Confirm Decision</button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
           </section>
@@ -3029,19 +3826,36 @@
           </section>
 
           <!-- APPROVE PAYROLL BATCHES -->
-          <section id="approve-payroll-batches" class="dashboard-module module-fade-in">
+          <section
+            id="approve-payroll-batches"
+            class="dashboard-module module-fade-in"
+          >
             <div class="dashboard-panel">
               <div class="panel-header-row">
                 <div>
-                  <h3 class="panel-title"><i class="fas fa-file-signature"></i> Payroll Batches for Approval</h3>
-                  <p class="panel-subtitle">Review and approve auditor-verified payroll batches</p>
+                  <h3 class="panel-title">
+                    <i class="fas fa-file-signature"></i> Payroll Batches for
+                    Approval
+                  </h3>
+                  <p class="panel-subtitle">
+                    Review and approve auditor-verified payroll batches
+                  </p>
                 </div>
               </div>
-              <div id="fund-balance-summary" style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:16px;">
-                <div style="color:#6c757d;">Loading fund balance...</div>
+              <div
+                id="fund-balance-summary"
+                style="
+                  background: #fff;
+                  border-radius: 12px;
+                  padding: 16px;
+                  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+                  margin-bottom: 16px;
+                "
+              >
+                <div style="color: #6c757d">Loading fund balance...</div>
               </div>
               <div class="table-container">
-                <table class="custom-table" style="width:100%;">
+                <table class="custom-table" style="width: 100%">
                   <thead>
                     <tr>
                       <th>Period</th>
@@ -3054,25 +3868,65 @@
                     </tr>
                   </thead>
                   <tbody id="verified-batches-tbody">
-                    <tr><td colspan="7" style="text-align:center;color:#6c757d;">Loading...</td></tr>
+                    <tr>
+                      <td
+                        colspan="7"
+                        style="text-align: center; color: #6c757d"
+                      >
+                        Loading...
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
             <!-- Batch Detail Modal -->
-            <div id="batch-detail-modal" class="modal" style="display:none;">
+            <div id="batch-detail-modal" class="modal" style="display: none">
               <div class="modal-content modal-lg">
-                <span class="close-btn" onclick="closeBatchModal()">&times;</span>
+                <span class="close-btn" onclick="closeBatchModal()"
+                  >&times;</span
+                >
                 <h3>Approve / Reject Payroll Batch</h3>
                 <div id="batch-detail-content"></div>
-                <div id="approve-actions" style="display:none;margin-top:20px;gap:8px;justify-content:flex-end;">
-                  <div style="margin-bottom:12px;">
-                    <label style="font-weight:600;display:block;margin-bottom:4px;">Remarks</label>
-                    <textarea id="president-remarks" class="form-control" rows="2" placeholder="Optional remarks..."></textarea>
+                <div
+                  id="approve-actions"
+                  style="
+                    display: none;
+                    margin-top: 20px;
+                    gap: 8px;
+                    justify-content: flex-end;
+                  "
+                >
+                  <div style="margin-bottom: 12px">
+                    <label
+                      style="
+                        font-weight: 600;
+                        display: block;
+                        margin-bottom: 4px;
+                      "
+                      >Remarks</label
+                    >
+                    <textarea
+                      id="president-remarks"
+                      class="form-control"
+                      rows="2"
+                      placeholder="Optional remarks..."
+                    ></textarea>
                   </div>
-                  <button class="btn-brand" style="background:#dc3545;" onclick="rejectBatch()"><i class="fas fa-times"></i> Reject</button>
-                  <button class="btn-brand btn-brand-primary" onclick="approveBatch()"><i class="fas fa-check"></i> Approve & Record</button>
+                  <button
+                    class="btn-brand"
+                    style="background: #dc3545"
+                    onclick="rejectBatch()"
+                  >
+                    <i class="fas fa-times"></i> Reject
+                  </button>
+                  <button
+                    class="btn-brand btn-brand-primary"
+                    onclick="approveBatch()"
+                  >
+                    <i class="fas fa-check"></i> Approve & Record
+                  </button>
                 </div>
               </div>
             </div>
@@ -3080,9 +3934,12 @@
             <script>
               let currentBatchId = null;
               function loadFundBalance() {
-                fetch('/api/fund-balance/').then(r=>r.json()).then(data => {
-                  if (!data.ok) return;
-                  document.getElementById('fund-balance-summary').innerHTML = `
+                fetch("/api/fund-balance/")
+                  .then((r) => r.json())
+                  .then((data) => {
+                    if (!data.ok) return;
+                    document.getElementById("fund-balance-summary").innerHTML =
+                      `
                     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
                       <div style="display:flex;flex-direction:column;padding:12px;background:#f8f9fa;border-radius:8px;">
                         <span style="font-size:12px;color:#6c757d;text-transform:uppercase;">Current Balance</span>
@@ -3094,7 +3951,7 @@
                       </div>
                       <div style="display:flex;flex-direction:column;padding:12px;background:#f8f9fa;border-radius:8px;">
                         <span style="font-size:12px;color:#6c757d;text-transform:uppercase;">Available</span>
-                        <span style="font-size:18px;font-weight:700;margin-top:4px;color:${data.available>=0?'#28a745':'#dc3545'};">₱${data.available.toFixed(2)}</span>
+                        <span style="font-size:18px;font-weight:700;margin-top:4px;color:${data.available >= 0 ? "#28a745" : "#dc3545"};">₱${data.available.toFixed(2)}</span>
                       </div>
                       <div style="display:flex;flex-direction:column;padding:12px;background:#f8f9fa;border-radius:8px;">
                         <span style="font-size:12px;color:#6c757d;text-transform:uppercase;">Month In / Out</span>
@@ -3102,84 +3959,181 @@
                       </div>
                     </div>
                   `;
-                });
+                  });
               }
               function loadPendingApprovals() {
-                fetch('/api/president/pending-payroll-batches/').then(r=>r.json()).then(data => {
-                  const tbody = document.getElementById('verified-batches-tbody');
-                  if (!data.batches||!data.batches.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6c757d;">No batches pending approval.</td></tr>'; return; }
-                  const safeThreshold = data.safety_threshold || 0;
-                  tbody.innerHTML = data.batches.map(b => `
+                fetch("/api/president/pending-payroll-batches/")
+                  .then((r) => r.json())
+                  .then((data) => {
+                    const tbody = document.getElementById(
+                      "verified-batches-tbody",
+                    );
+                    if (!data.batches || !data.batches.length) {
+                      tbody.innerHTML =
+                        '<tr><td colspan="7" style="text-align:center;color:#6c757d;">No batches pending approval.</td></tr>';
+                      return;
+                    }
+                    const safeThreshold = data.safety_threshold || 0;
+                    tbody.innerHTML = data.batches
+                      .map(
+                        (b) => `
                     <tr>
                       <td>${b.payroll_period}</td>
                       <td>₱${parseFloat(b.total_amount).toFixed(2)}</td>
                       <td>${b.member_count}</td>
                       <td>₱${parseFloat(b.fund_impact).toFixed(2)}</td>
-                      <td style="color:${b.projected_balance>=safeThreshold?'#28a745':'#e9a820'};font-weight:600;">₱${b.projected_balance.toFixed(2)}</td>
+                      <td style="color:${b.projected_balance >= safeThreshold ? "#28a745" : "#e9a820"};font-weight:600;">₱${b.projected_balance.toFixed(2)}</td>
                       <td>${b.verified_by}</td>
                       <td><button class="btn-brand btn-brand-primary" onclick="reviewBatch(${b.batch_id})" style="padding:2px 8px;font-size:12px;">Review</button></td>
                     </tr>
-                  `).join('');
-                });
+                  `,
+                      )
+                      .join("");
+                  });
               }
               function reviewBatch(batchId) {
                 currentBatchId = batchId;
-                fetch('/api/president/payroll-batches/'+batchId+'/').then(r=>r.json()).then(data => {
-                  if (!data.ok) { Swal.fire({icon:'error',title:'Error',text:'Error loading batch'}); return; }
-                  const b = data.batch; const safe = data.is_safe;
-                  let warning = '';
-                  if (!safe && data.fund_impact > 0) {
-                    warning = '<div style="background:#fff3cd;color:#856404;padding:12px;border-radius:8px;margin-bottom:16px;"><i class="fa-solid fa-triangle-exclamation"></i> This batch will bring the fund to ₱'+data.projected_balance.toFixed(2)+', which is below the safety threshold of ₱'+data.safety_threshold.toFixed(2)+'.</div>';
-                  }
-                  document.getElementById('batch-detail-content').innerHTML = warning + `
+                fetch("/api/president/payroll-batches/" + batchId + "/")
+                  .then((r) => r.json())
+                  .then((data) => {
+                    if (!data.ok) {
+                      Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: "Error loading batch",
+                      });
+                      return;
+                    }
+                    const b = data.batch;
+                    const safe = data.is_safe;
+                    let warning = "";
+                    if (!safe && data.fund_impact > 0) {
+                      warning =
+                        '<div style="background:#fff3cd;color:#856404;padding:12px;border-radius:8px;margin-bottom:16px;"><i class="fa-solid fa-triangle-exclamation"></i> This batch will bring the fund to ₱' +
+                        data.projected_balance.toFixed(2) +
+                        ", which is below the safety threshold of ₱" +
+                        data.safety_threshold.toFixed(2) +
+                        ".</div>";
+                    }
+                    document.getElementById("batch-detail-content").innerHTML =
+                      warning +
+                      `
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
                       <div><strong>Period:</strong> ${b.payroll_period}</div>
                       <div><strong>Total:</strong> ₱${parseFloat(b.total_amount).toFixed(2)}</div>
                       <div><strong>Members:</strong> ${b.member_count}</div>
                       <div><strong>Fund Impact:</strong> ₱${data.fund_impact.toFixed(2)}</div>
                       <div><strong>Verified By:</strong> ${b.verified_by}</div>
-                      <div><strong>Auditor Remarks:</strong> ${b.auditor_remarks||'—'}</div>
+                      <div><strong>Auditor Remarks:</strong> ${b.auditor_remarks || "—"}</div>
                     </div>
                     <h4>Fund Impact Summary</h4>
                     <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:16px;">
                       <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Current Balance:</span><span>₱${data.fund_balance.toFixed(2)}</span></div>
                       <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>+ This Batch (inflow):</span><span style="color:#28a745;">+₱${data.fund_impact.toFixed(2)}</span></div>
-                      <div style="display:flex;justify-content:space-between;padding:4px 0;border-top:2px solid #dee2e6;margin-top:8px;padding-top:8px;"><strong>Projected Balance:</strong><strong style="color:${safe?'#28a745':'#e9a820'};">₱${data.projected_balance.toFixed(2)}</strong></div>
+                      <div style="display:flex;justify-content:space-between;padding:4px 0;border-top:2px solid #dee2e6;margin-top:8px;padding-top:8px;"><strong>Projected Balance:</strong><strong style="color:${safe ? "#28a745" : "#e9a820"};">₱${data.projected_balance.toFixed(2)}</strong></div>
                     </div>
-                    <h4>Deductions (${(data.deductions||[]).length})</h4>
+                    <h4>Deductions (${(data.deductions || []).length})</h4>
                     <div class="table-container">
                       <table class="custom-table" style="width:100%;"><thead><tr><th>Member</th><th>Category</th><th>Amount</th><th>Impact</th></tr></thead>
-                        <tbody>${(data.deductions||[]).map(d=>'<tr><td>'+d.member_name+'</td><td>'+d.category+'</td><td>₱'+parseFloat(d.amount).toFixed(2)+'</td><td>'+(d.fund_impact==='inflow'?'Inflow':'Pass-through')+'</td></tr>').join('')}</tbody>
+                        <tbody>${(data.deductions || []).map((d) => "<tr><td>" + d.member_name + "</td><td>" + d.category + "</td><td>₱" + parseFloat(d.amount).toFixed(2) + "</td><td>" + (d.fund_impact === "inflow" ? "Inflow" : "Pass-through") + "</td></tr>").join("")}</tbody>
                       </table>
                     </div>
                   `;
-                  document.getElementById('president-remarks').value = '';
-                  document.getElementById('approve-actions').style.display = 'flex';
-                  document.getElementById('batch-detail-modal').style.display = 'block';
-                });
+                    document.getElementById("president-remarks").value = "";
+                    document.getElementById("approve-actions").style.display =
+                      "flex";
+                    document.getElementById(
+                      "batch-detail-modal",
+                    ).style.display = "block";
+                  });
               }
               function approveBatch() {
                 if (!currentBatchId) return;
-                fetch('/api/president/payroll-batches/'+currentBatchId+'/approve/', {
-                  method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]')?.value||''},
-                  body: JSON.stringify({remarks: document.getElementById('president-remarks').value}),
-                }).then(r=>r.json()).then(data => {
-                  if (data.ok) { closeBatchModal(); loadPendingApprovals(); loadFundBalance(); Swal.fire({icon:'success',title:'Batch Approved',text:'Approved! Balance: ₱'+data.fund_balance.toFixed(2)}); }
-                  else Swal.fire({icon:'error',title:'Error',text:data.error||'Error approving'});
-                });
+                fetch(
+                  "/api/president/payroll-batches/" +
+                    currentBatchId +
+                    "/approve/",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "X-CSRFToken":
+                        document.querySelector("[name=csrfmiddlewaretoken]")
+                          ?.value || "",
+                    },
+                    body: JSON.stringify({
+                      remarks:
+                        document.getElementById("president-remarks").value,
+                    }),
+                  },
+                )
+                  .then((r) => r.json())
+                  .then((data) => {
+                    if (data.ok) {
+                      closeBatchModal();
+                      loadPendingApprovals();
+                      loadFundBalance();
+                      Swal.fire({
+                        icon: "success",
+                        title: "Batch Approved",
+                        text:
+                          "Approved! Balance: ₱" + data.fund_balance.toFixed(2),
+                      });
+                    } else
+                      Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: data.error || "Error approving",
+                      });
+                  });
               }
               function rejectBatch() {
                 if (!currentBatchId) return;
-                fetch('/api/president/payroll-batches/'+currentBatchId+'/reject/', {
-                  method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]')?.value||''},
-                  body: JSON.stringify({reason: document.getElementById('president-remarks').value}),
-                }).then(r=>r.json()).then(data => {
-                  if (data.ok) { closeBatchModal(); loadPendingApprovals(); Swal.fire({icon:'info',title:'Rejected',text:'Batch rejected.'}); }
-                  else Swal.fire({icon:'error',title:'Error',text:data.error||'Error rejecting'});
-                });
+                fetch(
+                  "/api/president/payroll-batches/" +
+                    currentBatchId +
+                    "/reject/",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "X-CSRFToken":
+                        document.querySelector("[name=csrfmiddlewaretoken]")
+                          ?.value || "",
+                    },
+                    body: JSON.stringify({
+                      reason:
+                        document.getElementById("president-remarks").value,
+                    }),
+                  },
+                )
+                  .then((r) => r.json())
+                  .then((data) => {
+                    if (data.ok) {
+                      closeBatchModal();
+                      loadPendingApprovals();
+                      Swal.fire({
+                        icon: "info",
+                        title: "Rejected",
+                        text: "Batch rejected.",
+                      });
+                    } else
+                      Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: data.error || "Error rejecting",
+                      });
+                  });
               }
-              function closeBatchModal() { document.getElementById('batch-detail-modal').style.display='none'; currentBatchId=null; }
-              if (document.getElementById('verified-batches-tbody')) { loadFundBalance(); loadPendingApprovals(); }
+              function closeBatchModal() {
+                document.getElementById("batch-detail-modal").style.display =
+                  "none";
+                currentBatchId = null;
+              }
+              if (document.getElementById("verified-batches-tbody")) {
+                loadFundBalance();
+                loadPendingApprovals();
+              }
             </script>
           </section>
 
@@ -3188,23 +4142,62 @@
             <div class="dashboard-panel">
               <div class="panel-header-row">
                 <div>
-                  <h3 class="panel-title"><i class="fas fa-book"></i> Fund Ledger</h3>
-                  <p class="panel-subtitle">All fund transactions — inflow and outflow records</p>
+                  <h3 class="panel-title">
+                    <i class="fas fa-book"></i> Fund Ledger
+                  </h3>
+                  <p class="panel-subtitle">
+                    All fund transactions — inflow and outflow records
+                  </p>
                 </div>
               </div>
-              <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-                <select id="ledgerDirection" class="form-control" style="width:140px;">
+              <div
+                style="
+                  display: flex;
+                  gap: 8px;
+                  margin-bottom: 12px;
+                  flex-wrap: wrap;
+                "
+              >
+                <select
+                  id="ledgerDirection"
+                  class="form-control"
+                  style="width: 140px"
+                >
                   <option value="">All Directions</option>
                   <option value="inflow">Inflow</option>
                   <option value="outflow">Outflow</option>
                 </select>
-                <input type="date" id="ledgerDateFrom" class="form-control" style="width:160px;">
-                <input type="date" id="ledgerDateTo" class="form-control" style="width:160px;">
-                <button class="btn-brand btn-brand-primary" onclick="loadLedger(1)"><i class="fas fa-search"></i> Filter</button>
+                <input
+                  type="date"
+                  id="ledgerDateFrom"
+                  class="form-control"
+                  style="width: 160px"
+                />
+                <input
+                  type="date"
+                  id="ledgerDateTo"
+                  class="form-control"
+                  style="width: 160px"
+                />
+                <button
+                  class="btn-brand btn-brand-primary"
+                  onclick="loadLedger(1)"
+                >
+                  <i class="fas fa-search"></i> Filter
+                </button>
               </div>
-              <div id="ledgerSummary" style="display:flex;gap:20px;margin-bottom:12px;font-size:14px;font-weight:600;"></div>
+              <div
+                id="ledgerSummary"
+                style="
+                  display: flex;
+                  gap: 20px;
+                  margin-bottom: 12px;
+                  font-size: 14px;
+                  font-weight: 600;
+                "
+              ></div>
               <div class="table-container">
-                <table class="custom-table" style="width:100%;">
+                <table class="custom-table" style="width: 100%">
                   <thead>
                     <tr>
                       <th>Date</th>
@@ -3218,12 +4211,22 @@
                   <tbody id="ledgerTableBody"></tbody>
                 </table>
               </div>
-              <div id="ledgerPagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;"></div>
+              <div
+                id="ledgerPagination"
+                style="
+                  display: flex;
+                  justify-content: center;
+                  gap: 8px;
+                  margin-top: 12px;
+                "
+              ></div>
             </div>
             <script>
               async function loadLedger(page) {
-                const direction = document.getElementById("ledgerDirection").value;
-                const dateFrom = document.getElementById("ledgerDateFrom").value;
+                const direction =
+                  document.getElementById("ledgerDirection").value;
+                const dateFrom =
+                  document.getElementById("ledgerDateFrom").value;
                 const dateTo = document.getElementById("ledgerDateTo").value;
                 const params = new URLSearchParams({ page, per_page: 20 });
                 if (direction) params.set("direction", direction);
@@ -3240,9 +4243,10 @@
                   `;
                   const tbody = document.getElementById("ledgerTableBody");
                   tbody.innerHTML = "";
-                  data.items.forEach(e => {
+                  data.items.forEach((e) => {
                     const dirLabel = e.direction === "inflow" ? "In" : "Out";
-                    const dirClass = e.direction === "inflow" ? "text-success" : "text-danger";
+                    const dirClass =
+                      e.direction === "inflow" ? "text-success" : "text-danger";
                     tbody.innerHTML += `<tr>
                       <td>${new Date(e.recorded_at).toLocaleDateString()}</td>
                       <td class="${dirClass}"><strong>${dirLabel}</strong></td>
@@ -3253,41 +4257,73 @@
                     </tr>`;
                   });
                   if (data.items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6c757d;">No entries found.</td></tr>';
+                    tbody.innerHTML =
+                      '<tr><td colspan="6" style="text-align:center;color:#6c757d;">No entries found.</td></tr>';
                   }
                   const pag = document.getElementById("ledgerPagination");
                   pag.innerHTML = "";
                   if (data.total_pages > 1) {
                     for (let p = 1; p <= data.total_pages; p++) {
-                      pag.innerHTML += `<button class="btn-brand ${p === data.page ? 'btn-brand-primary' : 'btn-brand-secondary'}" onclick="loadLedger(${p})" style="padding:4px 10px;">${p}</button>`;
+                      pag.innerHTML += `<button class="btn-brand ${p === data.page ? "btn-brand-primary" : "btn-brand-secondary"}" onclick="loadLedger(${p})" style="padding:4px 10px;">${p}</button>`;
                     }
                   }
-                } catch (e) { console.error("Failed to load ledger", e); }
+                } catch (e) {
+                  console.error("Failed to load ledger", e);
+                }
               }
-              document.addEventListener("DOMContentLoaded", () => loadLedger(1));
+              document.addEventListener("DOMContentLoaded", () =>
+                loadLedger(1),
+              );
             </script>
           </section>
 
           <!-- MEMBER DEDUCTIONS -->
-          <section id="member-deductions" class="dashboard-module module-fade-in">
+          <section
+            id="member-deductions"
+            class="dashboard-module module-fade-in"
+          >
             <div class="dashboard-panel">
               <div class="panel-header-row">
                 <div>
-                  <h3 class="panel-title"><i class="fas fa-receipt"></i> Member Deduction History</h3>
-                  <p class="panel-subtitle">View per-member contributions and deductions from approved payroll batches</p>
+                  <h3 class="panel-title">
+                    <i class="fas fa-receipt"></i> Member Deduction History
+                  </h3>
+                  <p class="panel-subtitle">
+                    View per-member contributions and deductions from approved
+                    payroll batches
+                  </p>
                 </div>
               </div>
-              <div style="margin-bottom:12px;">
-                <label style="font-weight:600;display:block;margin-bottom:4px;">Select Member:</label>
-                <select id="memberSearch" class="form-control" style="width:100%;max-width:400px;" onchange="fetchMemberDeductions(this.value)">
+              <div style="margin-bottom: 12px">
+                <label
+                  style="font-weight: 600; display: block; margin-bottom: 4px"
+                  >Select Member:</label
+                >
+                <select
+                  id="memberSearch"
+                  class="form-control"
+                  style="width: 100%; max-width: 400px"
+                  onchange="fetchMemberDeductions(this.value)"
+                >
                   <option value="">-- Choose a member --</option>
                 </select>
               </div>
-              <div id="deductionResults" style="display:none;">
-                <h4 id="deductionMemberName" style="margin:12px 0 4px;font-size:16px;"></h4>
-                <div id="deductionTotal" style="font-size:16px;font-weight:700;color:#1a1a2e;padding:8px 0;"></div>
+              <div id="deductionResults" style="display: none">
+                <h4
+                  id="deductionMemberName"
+                  style="margin: 12px 0 4px; font-size: 16px"
+                ></h4>
+                <div
+                  id="deductionTotal"
+                  style="
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: #1a1a2e;
+                    padding: 8px 0;
+                  "
+                ></div>
                 <div class="table-container">
-                  <table class="custom-table" style="width:100%;">
+                  <table class="custom-table" style="width: 100%">
                     <thead>
                       <tr>
                         <th>Date</th>
@@ -3302,7 +4338,17 @@
                   </table>
                 </div>
               </div>
-              <div id="noDeductions" style="display:none;color:#6c757d;padding:20px;text-align:center;">No deductions found for this member.</div>
+              <div
+                id="noDeductions"
+                style="
+                  display: none;
+                  color: #6c757d;
+                  padding: 20px;
+                  text-align: center;
+                "
+              >
+                No deductions found for this member.
+              </div>
             </div>
             <script>
               async function loadMemberDropdown() {
@@ -3311,12 +4357,15 @@
                   const data = await resp.json();
                   if (data.ok && data.members) {
                     const sel = document.getElementById("memberSearch");
-                    sel.innerHTML = '<option value="">-- Choose a member --</option>';
-                    data.members.forEach(m => {
+                    sel.innerHTML =
+                      '<option value="">-- Choose a member --</option>';
+                    data.members.forEach((m) => {
                       sel.innerHTML += `<option value="${m.member_id}">${m.full_name} (${m.employee_id || "N/A"})</option>`;
                     });
                   }
-                } catch (e) { console.error("Failed to load members", e); }
+                } catch (e) {
+                  console.error("Failed to load members", e);
+                }
               }
               async function fetchMemberDeductions(memberId) {
                 const resultsDiv = document.getElementById("deductionResults");
@@ -3328,14 +4377,26 @@
                 noDiv.style.display = "none";
                 if (!memberId) return;
                 try {
-                  const resp = await fetch(`/api/member/${memberId}/deductions/`);
+                  const resp = await fetch(
+                    `/api/member/${memberId}/deductions/`,
+                  );
                   const data = await resp.json();
-                  if (!data.ok) { Swal.fire({icon:'error',title:'Error',text:data.error || "Error fetching deductions"}); return; }
+                  if (!data.ok) {
+                    Swal.fire({
+                      icon: "error",
+                      title: "Error",
+                      text: data.error || "Error fetching deductions",
+                    });
+                    return;
+                  }
                   nameH4.textContent = `Deductions for: ${data.member_name}`;
                   totalDiv.textContent = `Total Deducted: ₱${data.total_deducted.toFixed(2)}`;
                   tbody.innerHTML = "";
-                  if (data.count === 0) { noDiv.style.display = "block"; return; }
-                  data.deductions.forEach(d => {
+                  if (data.count === 0) {
+                    noDiv.style.display = "block";
+                    return;
+                  }
+                  data.deductions.forEach((d) => {
                     tbody.innerHTML += `<tr>
                       <td>${d.date ? new Date(d.date).toLocaleDateString() : "—"}</td>
                       <td>${d.payroll_period}</td>
@@ -3346,11 +4407,599 @@
                     </tr>`;
                   });
                   resultsDiv.style.display = "block";
-                } catch (e) { console.error("Failed to fetch deductions", e); }
+                } catch (e) {
+                  console.error("Failed to fetch deductions", e);
+                }
               }
               document.addEventListener("DOMContentLoaded", loadMemberDropdown);
             </script>
           </section>
+
+          <!-- ========================================================================== 
+             ADMINISTRATION: OFFICER ACCOUNT MANAGEMENT
+             ========================================================================== -->
+          <section
+            id="administration-officers"
+            class="dashboard-module module-fade-in"
+          >
+            <div
+              style="
+                max-width: 1260px;
+                margin: 0 auto;
+                display: grid;
+                gap: 20px;
+              "
+            >
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <div>
+                    <h3 class="panel-title">Account Management</h3>
+                    <p class="panel-subtitle">
+                      Create, update, reset, and deactivate officer accounts.
+                    </p>
+                  </div>
+                  <div class="header-actions">
+                    <button
+                      type="button"
+                      class="btn-brand btn-brand-primary"
+                      onclick="openOfficerModal()"
+                    >
+                      New Officer
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-brand btn-brand-secondary"
+                      onclick="loadOfficerManagement()"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  id="officerManagementMessage"
+                  style="
+                    display: none;
+                    margin-bottom: 14px;
+                    padding: 10px 12px;
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                  "
+                ></div>
+
+                <div
+                  style="
+                    overflow: auto;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 12px;
+                  "
+                >
+                  <table
+                    class="custom-table"
+                    id="officerTable"
+                    style="min-width: 980px; width: 100%"
+                  >
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Department</th>
+                        <th>Term</th>
+                        <th>Status</th>
+                        <th style="width: 240px">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td
+                          colspan="7"
+                          style="
+                            text-align: center;
+                            color: #757575;
+                            padding: 24px;
+                          "
+                        >
+                          Loading officer accounts...
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <div>
+                    <h3 class="panel-title">My Profile</h3>
+                    <p class="panel-subtitle">
+                      Update your own display name, username, or password.
+                    </p>
+                  </div>
+                </div>
+                <form
+                  id="presidentProfileForm"
+                  class="dashboard-form"
+                  autocomplete="off"
+                >
+                  {% csrf_token %}
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="profileFullName">Full Name</label>
+                      <input
+                        type="text"
+                        id="profileFullName"
+                        name="full_name"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="profileUsername">Username</label>
+                      <input
+                        type="text"
+                        id="profileUsername"
+                        name="username"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="profilePassword">New Password</label>
+                      <input
+                        type="password"
+                        id="profilePassword"
+                        name="password"
+                        placeholder="Leave blank to keep current password"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="profileRole">Role</label>
+                      <input
+                        type="text"
+                        id="profileRole"
+                        value="President"
+                        readonly
+                      />
+                    </div>
+                  </div>
+                  <div
+                    id="profileFormMessage"
+                    style="
+                      display: none;
+                      margin-bottom: 14px;
+                      padding: 10px 12px;
+                      border-radius: 8px;
+                      font-size: 0.85rem;
+                    "
+                  ></div>
+                  <button type="submit" class="btn-brand btn-brand-primary">
+                    Update Profile
+                  </button>
+                </form>
+              </div>
+            </div>
+          </section>
+
+          <!-- ========================================================================== 
+             ADMINISTRATION: OFFICER SELF-ENROLLMENT
+             ========================================================================== -->
+          <section
+            id="administration-self-enroll"
+            class="dashboard-module module-fade-in"
+          >
+            <div style="max-width: 980px; margin: 0 auto">
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <div>
+                    <h3 class="panel-title">Enroll as Member</h3>
+                    <p class="panel-subtitle">
+                      Create the linked officer-member profile and pending fee
+                      record.
+                    </p>
+                  </div>
+                </div>
+
+                <form
+                  id="selfEnrollForm"
+                  class="dashboard-form"
+                  autocomplete="off"
+                >
+                  {% csrf_token %}
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="selfEnrollFullName">Full Name</label>
+                      <input
+                        type="text"
+                        id="selfEnrollFullName"
+                        name="full_name"
+                        readonly
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="selfEnrollEmployeeId">Employee ID</label>
+                      <input
+                        type="text"
+                        id="selfEnrollEmployeeId"
+                        name="employee_id"
+                        required
+                        placeholder="Enter employee ID"
+                      />
+                    </div>
+                  </div>
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="selfEnrollDepartment">Department</label>
+                      <select id="selfEnrollDepartment" name="department_id">
+                        <option value="">-- Use current department --</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.department_id_PK }}">
+                          {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="selfEnrollPosition">Position</label>
+                      <input
+                        type="text"
+                        id="selfEnrollPosition"
+                        name="position"
+                        placeholder="Officer position"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div class="form-grid-2">
+                    <div class="form-group">
+                      <label for="selfEnrollContact">Contact Number</label>
+                      <input
+                        type="text"
+                        id="selfEnrollContact"
+                        name="contact_number"
+                        placeholder="Contact number"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="selfEnrollEmail">Email</label>
+                      <input
+                        type="email"
+                        id="selfEnrollEmail"
+                        name="email"
+                        placeholder="Email address"
+                      />
+                    </div>
+                  </div>
+                  <div
+                    id="selfEnrollMessage"
+                    style="
+                      display: none;
+                      margin-bottom: 14px;
+                      padding: 10px 12px;
+                      border-radius: 8px;
+                      font-size: 0.85rem;
+                    "
+                  ></div>
+                  <button type="submit" class="btn-brand btn-brand-primary">
+                    Create Officer-Member Profile
+                  </button>
+                </form>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             BYLAWS CONSTANTS SECTION
+             ========================================================================== -->
+          <section
+            id="bylaws-constants"
+            class="dashboard-module module-fade-in"
+          >
+            <div style="padding: 24px; max-width: 1200px; margin: 0 auto">
+              <h2 style="margin: 0 0 16px; color: #1b5e20">Policy Constants</h2>
+              <p style="margin: 0 0 24px; color: #555; font-size: 14px">
+                Edit the policy constants sourced from the bylaws. All changes
+                are logged in the global audit trail.
+              </p>
+
+              <div
+                style="
+                  background: #fff;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 12px;
+                  padding: 24px;
+                  margin-bottom: 24px;
+                "
+              >
+                <h3 style="margin: 0 0 16px; font-size: 16px; color: #333">
+                  Membership & Dues
+                </h3>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="const-membership_fee">Membership Fee (₱)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="const-membership_fee"
+                      name="membership_fee"
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Default: ₱100.00</span
+                    >
+                  </div>
+                  <div class="form-group">
+                    <label for="const-monthly_dues">Monthly Dues (₱)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="const-monthly_dues"
+                      name="monthly_dues"
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Default: ₱50.00</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style="
+                  background: #fff;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 12px;
+                  padding: 24px;
+                  margin-bottom: 24px;
+                "
+              >
+                <h3 style="margin: 0 0 16px; font-size: 16px; color: #333">
+                  Medical / Accidental-Sickness Aid
+                </h3>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="const-accidental_sickness_aid_threshold"
+                      >Aid Threshold (₱)</label
+                    >
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="const-accidental_sickness_aid_threshold"
+                      name="accidental_sickness_aid_threshold"
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Default: ₱20,000.00</span
+                    >
+                  </div>
+                  <div class="form-group">
+                    <label for="const-accidental_sickness_aid_benefit"
+                      >Aid Benefit (₱)</label
+                    >
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="const-accidental_sickness_aid_benefit"
+                      name="accidental_sickness_aid_benefit"
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Default: ₱100.00</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style="
+                  background: #fff;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 12px;
+                  padding: 24px;
+                  margin-bottom: 24px;
+                "
+              >
+                <h3 style="margin: 0 0 16px; font-size: 16px; color: #333">
+                  Death Aid Benefits
+                </h3>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="const-death_aid_member">Member (₱)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="const-death_aid_member"
+                      name="death_aid_member"
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Default: ₱500.00</span
+                    >
+                  </div>
+                  <div class="form-group">
+                    <label for="const-death_aid_spouse">Spouse (₱)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="const-death_aid_spouse"
+                      name="death_aid_spouse"
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Default: ₱300.00</span
+                    >
+                  </div>
+                  <div class="form-group">
+                    <label for="const-death_aid_parent_child"
+                      >Parent / Child (₱)</label
+                    >
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="const-death_aid_parent_child"
+                      name="death_aid_parent_child"
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Default: ₱250.00</span
+                    >
+                  </div>
+                  <div class="form-group">
+                    <label for="const-death_aid_full_blood_sibling"
+                      >Full-Blood Sibling (₱)</label
+                    >
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="const-death_aid_full_blood_sibling"
+                      name="death_aid_full_blood_sibling"
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Default: ₱100.00</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <div style="text-align: right; margin-top: 16px">
+                <button
+                  id="resetConstantsBtn"
+                  class="btn-secondary"
+                  style="
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    border: 1px solid #ccc;
+                    background: #fff;
+                    cursor: pointer;
+                    margin-right: 12px;
+                  "
+                >
+                  Reset to Defaults
+                </button>
+                <button
+                  id="saveConstantsBtn"
+                  class="btn-brand"
+                  style="
+                    padding: 10px 20px;
+                    border-radius: 8px;
+                    border: none;
+                    background: #1b5e20;
+                    color: #fff;
+                    cursor: pointer;
+                    font-weight: 600;
+                  "
+                >
+                  Save Changes
+                </button>
+              </div>
+
+              <div
+                id="constantsMessage"
+                style="margin-top: 12px; font-size: 14px"
+              ></div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             BYLAWS DOCUMENTS SECTION
+             ========================================================================== -->
+          <section
+            id="bylaws-documents"
+            class="dashboard-module module-fade-in"
+          >
+            <div style="padding: 24px; max-width: 1200px; margin: 0 auto">
+              <h2 style="margin: 0 0 16px; color: #1b5e20">Bylaws Documents</h2>
+              <p style="margin: 0 0 24px; color: #555; font-size: 14px">
+                Upload and manage the organization's bylaws files. All upload
+                and delete actions are logged in the global audit trail.
+              </p>
+
+              <div
+                style="
+                  background: #fff;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 12px;
+                  padding: 24px;
+                  margin-bottom: 24px;
+                "
+              >
+                <h3 style="margin: 0 0 16px; font-size: 16px; color: #333">
+                  Upload New Bylaws File
+                </h3>
+                <form id="bylawsUploadForm" enctype="multipart/form-data">
+                  <div class="form-group">
+                    <label for="bylawsFileInput"
+                      >Select File (PDF, DOC, DOCX, TXT)</label
+                    >
+                    <input
+                      type="file"
+                      id="bylawsFileInput"
+                      name="bylaws_file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      style="
+                        padding: 8px;
+                        border: 1px solid #ccc;
+                        border-radius: 6px;
+                        width: 100%;
+                      "
+                    />
+                    <span
+                      class="field-hint"
+                      style="font-size: 12px; color: #757575"
+                      >Maximum file size: 10MB</span
+                    >
+                  </div>
+                  <div style="text-align: right; margin-top: 16px">
+                    <button
+                      type="submit"
+                      class="btn-brand"
+                      style="
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        border: none;
+                        background: #1b5e20;
+                        color: #fff;
+                        cursor: pointer;
+                        font-weight: 600;
+                      "
+                    >
+                      Upload File
+                    </button>
+                  </div>
+                </form>
+                <div
+                  id="uploadMessage"
+                  style="margin-top: 12px; font-size: 14px"
+                ></div>
+              </div>
+
+              <div
+                style="
+                  background: #fff;
+                  border: 1px solid #e0e0e0;
+                  border-radius: 12px;
+                  padding: 24px;
+                "
+              >
+                <h3 style="margin: 0 0 16px; font-size: 16px; color: #333">
+                  Uploaded Documents
+                </h3>
+                <div id="bylawsFilesList">
+                  <p style="color: #757575; text-align: center; padding: 20px">
+                    Loading documents...
+                  </p>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       </main>
@@ -3417,6 +5066,7 @@
         // Pending payments will be populated by loadPresidentialQueue().
         updateKPICards();
         loadPresidentialAidsQueue();
+        loadContributionsQueue();
         updatePresidentNotifDots();
         renderExecutiveLogsTable();
         renderReportsTable();
@@ -3513,7 +5163,11 @@
       function showToast(message, isError) {
         var host = document.getElementById("toastContainer");
         if (!host) {
-          Swal.fire({icon:isError?'error':'info',title:isError?'Error':null,text:message});
+          Swal.fire({
+            icon: isError ? "error" : "info",
+            title: isError ? "Error" : null,
+            text: message,
+          });
           return;
         }
         var toast = document.createElement("div");
@@ -3576,6 +5230,7 @@
         renderPendingAidsTable();
         renderExecutiveLogsTable();
         renderReportsTable();
+        loadContributionsQueue();
         updatePresidentNotifDots();
       }
 
@@ -3588,6 +5243,9 @@
               data.verified_dues_count;
             document.getElementById("kpi-pending-claims").innerText =
               data.verified_claims_count;
+            document.getElementById("kpi-pending-contributions") &&
+              (document.getElementById("kpi-pending-contributions").innerText =
+                data.verified_contributions_count || 0);
             document.getElementById("kpi-total-audits").innerText =
               data.total_approvals_count;
           }
@@ -3795,7 +5453,13 @@
 
         const label = decision === "Approved" ? "Approve" : "Reject";
         const paResult = await Swal.fire({
-          title: label + " " + ids.length + " aid entr" + (ids.length === 1 ? "y" : "ies") + "?",
+          title:
+            label +
+            " " +
+            ids.length +
+            " aid entr" +
+            (ids.length === 1 ? "y" : "ies") +
+            "?",
           icon: "question",
           showCancelButton: true,
           confirmButtonText: label,
@@ -4058,9 +5722,7 @@
             const logEntry = {
               timestamp: new Date().toLocaleString(),
               reqId: targetId,
-              remarks:
-                remarks ||
-                "Claim approved. Routed directly to cheque disbursement desk.",
+              remarks: remarks || "Aid Post Approved.",
               result: decision,
               amount: approvedAmount,
             };
@@ -4071,16 +5733,34 @@
 
             var msg = result.message || "Presidential decision saved.";
             if (decision === "Approved") {
-              Swal.fire({icon:'success',title:'Executive Disbursement Clearance Granted',text:`Disbursement for Request ID ${targetId} authorized at ₱${approvedAmount.toFixed(2)}. Payout document routed to Landbank system draft.`});
+              Swal.fire({
+                icon: "success",
+                title: "Aid Post Approved",
+                text: `Aid Post for Request ID ${targetId} authorized at ₱${approvedAmount.toFixed(2)}. Notify Treasurer that an Aid Post is Approved.`,
+              });
             } else {
-              Swal.fire({icon:'info',title:'Rejection Notice Registered',text:`Claim Deficiencies flagged. Claim file ${targetId} closed with negative ruling: "${remarks}"`});
+              Swal.fire({
+                icon: "info",
+                title: "Rejection Notice Registered",
+                text: `Claim Deficiencies flagged. Claim file ${targetId} closed with negative ruling: "${remarks}"`,
+              });
             }
           } else {
-            Swal.fire({icon:'error',title:'Error',text:"Execution Error: " + result.message});
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: "Execution Error: " + result.message,
+            });
           }
         } catch (error) {
           console.error("Error submitting aid decision:", error);
-          Swal.fire({icon:'error',title:'Critical Failure',text:"Critical failure submitting claim ruling updates.\n\nDetails: " + (error.message || error)});
+          Swal.fire({
+            icon: "error",
+            title: "Critical Failure",
+            text:
+              "Critical failure submitting claim ruling updates.\n\nDetails: " +
+              (error.message || error),
+          });
         }
       }
 
@@ -4382,9 +6062,80 @@
         Oversight Summary: This certificate verifies that all listed transactions in this period are fully reviewed and locked.
         Disbursements align securely with treasurer entries and verified compliance checkpoints.
       `;
-        Swal.fire({icon:'info',title:'Executive Certification File',text:outputString});
+        Swal.fire({
+          icon: "info",
+          title: "Executive Certification File",
+          text: outputString,
+        });
       }
     </script>
+    <!-- Officer Modal -->
+    <div id="officerModal" class="modal-overlay" style="display: none">
+      <div class="modal-card" style="max-width: 640px; text-align: left">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="color:#1b5e20;margin:0;" id="officerModalTitle">New Officer</h3>
+          <button type="button" onclick="closeOfficerModal()" style="background:none;border:none;font-size:1.8rem;cursor:pointer;color:#666;line-height:1;">&times;</button>
+        </div>
+        <form id="officerForm" class="dashboard-form" autocomplete="off">
+          {% csrf_token %}
+          <input type="hidden" id="officer_id" />
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="officer_full_name">Full Name</label>
+              <input type="text" id="officer_full_name" required />
+            </div>
+            <div class="form-group">
+              <label for="officer_username">Username</label>
+              <input type="text" id="officer_username" required />
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="officer_password">Password</label>
+              <input type="text" id="officer_password" placeholder="Leave blank to keep current (edit mode)" />
+            </div>
+            <div class="form-group">
+              <label for="officer_role">Role</label>
+              <input type="text" id="officer_role" value="Officer" />
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="officer_department">Department</label>
+              <select id="officer_department">
+                <option value="">-- None --</option>
+                {% for dept in departments %}
+                <option value="{{ dept.department_id_PK }}">{{ dept.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="officer_status">Account Status</label>
+              <select id="officer_status">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label for="officer_term_start">Term Start</label>
+              <input type="date" id="officer_term_start" />
+            </div>
+            <div class="form-group">
+              <label for="officer_term_end">Term End</label>
+              <input type="date" id="officer_term_end" />
+            </div>
+          </div>
+          <div id="officerFormMessage" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:8px;font-size:0.85rem;"></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+            <button type="button" class="btn-brand btn-brand-secondary" onclick="closeOfficerModal()">Cancel</button>
+            <button type="submit" class="btn-brand btn-brand-primary">Save Officer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Diff View Modal -->
     <div
       id="diffModal"
@@ -4502,105 +6253,189 @@
         "dept-member-stats": {
           tableId: "deptMemberStatsTable",
           url: "/api/treasurer/department/member-stats/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + (dept.total || 0) + '</td>' +
-                '<td>' + (dept.active || 0) + '</td>' +
-                '<td>' + (dept.permanent || 0) + '</td>' +
-                '<td>' + (dept.temporary || 0) + '</td>' +
-                '<td>' + (dept.retired || 0) + '</td>' +
-                '</tr>';
+          render: function (data, tbody) {
+            data.departments.forEach(function (dept) {
+              tbody.innerHTML +=
+                "<tr>" +
+                "<td>" +
+                escapeHtml(dept.department) +
+                "</td>" +
+                "<td>" +
+                (dept.total || 0) +
+                "</td>" +
+                "<td>" +
+                (dept.active || 0) +
+                "</td>" +
+                "<td>" +
+                (dept.permanent || 0) +
+                "</td>" +
+                "<td>" +
+                (dept.temporary || 0) +
+                "</td>" +
+                "<td>" +
+                (dept.retired || 0) +
+                "</td>" +
+                "</tr>";
             });
             if (data.unassigned_count) {
-              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
+              tbody.innerHTML +=
+                "<tr><td><em>Unassigned</em></td><td>" +
+                data.unassigned_count +
+                '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
             }
-          }
+          },
         },
         "dept-payment-tracking": {
           tableId: "deptPaymentTrackingTable",
           url: "/api/treasurer/department/payment-tracking/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + (dept.total_members || 0) + '</td>' +
-                '<td>' + (dept.dues_paid_current_month || 0) + '</td>' +
-                '<td>' + (dept.dues_collection_rate || 0) + '%</td>' +
-                '<td>' + (dept.membership_fee_paid || 0) + '</td>' +
-                '<td>' + (dept.fee_collection_rate || 0) + '%</td>' +
-                '</tr>';
+          render: function (data, tbody) {
+            data.departments.forEach(function (dept) {
+              tbody.innerHTML +=
+                "<tr>" +
+                "<td>" +
+                escapeHtml(dept.department) +
+                "</td>" +
+                "<td>" +
+                (dept.total_members || 0) +
+                "</td>" +
+                "<td>" +
+                (dept.dues_paid_current_month || 0) +
+                "</td>" +
+                "<td>" +
+                (dept.dues_collection_rate || 0) +
+                "%</td>" +
+                "<td>" +
+                (dept.membership_fee_paid || 0) +
+                "</td>" +
+                "<td>" +
+                (dept.fee_collection_rate || 0) +
+                "%</td>" +
+                "</tr>";
             });
-          }
+          },
         },
         "dept-financial-summary": {
           tableId: "deptFinancialSummaryTable",
           url: "/api/treasurer/department/financial-summary/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + Number(dept.monthly_dues).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.membership_fees).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.medical_aid).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.death_aid).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.total_inflow).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.total_outflow).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.net_position).toLocaleString() + '</td>' +
-                '</tr>';
+          render: function (data, tbody) {
+            data.departments.forEach(function (dept) {
+              tbody.innerHTML +=
+                "<tr>" +
+                "<td>" +
+                escapeHtml(dept.department) +
+                "</td>" +
+                "<td>" +
+                Number(dept.monthly_dues).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                Number(dept.membership_fees).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                Number(dept.medical_aid).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                Number(dept.death_aid).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                Number(dept.total_inflow).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                Number(dept.total_outflow).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                Number(dept.net_position).toLocaleString() +
+                "</td>" +
+                "</tr>";
             });
-          }
+          },
         },
         "dept-aid-trends": {
           tableId: "deptAidTrendsTable",
           url: "/api/treasurer/department/aid-trends/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              var medCount = dept.medical_aid_counts.reduce(function(a, b) { return a + b; }, 0);
-              var medAmount = dept.medical_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
-              var deathCount = dept.death_aid_counts.reduce(function(a, b) { return a + b; }, 0);
-              var deathAmount = dept.death_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
-              var totalCount = dept.total_counts.reduce(function(a, b) { return a + b; }, 0);
-              var totalAmount = dept.total_amounts.reduce(function(a, b) { return a + b; }, 0);
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + medCount + '</td>' +
-                '<td>' + Number(medAmount).toLocaleString() + '</td>' +
-                '<td>' + deathCount + '</td>' +
-                '<td>' + Number(deathAmount).toLocaleString() + '</td>' +
-                '<td>' + totalCount + '</td>' +
-                '<td>' + Number(totalAmount).toLocaleString() + '</td>' +
-                '</tr>';
+          render: function (data, tbody) {
+            data.departments.forEach(function (dept) {
+              var medCount = dept.medical_aid_counts.reduce(function (a, b) {
+                return a + b;
+              }, 0);
+              var medAmount = dept.medical_aid_amounts.reduce(function (a, b) {
+                return a + b;
+              }, 0);
+              var deathCount = dept.death_aid_counts.reduce(function (a, b) {
+                return a + b;
+              }, 0);
+              var deathAmount = dept.death_aid_amounts.reduce(function (a, b) {
+                return a + b;
+              }, 0);
+              var totalCount = dept.total_counts.reduce(function (a, b) {
+                return a + b;
+              }, 0);
+              var totalAmount = dept.total_amounts.reduce(function (a, b) {
+                return a + b;
+              }, 0);
+              tbody.innerHTML +=
+                "<tr>" +
+                "<td>" +
+                escapeHtml(dept.department) +
+                "</td>" +
+                "<td>" +
+                medCount +
+                "</td>" +
+                "<td>" +
+                Number(medAmount).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                deathCount +
+                "</td>" +
+                "<td>" +
+                Number(deathAmount).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                totalCount +
+                "</td>" +
+                "<td>" +
+                Number(totalAmount).toLocaleString() +
+                "</td>" +
+                "</tr>";
             });
-          }
+          },
         },
         "dept-payroll-analysis": {
           tableId: "deptPayrollAnalysisTable",
           url: "/api/treasurer/department/payroll-analysis/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + Number(dept.total_deductions).toLocaleString() + '</td>' +
-                '<td>' + (dept.deduction_count || 0) + '</td>' +
-                '<td>' + Number(dept.average_deduction).toLocaleString() + '</td>' +
-                '</tr>';
+          render: function (data, tbody) {
+            data.departments.forEach(function (dept) {
+              tbody.innerHTML +=
+                "<tr>" +
+                "<td>" +
+                escapeHtml(dept.department) +
+                "</td>" +
+                "<td>" +
+                Number(dept.total_deductions).toLocaleString() +
+                "</td>" +
+                "<td>" +
+                (dept.deduction_count || 0) +
+                "</td>" +
+                "<td>" +
+                Number(dept.average_deduction).toLocaleString() +
+                "</td>" +
+                "</tr>";
             });
-          }
-        }
+          },
+        },
       };
 
-      document.addEventListener("turbo:load", function() {
+      document.addEventListener("turbo:load", function () {
         var tabBtns = document.querySelectorAll(".dept-tab-btn");
-        tabBtns.forEach(function(btn) {
-          btn.addEventListener("click", function() {
+        tabBtns.forEach(function (btn) {
+          btn.addEventListener("click", function () {
             var target = btn.getAttribute("data-tab");
-            document.querySelectorAll(".dept-tab-panel").forEach(function(panel) {
-              panel.style.display = "none";
-            });
+            document
+              .querySelectorAll(".dept-tab-panel")
+              .forEach(function (panel) {
+                panel.style.display = "none";
+              });
             document.getElementById(target).style.display = "block";
-            tabBtns.forEach(function(b) {
+            tabBtns.forEach(function (b) {
               b.classList.remove("btn-brand-primary");
               b.style.opacity = "0.7";
             });
@@ -4612,29 +6447,43 @@
             var table = document.getElementById(ep.tableId);
             if (table && table.getAttribute("data-loaded") !== "true") {
               fetch(ep.url, { credentials: "same-origin" })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
+                .then(function (r) {
+                  return r.json();
+                })
+                .then(function (data) {
                   if (!data.ok) return;
                   table.setAttribute("data-loaded", "true");
                   var tbody = table.getElementsByTagName("tbody")[0];
                   tbody.innerHTML = "";
                   ep.render(data, tbody);
                 })
-                .catch(function(e) { console.error("Failed to load " + ep.url, e); });
+                .catch(function (e) {
+                  console.error("Failed to load " + ep.url, e);
+                });
             }
           });
         });
 
-        document.querySelector(".dept-tab-btn[data-tab='dept-member-stats']").click();
+        document
+          .querySelector(".dept-tab-btn[data-tab='dept-member-stats']")
+          .click();
       });
 
       function refreshDepartmentData() {
-        var tables = ["deptMemberStatsTable", "deptPaymentTrackingTable", "deptFinancialSummaryTable", "deptAidTrendsTable", "deptPayrollAnalysisTable"];
-        tables.forEach(function(id) {
+        var tables = [
+          "deptMemberStatsTable",
+          "deptPaymentTrackingTable",
+          "deptFinancialSummaryTable",
+          "deptAidTrendsTable",
+          "deptPayrollAnalysisTable",
+        ];
+        tables.forEach(function (id) {
           var table = document.getElementById(id);
           if (table) table.setAttribute("data-loaded", "false");
         });
-        document.querySelector(".dept-tab-btn[data-tab='dept-member-stats']").click();
+        document
+          .querySelector(".dept-tab-btn[data-tab='dept-member-stats']")
+          .click();
       }
 
       function escapeHtml(text) {
@@ -4642,6 +6491,1048 @@
         div.textContent = text;
         return div.innerHTML;
       }
+
+      function showBylawsMessage(elId, message, isError) {
+        var el = document.getElementById(elId);
+        if (!el) return;
+        el.textContent = message;
+        el.style.color = isError ? "#c62828" : "#2e7d32";
+      }
+
+      async function loadPolicyConstants() {
+        try {
+          var res = await fetch("/api/president/bylaws/constants/", {
+            credentials: "same-origin",
+          });
+          var data = await res.json();
+          if (!data || !data.ok) {
+            showBylawsMessage(
+              "constantsMessage",
+              "Failed to load policy constants.",
+              true,
+            );
+            return;
+          }
+          var constants = data.constants || {};
+          var keys = Object.keys(constants);
+          keys.forEach(function (key) {
+            var input = document.getElementById("const-" + key);
+            if (input) {
+              input.value = constants[key];
+            }
+          });
+        } catch (e) {
+          console.error("Failed to load policy constants", e);
+          showBylawsMessage(
+            "constantsMessage",
+            "Error loading policy constants.",
+            true,
+          );
+        }
+      }
+
+      async function savePolicyConstant(key) {
+        var input = document.getElementById("const-" + key);
+        if (!input) return;
+        var value = input.value;
+        try {
+          var res = await fetch("/api/president/bylaws/constants/update/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCookie("csrftoken"),
+            },
+            body: JSON.stringify({ key: key, value: value }),
+          });
+          var data = await res.json();
+          if (data.ok) {
+            showBylawsMessage(
+              "constantsMessage",
+              data.message || "Saved.",
+              false,
+            );
+          } else {
+            showBylawsMessage(
+              "constantsMessage",
+              (data && data.error) || "Save failed.",
+              true,
+            );
+          }
+        } catch (e) {
+          console.error("Failed to save constant", e);
+          showBylawsMessage("constantsMessage", "Error saving constant.", true);
+        }
+      }
+
+      document
+        .getElementById("saveConstantsBtn")
+        .addEventListener("click", function () {
+          var keys = [
+            "membership_fee",
+            "monthly_dues",
+            "accidental_sickness_aid_threshold",
+            "accidental_sickness_aid_benefit",
+            "death_aid_member",
+            "death_aid_spouse",
+            "death_aid_parent_child",
+            "death_aid_full_blood_sibling",
+          ];
+          var promises = keys.map(function (k) {
+            return savePolicyConstant(k);
+          });
+          Promise.all(promises).then(function () {
+            showBylawsMessage(
+              "constantsMessage",
+              "All policy constants saved.",
+              false,
+            );
+          });
+        });
+
+      document
+        .getElementById("resetConstantsBtn")
+        .addEventListener("click", function () {
+          loadPolicyConstants();
+          showBylawsMessage(
+            "constantsMessage",
+            "Reset to last saved values.",
+            false,
+          );
+        });
+
+      async function loadBylawsFiles() {
+        try {
+          var res = await fetch("/api/president/bylaws/files/", {
+            credentials: "same-origin",
+          });
+          var data = await res.json();
+          if (!data || !data.ok) {
+            document.getElementById("bylawsFilesList").innerHTML =
+              '<p style="color: #757575; text-align: center; padding: 20px;">No documents found.</p>';
+            return;
+          }
+          var files = data.files || [];
+          var container = document.getElementById("bylawsFilesList");
+          if (files.length === 0) {
+            container.innerHTML =
+              '<p style="color: #757575; text-align: center; padding: 20px;">No documents uploaded yet.</p>';
+            return;
+          }
+          var html =
+            '<table style="width:100%; border-collapse: collapse;">' +
+            '<thead><tr style="text-align:left; border-bottom: 2px solid #e0e0e0;">' +
+            '<th style="padding: 8px;">File Name</th>' +
+            '<th style="padding: 8px;">Type</th>' +
+            '<th style="padding: 8px;">Uploaded</th>' +
+            '<th style="padding: 8px;">By</th>' +
+            '<th style="padding: 8px; text-align: right;">Action</th>' +
+            "</tr></thead><tbody>";
+          files.forEach(function (f) {
+            html +=
+              '<tr style="border-bottom: 1px solid #f0f0f0;">' +
+              '<td style="padding: 10px 8px;">' +
+              escapeHtml(f.file_name) +
+              "</td>" +
+              '<td style="padding: 10px 8px;">' +
+              escapeHtml(f.file_type) +
+              "</td>" +
+              '<td style="padding: 10px 8px;">' +
+              (f.uploaded_at || "—") +
+              "</td>" +
+              '<td style="padding: 10px 8px;">' +
+              escapeHtml(f.uploaded_by) +
+              "</td>" +
+              '<td style="padding: 10px 8px; text-align: right;">' +
+              '<button class="btn-delete-bylaws" data-doc-id="' +
+              f.document_id +
+              '" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #c62828; background: #fff; color: #c62828; cursor: pointer; font-size: 12px;">Delete</button>' +
+              "</td></tr>";
+          });
+          html += "</tbody></table>";
+          container.innerHTML = html;
+
+          document
+            .querySelectorAll(".btn-delete-bylaws")
+            .forEach(function (btn) {
+              btn.addEventListener("click", function () {
+                var docId = this.getAttribute("data-doc-id");
+                if (
+                  !confirm(
+                    "Are you sure you want to delete this document? This action is logged in the audit trail.",
+                  )
+                )
+                  return;
+                fetch("/api/president/bylaws/files/" + docId + "/delete/", {
+                  method: "POST",
+                  credentials: "same-origin",
+                  headers: { "X-CSRFToken": getCookie("csrftoken") },
+                })
+                  .then(function (r) {
+                    return r.json();
+                  })
+                  .then(function (data) {
+                    if (data.ok) {
+                      loadBylawsFiles();
+                    } else {
+                      alert(data.error || "Delete failed.");
+                    }
+                  })
+                  .catch(function (e) {
+                    console.error("Delete failed", e);
+                    alert("Delete failed.");
+                  });
+              });
+            });
+        } catch (e) {
+          console.error("Failed to load bylaws files", e);
+        }
+      }
+
+      document
+        .getElementById("bylawsUploadForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          var formData = new FormData();
+          var fileInput = document.getElementById("bylawsFileInput");
+          var file = fileInput.files[0];
+          if (!file) {
+            showBylawsMessage(
+              "uploadMessage",
+              "Please select a file to upload.",
+              true,
+            );
+            return;
+          }
+          formData.append("bylaws_file", file);
+          fetch("/api/president/bylaws/files/upload/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": getCookie("csrftoken") },
+            body: formData,
+          })
+            .then(function (r) {
+              return r.json();
+            })
+            .then(function (data) {
+              if (data.ok) {
+                showBylawsMessage(
+                  "uploadMessage",
+                  data.message || "File uploaded.",
+                  false,
+                );
+                fileInput.value = "";
+                loadBylawsFiles();
+              } else {
+                showBylawsMessage(
+                  "uploadMessage",
+                  (data && data.error) || "Upload failed.",
+                  true,
+                );
+              }
+            })
+            .catch(function (e) {
+              console.error("Upload failed", e);
+              showBylawsMessage("uploadMessage", "Upload failed.", true);
+            });
+        });
+
+      function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+          var cookies = document.cookie.split(";");
+          for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === name + "=") {
+              cookieValue = decodeURIComponent(
+                cookie.substring(name.length + 1),
+              );
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+
+      // ==========================================================================
+      // CONTRIBUTIONS & RELEASES MODULE
+      // ==========================================================================
+      var contributionsCache = [];
+      var pcState = { selectedIds: new Set() };
+
+      async function loadContributionsQueue() {
+        try {
+          var resp = await fetch("/api/president/pending-contributions/");
+          var data = await resp.json();
+          if (!data.success) {
+            console.error("Failed to load contributions", data);
+            return;
+          }
+          contributionsCache = data.contributions || [];
+          renderContributionsTable();
+        } catch (e) {
+          console.error("Error loading contributions", e);
+        }
+      }
+
+      function renderContributionsTable() {
+        var tbody = document.querySelector("#pendingContributionsTable tbody");
+        if (!tbody) return;
+        if (!contributionsCache.length) {
+          tbody.innerHTML =
+            '<tr><td colspan="8" style="text-align:center;color:#6c757d;">No pending contributions awaiting approval.</td></tr>';
+          updateContributionsNotifDot();
+          return;
+        }
+        tbody.innerHTML = contributionsCache
+          .map(function (c) {
+            return (
+              "<tr>" +
+              '<td><input type="checkbox" class="pc-row-check" value="' +
+              c.verification_id +
+              '" onchange="pcToggleRow(this)" /></td>' +
+              "<td><strong>" +
+              escapeHtml(c.member_name) +
+              "</strong></td>" +
+              "<td>\u20B1" +
+              parseFloat(c.expected_amount).toFixed(2) +
+              "</td>" +
+              "<td>\u20B1" +
+              parseFloat(c.paid_amount).toFixed(2) +
+              "</td>" +
+              "<td>" +
+              c.payment_date +
+              "</td>" +
+              '<td><span class="badge ' +
+              (c.source_type === "Medical Aid"
+                ? "badge-medical-aid"
+                : "badge-death-aid") +
+              '">' +
+              escapeHtml(c.aid_type) +
+              "</span></td>" +
+              "<td>" +
+              escapeHtml(c.auditor_name) +
+              "</td>" +
+              '<td><button class="btn-brand btn-brand-primary" onclick="selectContribution(' +
+              c.verification_id +
+              ')" style="padding:2px 8px;font-size:12px;">Review</button></td>' +
+              "</tr>"
+            );
+          })
+          .join("");
+        updateContributionsNotifDot();
+        wireContributionBatchEvents();
+      }
+
+      function updateContributionsNotifDot() {
+        var dot = document.getElementById("pres-contributions-dot");
+        if (!dot) return;
+        var count = contributionsCache.length || 0;
+        dot.style.display = count > 0 ? "inline-flex" : "none";
+        dot.textContent = count > 0 ? count : "";
+        if (typeof updatePresidentNotifDots === "function")
+          updatePresidentNotifDots();
+      }
+
+      function wireContributionBatchEvents() {
+        var selectAll = document.getElementById("pc-select-all");
+        if (selectAll) {
+          selectAll.onchange = function () {
+            var checked = this.checked;
+            document
+              .querySelectorAll("#pendingContributionsTable .pc-row-check")
+              .forEach(function (cb) {
+                cb.checked = checked;
+                var id = cb.value;
+                if (checked) pcState.selectedIds.add(id);
+                else pcState.selectedIds.delete(id);
+                var row = cb.closest("tr");
+                if (row) row.classList.toggle("selected-row", checked);
+              });
+            updatePcBatchBar();
+          };
+        }
+        document
+          .getElementById("pc-batch-approve")
+          ?.addEventListener("click", function () {
+            submitPcBatchDecision("Approved");
+          });
+        document
+          .getElementById("pc-batch-reject")
+          ?.addEventListener("click", function () {
+            submitPcBatchDecision("Rejected");
+          });
+        document
+          .getElementById("pc-batch-clear")
+          ?.addEventListener("click", function () {
+            clearPcSelection();
+          });
+      }
+
+      function pcToggleRow(cb) {
+        var id = cb.value;
+        if (cb.checked) pcState.selectedIds.add(id);
+        else pcState.selectedIds.delete(id);
+        var row = cb.closest("tr");
+        if (row) row.classList.toggle("selected-row", cb.checked);
+        updatePcBatchBar();
+      }
+
+      function updatePcBatchBar() {
+        var bar = document.getElementById("pc-batch-bar");
+        var countSpan = document.getElementById("pc-selected-count");
+        var count = pcState.selectedIds.size;
+        if (count > 0) {
+          bar.style.display = "flex";
+          countSpan.textContent = count + " selected";
+        } else {
+          bar.style.display = "none";
+        }
+      }
+
+      function clearPcSelection() {
+        pcState.selectedIds.clear();
+        document
+          .querySelectorAll("#pendingContributionsTable .pc-row-check")
+          .forEach(function (cb) {
+            cb.checked = false;
+          });
+        document
+          .querySelectorAll("#pendingContributionsTable tr")
+          .forEach(function (r) {
+            r.classList.remove("selected-row");
+          });
+        updatePcBatchBar();
+      }
+
+      function selectContribution(verificationId) {
+        var c = contributionsCache.find(function (x) {
+          return x.verification_id === verificationId;
+        });
+        if (!c) return;
+
+        var detailsHtml =
+          '<div style="margin-bottom:16px;">' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+          '<div><label style="font-size:0.75rem;color:#757575;font-weight:500;">Member</label><div style="font-size:0.88rem;font-weight:600;">' +
+          escapeHtml(c.member_name) +
+          "</div></div>" +
+          '<div><label style="font-size:0.75rem;color:#757575;font-weight:500;">Aid Type</label><div style="font-size:0.88rem;font-weight:600;">' +
+          escapeHtml(c.aid_type) +
+          " (" +
+          escapeHtml(c.source_type) +
+          ")</div></div>" +
+          '<div><label style="font-size:0.75rem;color:#757575;font-weight:500;">Expected Amount</label><div style="font-size:0.88rem;font-weight:600;">\u20B1' +
+          parseFloat(c.expected_amount).toFixed(2) +
+          "</div></div>" +
+          '<div><label style="font-size:0.75rem;color:#757575;font-weight:500;">Paid Amount</label><div style="font-size:0.88rem;font-weight:600;">\u20B1' +
+          parseFloat(c.paid_amount).toFixed(2) +
+          "</div></div>" +
+          '<div><label style="font-size:0.75rem;color:#757575;font-weight:500;">Payment Date</label><div style="font-size:0.88rem;font-weight:600;">' +
+          c.payment_date +
+          "</div></div>" +
+          '<div><label style="font-size:0.75rem;color:#757575;font-weight:500;">Auditor</label><div style="font-size:0.88rem;font-weight:600;">' +
+          escapeHtml(c.auditor_name) +
+          "</div></div>" +
+          "</div>" +
+          '<div style="margin-top:12px;"><label style="font-size:0.75rem;color:#757575;font-weight:500;">Auditor Remarks</label><div style="font-size:0.88rem;color:#263238;margin-top:2px;">' +
+          escapeHtml(c.auditor_remarks || "—") +
+          "</div></div>" +
+          '<div style="margin-top:12px;"><label style="font-size:0.75rem;color:#757575;font-weight:500;">Return Reason</label><div style="font-size:0.88rem;color:#263238;margin-top:2px;">' +
+          escapeHtml(c.returned_reason || "—") +
+          "</div></div>" +
+          "</div>";
+
+        document.getElementById("pc-details-content").innerHTML = detailsHtml;
+        document.getElementById("pc_target_id").value = verificationId;
+        document.getElementById("contributionApprovalForm").style.display =
+          "block";
+        document.getElementById("pc_decision").value = "";
+        document.getElementById("pc_remarks").value = "";
+        handleContributionDecisionChange();
+      }
+
+      function handleContributionDecisionChange() {
+        var decision = document.getElementById("pc_decision").value;
+        var remarks = document.getElementById("pc_remarks");
+        var label = document.getElementById("pc_remarks_label");
+        if (decision === "Rejected") {
+          remarks.setAttribute("required", "true");
+          label.innerHTML =
+            'Decision Remarks <span style="color:#d32f2f;">(Mandatory for Rejections)</span>';
+        } else {
+          remarks.removeAttribute("required");
+          label.innerHTML = "Decision Remarks (Optional Override)";
+        }
+      }
+
+      function clearContributionSelection() {
+        document.getElementById("contributionApprovalForm").style.display =
+          "none";
+        document.getElementById("pc-details-content").innerHTML =
+          '<p style="color: #888; text-align: center; padding: 20px;">Select a contribution to review</p>';
+      }
+
+      async function submitContributionDecision(event) {
+        event.preventDefault();
+        var targetId = document.getElementById("pc_target_id").value;
+        var decision = document.getElementById("pc_decision").value;
+        var remarks = document.getElementById("pc_remarks").value;
+        var csrfToken = document.querySelector(
+          "[name=csrfmiddlewaretoken]",
+        ).value;
+
+        if (!decision) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "Please select a decision.",
+          });
+          return;
+        }
+
+        var payload = {
+          target_id: parseInt(targetId),
+          decision: decision,
+          remarks: remarks,
+        };
+        try {
+          var resp = await fetch("/api/president/contribution-decision/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": csrfToken,
+            },
+            body: JSON.stringify(payload),
+          });
+          var result = await resp.json();
+          if (result.success) {
+            Swal.fire({
+              icon: "success",
+              title: "Contribution Updated",
+              text: result.message,
+            });
+            await loadContributionsQueue();
+            clearContributionSelection();
+            updateKPICards();
+          } else {
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: "Execution Error: " + result.message,
+            });
+          }
+        } catch (e) {
+          Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "Network Error: " + e.message,
+          });
+        }
+      }
+
+      async function submitPcBatchDecision(decision) {
+        var ids = Array.from(pcState.selectedIds);
+        if (!ids.length) {
+          Swal.fire({
+            icon: "warning",
+            title: "No Selection",
+            text: "Select at least one contribution.",
+          });
+          return;
+        }
+        var confirm = await Swal.fire({
+          title:
+            (decision === "Approved" ? "Approve" : "Reject") +
+            " " +
+            ids.length +
+            " contribution(s)?",
+          text:
+            decision === "Rejected"
+              ? "A remarks prompt will appear after confirmation."
+              : "This will record fund inflows for approved contributions.",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText:
+            "Yes, " + (decision === "Approved" ? "Approve" : "Reject"),
+          cancelButtonText: "Cancel",
+        });
+        if (!confirm.isConfirmed) return;
+
+        var remarks = "";
+        if (decision === "Rejected") {
+          var remarkResult = await Swal.fire({
+            title: "Rejection Remarks",
+            input: "textarea",
+            inputLabel: "Remarks (mandatory)",
+            inputPlaceholder: "Enter reason for rejection...",
+            inputAttributes: { required: true },
+            showCancelButton: true,
+            confirmButtonText: "Submit Rejection",
+            preConfirm: function (v) {
+              if (!v) {
+                Swal.showValidationMessage("Remarks required");
+              }
+              return v;
+            },
+          });
+          if (!remarkResult.isConfirmed) return;
+          remarks = remarkResult.value;
+        }
+
+        var csrfToken = document.querySelector(
+          "[name=csrfmiddlewaretoken]",
+        ).value;
+        var completed = 0;
+        var failed = 0;
+        for (var i = 0; i < ids.length; i++) {
+          try {
+            var resp = await fetch("/api/president/contribution-decision/", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+              },
+              body: JSON.stringify({
+                target_id: parseInt(ids[i]),
+                decision: decision,
+                remarks: remarks,
+              }),
+            });
+            var result = await resp.json();
+            if (result.success) completed++;
+            else failed++;
+          } catch (e) {
+            failed++;
+          }
+        }
+        Swal.fire({
+          icon: failed ? (completed ? "warning" : "error") : "success",
+          title: "Batch Result",
+          text: completed + " approved, " + failed + " failed.",
+        });
+        await loadContributionsQueue();
+        clearPcSelection();
+        updateKPICards();
+      }
+
+      function escapeHtml(str) {
+        if (!str) return "";
+        var div = document.createElement("div");
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+      }
+
+      var bylawsInitialized = false;
+      var observer = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          if (
+            m.target.id === "bylaws-constants" &&
+            m.target.classList.contains("active")
+          ) {
+            if (!bylawsInitialized) {
+              bylawsInitialized = true;
+              loadPolicyConstants();
+              loadBylawsFiles();
+            }
+          }
+        });
+      });
+      observer.observe(document.getElementById("contentViewport"), {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    </script>
+    <script src="{% static 'js/shared/zero_trust.js' %}"></script>
+    <script>
+      // ==========================================================================
+      // OFFICER ACCOUNT MANAGEMENT
+      // ==========================================================================
+      function getCSRFToken() {
+        var el = document.querySelector("input[name='csrfmiddlewaretoken']");
+        if (el && el.value) return el.value;
+        var m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : "";
+      }
+
+      function showOfficerMessage(text, isError) {
+        var el = document.getElementById("officerManagementMessage");
+        if (!el) return;
+        el.textContent = text;
+        el.style.display = "block";
+        el.style.background = isError ? "#ffebee" : "#e8f5e9";
+        el.style.color = isError ? "#c62828" : "#1b5e20";
+        el.style.border = isError ? "1px solid #ef9a9a" : "1px solid #a5d6a7";
+      }
+
+      async function loadOfficerManagement() {
+        var tbody = document.querySelector("#officerTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757575;padding:24px;">Loading officer accounts...</td></tr>';
+        try {
+          var resp = await fetch("/api/president/officers/", { credentials: "same-origin" });
+          var data = await resp.json();
+          if (!data.ok || !data.officers) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757575;">No officer accounts found.</td></tr>';
+            return;
+          }
+          var officers = data.officers || [];
+          if (!officers.length) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757575;">No officer accounts found.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = officers.map(function (o) {
+            var statusBadge = o.account_status === "Active"
+              ? '<span class="badge-zero badge-green">Active</span>'
+              : '<span class="badge-zero badge-red">Inactive</span>';
+            var termText = (o.term_start || o.term_end)
+              ? (o.term_start || "—") + " → " + (o.term_end || "—")
+              : "—";
+            return '<tr>' +
+              "<td>" + escapeHtml(o.full_name) + "</td>" +
+              "<td>" + escapeHtml(o.username) + "</td>" +
+              "<td>" + escapeHtml(o.role) + "</td>" +
+              "<td>" + escapeHtml(o.department_name || "—") + "</td>" +
+              "<td>" + escapeHtml(termText) + "</td>" +
+              "<td>" + statusBadge + "</td>" +
+              '<td style="display:flex;gap:6px;flex-wrap:wrap;">' +
+                '<button class="btn-brand btn-brand-secondary" onclick="openOfficerModal(' + o.id + ')" style="padding:4px 10px;font-size:12px;">Edit</button>' +
+                '<button class="btn-brand btn-brand-primary" onclick="resetOfficerPassword(' + o.id + ')" style="padding:4px 10px;font-size:12px;">Reset Pwd</button>' +
+                '<button class="btn-brand" style="background:#e53935;color:#fff;padding:4px 10px;font-size:12px;" onclick="deactivateOfficer(' + o.id + ')">Deactivate</button>' +
+              "</td>" +
+            "</tr>";
+          }).join("");
+        } catch (e) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#c62828;">Failed to load officers.</td></tr>';
+        }
+      }
+
+      function openOfficerModal(officerId) {
+        var modal = document.getElementById("officerModal");
+        var form = document.getElementById("officerForm");
+        var title = document.getElementById("officerModalTitle");
+        var msg = document.getElementById("officerFormMessage");
+        if (!modal || !form) return;
+        msg.style.display = "none";
+        form.reset();
+
+        if (officerId) {
+          title.textContent = "Edit Officer";
+          var officers = window.__officersCache || [];
+          var officer = officers.find(function (o) { return o.id === officerId; });
+          if (officer) {
+            document.getElementById("officer_id").value = officer.id;
+            document.getElementById("officer_full_name").value = officer.full_name || "";
+            document.getElementById("officer_username").value = officer.username || "";
+            document.getElementById("officer_password").value = "";
+            document.getElementById("officer_role").value = officer.role || "Officer";
+            document.getElementById("officer_department").value = officer.department_id || "";
+            document.getElementById("officer_status").value = officer.account_status === "Inactive" ? "Inactive" : "Active";
+            document.getElementById("officer_term_start").value = officer.term_start || "";
+            document.getElementById("officer_term_end").value = officer.term_end || "";
+          }
+        } else {
+          title.textContent = "New Officer";
+          document.getElementById("officer_id").value = "";
+        }
+        modal.style.display = "flex";
+      }
+
+      function closeOfficerModal() {
+        var modal = document.getElementById("officerModal");
+        if (modal) modal.style.display = "none";
+      }
+
+      async function saveOfficer(e) {
+        e.preventDefault();
+        var id = document.getElementById("officer_id").value;
+        var payload = {
+          full_name: document.getElementById("officer_full_name").value.trim(),
+          username: document.getElementById("officer_username").value.trim(),
+          role: document.getElementById("officer_role").value.trim(),
+          account_status: document.getElementById("officer_status").value,
+          term_start: document.getElementById("officer_term_start").value || null,
+          term_end: document.getElementById("officer_term_end").value || null,
+          department_id: document.getElementById("officer_department").value || null,
+        };
+        var password = document.getElementById("officer_password").value.trim();
+        if (password) payload.password = password;
+
+        if (!payload.full_name || !payload.username) {
+          showOfficerMessage("Full name and username are required.", true);
+          return;
+        }
+
+        var url = id ? ("/api/president/officers/" + id + "/update/") : "/api/president/officers/create/";
+        var method = id ? "POST" : "POST";
+        try {
+          var resp = await fetch(url, {
+            method: method,
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken(),
+            },
+            body: JSON.stringify(payload),
+          });
+          var data = await resp.json();
+          if (data.ok) {
+            showOfficerMessage(id ? "Officer updated successfully." : "Officer created successfully.", false);
+            closeOfficerModal();
+            loadOfficerManagement();
+          } else {
+            showOfficerMessage(data.error || "Save failed.", true);
+          }
+        } catch (err) {
+          showOfficerMessage("Network error while saving officer.", true);
+        }
+      }
+
+      async function resetOfficerPassword(officerId) {
+        var confirmed = await Swal.fire({
+          title: "Reset Password?",
+          text: "A temporary password will be generated and shown once.",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Reset",
+          confirmButtonColor: "#1b5e20",
+        });
+        if (!confirmed.isConfirmed) return;
+        try {
+          var resp = await fetch("/api/president/officers/" + officerId + "/reset-password/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": getCSRFToken() },
+          });
+          var data = await resp.json();
+          if (data.ok) {
+            Swal.fire({
+              title: "Password Reset",
+              text: "Temporary password: " + data.temp_password,
+              icon: "success",
+              confirmButtonColor: "#1b5e20",
+            });
+          } else {
+            Swal.fire({ icon: "error", title: "Error", text: data.error || "Reset failed." });
+          }
+        } catch (e) {
+          Swal.fire({ icon: "error", title: "Error", text: "Network error." });
+        }
+      }
+
+      async function deactivateOfficer(officerId) {
+        var confirmed = await Swal.fire({
+          title: "Deactivate Officer?",
+          text: "This will set the account status to Inactive.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Deactivate",
+          confirmButtonColor: "#c62828",
+        });
+        if (!confirmed.isConfirmed) return;
+        try {
+          var resp = await fetch("/api/president/officers/" + officerId + "/deactivate/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": getCSRFToken() },
+          });
+          var data = await resp.json();
+          if (data.ok) {
+            Swal.fire({ icon: "success", title: "Deactivated", text: "Officer account deactivated." });
+            loadOfficerManagement();
+          } else {
+            Swal.fire({ icon: "error", title: "Error", text: data.error || "Deactivate failed." });
+          }
+        } catch (e) {
+          Swal.fire({ icon: "error", title: "Error", text: "Network error." });
+        }
+      }
+
+      // ==========================================================================
+      // PRESIDENT PROFILE
+      // ==========================================================================
+      async function loadPresidentProfile() {
+        try {
+          var resp = await fetch("/api/president/profile/", { credentials: "same-origin" });
+          var data = await resp.json();
+          if (!data.ok) return;
+          var o = data.officer || {};
+          document.getElementById("profileFullName").value = o.full_name || "";
+          document.getElementById("profileUsername").value = o.username || "";
+          document.getElementById("profilePassword").value = "";
+        } catch (e) {
+          console.error("Failed to load profile", e);
+        }
+      }
+
+      async function savePresidentProfile(e) {
+        e.preventDefault();
+        var payload = {
+          full_name: document.getElementById("profileFullName").value.trim(),
+          username: document.getElementById("profileUsername").value.trim(),
+        };
+        var password = document.getElementById("profilePassword").value.trim();
+        if (password) payload.password = password;
+
+        if (!payload.full_name || !payload.username) {
+          showToast("Full name and username are required.", true);
+          return;
+        }
+        try {
+          var resp = await fetch("/api/president/profile/update/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken(),
+            },
+            body: JSON.stringify(payload),
+          });
+          var data = await resp.json();
+          if (data.ok) {
+            showToast("Profile updated successfully.", false);
+            document.getElementById("profilePassword").value = "";
+          } else {
+            showToast(data.error || "Update failed.", true);
+          }
+        } catch (err) {
+          showToast("Network error while updating profile.", true);
+        }
+      }
+
+      // ==========================================================================
+      // OFFICER SELF-ENROLLMENT
+      // ==========================================================================
+      async function loadSelfEnrollForm() {
+        try {
+          var resp = await fetch("/api/president/profile/", { credentials: "same-origin" });
+          var data = await resp.json();
+          if (data.ok) {
+            document.getElementById("selfEnrollFullName").value = data.officer.full_name || "";
+          }
+        } catch (e) {
+          console.error("Failed to load self-enroll form", e);
+        }
+      }
+
+      async function saveSelfEnrollment(e) {
+        e.preventDefault();
+        var payload = {
+          employee_id: document.getElementById("selfEnrollEmployeeId").value.trim(),
+          department_id: document.getElementById("selfEnrollDepartment").value || null,
+          position: document.getElementById("selfEnrollPosition").value.trim(),
+          contact_number: document.getElementById("selfEnrollContact").value.trim() || null,
+          email: document.getElementById("selfEnrollEmail").value.trim() || null,
+        };
+        if (!payload.employee_id) {
+          showToast("Employee ID is required.", true);
+          return;
+        }
+        try {
+          var resp = await fetch("/api/president/officers/self-enroll/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken(),
+            },
+            body: JSON.stringify(payload),
+          });
+          var data = await resp.json();
+          if (data.ok) {
+            showToast("Officer-Member profile created successfully.", false);
+            document.getElementById("selfEnrollForm").reset();
+            loadSelfEnrollForm();
+          } else {
+            showToast(data.error || "Self-enrollment failed.", true);
+          }
+        } catch (err) {
+          showToast("Network error during self-enrollment.", true);
+        }
+      }
+
+      // ==========================================================================
+      // WIRE UP ADMIN FORMS + OFFICER TABLE ON LOAD
+      // ==========================================================================
+      document.addEventListener("turbo:load", function () {
+        var officerForm = document.getElementById("officerForm");
+        if (officerForm) {
+          officerForm.addEventListener("submit", saveOfficer);
+        }
+        var profileForm = document.getElementById("presidentProfileForm");
+        if (profileForm) {
+          profileForm.addEventListener("submit", savePresidentProfile);
+          loadPresidentProfile();
+        }
+        var selfForm = document.getElementById("selfEnrollForm");
+        if (selfForm) {
+          selfForm.addEventListener("submit", saveSelfEnrollment);
+          loadSelfEnrollForm();
+        }
+
+        // Cache officers for modal editing
+        var officerTable = document.getElementById("officerTable");
+        if (officerTable) {
+          fetch("/api/president/officers/", { credentials: "same-origin" })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data && data.ok) window.__officersCache = data.officers || [];
+            })
+            .catch(function () {});
+        }
+      });
+
+      // Auto-load officer table when admin module becomes visible
+      var officerObserver = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          if (
+            m.target.id === "administration-officers" &&
+            m.target.classList.contains("active")
+          ) {
+            loadOfficerManagement();
+          }
+        });
+      });
+      var officerModule = document.getElementById("administration-officers");
+      if (officerModule) {
+        officerObserver.observe(officerModule, { attributes: true, attributeFilter: ["class"] });
+      }
+
+      async function loadTermWarning() {
+        var banner = document.getElementById("termWarningBanner");
+        if (!banner) return;
+        try {
+          var resp = await fetch("/api/auth/term-info/", { credentials: "same-origin" });
+          var data = await resp.json();
+          if (!data || !data.ok) return;
+          if (data.is_expired) {
+            banner.style.display = "block";
+            banner.style.background = "#ffebee";
+            banner.style.color = "#c62828";
+            banner.style.border = "1px solid #ef9a9a";
+            banner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Your officer term has expired. Please contact the board.';
+          } else if (data.days_until_expiry !== null && data.days_until_expiry !== undefined && data.days_until_expiry <= 7) {
+            banner.style.display = "block";
+            banner.style.background = "#fff3e0";
+            banner.style.color = "#e65100";
+            banner.style.border = "1px solid #ffcc80";
+            banner.innerHTML = '<i class="fa-solid fa-clock"></i> Your officer term expires in ' + data.days_until_expiry + ' day(s). Please contact the board for renewal.';
+          } else if (data.days_until_expiry !== null && data.days_until_expiry !== undefined && data.days_until_expiry <= 30) {
+            banner.style.display = "block";
+            banner.style.background = "#fff8e1";
+            banner.style.color = "#f57f17";
+            banner.style.border = "1px solid #ffe082";
+            banner.innerHTML = '<i class="fa-solid fa-info-circle"></i> Your officer term expires in ' + data.days_until_expiry + ' day(s).';
+          }
+        } catch (e) {
+          console.error("Failed to load term info", e);
+        }
+      }
+
+      document.addEventListener("turbo:load", function () {
+        loadTermWarning();
+      });
     </script>
   </body>
 </html>

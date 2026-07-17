@@ -1,8 +1,13 @@
+import hashlib
 import json
 import logging
+import secrets
 import threading
+from datetime import datetime
 from typing import Any, Dict, List
 
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Sum
 from django.http import HttpRequest, JsonResponse
@@ -16,9 +21,11 @@ from channels.layers import get_channel_layer
 
 logger = logging.getLogger(__name__)
 
-from core_system.guards import require_role
+from core_system.guards import check_zero_trust, require_role
 from core_system.models import (
     AidTrackingPost,
+    BylawsFile,
+    Department,
     Contribution,
     DeathAid,
     FinancialDocumentArchive,
@@ -42,17 +49,21 @@ from core_system.constants.policy_constants import (
     get_monthly_dues_amount,
     get_contribution_amount_for_aid,
     is_exempt_from_dues_and_aid,
+    POLICY,
+    _get_setting_override,
 )
 from core_system.shared_view_utils import (
     MODEL_MAP,
     _audit_evidence_filename,
     _get_auditor_verification,
     _record_audit_trail,
+    _record_bulk_audit_trail,
     _log_sensitive_read,
     _payment_item_to_json,
     archive_transaction,
     _broadcast_pending_counts,
     _broadcast_to_group,
+    resolve_officer_from_session,
 )
 from core_system.services.compliance import (
     dues_compliance_summary,
@@ -62,6 +73,7 @@ from core_system.services.email_service import (
     queue_aid_emails,
     process_email_queue,
 )
+from core_system.auth_utils import sha256_hex
 
 
 def permission_denied_view(request, exception=None):
@@ -141,6 +153,7 @@ def president_dashboard(request):
         "officer_full_name": officer_full_name,
         "officer_role": officer_role,
         "access_token": request.session.get("access_token", ""),
+        "departments": Department.objects.filter(is_active=True).order_by("name"),
     }
 
     if not officer_full_name.strip():
@@ -463,6 +476,145 @@ def president_auditor_approved_payment_detail(request: HttpRequest, entity_id: i
 
 
 @require_GET
+def president_pending_contributions(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    verifications = TransactionVerification.objects.filter(
+        table_name="contribution",
+        target_category="aid_contribution",
+        verification_status="Auditor Verified",
+        auditor_id_FK__isnull=False,
+        president_id_FK__isnull=True,
+    ).select_related("auditor_id_FK").order_by("verification_id")
+
+    items = []
+    for v in verifications:
+        contrib = Contribution.objects.filter(
+            contribution_id_PK=v.record_id
+        ).select_related("member_id_FK", "aid_tracking_post_id_FK").first()
+        if not contrib:
+            continue
+
+        member = contrib.member_id_FK
+        post = contrib.aid_tracking_post_id_FK
+        member_name = member.full_name if member else "Unknown"
+
+        logs = GlobalAuditTrail.objects.filter(
+            table_name="contribution",
+            record_id=v.record_id,
+            action__in=["VERIFIED", "RETURNED", "CORRECTION_REQUIRED", "REJECTED", "RESUBMITTED", "CREATED"],
+        ).order_by("timestamp")
+
+        timeline = [
+            {
+                "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "role": log.actor_type or "System",
+                "user": log.actor_name or "System Log",
+                "action": log.action.title().replace("_", " "),
+                "notes": log.notes or "",
+                "old_values": log.old_values,
+                "new_values": log.new_values,
+            }
+            for log in logs
+        ]
+
+        aid_type_label = post.aid_type if post else "—"
+        source_type_label = {
+            "medical_aid": "Medical Aid",
+            "death_aid": "Death Aid",
+        }.get(post.source_type if post else "", "—")
+
+        items.append({
+            "verification_id": v.verification_id,
+            "record_id": contrib.contribution_id_PK,
+            "member_name": member_name,
+            "member_id": member.member_id_PK if member else None,
+            "expected_amount": float(contrib.expected_amount),
+            "paid_amount": float(contrib.paid_amount),
+            "payment_date": str(contrib.payment_date) if contrib.payment_date else "—",
+            "status": contrib.status,
+            "aid_type": aid_type_label,
+            "source_type": source_type_label,
+            "post_id": post.post_id_PK if post else None,
+            "auditor_name": v.auditor_id_FK.full_name if v.auditor_id_FK_id else "—",
+            "auditor_remarks": v.auditor_remarks or "",
+            "verified_at": v.verified_at.strftime("%Y-%m-%d %H:%M:%S") if v.verified_at else "—",
+            "returned_reason": v.returned_reason or "",
+            "return_count": v.return_count or 0,
+            "timeline": timeline,
+        })
+
+    return JsonResponse({"success": True, "contributions": items}, safe=False)
+
+
+@require_http_methods(["POST"])
+def submit_presidential_contribution_decision(request):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+    try:
+        body = json.loads(request.body)
+        target_id = body.get("target_id")
+        decision = body.get("decision")
+        remarks = body.get("remarks", "")
+
+        stored_officer_id = request.session.get("officer_id")
+        if stored_officer_id is None:
+            return JsonResponse({"success": False, "message": "Officer session missing."}, status=401)
+        officer = get_object_or_404(OfficerUser, user_id_PK=int(stored_officer_id))
+        verification = get_object_or_404(TransactionVerification, verification_id=target_id)
+
+        if not can_president_act(verification.verification_status):
+            return JsonResponse({"success": False, "message": "Transaction is not in a state that can be acted upon by the President."}, status=400)
+
+        if decision == "Approved":
+            verification.verification_status = "Approved"
+            verification.approved_at = timezone.now()
+            action_str = "Presidential Executive Approval Completed"
+        elif decision == "Rejected":
+            verification.verification_status = "Rejected"
+            if not remarks:
+                return JsonResponse({"success": False, "message": "Remarks are mandatory for rejections."}, status=400)
+            action_str = "Flagged Deficient by Executive Order"
+        else:
+            return JsonResponse({"success": False, "message": "Invalid decision route."}, status=400)
+
+        verification.president_id_FK = officer
+        verification.save()
+
+        if verification.verification_status == "Approved":
+            archive = archive_transaction(verification.table_name, verification.record_id, officer)
+            if archive:
+                FundTransaction.objects.create(
+                    direction="inflow",
+                    amount=archive.amount,
+                    source_type="aid_contribution",
+                    source_id=verification.record_id,
+                    description=f"Aid contribution — {archive.member_name}",
+                    recorded_by_user_id_FK=officer,
+                )
+
+        _record_audit_trail(
+            table=verification.table_name,
+            record_id=verification.record_id,
+            action="APPROVED" if verification.verification_status == "Approved" else "REJECTED",
+            actor=officer,
+            notes=remarks or None,
+            ip=request.META.get("REMOTE_ADDR"),
+        )
+
+        _broadcast_pending_counts()
+        return JsonResponse({"success": True, "message": f"Contribution verification {verification.verification_status}."})
+    except Exception as e:
+        return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+
+@require_GET
 def president_auditor_approved_aids_queue(request: HttpRequest):
     guard = require_role(request, role="President")
     if guard is not None:
@@ -670,6 +822,12 @@ def president_auditor_approved_aids_queue(request: HttpRequest):
 
 @require_http_methods(["POST"])
 def submit_presidential_decision(request):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
     try:
         body = json.loads(request.body)
         target_id = body.get("target_id")
@@ -758,6 +916,12 @@ def submit_presidential_decision(request):
 @require_http_methods(["POST"])
 @transaction.atomic
 def submit_presidential_aid_decision(request):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
     try:
         body = json.loads(request.body)
         target_id = (body.get("target_id") or "").strip()
@@ -961,6 +1125,12 @@ def submit_presidential_aid_decision(request):
 @require_POST
 @transaction.atomic
 def submit_presidential_decision_batch(request):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
     try:
         body = json.loads(request.body)
         ids = body.get("ids", [])
@@ -1023,20 +1193,17 @@ def submit_presidential_decision_batch(request):
                         )
                     )
 
-            audit_entries.append(GlobalAuditTrail(
-                table_name=v.table_name,
-                record_id=v.record_id,
-                action=action_str,
-                actor_type=getattr(officer, "role", "President"),
-                actor_id=officer.user_id_PK,
-                actor_name=getattr(officer, "full_name", ""),
-                ip_address=ip_address,
-                notes=remarks.strip() if remarks else None,
-            ))
+            audit_entries.append({
+                "table": v.table_name,
+                "record_id": v.record_id,
+                "action": action_str,
+                "ip": ip_address,
+                "notes": remarks.strip() if remarks else None,
+            })
             processed += 1
 
         if audit_entries:
-            GlobalAuditTrail.objects.bulk_create(audit_entries)
+            _record_bulk_audit_trail(audit_entries, actor=officer)
 
         if fund_transactions:
             FundTransaction.objects.bulk_create(fund_transactions)
@@ -1055,6 +1222,12 @@ def submit_presidential_decision_batch(request):
 @require_POST
 @transaction.atomic
 def submit_presidential_aid_decision_batch(request):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
     try:
         body = json.loads(request.body)
         ids = body.get("ids", [])
@@ -1204,20 +1377,17 @@ def submit_presidential_aid_decision_batch(request):
                     _broadcast_to_group("auditor_dashboard", payload)
                     _broadcast_to_group("treasurer_dashboard", payload)
 
-            audit_entries.append(GlobalAuditTrail(
-                table_name=v.table_name,
-                record_id=v.record_id,
-                action="APPROVED" if decision == "Approved" else "REJECTED",
-                actor_type=getattr(officer, "role", "President"),
-                actor_id=officer.user_id_PK,
-                actor_name=getattr(officer, "full_name", ""),
-                ip_address=ip_address,
-                notes=remarks.strip() if remarks else None,
-            ))
+            audit_entries.append({
+                "table": v.table_name,
+                "record_id": v.record_id,
+                "action": "APPROVED" if decision == "Approved" else "REJECTED",
+                "ip": ip_address,
+                "notes": remarks.strip() if remarks else None,
+            })
             processed += 1
 
         if audit_entries:
-            GlobalAuditTrail.objects.bulk_create(audit_entries)
+            _record_bulk_audit_trail(audit_entries, actor=officer)
 
         _broadcast_pending_counts()
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
@@ -1257,6 +1427,14 @@ def president_kpi_counts(request: HttpRequest):
     ).count()
     verified_claims_count = medical_pending + death_pending
 
+    verified_contributions_count = TransactionVerification.objects.filter(
+        table_name="contribution",
+        target_category="aid_contribution",
+        verification_status="Auditor Verified",
+        auditor_id_FK__isnull=False,
+        president_id_FK__isnull=True,
+    ).count()
+
     payment_decisions = TransactionVerification.objects.filter(
         president_id_FK__isnull=False,
     ).count()
@@ -1265,7 +1443,11 @@ def president_kpi_counts(request: HttpRequest):
     ).count() + DeathAid.objects.filter(
         president_decided_by_user_id_FK__isnull=False,
     ).count()
-    total_approvals_count = payment_decisions + aid_decisions
+    contribution_decisions = TransactionVerification.objects.filter(
+        table_name="contribution",
+        president_id_FK__isnull=False,
+    ).count()
+    total_approvals_count = payment_decisions + aid_decisions + contribution_decisions
 
     today = timezone.localdate()
     dept_summary = dues_compliance_summary(today.year, today.month)
@@ -1285,6 +1467,7 @@ def president_kpi_counts(request: HttpRequest):
         "ok": True,
         "verified_dues_count": verified_dues_count,
         "verified_claims_count": verified_claims_count,
+        "verified_contributions_count": verified_contributions_count,
         "total_approvals_count": total_approvals_count,
         "total_active_members": total_active,
         "overall_compliance_percentage": overall_pct,
@@ -1399,6 +1582,9 @@ def president_finish_request_details(request: HttpRequest):
 @transaction.atomic
 def president_approve_aid_post_finish(request: HttpRequest):
     guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -1518,6 +1704,9 @@ def president_approve_aid_post_finish(request: HttpRequest):
 @transaction.atomic
 def president_reject_aid_post_finish(request: HttpRequest):
     guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -1686,6 +1875,9 @@ def president_approve_payroll_batch(request: HttpRequest, batch_id: int):
     guard = require_role(request, role="President")
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     batch = get_object_or_404(PayrollBatch, pk=batch_id, status="Auditor Verified")
 
@@ -1787,6 +1979,9 @@ def president_reject_payroll_batch(request: HttpRequest, batch_id: int):
     guard = require_role(request, role="President")
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     batch = get_object_or_404(PayrollBatch, pk=batch_id, status="Auditor Verified")
 
@@ -1837,3 +2032,661 @@ def _build_payroll_deduction_description(deduction: PayrollDeduction) -> str:
             post_ref = f" ({post.aid_type}#{post.source_id})"
         return f"Aid contribution{post_ref} — {member_name}"
     return f"Deduction — {member_name}"
+
+
+# ==========================================================================
+# BYLAWS CONSTANTS MANAGEMENT
+# ==========================================================================
+
+
+def _resolve_president(request: HttpRequest):
+    stored_officer_id = request.session.get("officer_id")
+    if stored_officer_id is None:
+        return None
+    try:
+        return OfficerUser.objects.get(user_id_PK=int(stored_officer_id))
+    except Exception:
+        return None
+
+
+def _parse_iso_date(value: Any):
+    raw_value = (value or "").strip() if isinstance(value, str) else value
+    if not raw_value:
+        return None
+    try:
+        return datetime.fromisoformat(str(raw_value)).date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _officer_to_json(officer: OfficerUser) -> Dict[str, Any]:
+    department = getattr(officer, "department_id_FK", None)
+    return {
+        "id": officer.user_id_PK,
+        "full_name": officer.full_name,
+        "username": officer.username,
+        "role": officer.role,
+        "account_status": officer.account_status,
+        "term_start": officer.term_start.isoformat() if officer.term_start else "",
+        "term_end": officer.term_end.isoformat() if officer.term_end else "",
+        "department_id": department.department_id_PK if department else None,
+        "department_name": department.name if department else "",
+        "department_code": department.code if department else "",
+        "mfa_enabled": bool(officer.mfa_enabled),
+        "created_at": officer.created_at.isoformat() if officer.created_at else "",
+        "updated_at": officer.updated_at.isoformat() if officer.updated_at else "",
+    }
+
+
+def _extract_request_data(request: HttpRequest) -> Dict[str, Any]:
+    if request.content_type and "json" in request.content_type.lower():
+        try:
+            return json.loads(request.body.decode("utf-8") or "{}")
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return {}
+    if request.body:
+        try:
+            return json.loads(request.body.decode("utf-8") or "{}")
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            pass
+    return request.POST.dict()
+
+
+@require_GET
+def president_officers_list(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    officers = OfficerUser.objects.select_related("department_id_FK").order_by("-created_at", "full_name")
+    return JsonResponse({"ok": True, "officers": [_officer_to_json(officer) for officer in officers]})
+
+
+@require_POST
+@transaction.atomic
+def president_officers_create(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    payload = _extract_request_data(request)
+    full_name = (payload.get("full_name") or payload.get("name") or "").strip()
+    username = (payload.get("username") or "").strip()
+    password = (payload.get("password") or "").strip()
+    role = (payload.get("role") or "Officer").strip()
+    account_status = (payload.get("account_status") or "Active").strip() or "Active"
+    term_start = _parse_iso_date(payload.get("term_start"))
+    term_end = _parse_iso_date(payload.get("term_end"))
+    department_id = payload.get("department_id") or payload.get("department") or None
+
+    if not full_name:
+        return JsonResponse({"ok": False, "error": "Full name is required."}, status=400)
+    if not username:
+        return JsonResponse({"ok": False, "error": "Username is required."}, status=400)
+    if not password:
+        return JsonResponse({"ok": False, "error": "Password is required."}, status=400)
+
+    if OfficerUser.objects.filter(username=username).exists():
+        return JsonResponse({"ok": False, "error": "Username already exists."}, status=409)
+
+    department = None
+    if department_id not in (None, "", 0, "0"):
+        department = Department.objects.filter(department_id_PK=int(department_id)).first()
+        if department is None:
+            return JsonResponse({"ok": False, "error": "Selected department was not found."}, status=400)
+
+    officer = OfficerUser.objects.create(
+        full_name=full_name,
+        username=username,
+        password_hash=sha256_hex(password),
+        role=role,
+        department_id_FK=department,
+        account_status=account_status,
+        term_start=term_start,
+        term_end=term_end,
+    )
+
+    president = _resolve_president(request)
+    _record_audit_trail(
+        table="officer_user",
+        record_id=officer.user_id_PK,
+        action="CREATED",
+        actor=president,
+        new=_officer_to_json(officer),
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Created officer account for {officer.full_name}",
+    )
+
+    return JsonResponse({"ok": True, "officer": _officer_to_json(officer)})
+
+
+@require_POST
+@transaction.atomic
+def president_officers_update(request: HttpRequest, officer_id: int):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    officer = get_object_or_404(OfficerUser.objects.select_related("department_id_FK"), pk=officer_id)
+    payload = _extract_request_data(request)
+
+    username = (payload.get("username") or officer.username).strip()
+    full_name = (payload.get("full_name") or officer.full_name).strip()
+    role = (payload.get("role") or officer.role).strip()
+    account_status = (payload.get("account_status") or officer.account_status).strip()
+    term_start = _parse_iso_date(payload.get("term_start")) if payload.get("term_start") not in (None, "") else officer.term_start
+    term_end = _parse_iso_date(payload.get("term_end")) if payload.get("term_end") not in (None, "") else officer.term_end
+    password = (payload.get("password") or "").strip()
+    department_id = payload.get("department_id") or payload.get("department")
+
+    if not username:
+        return JsonResponse({"ok": False, "error": "Username is required."}, status=400)
+    if not full_name:
+        return JsonResponse({"ok": False, "error": "Full name is required."}, status=400)
+
+    if OfficerUser.objects.exclude(pk=officer.pk).filter(username=username).exists():
+        return JsonResponse({"ok": False, "error": "Username already exists."}, status=409)
+
+    department = officer.department_id_FK
+    if department_id not in (None, "", 0, "0"):
+        department = Department.objects.filter(department_id_PK=int(department_id)).first()
+        if department is None:
+            return JsonResponse({"ok": False, "error": "Selected department was not found."}, status=400)
+    elif department_id in ("", None):
+        department = None if payload.get("clear_department") else department
+
+    officer.full_name = full_name
+    officer.username = username
+    officer.role = role
+    officer.account_status = account_status
+    officer.term_start = term_start
+    officer.term_end = term_end
+    officer.department_id_FK = department
+    if password:
+        officer.password_hash = sha256_hex(password)
+
+    update_fields = [
+        "full_name",
+        "username",
+        "role",
+        "account_status",
+        "term_start",
+        "term_end",
+        "department_id_FK",
+        "updated_at",
+    ]
+    if password:
+        update_fields.append("password_hash")
+    officer.save(update_fields=update_fields)
+
+    president = _resolve_president(request)
+    _record_audit_trail(
+        table="officer_user",
+        record_id=officer.user_id_PK,
+        action="UPDATED",
+        actor=president,
+        new=_officer_to_json(officer),
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Updated officer account for {officer.full_name}",
+    )
+
+    return JsonResponse({"ok": True, "officer": _officer_to_json(officer)})
+
+
+@require_POST
+@transaction.atomic
+def president_officers_reset_password(request: HttpRequest, officer_id: int):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    officer = get_object_or_404(OfficerUser, pk=officer_id)
+    temp_password = secrets.token_urlsafe(10)
+    officer.password_hash = sha256_hex(temp_password)
+    officer.save(update_fields=["password_hash", "updated_at"])
+
+    president = _resolve_president(request)
+    _record_audit_trail(
+        table="officer_user",
+        record_id=officer.user_id_PK,
+        action="PASSWORD_RESET",
+        actor=president,
+        new={"username": officer.username, "temp_password_generated": True},
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Reset password for {officer.full_name}",
+    )
+
+    return JsonResponse({"ok": True, "temp_password": temp_password, "officer": _officer_to_json(officer)})
+
+
+@require_POST
+@transaction.atomic
+def president_officers_deactivate(request: HttpRequest, officer_id: int):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+
+    officer = get_object_or_404(OfficerUser, pk=officer_id)
+    officer.account_status = "Inactive"
+    officer.save(update_fields=["account_status", "updated_at"])
+
+    president = _resolve_president(request)
+    _record_audit_trail(
+        table="officer_user",
+        record_id=officer.user_id_PK,
+        action="DEACTIVATED",
+        actor=president,
+        new=_officer_to_json(officer),
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Deactivated officer account for {officer.full_name}",
+    )
+
+    return JsonResponse({"ok": True, "officer": _officer_to_json(officer)})
+
+
+@require_GET
+def president_profile(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    return JsonResponse({"ok": True, "officer": _officer_to_json(officer)})
+
+
+@require_POST
+@transaction.atomic
+def president_profile_update(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    payload = _extract_request_data(request)
+    full_name = (payload.get("full_name") or officer.full_name).strip()
+    username = (payload.get("username") or officer.username).strip()
+    password = (payload.get("password") or "").strip()
+
+    if not full_name:
+        return JsonResponse({"ok": False, "error": "Full name is required."}, status=400)
+    if not username:
+        return JsonResponse({"ok": False, "error": "Username is required."}, status=400)
+
+    if OfficerUser.objects.exclude(pk=officer.pk).filter(username=username).exists():
+        return JsonResponse({"ok": False, "error": "Username already exists."}, status=409)
+
+    officer.full_name = full_name
+    officer.username = username
+    if password:
+        officer.password_hash = sha256_hex(password)
+
+    update_fields = ["full_name", "username", "updated_at"]
+    if password:
+        update_fields.append("password_hash")
+    officer.save(update_fields=update_fields)
+
+    _record_audit_trail(
+        table="officer_user",
+        record_id=officer.user_id_PK,
+        action="PROFILE_UPDATED",
+        actor=officer,
+        new=_officer_to_json(officer),
+        ip=request.META.get("REMOTE_ADDR"),
+        notes="Updated own officer profile",
+    )
+
+    return JsonResponse({"ok": True, "officer": _officer_to_json(officer)})
+
+
+@require_POST
+@transaction.atomic
+def president_officer_self_enroll(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    president = resolve_officer_from_session(request)
+    if president is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    payload = _extract_request_data(request)
+    employee_id = (payload.get("employee_id") or payload.get("prof_id") or "").strip()
+    department_id = payload.get("department_id") or payload.get("prof_dept") or None
+    department_name = (payload.get("department_name") or payload.get("department") or "").strip()
+    position = (payload.get("position") or payload.get("prof_pos") or president.role or "Officer").strip()
+    contact_number = (payload.get("contact_number") or payload.get("prof_contact") or "").strip() or None
+    email = (payload.get("email") or payload.get("prof_email") or "").strip() or None
+
+    if not employee_id:
+        return JsonResponse({"ok": False, "error": "Employee ID is required."}, status=400)
+
+    if Member.objects.filter(employee_id=employee_id).exists():
+        return JsonResponse({"ok": False, "error": "Employee ID is already registered."}, status=409)
+    if Member.objects.filter(officer_user_id_FK=president).exists():
+        return JsonResponse({"ok": False, "error": "This officer is already linked to a member profile."}, status=409)
+
+    department = president.department_id_FK
+    if department_id not in (None, "", 0, "0"):
+        department = Department.objects.filter(department_id_PK=int(department_id)).first() or department
+    elif department_name:
+        department = Department.objects.filter(name__iexact=department_name).first() or department
+
+    member = Member.objects.create(
+        full_name=president.full_name,
+        employee_id=employee_id,
+        officer_user_id_FK=president,
+        department=department.name if department else department_name or None,
+        department_id_FK=department,
+        position=position,
+        contact_number=contact_number,
+        email=email,
+        employment_status="Active",
+        membership_status="Pending",
+        member_type="Officer-Member",
+        date_joined=timezone.now().date(),
+    )
+
+    fee = MembershipFee.objects.create(
+        member_id_FK=member,
+        amount=str(get_membership_fee_amount()),
+        payment_method="Pending",
+        payment_status="Pending",
+        payment_date=timezone.now().date(),
+        receipt_number=f"OFFICER-SELF-{int(timezone.now().timestamp())}",
+        recorded_by_user_id_FK=president,
+    )
+    TransactionVerification.objects.create(
+        table_name="membership_fee",
+        record_id=fee.fee_id_PK,
+        verification_status="Pending",
+    )
+
+    _record_audit_trail(
+        table="member",
+        record_id=member.member_id_PK,
+        action="CREATED",
+        actor=president,
+        new={
+            "member_id": member.member_id_PK,
+            "full_name": member.full_name,
+            "employee_id": member.employee_id,
+            "department": member.department or "",
+            "position": member.position or "",
+            "member_type": member.member_type,
+            "officer_user_id": president.user_id_PK,
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+        notes="Officer self-enrolled as member",
+    )
+
+    _record_audit_trail(
+        table="membership_fee",
+        record_id=fee.fee_id_PK,
+        action="CREATED",
+        actor=president,
+        new={
+            "member_id": member.member_id_PK,
+            "amount": str(fee.amount),
+            "payment_status": fee.payment_status,
+            "receipt_number": fee.receipt_number,
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+        notes="Auto-generated membership fee for officer self-enrollment",
+    )
+
+    _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "members"})
+
+    return JsonResponse({"ok": True, "member": {"member_id": member.member_id_PK, "employee_id": member.employee_id, "full_name": member.full_name}})
+
+
+@require_GET
+def get_policy_constants(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    president = _resolve_president(request)
+
+    defaults = {
+        "membership_fee": float(POLICY.membership_fee),
+        "monthly_dues": float(POLICY.monthly_dues),
+        "accidental_sickness_aid_threshold": float(POLICY.accidental_sickness_aid_threshold),
+        "accidental_sickness_aid_benefit": float(POLICY.accidental_sickness_aid_benefit),
+        "death_aid_member": float(POLICY.death_aid_member),
+        "death_aid_spouse": float(POLICY.death_aid_spouse),
+        "death_aid_parent_child": float(POLICY.death_aid_parent_child),
+        "death_aid_full_blood_sibling": float(POLICY.death_aid_full_blood_sibling),
+    }
+
+    overrides = {}
+    for key in defaults:
+        raw = _get_setting_override(key)
+        if raw is not None:
+            try:
+                overrides[key] = float(raw)
+            except (TypeError, ValueError):
+                overrides[key] = defaults[key]
+        else:
+            overrides[key] = defaults[key]
+
+    _record_audit_trail(
+        table="policy_constants",
+        record_id=0,
+        action="READ",
+        actor=president,
+        ip=request.META.get("REMOTE_ADDR"),
+        notes="Retrieved policy constants snapshot",
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "constants": overrides,
+        "defaults": defaults,
+    })
+
+
+@require_POST
+@transaction.atomic
+def update_policy_constant(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+
+    president = _resolve_president(request)
+    if president is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid JSON body."}, status=400)
+
+    key = (data.get("key") or "").strip()
+    value_raw = data.get("value")
+
+    allowed_keys = {k for k, _, _ in _POLICY_CONSTANT_KEYS}
+    if key not in allowed_keys:
+        return JsonResponse({"ok": False, "error": f"Unknown constant key: {key}"}, status=400)
+
+    try:
+        new_value = float(value_raw)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Value must be a number."}, status=400)
+
+    if new_value < 0:
+        return JsonResponse({"ok": False, "error": "Value cannot be negative."}, status=400)
+
+    old_value = None
+    setting_key = f"{_POLICY_OVERRIDE_PREFIX}{key}"
+    row, _ = SystemSetting.objects.get_or_create(
+        setting_key=setting_key,
+        defaults={"setting_value": str(new_value)},
+    )
+    old_value = row.setting_value
+    row.setting_value = str(new_value)
+    row.save(update_fields=["setting_value", "updated_at"])
+
+    _record_audit_trail(
+        table="policy_constants",
+        record_id=0,
+        action="UPDATED",
+        actor=president,
+        old={"key": key, "value": old_value},
+        new={"key": key, "value": str(new_value)},
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Updated policy constant {key}",
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "message": f"Constant {key} updated to ₱{new_value:,.2f}",
+        "key": key,
+        "value": new_value,
+    })
+
+
+@require_GET
+def bylaws_files_api(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    president = _resolve_president(request)
+    files = BylawsFile.objects.all().order_by("-uploaded_at")
+
+    data = []
+    for f in files:
+        data.append({
+            "document_id": f.bylaws_file_id,
+            "file_name": f.file_name,
+            "file_type": f.file_type,
+            "uploaded_at": f.uploaded_at.strftime("%Y-%m-%d %H:%M:%S") if f.uploaded_at else None,
+            "uploaded_by": f.uploaded_by_user_id_FK.full_name if f.uploaded_by_user_id_FK else "System",
+            "verification_status": f.verification_status,
+        })
+
+    _record_audit_trail(
+        table="bylaws_documents",
+        record_id=0,
+        action="READ",
+        actor=president,
+        ip=request.META.get("REMOTE_ADDR"),
+        notes="Listed bylaws document archive",
+    )
+
+    return JsonResponse({"ok": True, "files": data})
+
+
+@require_POST
+@transaction.atomic
+def upload_bylaws_file(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    president = _resolve_president(request)
+    if president is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    uploaded_file = request.FILES.get("bylaws_file")
+    if not uploaded_file:
+        return JsonResponse({"ok": False, "error": "No file uploaded."}, status=400)
+
+    allowed_types = {"application/pdf", "text/plain", "application/msword",
+                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+    if uploaded_file.content_type not in allowed_types:
+        return JsonResponse({"ok": False, "error": f"Unsupported file type: {uploaded_file.content_type}"}, status=400)
+
+    max_size = 10 * 1024 * 1024
+    if uploaded_file.size > max_size:
+        return JsonResponse({"ok": False, "error": "File size exceeds 10MB limit."}, status=400)
+
+    file_bytes = uploaded_file.read()
+    file_hash = ""
+    try:
+        hasher = hashlib.sha256()
+        hasher.update(file_bytes)
+        file_hash = hasher.hexdigest()
+    except Exception:
+        file_hash = ""
+
+    doc = BylawsFile.objects.create(
+        file_name=uploaded_file.name,
+        file_type=uploaded_file.content_type or "",
+        file_data=file_bytes,
+        file_size=uploaded_file.size or 0,
+        file_hash=file_hash or "",
+        verification_status="Active",
+        uploaded_by_user_id_FK=president,
+    )
+
+    _record_audit_trail(
+        table="bylaws_documents",
+        record_id=doc.bylaws_file_id,
+        action="UPLOADED",
+        actor=president,
+        new={
+            "file_name": uploaded_file.name,
+            "file_type": uploaded_file.content_type,
+            "file_size": uploaded_file.size,
+            "file_hash": file_hash,
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Uploaded bylaws file: {uploaded_file.name}",
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "message": f"Bylaws file '{uploaded_file.name}' uploaded successfully.",
+        "document_id": doc.bylaws_file_id,
+        "file_name": uploaded_file.name,
+    })
+
+
+@require_POST
+@transaction.atomic
+def delete_bylaws_file(request: HttpRequest, document_id: int):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+
+    president = _resolve_president(request)
+    if president is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    doc = get_object_or_404(BylawsFile, pk=document_id)
+    old_values = {
+        "file_name": doc.file_name,
+        "file_type": doc.file_type,
+        "verification_status": doc.verification_status,
+    }
+
+    doc.delete()
+
+    _record_audit_trail(
+        table="bylaws_documents",
+        record_id=document_id,
+        action="DELETED",
+        actor=president,
+        old=old_values,
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Deleted bylaws file: {old_values.get('file_name')}",
+    )
+
+    return JsonResponse({"ok": True, "message": "Bylaws file deleted successfully."})
+
