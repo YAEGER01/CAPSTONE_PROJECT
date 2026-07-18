@@ -401,6 +401,9 @@ async function submitPpBatchVerify(decision) {
   const confirmed = await Swal.fire({title:label + ' ' + ids.length + ' payment entr' + (ids.length === 1 ? 'y' : 'ies') + '?',icon:'question',showCancelButton:true,confirmButtonText:label,cancelButtonText:'Cancel'});
   if (!confirmed.isConfirmed) return;
 
+  var ztOk = await window.ensureZeroTrust();
+  if (!ztOk) return;
+
   try {
     const resp = await fetch("/api/payments/presidential-decision/batch/", {
       method: "POST",

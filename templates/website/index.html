@@ -1308,6 +1308,56 @@
       })();
     </script>
 
+    <!-- Session Expired Toast -->
+    <div id="session-expired-toast" style="
+      display: none;
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 9999;
+      background: #dc2626;
+      color: #fff;
+      padding: 16px 24px;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      max-width: 380px;
+      animation: toastSlideIn 0.4s ease-out;
+    ">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size: 20px;"></i>
+        <div>
+          <strong style="display: block; margin-bottom: 2px;">Session Expired</strong>
+          <span>You have been logged out due to inactivity.</span>
+        </div>
+      </div>
+    </div>
+    <style>
+      @keyframes toastSlideIn {
+        from { opacity: 0; transform: translateX(60px); }
+        to   { opacity: 1; transform: translateX(0); }
+      }
+    </style>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get("session_expired") === "1") {
+          var toast = document.getElementById("session-expired-toast");
+          if (toast) {
+            toast.style.display = "block";
+            setTimeout(function () {
+              toast.style.display = "none";
+            }, 6000);
+          }
+          if (window.history && window.history.replaceState) {
+            var cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+        }
+      })();
+    </script>
+
   </body>
 </html>
 

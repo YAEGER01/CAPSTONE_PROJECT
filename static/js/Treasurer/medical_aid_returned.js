@@ -125,6 +125,13 @@
     });
   }
 
+  function initFlatpickrRange() {
+    var el = getEl(INPUT_HOSPITAL_DATE);
+    if (el && typeof flatpickr !== "undefined" && !el._flatpickr) {
+      flatpickr(el, { mode: "range", dateFormat: "Y-m-d" });
+    }
+  }
+
   function fillEditForm(record) {
     FileQueue.clear("ma_ret");
     const sel = getEl(SELECT_RECORD_ID);
@@ -138,7 +145,12 @@
     setVal(INPUT_REQUEST_DATE, record.request_date || "");
     setVal(INPUT_REQUESTED_AMOUNT, record.requested_amount || "");
     setVal(INPUT_HOSPITAL_NAME, record.hospital_name || "");
-    setVal(INPUT_HOSPITAL_DATE, record.hospital_date || "");
+    var fpEl = getEl(INPUT_HOSPITAL_DATE);
+    if (fpEl && fpEl._flatpickr) {
+      fpEl._flatpickr.setDate(record.hospital_date || "");
+    } else {
+      setVal(INPUT_HOSPITAL_DATE, record.hospital_date || "");
+    }
     setVal(INPUT_HOSPITAL_BILL, record.hospital_bill_amount || "");
     setVal(INPUT_CLAIM_YEAR, record.claim_year || "");
     setVal(INPUT_DOCUMENT_STATUS, record.document_status || "");
@@ -305,6 +317,7 @@
   }
 
   function wireUp() {
+    initFlatpickrRange();
     FileQueue.init("ma_ret", { inputId: "ma_ret_file_input", containerId: "ma_ret_file_queue", maxFiles: 1 });
 
     const form = getEl(FORM_ID);

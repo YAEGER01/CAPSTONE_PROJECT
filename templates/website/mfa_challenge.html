@@ -63,7 +63,7 @@
       <form id="mfaForm" novalidate>
         {% csrf_token %}
         <p class="mfa-intro">
-          Enter the 6-digit verification code sent to your registered device.
+          Enter the 6-digit verification code sent to your registered email address.
         </p>
 
         <div id="mfaError" class="error-note" style="display: none;">
@@ -93,21 +93,20 @@
         <input type="hidden" id="mfaUsername" value="{{ username|default:'' }}" />
 
         <div class="mfa-actions">
-          <button class="submit-btn" type="submit" id="mfaSubmitBtn">
+          <button class="btn-slim btn-primary" type="submit" id="mfaSubmitBtn">
             <i class="fa-solid fa-check"></i> Verify
           </button>
           <button
-            class="secondary-btn"
+            class="btn-slim btn-secondary"
             type="button"
             id="resendBtn"
-            style="margin-top: 10px;"
           >
             <i class="fa-solid fa-rotate-right"></i> Resend Code
           </button>
         </div>
 
         <p class="mfa-footer">
-          Didn't receive it? Check your push notifications or email.
+          Didn't receive it? Check your email.
         </p>
       </form>
     </section>
@@ -198,7 +197,7 @@
               btn.disabled = false;
               btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Resend Code';
               if (data && data.ok) {
-                alert("Verification code resent via " + (data.delivery === "email" ? "email" : "push notification") + ".");
+                alert("Verification code resent via email.");
               } else {
                 showError((data && data.error) || "Failed to resend code.");
               }

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import json
+import threading
 
+from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.core.exceptions import PermissionDenied
@@ -14,42 +17,86 @@ from core_system.models import AccessSession
 logger = logging.getLogger(__name__)
 
 
+def _send_session_expired_push(officer) -> None:
+    """Send a push notification to all of the officer's subscribed devices."""
+    try:
+        from core_system.models import PushSubscription
+        from pywebpush import webpush
+
+        subs = PushSubscription.objects.filter(officer_id_FK=officer)
+        if not subs.exists():
+            return
+
+        vapid_private_key = settings.VAPID_PRIVATE_KEY
+        vapid_aud = getattr(settings, "PUSH_VAPID_AUD", "http://127.0.0.1:8000")
+
+        payload = json.dumps({
+            "title": "Session Expired",
+            "body": "You have been logged out due to inactivity.",
+            "url": "/",
+        })
+
+        for sub in subs:
+            try:
+                webpush(
+                    subscription_info={
+                        "endpoint": sub.endpoint,
+                        "keys": {"p256dh": sub.p256dh_key, "auth": sub.auth_key},
+                    },
+                    data=payload,
+                    vapid_private_key=vapid_private_key,
+                    vapid_claims={
+                        "sub": "mailto:admin@caufa.local",
+                        "aud": vapid_aud,
+                    },
+                )
+            except Exception as exc:
+                logger.warning("Session-expired push failed for sub %s: %s", sub.pk, exc)
+    except Exception as exc:
+        logger.warning("Session-expired push setup failed: %s", exc)
+
+
 def require_officer_session(request: HttpRequest) -> HttpResponse | None:
     """Validate ACCESS_SESSION token stored in session.
 
     Returns:
       - None if authorized
-      - redirect("login") or HttpResponseForbidden otherwise
+      - redirect to landing page with session_expired param otherwise
     """
 
     token = request.session.get("access_token")
     if not token:
-        return redirect("login")
+        return redirect("/?session_expired=1")
 
     try:
-        sess = AccessSession.objects.get(token_id=token)
+        sess = AccessSession.objects.select_related("user_id_FK").get(token_id=token)
     except AccessSession.DoesNotExist:
         request.session.pop("access_token", None)
-        return redirect("login")
+        return redirect("/?session_expired=1")
 
     if sess.revoked_at is not None:
+        officer = sess.user_id_FK
         request.session.pop("access_token", None)
-        return redirect("login")
+        threading.Thread(target=_send_session_expired_push, args=(officer,), daemon=True).start()
+        return redirect("/?session_expired=1")
 
     now = timezone.now()
     if sess.expires_at <= now:
+        officer = sess.user_id_FK
         request.session.pop("access_token", None)
-        return redirect("login")
+        threading.Thread(target=_send_session_expired_push, args=(officer,), daemon=True).start()
+        return redirect("/?session_expired=1")
 
     if (sess.session_status or "").lower() != "active":
-        from django.http import HttpResponseForbidden
-
+        officer = sess.user_id_FK
         logger.warning(
             "require_officer_session: session not active: token=%s status=%s",
             token,
             sess.session_status,
         )
-        return HttpResponseForbidden("Session is not active.")
+        request.session.pop("access_token", None)
+        threading.Thread(target=_send_session_expired_push, args=(officer,), daemon=True).start()
+        return redirect("/?session_expired=1")
 
     logger.debug("require_officer_session passed for token=%s", token)
     return None
@@ -86,6 +133,8 @@ def require_role(request: HttpRequest, *, role: str | list[str] | None) -> HttpR
     )
 
     if officer_role not in targets:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accepts("application/json"):
+            return JsonResponse({"ok": False, "error": "Forbidden for this role."}, status=403)
         raise PermissionDenied("Forbidden for this role.")
 
     return None
@@ -118,12 +167,13 @@ def check_zero_trust(request: HttpRequest, level: str = "verify") -> HttpRespons
     """
     token = request.session.get("access_token")
     if not token:
-        return redirect("login")
+        return redirect("/?session_expired=1")
 
     try:
-        sess = AccessSession.objects.get(token_id=token)
+        sess = AccessSession.objects.select_related("user_id_FK").get(token_id=token)
     except AccessSession.DoesNotExist:
-        return redirect("login")
+        request.session.pop("access_token", None)
+        return redirect("/?session_expired=1")
 
     if level == "read":
         return None

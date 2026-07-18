@@ -86,7 +86,7 @@ def build_cash_flow_excel():
 
     def contributions_paid_in_range(start_date, end_date):
         return Contribution.objects.filter(
-            status="PAID",
+            status__in=["PAID", "RECORDED", "PENDING_VERIFICATION"],
             payment_date__gte=start_date,
             payment_date__lte=end_date,
         ).aggregate(total=Sum("paid_amount"))["total"] or Decimal("0.00")

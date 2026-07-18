@@ -141,24 +141,31 @@ def queue_email(subject, recipient_list, html_template, context=None):
     )
 
 
-def queue_aid_emails(record, table_name, per_member_amount):
-    """Queue both aid emails (private + bulk). Returns immediately."""
+def send_aid_emails(record, table_name, per_member_amount):
+    """Send both aid emails synchronously (private + bulk)."""
+    from core_system.models import Member
+
     if record.member_id_FK and record.member_id_FK.email:
-        queue_email(
+        send_html_email(
             subject="Notice of Aid Processing",
             recipient_list=[record.member_id_FK.email],
             html_template="emails/aid_processing_notice.html",
             context={"member_name": record.member_id_FK.full_name},
         )
 
-    queue_email(
-        subject="Notice of Active Member Contribution",
-        recipient_list=[],
-        html_template="emails/aid_bulk_contribution_notice.html",
-        context={
-            "contribution_amount": f"{per_member_amount:,.2f}",
-        },
+    members = Member.objects.exclude(membership_status__iexact="Retired")
+    recipient_emails = list(
+        members.exclude(email__isnull=True).exclude(email__exact="").values_list("email", flat=True)
     )
+    if recipient_emails:
+        send_html_email(
+            subject="Notice of Active Member Contribution",
+            recipient_list=recipient_emails,
+            html_template="emails/aid_bulk_contribution_notice.html",
+            context={
+                "contribution_amount": f"{per_member_amount:,.2f}",
+            },
+        )
 
 
 def _send_queued_email(email_record):

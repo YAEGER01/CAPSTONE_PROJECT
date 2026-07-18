@@ -5,6 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presidential Executive Approval Console</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script
       type="module"
       src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8/dist/turbo.es2017-esm.js"
@@ -1667,6 +1669,10 @@
                   <span class="menu-icon sub-icon">&#8226;</span>
                   <span class="menu-text">Self-Enrollment</span>
                 </a>
+                <a class="menu-item" data-target="administration-backups">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Backup Management</span>
+                </a>
               </div>
             </div>
           </div>
@@ -1853,23 +1859,22 @@
                   <table class="custom-table" id="deptMemberStatsTable">
                     <thead>
                       <tr>
-                        <th>Department</th>
-                        <th>Total Members</th>
-                        <th>Active</th>
-                        <th>Permanent</th>
-                        <th>Temporary</th>
-                        <th>Retired</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td
-                          colspan="6"
-                          style="text-align: center; color: #6c757d"
-                        >
-                          Loading...
-                        </td>
-                      </tr>
+                         <th>Department</th>
+                         <th>Total Members</th>
+                         <th>Permanent</th>
+                         <th>Temporary</th>
+                         <th>Retired</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       <tr>
+                         <td
+                           colspan="5"
+                           style="text-align: center; color: #6c757d"
+                         >
+                           Loading...
+                         </td>
+                       </tr>
                     </tbody>
                   </table>
                 </div>
@@ -2115,14 +2120,27 @@
                     </div>
                     <div
                       style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #fff8e1;
+                        border-radius: 6px;
+                        border-left: 3px solid #f57f17;
+                      "
+                    >
+                      <strong style="color: #1b5e20">4.</strong> Approve finish
+                      → <strong>Fund INFLOW</strong> per PAID contribution
+                    </div>
+                    <div
+                      style="
                         padding: 6px 10px;
                         background: #e3f2fd;
                         border-radius: 6px;
                         border-left: 3px solid #1565c0;
                       "
                     >
-                      <strong style="color: #1b5e20">4.</strong> Approve finish
-                      → <strong>Fund INFLOW</strong> per PAID contribution
+                      <strong style="color: #1b5e20">5.</strong> Treasurer
+                      releases post → you receive a notification with
+                      <strong>Acknowledge</strong> button to confirm
                     </div>
                   </div>
                 </div>
@@ -4483,6 +4501,7 @@
                       <tr>
                         <th>Name</th>
                         <th>Username</th>
+                        <th>Email</th>
                         <th>Role</th>
                         <th>Department</th>
                         <th>Term</th>
@@ -4493,7 +4512,7 @@
                     <tbody>
                       <tr>
                         <td
-                          colspan="7"
+                          colspan="8"
                           style="
                             text-align: center;
                             color: #757575;
@@ -4684,6 +4703,80 @@
                     Create Officer-Member Profile
                   </button>
                 </form>
+              </div>
+            </div>
+          </section>
+
+          <!-- ==========================================================================
+             ADMINISTRATION: BACKUP MANAGEMENT
+             ========================================================================== -->
+          <section
+            id="administration-backups"
+            class="dashboard-module module-fade-in"
+          >
+            <div style="max-width: 980px; margin: 0 auto">
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <div>
+                    <h3 class="panel-title">Backup Management</h3>
+                    <p class="panel-subtitle">
+                      Create and restore database, media, and configuration backups.
+                    </p>
+                  </div>
+                  <div class="header-actions">
+                    <button
+                      type="button"
+                      class="btn-brand btn-brand-primary"
+                      onclick="triggerManualBackup()"
+                    >
+                      Run Manual Backup
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-brand btn-brand-secondary"
+                      onclick="loadBackupJobs()"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="backupMessage"
+                  style="
+                    display: none;
+                    margin-bottom: 14px;
+                    padding: 10px 12px;
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                  "
+                ></div>
+                <div
+                  style="
+                    overflow: auto;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 12px;
+                  "
+                >
+                  <table
+                    class="custom-table"
+                    id="backupJobTable"
+                    style="min-width: 700px; width: 100%"
+                  >
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="backupJobTableBody">
+                      <tr>
+                        <td colspan="4" style="text-align:center;color:#757565;">Loading backup jobs...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </section>
@@ -5070,6 +5163,7 @@
         updatePresidentNotifDots();
         renderExecutiveLogsTable();
         renderReportsTable();
+        initOfficerTermRange();
 
         // Aids batch bar wiring
         const paSelectAll = document.getElementById("pa-select-all");
@@ -5468,6 +5562,9 @@
           reverseButtons: true,
         });
         if (!paResult.isConfirmed) return;
+
+        var ztOk = await window.ensureZeroTrust();
+        if (!ztOk) return;
 
         try {
           const resp = await fetch("/api/aids/presidential-decision/batch/", {
@@ -6089,6 +6186,10 @@
               <input type="text" id="officer_username" required />
             </div>
           </div>
+          <div class="form-group">
+            <label for="officer_email">Email</label>
+            <input type="email" id="officer_email" placeholder="e.g. juan.dela.cruz@caufa.org" />
+          </div>
           <div class="form-grid-2">
             <div class="form-group">
               <label for="officer_password">Password</label>
@@ -6117,15 +6218,9 @@
               </select>
             </div>
           </div>
-          <div class="form-grid-2">
-            <div class="form-group">
-              <label for="officer_term_start">Term Start</label>
-              <input type="date" id="officer_term_start" />
-            </div>
-            <div class="form-group">
-              <label for="officer_term_end">Term End</label>
-              <input type="date" id="officer_term_end" />
-            </div>
+          <div class="form-group">
+            <label for="officer_term_range">Term (Start – End)</label>
+            <input type="text" id="officer_term_range" class="flatpickr-range" placeholder="Select term start and end dates" />
           </div>
           <div id="officerFormMessage" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:8px;font-size:0.85rem;"></div>
           <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
@@ -6219,30 +6314,126 @@
       (function () {
         "use strict";
         function fmt(num) {
-          return new Intl.NumberFormat("en-PH", {
-            style: "currency",
-            currency: "PHP",
-          }).format(num);
+          return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
         }
-        async function init() {
-          try {
-            var res = await fetch("/api/cash-flow-summary/", {
-              method: "GET",
-              credentials: "same-origin",
+        function escapeHtml(str) {
+          var div = document.createElement("div");
+          div.appendChild(document.createTextNode(str));
+          return div.innerHTML;
+        }
+        function renderInflowOutflow(data) {
+          var log = document.getElementById("io-log");
+          var loading = document.getElementById("io-loading");
+          if (!log) return;
+          if (loading) loading.style.display = "none";
+          log.innerHTML = "";
+          var all = [];
+          if (data.inflows) {
+            data.inflows.forEach(function (item) {
+              all.push({ description: item.description, source_type: item.source_type, amount: item.amount, date: item.recorded_at, is_inflow: true });
             });
-            var data = await res.json();
-            if (!data || !data.ok) return;
-            var fundsIn = document.getElementById("cf-funds-in");
-            var fundsOut = document.getElementById("cf-funds-out");
-            var pending = document.getElementById("cf-pending-contributions");
-            if (fundsIn) fundsIn.innerText = fmt(data.funds_in);
-            if (fundsOut) fundsOut.innerText = fmt(data.funds_out);
-            if (pending) pending.innerText = fmt(data.pending_contributions);
-          } catch (e) {
-            console.error("Cash flow init failed:", e);
           }
+          if (data.outflows) {
+            data.outflows.forEach(function (item) {
+              all.push({ description: item.description, source_type: item.source_type, amount: item.amount, date: item.recorded_at, is_inflow: false });
+            });
+          }
+          all.sort(function (a, b) { return a.date.localeCompare(b.date); });
+          if (all.length === 0) {
+            log.innerHTML = '<div class="io-empty">No entries yet</div>';
+            return;
+          }
+          all.forEach(function (item, idx) {
+            var div = document.createElement("div");
+            div.className = "io-item " + (item.is_inflow ? "io-inflow" : "io-outflow");
+            var sign = item.is_inflow ? "+" : "-";
+            var desc = escapeHtml(item.description || "");
+            var stype = (item.source_type || "").replace(/_/g, " ");
+            div.innerHTML =
+              '<span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;line-height:18px;text-align:center;color:#fff;background:' + (item.is_inflow ? '#00e676' : '#ff1744') + ';">' + (idx + 1) + '</span>' +
+              '<span class="io-sign">' + sign + '</span>' +
+              '<span class="io-name"><span class="io-desc">' + desc + '</span><span class="io-stype">' + stype + '</span></span>' +
+              '<span class="io-amount">' + fmt(item.amount) + '</span>' +
+              '<span class="io-date">' + escapeHtml(item.date) + '</span>';
+            log.appendChild(div);
+          });
         }
-        document.addEventListener("turbo:load", init);
+        async function initIO() {
+          try {
+            var res = await fetch("/api/treasurer/dashboard/inflow-outflow/", { method: "GET", credentials: "same-origin" });
+            var data = await res.json();
+            if (data && data.ok) {
+              renderInflowOutflow(data);
+              var fundEl = document.getElementById("kpi-funds");
+              if (fundEl && typeof data.fund_balance === "number") {
+                fundEl.innerText = fmt(data.fund_balance);
+                fundEl.dataset.liveLoaded = "true";
+              }
+              var moneyInEl = document.getElementById("kpi-money-in");
+              var moneyOutEl = document.getElementById("kpi-money-out");
+              if (moneyInEl && typeof data.money_in === "number") moneyInEl.innerText = fmt(data.money_in);
+              if (moneyOutEl && typeof data.money_out === "number") moneyOutEl.innerText = fmt(data.money_out);
+            }
+          } catch (e) { console.error("Inflow/outflow init failed:", e); }
+        }
+        document.addEventListener("turbo:load", initIO);
+      })();
+    </script>
+    <script>
+      (function () {
+        "use strict";
+        var chartInstance = null;
+        function fmtPeso(num) {
+          return "₱" + Number(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        async function initMonthlyChart() {
+          try {
+            var res = await fetch("/api/treasurer/dashboard/monthly-flow/", { method: "GET", credentials: "same-origin" });
+            var data = await res.json();
+            if (!data || !data.ok || !data.months || data.months.length === 0) return;
+            var ctx = document.getElementById("monthlyFlowChart");
+            if (!ctx) return;
+            if (chartInstance) chartInstance.destroy();
+            var config = {
+              type: "bar",
+              data: {
+                labels: data.months,
+                datasets: [
+                  { label: "Membership Fee", data: data.membership_fee, backgroundColor: "rgba(0,230,118,0.7)", borderColor: "#00e676", borderWidth: 1 },
+                  { label: "Monthly Dues", data: data.monthly_dues, backgroundColor: "rgba(0,188,212,0.7)", borderColor: "#00bcd4", borderWidth: 1 },
+                  { label: "Medical Aid", data: data.medical_aid, backgroundColor: "rgba(255,23,68,0.7)", borderColor: "#ff1744", borderWidth: 1 },
+                  { label: "Death Aid", data: data.death_aid, backgroundColor: "rgba(124,77,255,0.7)", borderColor: "#7c4dff", borderWidth: 1 },
+                  { label: "Fund Payment", data: data.fund_payment, backgroundColor: "rgba(255,213,0,0.8)", borderColor: "#ffd500", borderWidth: 1 },
+                  { label: "Contribution", data: data.contribution, backgroundColor: "rgba(255,111,0,0.7)", borderColor: "#ff6f00", borderWidth: 1 },
+                ],
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { mode: "index", intersect: false, callbacks: { label: function (ctx) { return ctx.dataset.label + ": " + fmtPeso(ctx.parsed.y); } } },
+                },
+                scales: {
+                  x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                  y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function (value) { return "₱" + value.toLocaleString(); } } },
+                },
+              },
+            };
+            chartInstance = new Chart(ctx, config);
+            requestAnimationFrame(function() { chartInstance.resize(); });
+            var dots = document.querySelectorAll("#chartLegendDots span");
+            dots.forEach(function (dot) {
+              dot.addEventListener("click", function () {
+                var idx = parseInt(this.getAttribute("data-index"), 10);
+                var meta = chartInstance.getDatasetMeta(idx);
+                meta.hidden = meta.hidden === null ? !chartInstance.data.datasets[idx].hidden : !meta.hidden;
+                chartInstance.update();
+                this.style.opacity = meta.hidden ? "0.3" : "1";
+              });
+            });
+          } catch (e) { console.error("Monthly chart init failed:", e); }
+        }
+        document.addEventListener("turbo:load", initMonthlyChart);
       })();
     </script>
     <script src="{% static 'js/push-init.js' %}"></script>
@@ -6264,9 +6455,6 @@
                 (dept.total || 0) +
                 "</td>" +
                 "<td>" +
-                (dept.active || 0) +
-                "</td>" +
-                "<td>" +
                 (dept.permanent || 0) +
                 "</td>" +
                 "<td>" +
@@ -6281,7 +6469,7 @@
               tbody.innerHTML +=
                 "<tr><td><em>Unassigned</em></td><td>" +
                 data.unassigned_count +
-                '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
+                '</td><td colspan="3" style="color:#999;">No department assigned</td></tr>';
             }
           },
         },
@@ -7059,6 +7247,9 @@
         });
         if (!confirm.isConfirmed) return;
 
+        var ztOk = await window.ensureZeroTrust();
+        if (!ztOk) return;
+
         var remarks = "";
         if (decision === "Rejected") {
           var remarkResult = await Swal.fire({
@@ -7169,17 +7360,20 @@
       async function loadOfficerManagement() {
         var tbody = document.querySelector("#officerTable tbody");
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757575;padding:24px;">Loading officer accounts...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#757575;padding:24px;">Loading officer accounts...</td></tr>';
         try {
           var resp = await fetch("/api/president/officers/", { credentials: "same-origin" });
           var data = await resp.json();
+          if (data && data.ok) {
+            window.__officersCache = data.officers || [];
+          }
           if (!data.ok || !data.officers) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757575;">No officer accounts found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#757575;">No officer accounts found.</td></tr>';
             return;
           }
           var officers = data.officers || [];
           if (!officers.length) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757575;">No officer accounts found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#757575;">No officer accounts found.</td></tr>';
             return;
           }
           tbody.innerHTML = officers.map(function (o) {
@@ -7192,6 +7386,7 @@
             return '<tr>' +
               "<td>" + escapeHtml(o.full_name) + "</td>" +
               "<td>" + escapeHtml(o.username) + "</td>" +
+              "<td>" + escapeHtml(o.email || "—") + "</td>" +
               "<td>" + escapeHtml(o.role) + "</td>" +
               "<td>" + escapeHtml(o.department_name || "—") + "</td>" +
               "<td>" + escapeHtml(termText) + "</td>" +
@@ -7204,7 +7399,14 @@
             "</tr>";
           }).join("");
         } catch (e) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#c62828;">Failed to load officers.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#c62828;">Failed to load officers.</td></tr>';
+        }
+      }
+
+      function initOfficerTermRange() {
+        var el = document.getElementById("officer_term_range");
+        if (el && typeof flatpickr !== "undefined" && !el._flatpickr) {
+          flatpickr(el, { mode: "range", dateFormat: "Y-m-d" });
         }
       }
 
@@ -7216,21 +7418,29 @@
         if (!modal || !form) return;
         msg.style.display = "none";
         form.reset();
+        (function(){ var e=document.getElementById("officer_term_range"); if(e&&e._flatpickr) e._flatpickr.clear(); })();
 
         if (officerId) {
           title.textContent = "Edit Officer";
           var officers = window.__officersCache || [];
           var officer = officers.find(function (o) { return o.id === officerId; });
-          if (officer) {
+          if (!officer) {
+            officer = { id: officerId };
+          }
+          if (officer && officer.id) {
             document.getElementById("officer_id").value = officer.id;
             document.getElementById("officer_full_name").value = officer.full_name || "";
             document.getElementById("officer_username").value = officer.username || "";
+            document.getElementById("officer_email").value = officer.email || "";
             document.getElementById("officer_password").value = "";
             document.getElementById("officer_role").value = officer.role || "Officer";
             document.getElementById("officer_department").value = officer.department_id || "";
             document.getElementById("officer_status").value = officer.account_status === "Inactive" ? "Inactive" : "Active";
-            document.getElementById("officer_term_start").value = officer.term_start || "";
-            document.getElementById("officer_term_end").value = officer.term_end || "";
+            var termRange = document.getElementById("officer_term_range");
+            initOfficerTermRange();
+            if (termRange && termRange._flatpickr) {
+              termRange._flatpickr.setDate((officer.term_start || "") + " to " + (officer.term_end || ""));
+            }
           }
         } else {
           title.textContent = "New Officer";
@@ -7250,10 +7460,11 @@
         var payload = {
           full_name: document.getElementById("officer_full_name").value.trim(),
           username: document.getElementById("officer_username").value.trim(),
+          email: document.getElementById("officer_email").value.trim() || null,
           role: document.getElementById("officer_role").value.trim(),
           account_status: document.getElementById("officer_status").value,
-          term_start: document.getElementById("officer_term_start").value || null,
-          term_end: document.getElementById("officer_term_end").value || null,
+          term_start: (function() { var v = (document.getElementById("officer_term_range").value || "").split(" to "); return v[0] || null; })(),
+          term_end: (function() { var v = (document.getElementById("officer_term_range").value || "").split(" to "); return v[1] || null; })(),
           department_id: document.getElementById("officer_department").value || null,
         };
         var password = document.getElementById("officer_password").value.trim();
@@ -7297,8 +7508,11 @@
           showCancelButton: true,
           confirmButtonText: "Reset",
           confirmButtonColor: "#1b5e20",
+          cancelButtonText: "Cancel",
+          cancelButtonColor: "#d32f2f",
         });
         if (!confirmed.isConfirmed) return;
+
         try {
           var resp = await fetch("/api/president/officers/" + officerId + "/reset-password/", {
             method: "POST",
@@ -7308,10 +7522,9 @@
           var data = await resp.json();
           if (data.ok) {
             Swal.fire({
+              icon: "success",
               title: "Password Reset",
               text: "Temporary password: " + data.temp_password,
-              icon: "success",
-              confirmButtonColor: "#1b5e20",
             });
           } else {
             Swal.fire({ icon: "error", title: "Error", text: data.error || "Reset failed." });
@@ -7329,8 +7542,11 @@
           showCancelButton: true,
           confirmButtonText: "Deactivate",
           confirmButtonColor: "#c62828",
+          cancelButtonText: "Cancel",
+          cancelButtonColor: "#757575",
         });
         if (!confirmed.isConfirmed) return;
+
         try {
           var resp = await fetch("/api/president/officers/" + officerId + "/deactivate/", {
             method: "POST",
@@ -7347,6 +7563,16 @@
         } catch (e) {
           Swal.fire({ icon: "error", title: "Error", text: "Network error." });
         }
+      }
+
+      function showOfficerMessage(text, isError) {
+        var el = document.getElementById("officerManagementMessage");
+        if (!el) return;
+        el.textContent = text;
+        el.style.display = "block";
+        el.style.background = isError ? "#ffebee" : "#e8f5e9";
+        el.style.color = isError ? "#c62828" : "#1b5e20";
+        el.style.border = isError ? "1px solid #ef9a9a" : "1px solid #a5d6a7";
       }
 
       // ==========================================================================
@@ -7369,8 +7595,14 @@
       async function savePresidentProfile(e) {
         e.preventDefault();
         var payload = {
-          full_name: document.getElementById("profileFullName").value.trim(),
-          username: document.getElementById("profileUsername").value.trim(),
+          full_name: document.getElementById("officer_full_name").value.trim(),
+          username: document.getElementById("officer_username").value.trim(),
+          email: document.getElementById("officer_email").value.trim() || null,
+          role: document.getElementById("officer_role").value.trim(),
+          account_status: document.getElementById("officer_status").value,
+          term_start: document.getElementById("officer_term_start").value || null,
+          term_end: document.getElementById("officer_term_end").value || null,
+          department_id: document.getElementById("officer_department").value || null,
         };
         var password = document.getElementById("profilePassword").value.trim();
         if (password) payload.password = password;
@@ -7453,6 +7685,83 @@
       }
 
       // ==========================================================================
+      // BACKUP MANAGEMENT
+      // ==========================================================================
+      async function loadBackupJobs() {
+        var tbody = document.getElementById("backupJobTableBody");
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#757575;">Loading...</td></tr>';
+        try {
+          var resp = await fetch("/api/president/backups/", { credentials: "same-origin" });
+          var data = await resp.json();
+          if (!data.ok) throw new Error(data.error || "Failed to load");
+          if (!data.jobs || data.jobs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#757575;">No backup jobs yet.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.jobs.map(function (j) {
+            var typeLabel = { db: "Database", media: "Media", config: "Configuration" }[j.backup_type] || j.backup_type;
+            var statusBadge = j.backup_status === "Completed"
+              ? '<span style="color:#2e7d32;font-weight:600;">Completed</span>'
+              : j.backup_status === "Failed"
+                ? '<span style="color:#c62828;font-weight:600;">Failed</span>'
+                : '<span style="color:#f57f17;font-weight:600;">' + j.backup_status + "</span>";
+            var restoreBtn = j.backup_status === "Completed"
+              ? '<button type="button" class="btn-brand btn-brand-secondary" style="padding:3px 8px;font-size:0.75rem;border-radius:6px;" onclick="restoreBackup(' + j.job_id + ')">Restore</button>'
+              : '<span style="color:#999;font-size:0.8rem;">—</span>';
+            return '<tr><td>' + typeLabel + '</td><td>' + statusBadge + '</td><td style="font-size:0.85rem;color:#555;">' + (j.created_at ? new Date(j.created_at).toLocaleString() : "—") + '</td><td>' + restoreBtn + '</td></tr>';
+          }).join("");
+        } catch (e) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c62828;">Failed to load backups.</td></tr>';
+        }
+      }
+
+      async function triggerManualBackup() {
+        if (!confirm("Run a manual backup (database + media + config)?")) return;
+        var msg = document.getElementById("backupMessage");
+        if (msg) { msg.style.display = "block"; msg.style.background = "#fff8e1"; msg.style.color = "#f57f17"; msg.textContent = "Running backup..."; }
+        try {
+          var resp = await fetch("/api/president/backups/manual/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": getCSRFToken() },
+          });
+          var data = await resp.json();
+          if (data.ok) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#e8f5e9"; msg.style.color = "#2e7d32"; msg.textContent = "Backup completed successfully."; }
+          } else {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = data.error || "Backup failed."; }
+          }
+          loadBackupJobs();
+        } catch (e) {
+          if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Network error during backup."; }
+        }
+      }
+
+      async function restoreBackup(jobId) {
+        if (!confirm("WARNING: Restoring will overwrite current data. Are you sure?")) return;
+        if (!confirm("This action cannot be undone. Proceed with restore?")) return;
+        var msg = document.getElementById("backupMessage");
+        if (msg) { msg.style.display = "block"; msg.style.background = "#fff8e1"; msg.style.color = "#f57f17"; msg.textContent = "Restoring... this may take a moment."; }
+        try {
+          var resp = await fetch("/api/president/backups/" + jobId + "/restore/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": getCSRFToken() },
+          });
+          var data = await resp.json();
+          if (data.ok) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#e8f5e9"; msg.style.color = "#2e7d32"; msg.textContent = "Restore completed successfully."; }
+          } else {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = data.error || "Restore failed."; }
+          }
+          loadBackupJobs();
+        } catch (e) {
+          if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Network error during restore."; }
+        }
+      }
+
+      // ==========================================================================
       // WIRE UP ADMIN FORMS + OFFICER TABLE ON LOAD
       // ==========================================================================
       document.addEventListener("turbo:load", function () {
@@ -7481,6 +7790,11 @@
             })
             .catch(function () {});
         }
+
+        var officerModule = document.getElementById("administration-officers");
+        if (officerModule && officerModule.classList.contains("active")) {
+          loadOfficerManagement();
+        }
       });
 
       // Auto-load officer table when admin module becomes visible
@@ -7497,6 +7811,21 @@
       var officerModule = document.getElementById("administration-officers");
       if (officerModule) {
         officerObserver.observe(officerModule, { attributes: true, attributeFilter: ["class"] });
+      }
+
+      var backupObserver = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          if (
+            m.target.id === "administration-backups" &&
+            m.target.classList.contains("active")
+          ) {
+            loadBackupJobs();
+          }
+        });
+      });
+      var backupModule = document.getElementById("administration-backups");
+      if (backupModule) {
+        backupObserver.observe(backupModule, { attributes: true, attributeFilter: ["class"] });
       }
 
       async function loadTermWarning() {

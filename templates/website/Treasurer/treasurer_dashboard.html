@@ -2034,16 +2034,15 @@
                    <table class="custom-table" id="deptMemberStatsTable">
                      <thead>
                        <tr>
-                         <th>Department</th>
-                         <th>Total Members</th>
-                         <th>Active</th>
-                         <th>Permanent</th>
-                         <th>Temporary</th>
-                         <th>Retired</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="6" style="text-align:center;color:#6c757d;">Loading...</td></tr>
+                          <th>Department</th>
+                          <th>Total Members</th>
+                          <th>Permanent</th>
+                          <th>Temporary</th>
+                          <th>Retired</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td colspan="5" style="text-align:center;color:#6c757d;">Loading...</td></tr>
                      </tbody>
                    </table>
                  </div>
@@ -2222,22 +2221,137 @@
               </div>
               <div class="dashboard-panel overview-card">
                 <div class="panel-header-row">
-                  <h3 class="panel-title"><i class="fas fa-hand-holding-heart"></i> Aids</h3>
+                  <h3 class="panel-title"><i class="fas fa-hand-holding-heart"></i> Aids — Prerequisite</h3>
                 </div>
                 <div class="overview-card-content" style="display:block;text-align:left;padding:14px 12px;">
                   <div style="font-size:0.78rem;color:#37474f;line-height:1.6;">
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#e8f5e9;border-radius:6px;border-left:3px solid #2e7d32;">
-                      <strong style="color:#1b5e20;">1.</strong> Go to <strong>Aid Requests → Medical Aid</strong> or <strong>Death Aid Claim</strong> to file
-                    </div>
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#f1f8e9;border-radius:6px;border-left:3px solid #558b2f;">
-                      <strong style="color:#1b5e20;">2.</strong> Auditor verifies → President approves → <strong>AidTrackingPost created</strong>
-                    </div>
-                    <div style="margin-bottom:8px;padding:6px 10px;background:#fff8e1;border-radius:6px;border-left:3px solid #f57f17;">
-                      <strong style="color:#1b5e20;">3.</strong> Go to <strong>Record Contribution</strong> to mark members as Paid
-                    </div>
-                    <div style="padding:6px 10px;background:#e3f2fd;border-radius:6px;border-left:3px solid #1565c0;">
-                      <strong style="color:#1b5e20;">4.</strong> Use <strong>"Paid with Funds"</strong> or <strong>"Mark as Finished"</strong> to close
-                    </div>
+                    <table style="width:100%;border-collapse:collapse;">
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#2e7d32;">1</td>
+                        <td style="padding:4px 0;vertical-align:top;">File aid at <strong>Aid Requests → Medical Aid</strong> or <strong>Death Aid Claim</strong></td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#558b2f;">2</td>
+                        <td style="padding:4px 0;vertical-align:top;"><span style="display:inline-block;padding:1px 8px;border-radius:10px;background:#e8f5e9;font-size:0.72rem;font-weight:600;color:#2e7d32;">AUDITOR</span> verifies &#x2192; <span style="display:inline-block;padding:1px 8px;border-radius:10px;background:#e8f5e9;font-size:0.72rem;font-weight:600;color:#2e7d32;">PRESIDENT</span> approves &#x2192; <strong>AidTrackingPost created</strong></td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#1565c0;">3</td>
+                        <td style="padding:4px 0;vertical-align:top;">Go to <strong>Record Contribution</strong> tab and choose a workflow below</td>
+                      </tr>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dashboard-panel overview-card">
+                <div class="panel-header-row">
+                  <h3 class="panel-title" style="color:#1565c0;"><i class="fas fa-users"></i> Normal Pay — Flow</h3>
+                </div>
+                <div class="overview-card-content" style="display:block;text-align:left;padding:14px 12px;">
+                  <div style="font-size:0.78rem;color:#37474f;line-height:1.6;">
+                    <table style="width:100%;border-collapse:collapse;">
+                      <tr>
+                        <td colspan="2" style="padding:2px 0 4px;"><span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#e3f2fd;font-size:0.7rem;font-weight:600;color:#1565c0;">TREASURER</span></td>
+                      </tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#2e7d32;">1</td>
+                        <td style="padding:4px 0;vertical-align:top;">Click <strong>Pay</strong> per member <strong>or</strong> use checkbox &#x2192; <strong>Pay Selected</strong> &#x2192; sets to <strong>RECORDED</strong></td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#f57f17;">2</td>
+                        <td style="padding:4px 0;vertical-align:top;">Use <strong>Skip</strong> for members who won't pay | <strong>Notify</strong> to send reminders</td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#1565c0;">3</td>
+                        <td style="padding:4px 0;vertical-align:top;">Upload <strong>Deduction Sheet</strong> (file + batch reference + payroll period) at bottom panel</td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#283593;">4</td>
+                        <td style="padding:4px 0;vertical-align:top;"><strong>Record Remittance</strong> <span style="font-size:0.72rem;color:#757575;">(salary deduction posts only)</span> — log when deducted amounts are deposited to CAUFA's account</td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#7b1fa2;">5</td>
+                        <td style="padding:4px 0;vertical-align:top;">Click <strong>Mark as Finished</strong> <span style="font-size:0.72rem;color:#757575;">(requires &#x2265;70% RECORDED/PAID + deduction sheet uploaded)</span></td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td colspan="2" style="padding:2px 0 4px;"><span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#e8f5e9;font-size:0.7rem;font-weight:600;color:#2e7d32;">AUDITOR</span> &#x2192; <span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#fff3e0;font-size:0.7rem;font-weight:600;color:#e65100;">PRESIDENT</span></td>
+                      </tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#558b2f;">6</td>
+                        <td style="padding:4px 0;vertical-align:top;">Auditor batch-verifies &#x2192; all <strong>RECORDED</strong> become <strong>PAID</strong> &#x2192; fund inflow recorded &#x2192; President approves</td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td colspan="2" style="padding:2px 0 4px;"><span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#e3f2fd;font-size:0.7rem;font-weight:600;color:#1565c0;">TREASURER</span></td>
+                      </tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#b71c1c;">7</td>
+                        <td style="padding:4px 0;vertical-align:top;">Click <strong>Release</strong> &#x2192; post closed &#x2192; Auditor &amp; President get notified with <strong>Acknowledge</strong> button</td>
+                      </tr>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dashboard-panel overview-card">
+                <div class="panel-header-row">
+                  <h3 class="panel-title" style="color:#1b5e20;"><i class="fas fa-bolt"></i> Paid with Funds — Flow</h3>
+                </div>
+                <div class="overview-card-content" style="display:block;text-align:left;padding:14px 12px;">
+                  <div style="font-size:0.78rem;color:#37474f;line-height:1.6;">
+                    <table style="width:100%;border-collapse:collapse;">
+                      <tr>
+                        <td colspan="2" style="padding:2px 0 4px;"><span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#e3f2fd;font-size:0.7rem;font-weight:600;color:#1565c0;">TREASURER</span></td>
+                      </tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#2e7d32;">1</td>
+                        <td style="padding:4px 0;vertical-align:top;">Click <strong>Paid with Funds</strong> &#x2192; request sent to Auditor</td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td colspan="2" style="padding:2px 0 4px;"><span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#e8f5e9;font-size:0.7rem;font-weight:600;color:#2e7d32;">AUDITOR</span> &#x2192; <span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#fff3e0;font-size:0.7rem;font-weight:600;color:#e65100;">PRESIDENT</span></td>
+                      </tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#558b2f;">2</td>
+                        <td style="padding:4px 0;vertical-align:top;">Auditor verifies &#x2192; President approves &#x2192; post enters <strong>pending_release</strong></td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td colspan="2" style="padding:2px 0 4px;"><span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#e3f2fd;font-size:0.7rem;font-weight:600;color:#1565c0;">TREASURER</span></td>
+                      </tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#f57f17;">3</td>
+                        <td style="padding:4px 0;vertical-align:top;">Click <strong>Release</strong> &#x2192; <strong>OUTFLOW</strong> recorded (fund disburses) &#x2192; post enters <strong>repayment</strong> phase</td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td colspan="2" style="padding:2px 0 4px;"><span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#e3f2fd;font-size:0.7rem;font-weight:600;color:#1565c0;">TREASURER</span></td>
+                      </tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#1565c0;">4</td>
+                        <td style="padding:4px 0;vertical-align:top;">Members pay individually via <strong>Pay</strong> buttons (sets RECORDED) to replenish the fund</td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#7b1fa2;">5</td>
+                        <td style="padding:4px 0;vertical-align:top;">Click <strong>Close Repayment</strong> &#x2192; remaining unpaid auto-skipped &#x2192; sent to Auditor</td>
+                      </tr>
+                      <tr><td colspan="2" style="text-align:center;font-size:1rem;color:#90a4ae;line-height:1;">&#x2193;</td></tr>
+                      <tr>
+                        <td colspan="2" style="padding:2px 0 4px;"><span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#e8f5e9;font-size:0.7rem;font-weight:600;color:#2e7d32;">AUDITOR</span> &#x2192; <span style="display:inline-block;padding:1px 10px;border-radius:10px;background:#fff3e0;font-size:0.7rem;font-weight:600;color:#e65100;">PRESIDENT</span></td>
+                      </tr>
+                      <tr>
+                        <td style="width:32px;vertical-align:top;padding:4px 8px 4px 0;font-weight:700;color:#b71c1c;">6</td>
+                        <td style="padding:4px 0;vertical-align:top;">Auditor batch-verifies &#x2192; all <strong>RECORDED</strong> become <strong>PAID</strong> &#x2192; <strong>INFLOW</strong> recorded &#x2192; President approves &#x2192; <strong>post closed</strong></td>
+                      </tr>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -2450,9 +2564,13 @@
                        <div id="memberPosCheckboxes"></div>
                        <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Status</div>
                        <div id="memberStatusCheckboxes"></div>
-                       <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Member Type</div>
-                       <div id="memberTypeCheckboxes"></div>
-                       <button onclick="memberApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
+                        <div style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin-top:10px;margin-bottom:6px;">Member Type</div>
+                        <div id="memberTypeCheckboxes"></div>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:6px 0;margin-top:4px;cursor:pointer;border-top:1px solid #e0e0e0;">
+                          <input type="checkbox" id="memberSelfEnrolledFilter" onchange="memberApplyFilter()" />
+                          <span style="font-weight:600;">Self-Enrolled Only</span>
+                        </label>
+                        <button onclick="memberApplyFilter()" style="margin-top:12px;width:100%;padding:8px;border:none;border-radius:8px;background:#1b5e20;color:#fff;font-weight:600;cursor:pointer;font-size:0.82rem;">Apply Filter</button>
                      </div>
                   </div>
                 </div>
@@ -4195,6 +4313,7 @@
                 <select id="rcStatusFilter" style="padding:8px 12px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;">
                   <option value="All">All Status</option>
                   <option value="NOT_PAID">NOT PAID</option>
+                  <option value="RECORDED">RECORDED</option>
                   <option value="PENDING_VERIFICATION">Paid - Pending Verification</option>
                   <option value="PAID">PAID</option>
                   <option value="SKIPPED">SKIPPED</option>
@@ -4224,6 +4343,64 @@
                     <tr><td colspan="8" style="text-align:center;color:#90a4ae;padding:30px;">Select an aid assessment post to view contributions.</td></tr>
                   </tbody>
                 </table>
+              </div>
+
+              <!-- Deduction Sheet Upload -->
+              <div id="rcDeductionSheetSection" style="display:none;margin-top:20px;padding:16px;background:#f8fbf8;border:1px solid #c8e6c9;border-radius:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <div>
+                    <h4 style="margin:0;font-size:0.95rem;color:#1b5e20;">Salary Deduction Evidence</h4>
+                    <p style="margin:4px 0 0;font-size:0.78rem;color:#757575;">Upload the salary deduction accounting sheet before marking as finished.</p>
+                  </div>
+                  <span id="rcDeductionStatus" style="font-size:0.78rem;font-weight:600;"></span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
+                  <div class="form-group" style="flex:2;min-width:160px;">
+                    <label style="font-size:0.78rem;color:#555;">Deduction Sheet File</label>
+                    <input type="file" id="rcDeductionFile" accept=".pdf,.xlsx,.xls,.csv,.jpg,.png" style="width:100%;padding:6px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;" />
+                  </div>
+                  <div class="form-group" style="flex:1;min-width:120px;">
+                    <label style="font-size:0.78rem;color:#555;">Batch Reference</label>
+                    <input type="text" id="rcDeductionRef" placeholder="e.g. PAY-2026-07-001" style="width:100%;padding:8px 10px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;" />
+                  </div>
+                  <div class="form-group" style="flex:1;min-width:120px;">
+                    <label style="font-size:0.78rem;color:#555;">Payroll Period</label>
+                    <input type="text" id="rcDeductionPeriod" placeholder="e.g. 2026-07" style="width:100%;padding:8px 10px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;" />
+                  </div>
+                  <button id="rcUploadDeductionBtn" type="button" style="padding:8px 20px;border-radius:8px;border:none;background:#1b5e20;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;height:fit-content;">
+                    <i class="fa-solid fa-upload"></i> Upload
+                  </button>
+                </div>
+                <div id="rcDeductionMessage" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:0.82rem;"></div>
+              </div>
+
+              <!-- Remittance Record -->
+              <div id="rcRemittanceSection" style="display:none;margin-top:16px;padding:16px;background:#f1f8ff;border:1px solid #90caf9;border-radius:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <div>
+                    <h4 style="margin:0;font-size:0.95rem;color:#0d47a1;">Salary Deduction Remittance</h4>
+                    <p style="margin:4px 0 0;font-size:0.78rem;color:#757575;">Record when the deducted amount is deposited to CAUFA's account.</p>
+                  </div>
+                  <span id="rcRemittanceStatus" style="font-size:0.78rem;font-weight:600;"></span>
+                </div>
+                <div id="rcRemittanceForm" style="display:flex;flex-wrap:wrap;gap:10px;align-items:end;">
+                  <div class="form-group" style="flex:1;min-width:120px;">
+                    <label style="font-size:0.78rem;color:#555;">Remitted Amount (₱)</label>
+                    <input type="number" step="0.01" min="0" id="rcRemitAmount" placeholder="e.g. 250000.00" style="width:100%;padding:8px 10px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;" />
+                  </div>
+                  <div class="form-group" style="flex:1;min-width:160px;">
+                    <label style="font-size:0.78rem;color:#555;">Remittance Reference</label>
+                    <input type="text" id="rcRemitRef" placeholder="e.g. BPI-DEPOSIT-001" style="width:100%;padding:8px 10px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;" />
+                  </div>
+                  <div class="form-group" style="flex:1;min-width:130px;">
+                    <label style="font-size:0.78rem;color:#555;">Deposit Date</label>
+                    <input type="date" id="rcRemitDate" style="width:100%;padding:8px 10px;border:1px solid #cfdccc;border-radius:8px;font-size:0.82rem;" />
+                  </div>
+                  <button id="rcRecordRemittanceBtn" type="button" style="padding:8px 20px;border-radius:8px;border:none;background:#0d47a1;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;height:fit-content;">
+                    <i class="fa-solid fa-building-columns"></i> Record Remittance
+                  </button>
+                </div>
+                <div id="rcRemittanceMessage" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:0.82rem;"></div>
               </div>
             </div>
           </section>
@@ -5707,8 +5884,10 @@
         }
 
         var arr = db.members || [], flt = [], i, m;
+        var selfEnrolledOnly = document.getElementById("memberSelfEnrolledFilter")?.checked;
         for (i = 0; i < arr.length; i++) {
           m = arr[i];
+          if (selfEnrolledOnly && !(m.self_enrolled || (m.type || "").toLowerCase() === "officer-member")) continue;
           if (depts.length && depts.indexOf(m.department) === -1) continue;
           if (poses.length && poses.indexOf(m.position) === -1) continue;
           if (stats.length && stats.indexOf(m.status) === -1) continue;
@@ -6655,6 +6834,8 @@
             if (finishBtn) finishBtn.style.display = "";
           }
 
+          rcUpdateDeductionSection(post);
+          rcUpdateRemittanceSection(post);
           rcRenderPosts(rcState.posts);
           rcLoadMembers(postId);
         }
@@ -6720,6 +6901,20 @@
                 return;
               }
               var members = data.members || [];
+              if (data.post) {
+                var cachedPost = rcState.posts.find(function (p) { return p.post_id === postId; });
+                if (cachedPost) {
+                  cachedPost.has_deduction_sheet = data.post.has_deduction_sheet;
+                  cachedPost.deduction_batch_reference = data.post.deduction_batch_reference || "";
+                  cachedPost.deduction_payroll_period = data.post.deduction_payroll_period || "";
+                  cachedPost.has_remittance = data.post.has_remittance;
+                  cachedPost.deduction_remitted_amount = data.post.deduction_remitted_amount;
+                  cachedPost.deduction_remittance_reference = data.post.deduction_remittance_reference || "";
+                  cachedPost.deduction_remitted_date = data.post.deduction_remitted_date;
+                }
+                rcUpdateDeductionSection(data.post);
+                rcUpdateRemittanceSection(data.post);
+              }
               if (!members.length) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#90a4ae;padding:30px;">No contributions found for this post.</td></tr>';
                 return;
@@ -6734,6 +6929,7 @@
               tbody.innerHTML = filtered.map(function (m) {
                 var statusBadge = "";
                 if (m.status === "PAID") statusBadge = "<span style=\"background:#e8f5e9;color:#2e7d32;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">PAID</span>";
+                else if (m.status === "RECORDED") statusBadge = "<span style=\"background:#e3f2fd;color:#1565c0;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">RECORDED</span>";
                 else if (m.status === "PENDING_VERIFICATION") statusBadge = "<span style=\"background:#fff8e1;color:#f57f17;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">Paid - Pending Verification</span>";
                 else if (m.status === "SKIPPED") statusBadge = "<span style=\"background:#fff3e0;color:#e65100;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">SKIPPED</span>";
                 else statusBadge = "<span style=\"background:#f5f5f5;color:#757575;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">NOT PAID</span>";
@@ -6746,7 +6942,7 @@
                   "<td>" + rcFmt(m.paid_amount) + "</td>" +
                   "<td>" + statusBadge + "</td>" +
                   "<td style=\"white-space:nowrap;\">" +
-                    "<button class=\"rc-pay-btn\" data-cid=\"" + m.contribution_id + "\" style=\"padding:4px 10px;border-radius:6px;border:1px solid #2e7d32;background:#e8f5e9;color:#2e7d32;font-size:0.72rem;font-weight:600;cursor:pointer;margin-right:4px;\">Pay</button>" +
+                    (m.status === "NOT_PAID" ? "<button class=\"rc-pay-btn\" data-cid=\"" + m.contribution_id + "\" style=\"padding:4px 10px;border-radius:6px;border:1px solid #2e7d32;background:#e8f5e9;color:#2e7d32;font-size:0.72rem;font-weight:600;cursor:pointer;margin-right:4px;\">Pay</button>" : "") +
                     "<button class=\"rc-skip-btn\" data-cid=\"" + m.contribution_id + "\" style=\"padding:4px 10px;border-radius:6px;border:1px solid #e65100;background:#fff3e0;color:#e65100;font-size:0.72rem;font-weight:600;cursor:pointer;margin-right:4px;\">Won't Pay</button>" +
                     "<button class=\"rc-notify-btn\" data-cid=\"" + m.contribution_id + "\" style=\"padding:4px 10px;border-radius:6px;border:1px solid #1565c0;background:#e3f2fd;color:#1565c0;font-size:0.72rem;font-weight:600;cursor:pointer;\">Notify</button>" +
                   "</td>" +
@@ -6770,18 +6966,24 @@
           var finishBtn = document.getElementById("rcMarkFinishedBtn");
           if (!finishBtn) return;
           var total = members.length;
-          var paid = members.filter(function (m) { return m.status === "PAID" || m.status === "PENDING_VERIFICATION"; }).length;
+          var paid = members.filter(function (m) { return m.status === "PAID" || m.status === "RECORDED" || m.status === "PENDING_VERIFICATION"; }).length;
           var pct = total > 0 ? (paid / total) * 100 : 0;
-          if (paid > 0 || pct >= 70) {
+          var post = rcState.posts.find(function (p) { return p.post_id === rcState.selectedPostId; });
+          var hasSheet = post && post.has_deduction_sheet;
+
+          if ((paid > 0 || pct >= 70) && hasSheet) {
             finishBtn.disabled = false;
             finishBtn.style.opacity = "1";
             finishBtn.style.cursor = "pointer";
-            finishBtn.title = paid + "/" + total + " paid (" + Math.round(pct) + "%) — ready to send to Auditor";
+            finishBtn.title = paid + "/" + total + " paid (" + Math.round(pct) + "%) — Deduction sheet uploaded";
           } else {
             finishBtn.disabled = true;
             finishBtn.style.opacity = "0.5";
             finishBtn.style.cursor = "not-allowed";
-            finishBtn.title = "Need at least 70% paid (currently " + Math.round(pct) + "%)";
+            var reasons = [];
+            if (pct < 70) reasons.push(Math.round(pct) + "% paid (need 70%)");
+            if (!hasSheet) reasons.push("Deduction sheet not uploaded");
+            finishBtn.title = "Cannot finish: " + reasons.join("; ");
           }
         }
 
@@ -6897,6 +7099,169 @@
 
           var closeRepayBtn = document.getElementById("rcCloseRepaymentBtn");
           if (closeRepayBtn) closeRepayBtn.addEventListener("click", rcCloseRepayment);
+
+          var uploadBtn = document.getElementById("rcUploadDeductionBtn");
+          if (uploadBtn) uploadBtn.addEventListener("click", rcUploadDeductionSheet);
+
+          var remitBtn = document.getElementById("rcRecordRemittanceBtn");
+          if (remitBtn) remitBtn.addEventListener("click", rcRecordRemittance);
+        }
+
+        function rcUpdateDeductionSection(post) {
+          var section = document.getElementById("rcDeductionSheetSection");
+          var status = document.getElementById("rcDeductionStatus");
+          var fileInput = document.getElementById("rcDeductionFile");
+          var refInput = document.getElementById("rcDeductionRef");
+          var periodInput = document.getElementById("rcDeductionPeriod");
+          var msg = document.getElementById("rcDeductionMessage");
+          if (!section) return;
+          if (msg) msg.style.display = "none";
+          if (post && post.finish_status !== "pending_release" && post.finish_status !== "repayment" && post.finish_status !== "approved") {
+            section.style.display = "block";
+            if (post.has_deduction_sheet) {
+              if (status) status.innerHTML = '<span style="color:#2e7d32;"><i class="fa-solid fa-check-circle"></i> Uploaded — Ref: ' + escapeHtml(post.deduction_batch_reference || "") + " | Period: " + escapeHtml(post.deduction_payroll_period || "") + "</span>";
+              if (fileInput) fileInput.disabled = true;
+              if (refInput) { refInput.value = post.deduction_batch_reference || ""; refInput.disabled = true; }
+              if (periodInput) { periodInput.value = post.deduction_payroll_period || ""; periodInput.disabled = true; }
+            } else {
+              if (status) status.innerHTML = '<span style="color:#f57f17;"><i class="fa-solid fa-clock"></i> Not yet uploaded</span>';
+              if (fileInput) { fileInput.disabled = false; fileInput.value = ""; }
+              if (refInput) { refInput.disabled = false; refInput.value = ""; }
+              if (periodInput) { periodInput.disabled = false; periodInput.value = ""; }
+            }
+          } else {
+            section.style.display = "none";
+          }
+        }
+
+        async function rcUploadDeductionSheet() {
+          var postId = rcState.selectedPostId;
+          if (!postId) return;
+          var post = rcState.posts.find(function (p) { return p.post_id === postId; });
+          if (!post || post.has_deduction_sheet) return;
+
+          var fileInput = document.getElementById("rcDeductionFile");
+          var refInput = document.getElementById("rcDeductionRef");
+          var periodInput = document.getElementById("rcDeductionPeriod");
+          var msg = document.getElementById("rcDeductionMessage");
+
+          if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Please select a file."; }
+            return;
+          }
+          if (!refInput || !refInput.value.trim()) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Batch reference is required."; }
+            return;
+          }
+          if (!periodInput || !periodInput.value.trim()) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Payroll period is required."; }
+            return;
+          }
+
+          var fd = new FormData();
+          fd.append("post_id", postId);
+          fd.append("deduction_sheet", fileInput.files[0]);
+          fd.append("batch_reference", refInput.value.trim());
+          fd.append("payroll_period", periodInput.value.trim());
+
+          if (msg) { msg.style.display = "block"; msg.style.background = "#fff8e1"; msg.style.color = "#f57f17"; msg.textContent = "Uploading..."; }
+
+          try {
+            var resp = await fetch("/api/treasurer/aid-post-upload-deduction-sheet/", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "X-CSRFToken": getCookie("csrftoken") },
+              body: fd,
+            });
+            var data = await resp.json();
+            if (data.ok) {
+              if (msg) { msg.style.display = "block"; msg.style.background = "#e8f5e9"; msg.style.color = "#2e7d32"; msg.textContent = "Deduction sheet uploaded. Ref: " + data.batch_reference + " | Period: " + data.payroll_period; }
+              post.has_deduction_sheet = true;
+              post.deduction_batch_reference = data.batch_reference;
+              post.deduction_payroll_period = data.payroll_period;
+              rcUpdateDeductionSection(post);
+            } else {
+              if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = data.error || "Upload failed."; }
+            }
+          } catch (e) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Network error during upload."; }
+          }
+        }
+
+        function rcUpdateRemittanceSection(post) {
+          var section = document.getElementById("rcRemittanceSection");
+          var form = document.getElementById("rcRemittanceForm");
+          var status = document.getElementById("rcRemittanceStatus");
+          var msg = document.getElementById("rcRemittanceMessage");
+          if (!section) return;
+          if (msg) msg.style.display = "none";
+          if (post && post.finish_status !== "pending_release" && post.finish_status !== "repayment" && post.finish_status !== "approved") {
+            section.style.display = "block";
+            if (post.has_remittance) {
+              if (status) status.innerHTML = '<span style="color:#0d47a1;"><i class="fa-solid fa-check-circle"></i> Recorded — ₱' + parseFloat(post.deduction_remitted_amount).toLocaleString("en-PH", {minimumFractionDigits:2}) + ' on ' + post.deduction_remitted_date + ' (ref: ' + escapeHtml(post.deduction_remittance_reference || "") + ')</span>';
+              if (form) form.style.display = "none";
+            } else {
+              if (status) status.innerHTML = '<span style="color:#f57f17;"><i class="fa-solid fa-clock"></i> Not yet recorded</span>';
+              if (form) form.style.display = "flex";
+            }
+          } else {
+            section.style.display = "none";
+          }
+        }
+
+        async function rcRecordRemittance() {
+          var postId = rcState.selectedPostId;
+          if (!postId) return;
+          var post = rcState.posts.find(function (p) { return p.post_id === postId; });
+          if (!post || post.has_remittance) return;
+
+          var amountInput = document.getElementById("rcRemitAmount");
+          var refInput = document.getElementById("rcRemitRef");
+          var dateInput = document.getElementById("rcRemitDate");
+          var msg = document.getElementById("rcRemittanceMessage");
+
+          if (!amountInput || !amountInput.value || parseFloat(amountInput.value) <= 0) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Please enter a valid remitted amount."; }
+            return;
+          }
+          if (!refInput || !refInput.value.trim()) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Remittance reference is required."; }
+            return;
+          }
+          if (!dateInput || !dateInput.value) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Deposit date is required."; }
+            return;
+          }
+
+          var fd = new FormData();
+          fd.append("post_id", postId);
+          fd.append("remitted_amount", amountInput.value);
+          fd.append("remittance_reference", refInput.value.trim());
+          fd.append("remitted_date", dateInput.value);
+
+          if (msg) { msg.style.display = "block"; msg.style.background = "#fff8e1"; msg.style.color = "#f57f17"; msg.textContent = "Recording remittance..."; }
+
+          try {
+            var resp = await fetch("/api/treasurer/aid-post-record-remittance/", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "X-CSRFToken": getCookie("csrftoken") },
+              body: fd,
+            });
+            var data = await resp.json();
+            if (data.ok) {
+              if (msg) { msg.style.display = "block"; msg.style.background = "#e8f5e9"; msg.style.color = "#2e7d32"; msg.textContent = "Remittance recorded: ₱" + parseFloat(data.remitted_amount).toLocaleString("en-PH", {minimumFractionDigits:2}) + " ref " + data.remittance_reference; }
+              post.has_remittance = true;
+              post.deduction_remitted_amount = data.remitted_amount;
+              post.deduction_remittance_reference = data.remittance_reference;
+              post.deduction_remitted_date = data.remitted_date;
+              rcUpdateRemittanceSection(post);
+            } else {
+              if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = data.error || "Failed to record remittance."; }
+            }
+          } catch (e) {
+            if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = "Network error recording remittance."; }
+          }
         }
 
         function rcBulkSubmitHandler() {
@@ -6983,8 +7348,10 @@
             confirmButtonColor: "#1b5e20",
             reverseButtons: true,
             customClass: { popup: "swal-custom-animated" },
-          }).then(function (result) {
+          }).then(async function (result) {
             if (!result.isConfirmed) return;
+            var ztOk = await window.ensureZeroTrust();
+            if (!ztOk) return;
             var fd = new FormData();
             fd.append("post_id", post.post_id);
             fetch("/api/treasurer/aid-post-paid-with-funds/", {
@@ -7098,28 +7465,6 @@
         }
 
         document.addEventListener("turbo:load", function () { rcInit(); rcBindFilters(); });
-      })();
-    </script>
-    <script>
-      (function () {
-        "use strict";
-        function fmt(num) {
-          return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
-        }
-        async function init() {
-          try {
-            var res = await fetch("/api/cash-flow-summary/", { method: "GET", credentials: "same-origin" });
-            var data = await res.json();
-            if (!data || !data.ok) return;
-            var fundsIn = document.getElementById("cf-funds-in");
-            var fundsOut = document.getElementById("cf-funds-out");
-            var pending = document.getElementById("cf-pending-contributions");
-            if (fundsIn) fundsIn.innerText = fmt(data.funds_in);
-            if (fundsOut) fundsOut.innerText = fmt(data.funds_out);
-            if (pending) pending.innerText = fmt(data.pending_contributions);
-          } catch (e) { console.error("Cash flow init failed:", e); }
-        }
-        document.addEventListener("turbo:load", init);
       })();
     </script>
     <script>
@@ -7679,14 +8024,13 @@
               tbody.innerHTML += '<tr>' +
                 '<td>' + escapeHtml(dept.department) + '</td>' +
                 '<td>' + (dept.total || 0) + '</td>' +
-                '<td>' + (dept.active || 0) + '</td>' +
                 '<td>' + (dept.permanent || 0) + '</td>' +
                 '<td>' + (dept.temporary || 0) + '</td>' +
                 '<td>' + (dept.retired || 0) + '</td>' +
                 '</tr>';
             });
             if (data.unassigned_count) {
-              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
+              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="3" style="color:#999;">No department assigned</td></tr>';
             }
           }
         },

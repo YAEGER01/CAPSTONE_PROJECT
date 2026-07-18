@@ -208,7 +208,7 @@
     var select = document.getElementById("linked_officer_id");
     if (!select) return;
     try {
-      var resp = await fetch("/api/president/officers/", { credentials: "same-origin" });
+      var resp = await fetch("/api/treasurer/officers/list/", { credentials: "same-origin" });
       var data = await resp.json();
       if (!data || !data.ok || !data.officers) return;
       window.__officersCache = data.officers || [];

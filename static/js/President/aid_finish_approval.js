@@ -273,13 +273,16 @@
       var res = await fetch("/api/president/finish-request-details/?post_id=" + postId, { credentials: "same-origin" });
       var data = await res.json();
       if (!data.ok) { showToast(data.error || "Failed.", true); return; }
+      var paidStatuses = ["PAID", "RECORDED", "PENDING_VERIFICATION"];
       var rows = data.details.map(function (c) {
-        var statusIcon = c.status === "PAID" ? '<i class="fas fa-check-circle" style="color:#2e7d32;"></i>' : '<i class="fas fa-times-circle" style="color:#9e9e9e;"></i>';
+        var isPaid = paidStatuses.indexOf(c.status) !== -1;
+        var statusIcon = isPaid ? '<i class="fas fa-check-circle" style="color:#2e7d32;"></i>' : '<i class="fas fa-times-circle" style="color:#9e9e9e;"></i>';
+        var statusLabel = c.status === "RECORDED" ? "Recorded" : c.status === "PENDING_VERIFICATION" ? "Paid - Pending Verification" : c.status;
         return '<tr>' +
           '<td style="padding:6px 8px;border-bottom:1px solid #eee;">' + escapeHtml(c.member_name) + '</td>' +
-          '<td style="padding:6px 8px;border-bottom:1px solid #eee;">' + escapeHtml(c.status) + ' ' + statusIcon + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid #eee;">' + escapeHtml(statusLabel) + ' ' + statusIcon + '</td>' +
           '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">₱' + c.expected_amount.toFixed(2) + '</td>' +
-          '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:' + (c.status === "PAID" ? "600" : "400") + ';">' + (c.status === "PAID" ? "₱" + c.paid_amount.toFixed(2) : "—") + '</td>' +
+          '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:' + (isPaid ? "600" : "400") + ';">' + (isPaid ? "₱" + c.paid_amount.toFixed(2) : "—") + '</td>' +
           '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">' + (c.payment_date ? escapeHtml(c.payment_date) : "—") + '</td>' +
           '</tr>';
       }).join("");

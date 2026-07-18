@@ -1609,6 +1609,10 @@
                     style="display: none"
                   ></span>
                 </a>
+                <!-- <a class="menu-item" data-target="audit-chain-integrity">
+                  <span class="menu-icon sub-icon">&#8226;</span>
+                  <span class="menu-text">Audit Chain Integrity</span>
+                </a> -->
               </div>
             </div>
 
@@ -1900,16 +1904,15 @@
                    <table class="custom-table" id="deptMemberStatsTable">
                      <thead>
                        <tr>
-                         <th>Department</th>
-                         <th>Total Members</th>
-                         <th>Active</th>
-                         <th>Permanent</th>
-                         <th>Temporary</th>
-                         <th>Retired</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="6" style="text-align:center;color:#6c757d;">Loading...</td></tr>
+                          <th>Department</th>
+                          <th>Total Members</th>
+                          <th>Permanent</th>
+                          <th>Temporary</th>
+                          <th>Retired</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td colspan="5" style="text-align:center;color:#6c757d;">Loading...</td></tr>
                      </tbody>
                    </table>
                  </div>
@@ -2393,8 +2396,21 @@
                         border-left: 3px solid #f57f17;
                       "
                     >
-                      <strong style="color: #1b5e20">3.</strong> Verify details
-                      and click <strong>Verify</strong> to send to President
+                      <strong style="color: #1b5e20">3.</strong> Click
+                      <strong>Verify</strong> → all <strong>RECORDED</strong>
+                      become <strong>PAID</strong> → fund inflow recorded
+                    </div>
+                    <div
+                      style="
+                        margin-bottom: 8px;
+                        padding: 6px 10px;
+                        background: #fff8e1;
+                        border-radius: 6px;
+                        border-left: 3px solid #f57f17;
+                      "
+                    >
+                      <strong style="color: #1b5e20">4.</strong> President
+                      approves → post enters <strong>pending_release</strong>
                     </div>
                     <div
                       style="
@@ -2404,9 +2420,9 @@
                         border-left: 3px solid #1565c0;
                       "
                     >
-                      <strong style="color: #1b5e20">4.</strong> President
-                      approves → <strong>Fund INFLOW</strong> per PAID
-                      contribution
+                      <strong style="color: #1b5e20">5.</strong> Treasurer
+                      releases → you receive a notification with
+                      <strong>Acknowledge</strong> button to confirm
                     </div>
                   </div>
                 </div>
@@ -4043,30 +4059,31 @@
                     style="max-height: 600px; overflow-y: auto"
                   >
                     <table class="custom-table" id="historyPostsTable">
-                      <thead>
-                        <tr>
-                          <th>Beneficiary</th>
-                          <th>Type</th>
-                          <th>Month</th>
-                          <th>Collected</th>
-                          <th>Rate</th>
-                          <th>Finished</th>
-                        </tr>
-                      </thead>
-                      <tbody id="historyPostsTableBody">
-                        <tr>
-                          <td
-                            colspan="6"
-                            style="
-                              text-align: center;
-                              color: #90a4ae;
-                              padding: 30px;
-                            "
-                          >
-                            No finished aid tracking posts yet.
-                          </td>
-                        </tr>
-                      </tbody>
+                  <thead>
+                    <tr>
+                      <th>Member</th>
+                      <th>Aid Type</th>
+                      <th>Target Month</th>
+                      <th>Collection</th>
+                      <th>Paid / Total</th>
+                      <th>Evidence</th>
+                      <th style="text-align: right">Actions</th>
+                    </tr>
+                  </thead>
+                   <tbody id="history-posts-tbody">
+                     <tr>
+                       <td
+                         colspan="7"
+                         style="
+                           text-align: center;
+                           color: #90a4ae;
+                           padding: 30px;
+                         "
+                       >
+                         Loading finish requests...
+                       </td>
+                     </tr>
+                   </tbody>
                     </table>
                   </div>
                 </div>
@@ -4428,7 +4445,7 @@
                     { credentials: "same-origin" },
                   );
                   var data = await res.json();
-                  var tbody = document.getElementById("finish-requests-tbody");
+                  var tbody = document.querySelector("#audit-finish-requests #finish-requests-tbody");
                   if (!tbody) return;
                   var dot = document.getElementById("auditor-finish-dot");
                   if (!data.ok || !data.items || !data.items.length) {
@@ -4480,6 +4497,15 @@
                         item.paid_count +
                         " / " +
                         item.total_count +
+                        "</td>" +
+                        "<td style='font-size:0.75rem;white-space:nowrap;'>" +
+                        (item.has_deduction_sheet
+                          ? "<span style='color:#2e7d32;'><i class='fa-solid fa-file'></i> Sheet</span>"
+                          : "<span style='color:#c62828;'><i class='fa-solid fa-file'></i> Missing</span>") +
+                        " | " +
+                        (item.has_remittance
+                          ? "<span style='color:#0d47a1;'><i class='fa-solid fa-building-columns'></i> Remit</span>"
+                          : "<span style='color:#f57f17;'><i class='fa-solid fa-clock'></i> Pending</span>") +
                         "</td>" +
                         '<td style="white-space:nowrap;text-align:right;">' +
                         '<button style="padding:3px 8px;font-size:0.72rem;margin:0 2px;min-width:60px;border:none;border-radius:20px;color:#fff;cursor:pointer;background:rgba(27,94,32,0.7);" onclick="verifyFinish(' +
@@ -4590,17 +4616,19 @@
                 }
                 var rows = data.details
                   .map(function (c) {
+                    var paidStatuses = ["PAID", "RECORDED", "PENDING_VERIFICATION"];
                     var statusIcon =
-                      c.status === "PAID"
+                      paidStatuses.indexOf(c.status) !== -1
                         ? '<i class="fas fa-check-circle" style="color:#2e7d32;"></i>'
                         : '<i class="fas fa-times-circle" style="color:#9e9e9e;"></i>';
+                    var statusLabel = c.status === "RECORDED" ? "Recorded" : c.status === "PENDING_VERIFICATION" ? "Paid - Pending Verification" : c.status;
                     return (
                       "<tr>" +
                       '<td style="padding:6px 8px;border-bottom:1px solid #eee;">' +
                       _finEscape(c.member_name) +
                       "</td>" +
                       '<td style="padding:6px 8px;border-bottom:1px solid #eee;">' +
-                      _finEscape(c.status) +
+                      _finEscape(statusLabel) +
                       " " +
                       statusIcon +
                       "</td>" +
@@ -4608,9 +4636,9 @@
                       c.expected_amount.toFixed(2) +
                       "</td>" +
                       '<td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:' +
-                      (c.status === "PAID" || c.status === "PENDING_VERIFICATION" ? "600" : "400") +
+                      (paidStatuses.indexOf(c.status) !== -1 ? "600" : "400") +
                       ';">' +
-                      (c.status === "PAID" || c.status === "PENDING_VERIFICATION"
+                      (paidStatuses.indexOf(c.status) !== -1
                         ? "₱" + c.paid_amount.toFixed(2)
                         : "—") +
                       "</td>" +
@@ -4895,6 +4923,342 @@
               }
               if (document.getElementById("pending-batches-tbody"))
                 loadPendingBatches();
+            </script>
+          </section>
+
+          <!-- AUDIT CHAIN INTEGRITY -->
+          <section
+            id="audit-chain-integrity"
+            class="dashboard-module module-fade-in"
+          >
+            <div style="max-width: 1200px; margin: 0 auto">
+              <div class="dashboard-panel">
+                <div class="panel-header-row">
+                  <div>
+                    <h3 class="panel-title">
+                      <i class="fas fa-link"></i> Audit Log Hash-Chain
+                      Integrity
+                    </h3>
+                    <p class="panel-subtitle">
+                      Full hash-chain audit trail for each (table, record) with
+                      entry hashes, HMAC signatures, and integrity status
+                    </p>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center">
+                  <button
+                    class="btn-brand btn-brand-primary"
+                    onclick="loadAuditChain()"
+                  >
+                    <i class="fas fa-shield-alt"></i> Load Chain
+                  </button>
+                  <button
+                    class="btn-brand btn-brand-secondary"
+                    onclick="clearAuditChain()"
+                  >
+                    Clear
+                  </button>
+                  <span
+                    id="aciSummary"
+                    style="display: none; font-size: 0.82rem; color: #455a64; margin-left: 8px"
+                  ></span>
+                </div>
+
+                <div
+                  id="aciTableContainer"
+                  style="display: none; margin-bottom: 12px"
+                >
+                  <div class="table-container" style="max-height: 520px; overflow-y: auto">
+                    <table class="custom-table" id="aciTable" style="width: 100%">
+                      <thead>
+                        <tr>
+                          <th style="width: 50px">#</th>
+                          <th>Table</th>
+                          <th>Record ID</th>
+                          <th>Action</th>
+                          <th>Actor</th>
+                          <th>Timestamp</th>
+                          <th>Old Values</th>
+                          <th>New Values</th>
+                          <th>Entry Hash</th>
+                          <th>HMAC</th>
+                          <th style="width: 90px">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody id="aciTableBody"></tbody>
+                    </table>
+                  </div>
+                  <div
+                    id="aciPagination"
+                    style="
+                      display: flex;
+                      align-items: center;
+                      justify-content: space-between;
+                      margin-top: 10px;
+                      flex-wrap: wrap;
+                      gap: 8px;
+                    "
+                  ></div>
+                </div>
+
+                <div
+                  id="aciEmptyState"
+                  style="
+                    display: none;
+                    padding: 30px;
+                    text-align: center;
+                    color: #90a4ae;
+                  "
+                >
+                  <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: 8px"></i>
+                  <p>Click Load Chain to view all audit trail entries.</p>
+                </div>
+              </div>
+            </div>
+            <script>
+              var aciState = {
+                entries: [],
+                filteredEntries: [],
+                currentPage: 1,
+                pageSize: 25,
+                issues: [],
+              };
+
+              function escHtml(v) {
+                return String(v ?? "")
+                  .replace(/&/g, "&amp;")
+                  .replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;")
+                  .replace(/"/g, "&quot;")
+                  .replace(/'/g, "&#039;");
+              }
+
+              function truncate(val, max) {
+                var s = String(val ?? "");
+                return s.length > max ? s.slice(0, max) + "..." : s;
+              }
+
+              function issueIndexes(issues) {
+                var set = {};
+                (issues || []).forEach(function (iss) {
+                  set[String(iss.index)] = iss.issue;
+                });
+                return set;
+              }
+
+              function renderAciTable() {
+                var start = (aciState.currentPage - 1) * aciState.pageSize;
+                var end = start + aciState.pageSize;
+                var slice = aciState.filteredEntries.slice(start, end);
+                var tbody = document.getElementById("aciTableBody");
+                if (!tbody) return;
+                tbody.innerHTML = "";
+
+                if (!slice.length) {
+                  tbody.innerHTML =
+                    '<tr><td colspan="11" style="text-align:center;color:#90a4ae;padding:20px;">No entries to display.</td></tr>';
+                  return;
+                }
+
+                var issueMap = issueIndexes(aciState.issues);
+
+                slice.forEach(function (entry, i) {
+                  var idx = start + i;
+                  var hasIssue = !!issueMap[String(idx)];
+                  var statusBadge = hasIssue
+                    ? '<span style="color:#c62828;font-weight:600;"><i class="fas fa-times-circle"></i> Invalid</span>'
+                    : '<span style="color:#2e7d32;font-weight:600;"><i class="fas fa-check-circle"></i> Valid</span>';
+
+                  var oldStr = truncate(
+                    JSON.stringify(entry.old_values || {}),
+                    120
+                  );
+                  var newStr = truncate(
+                    JSON.stringify(entry.new_values || {}),
+                    120
+                  );
+
+                  var tr = document.createElement("tr");
+                  if (hasIssue) tr.style.background = "#fff8f8";
+                  tr.innerHTML =
+                    "<td>" +
+                    escHtml(entry.trail_id) +
+                    "</td>" +
+                    "<td>" +
+                    escHtml(entry.table_name || "") +
+                    "</td>" +
+                    "<td>" +
+                    escHtml(entry.record_id != null ? String(entry.record_id) : "") +
+                    "</td>" +
+                    "<td>" +
+                    escHtml(entry.action) +
+                    "</td>" +
+                    "<td>" +
+                    escHtml(entry.actor_name) +
+                    "</td>" +
+                    "<td style='white-space:nowrap;'>" +
+                    escHtml(entry.timestamp ? entry.timestamp.replace("T", " ").replace(/\.\d+/, "") : "") +
+                    "</td>" +
+                    "<td style='max-width:220px;overflow:hidden;text-overflow:ellipsis;' title='" +
+                    escHtml(oldStr).replace(/'/g, "&#039;") +
+                    "'>" +
+                    escHtml(oldStr) +
+                    "</td>" +
+                    "<td style='max-width:220px;overflow:hidden;text-overflow:ellipsis;' title='" +
+                    escHtml(newStr).replace(/'/g, "&#039;") +
+                    "'>" +
+                    escHtml(newStr) +
+                    "</td>" +
+                    "<td style='font-family:monospace;font-size:0.72rem;'>" +
+                    escHtml(truncate(entry.entry_hash, 16)) +
+                    "</td>" +
+                    "<td style='font-family:monospace;font-size:0.72rem;'>" +
+                    escHtml(truncate(entry.hmac_signature, 16)) +
+                    "</td>" +
+                    "<td>" + statusBadge + "</td>";
+                  tbody.appendChild(tr);
+                });
+
+                renderAciPagination();
+              }
+
+              function renderAciPagination() {
+                var total = aciState.filteredEntries.length;
+                var totalPages = Math.max(1, Math.ceil(total / aciState.pageSize));
+                if (aciState.currentPage > totalPages)
+                  aciState.currentPage = totalPages;
+                var start = Math.min((aciState.currentPage - 1) * aciState.pageSize + 1, total);
+                var end = Math.min(aciState.currentPage * aciState.pageSize, total);
+                var container = document.getElementById("aciPagination");
+                if (!container) return;
+
+                var html =
+                  '<span style="font-size:0.78rem;color:#546e7a;">' +
+                  (total
+                    ? "Showing " + start + " - " + end + " of " + total
+                    : "No entries") +
+                  "</span>" +
+                  '<div style="display:flex;align-items:center;gap:6px;">' +
+                  '<select id="aciPageSize" class="form-control" style="width:auto;padding:4px 8px;font-size:0.78rem;">' +
+                  [10, 25, 50, 100]
+                    .map(function (s) {
+                      return (
+                        '<option value="' +
+                        s +
+                        '"' +
+                        (s === aciState.pageSize ? " selected" : "") +
+                        ">" +
+                        s +
+                        " / page</option>"
+                      );
+                    })
+                    .join("") +
+                  "</select>" +
+                  '<button class="btn-brand btn-brand-secondary" id="aciPrevBtn" style="padding:4px 10px;font-size:0.78rem;" ' +
+                  (aciState.currentPage <= 1 ? "disabled" : "") +
+                  "><i class='fas fa-chevron-left'></i></button>" +
+                  '<span style="font-size:0.82rem;font-weight:600;">' +
+                  aciState.currentPage +
+                  " / " +
+                  totalPages +
+                  "</span>" +
+                  '<button class="btn-brand btn-brand-secondary" id="aciNextBtn" style="padding:4px 10px;font-size:0.78rem;" ' +
+                  (aciState.currentPage >= totalPages ? "disabled" : "") +
+                  "><i class='fas fa-chevron-right'></i></button>" +
+                  "</div>";
+
+                container.innerHTML = html;
+
+                document
+                  .getElementById("aciPageSize")
+                  .addEventListener("change", function (e) {
+                    aciState.pageSize = parseInt(e.target.value, 10) || 25;
+                    aciState.currentPage = 1;
+                    renderAciTable();
+                  });
+                document.getElementById("aciPrevBtn").addEventListener(
+                  "click",
+                  function () {
+                    if (aciState.currentPage > 1) {
+                      aciState.currentPage--;
+                      renderAciTable();
+                    }
+                  }
+                );
+                document.getElementById("aciNextBtn").addEventListener(
+                  "click",
+                  function () {
+                    var totalPages = Math.ceil(
+                      aciState.filteredEntries.length / aciState.pageSize
+                    );
+                    if (aciState.currentPage < totalPages) {
+                      aciState.currentPage++;
+                      renderAciTable();
+                    }
+                  }
+                );
+              }
+
+              async function loadAuditChain() {
+                var summary = document.getElementById("aciSummary");
+                var container = document.getElementById("aciTableContainer");
+                var emptyState = document.getElementById("aciEmptyState");
+
+                summary.style.display = "none";
+                container.style.display = "none";
+                emptyState.style.display = "none";
+
+                try {
+                  var resp = await fetch(
+                    "/api/audit/trail/verify/",
+                    { credentials: "same-origin" }
+                  );
+                  var data = await resp.json();
+                  if (!data.ok) {
+                    summary.style.display = "block";
+                    summary.style.color = "#c62828";
+                    summary.innerHTML =
+                      '<i class="fa-solid fa-exclamation-triangle"></i> ' +
+                      (data.error || "Verification failed.");
+                    return;
+                  }
+
+                  aciState.entries = data.entries || [];
+                  aciState.filteredEntries = aciState.entries.slice();
+                  aciState.issues = data.issues || [];
+                  aciState.currentPage = 1;
+                  aciState.pageSize = 25;
+
+                  container.style.display = "block";
+                  renderAciTable();
+
+                  summary.style.display = "block";
+                  summary.style.color = "#1565c0";
+                  summary.innerHTML =
+                    "<strong>" +
+                    data.total_entries +
+                    "</strong> entr(ies) — <strong>" +
+                    (data.issues ? data.issues.length : 0) +
+                    "</strong> issue(s) found.";
+                } catch (e) {
+                  summary.style.display = "block";
+                  summary.style.color = "#c62828";
+                  summary.innerHTML =
+                    '<i class="fa-solid fa-exclamation-triangle"></i> Network error: ' +
+                    e.message;
+                }
+              }
+
+              function clearAuditChain() {
+                document.getElementById("aciSummary").style.display = "none";
+                document.getElementById("aciTableContainer").style.display = "none";
+                document.getElementById("aciEmptyState").style.display = "none";
+                aciState.entries = [];
+                aciState.filteredEntries = [];
+                aciState.issues = [];
+                aciState.currentPage = 1;
+              }
             </script>
           </section>
 
@@ -5194,30 +5558,126 @@
       (function () {
         "use strict";
         function fmt(num) {
-          return new Intl.NumberFormat("en-PH", {
-            style: "currency",
-            currency: "PHP",
-          }).format(num);
+          return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(num);
         }
-        async function init() {
-          try {
-            var res = await fetch("/api/cash-flow-summary/", {
-              method: "GET",
-              credentials: "same-origin",
+        function escapeHtml(str) {
+          var div = document.createElement("div");
+          div.appendChild(document.createTextNode(str));
+          return div.innerHTML;
+        }
+        function renderInflowOutflow(data) {
+          var log = document.getElementById("io-log");
+          var loading = document.getElementById("io-loading");
+          if (!log) return;
+          if (loading) loading.style.display = "none";
+          log.innerHTML = "";
+          var all = [];
+          if (data.inflows) {
+            data.inflows.forEach(function (item) {
+              all.push({ description: item.description, source_type: item.source_type, amount: item.amount, date: item.recorded_at, is_inflow: true });
             });
-            var data = await res.json();
-            if (!data || !data.ok) return;
-            var fundsIn = document.getElementById("cf-funds-in");
-            var fundsOut = document.getElementById("cf-funds-out");
-            var pending = document.getElementById("cf-pending-contributions");
-            if (fundsIn) fundsIn.innerText = fmt(data.funds_in);
-            if (fundsOut) fundsOut.innerText = fmt(data.funds_out);
-            if (pending) pending.innerText = fmt(data.pending_contributions);
-          } catch (e) {
-            console.error("Cash flow init failed:", e);
           }
+          if (data.outflows) {
+            data.outflows.forEach(function (item) {
+              all.push({ description: item.description, source_type: item.source_type, amount: item.amount, date: item.recorded_at, is_inflow: false });
+            });
+          }
+          all.sort(function (a, b) { return a.date.localeCompare(b.date); });
+          if (all.length === 0) {
+            log.innerHTML = '<div class="io-empty">No entries yet</div>';
+            return;
+          }
+          all.forEach(function (item, idx) {
+            var div = document.createElement("div");
+            div.className = "io-item " + (item.is_inflow ? "io-inflow" : "io-outflow");
+            var sign = item.is_inflow ? "+" : "-";
+            var desc = escapeHtml(item.description || "");
+            var stype = (item.source_type || "").replace(/_/g, " ");
+            div.innerHTML =
+              '<span style="display:flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:0.65rem;font-weight:700;flex-shrink:0;line-height:18px;text-align:center;color:#fff;background:' + (item.is_inflow ? '#00e676' : '#ff1744') + ';">' + (idx + 1) + '</span>' +
+              '<span class="io-sign">' + sign + '</span>' +
+              '<span class="io-name"><span class="io-desc">' + desc + '</span><span class="io-stype">' + stype + '</span></span>' +
+              '<span class="io-amount">' + fmt(item.amount) + '</span>' +
+              '<span class="io-date">' + escapeHtml(item.date) + '</span>';
+            log.appendChild(div);
+          });
         }
-        document.addEventListener("turbo:load", init);
+        async function initIO() {
+          try {
+            var res = await fetch("/api/treasurer/dashboard/inflow-outflow/", { method: "GET", credentials: "same-origin" });
+            var data = await res.json();
+            if (data && data.ok) {
+              renderInflowOutflow(data);
+              var fundEl = document.getElementById("kpi-funds");
+              if (fundEl && typeof data.fund_balance === "number") {
+                fundEl.innerText = fmt(data.fund_balance);
+                fundEl.dataset.liveLoaded = "true";
+              }
+              var moneyInEl = document.getElementById("kpi-money-in");
+              var moneyOutEl = document.getElementById("kpi-money-out");
+              if (moneyInEl && typeof data.money_in === "number") moneyInEl.innerText = fmt(data.money_in);
+              if (moneyOutEl && typeof data.money_out === "number") moneyOutEl.innerText = fmt(data.money_out);
+            }
+          } catch (e) { console.error("Inflow/outflow init failed:", e); }
+        }
+        document.addEventListener("turbo:load", initIO);
+      })();
+    </script>
+    <script>
+      (function () {
+        "use strict";
+        var chartInstance = null;
+        function fmtPeso(num) {
+          return "₱" + Number(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        async function initMonthlyChart() {
+          try {
+            var res = await fetch("/api/treasurer/dashboard/monthly-flow/", { method: "GET", credentials: "same-origin" });
+            var data = await res.json();
+            if (!data || !data.ok || !data.months || data.months.length === 0) return;
+            var ctx = document.getElementById("monthlyFlowChart");
+            if (!ctx) return;
+            if (chartInstance) chartInstance.destroy();
+            var config = {
+              type: "bar",
+              data: {
+                labels: data.months,
+                datasets: [
+                  { label: "Membership Fee", data: data.membership_fee, backgroundColor: "rgba(0,230,118,0.7)", borderColor: "#00e676", borderWidth: 1 },
+                  { label: "Monthly Dues", data: data.monthly_dues, backgroundColor: "rgba(0,188,212,0.7)", borderColor: "#00bcd4", borderWidth: 1 },
+                  { label: "Medical Aid", data: data.medical_aid, backgroundColor: "rgba(255,23,68,0.7)", borderColor: "#ff1744", borderWidth: 1 },
+                  { label: "Death Aid", data: data.death_aid, backgroundColor: "rgba(124,77,255,0.7)", borderColor: "#7c4dff", borderWidth: 1 },
+                  { label: "Fund Payment", data: data.fund_payment, backgroundColor: "rgba(255,213,0,0.8)", borderColor: "#ffd500", borderWidth: 1 },
+                  { label: "Contribution", data: data.contribution, backgroundColor: "rgba(255,111,0,0.7)", borderColor: "#ff6f00", borderWidth: 1 },
+                ],
+              },
+              options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: { mode: "index", intersect: false, callbacks: { label: function (ctx) { return ctx.dataset.label + ": " + fmtPeso(ctx.parsed.y); } } },
+                },
+                scales: {
+                  x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                  y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: function (value) { return "₱" + value.toLocaleString(); } } },
+                },
+              },
+            };
+            chartInstance = new Chart(ctx, config);
+            requestAnimationFrame(function() { chartInstance.resize(); });
+            var dots = document.querySelectorAll("#chartLegendDots span");
+            dots.forEach(function (dot) {
+              dot.addEventListener("click", function () {
+                var idx = parseInt(this.getAttribute("data-index"), 10);
+                var meta = chartInstance.getDatasetMeta(idx);
+                meta.hidden = meta.hidden === null ? !chartInstance.data.datasets[idx].hidden : !meta.hidden;
+                chartInstance.update();
+                this.style.opacity = meta.hidden ? "0.3" : "1";
+              });
+            });
+          } catch (e) { console.error("Monthly chart init failed:", e); }
+        }
+        document.addEventListener("turbo:load", initMonthlyChart);
       })();
     </script>
     <script src="{% static 'js/push-init.js' %}"></script>
@@ -5232,14 +5692,13 @@
               tbody.innerHTML += '<tr>' +
                 '<td>' + escapeHtml(dept.department) + '</td>' +
                 '<td>' + (dept.total || 0) + '</td>' +
-                '<td>' + (dept.active || 0) + '</td>' +
                 '<td>' + (dept.permanent || 0) + '</td>' +
                 '<td>' + (dept.temporary || 0) + '</td>' +
                 '<td>' + (dept.retired || 0) + '</td>' +
                 '</tr>';
             });
             if (data.unassigned_count) {
-              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="4" style="color:#999;">No department assigned</td></tr>';
+              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="3" style="color:#999;">No department assigned</td></tr>';
             }
           }
         },

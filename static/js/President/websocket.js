@@ -66,6 +66,54 @@
         window.AidFinishApproval.loadRequests();
       }
     }
+
+    if (msg.type === "release_notification") {
+      showReleaseAckToast(msg);
+    }
+  }
+
+  function showReleaseAckToast(msg) {
+    var host = document.getElementById("toastContainer");
+    if (!host) return;
+    var toast = document.createElement("div");
+    toast.className = "custom-toast";
+    toast.style.cursor = "default";
+    toast.innerHTML =
+      '<div style="font-size:0.82rem;line-height:1.4;">' +
+      "<strong>Release: " + escapeHtml(msg.member_name) + "'s " + escapeHtml(msg.aid_label) + "</strong><br>" +
+      "&#x20B1;" + escapeHtml(String(msg.total_collected)) + " from " + msg.paid_count + "/" + msg.total_count + " members" +
+      '<br><button class="ack-release-btn" data-post-id="' + msg.post_id + '" style="margin-top:6px;padding:4px 14px;border-radius:6px;border:1px solid #1b5e20;background:#e8f5e9;color:#1b5e20;font-size:0.75rem;font-weight:600;cursor:pointer;">Acknowledge</button>' +
+      "</div>";
+    host.appendChild(toast);
+    setTimeout(function () { toast.classList.add("show"); }, 10);
+    toast.querySelector(".ack-release-btn").addEventListener("click", function () {
+      var btn = this;
+      btn.disabled = true;
+      btn.innerText = "...";
+      fetch("/api/treasurer/aid-post-release-acknowledge/" + msg.post_id + "/", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")?.value || "" },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          btn.innerText = data.ok ? "\u2713 Acknowledged" : "Failed";
+          if (!data.ok) btn.disabled = false;
+          setTimeout(function () { toast.remove(); }, 2000);
+        })
+        .catch(function () {
+          btn.innerText = "Error";
+          btn.disabled = false;
+        });
+    });
+    setTimeout(function () {
+      toast.classList.remove("show");
+      setTimeout(function () { toast.remove(); }, 300);
+    }, 15000);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 
   function refreshPresidentSection(section) {

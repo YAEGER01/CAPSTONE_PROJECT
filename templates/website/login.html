@@ -95,8 +95,8 @@
         </div>
       </div>
 
-      <form method="post" novalidate>
-        {% csrf_token %} {% if form.term_expired %}
+      <form method="post" novalidate id="loginForm" autocomplete="off" {% if form.mfa_required %}style="display:none;"{% endif %}>
+        {% csrf_token %} {% if messages %} {% for message in messages %}
         <p
           class="error-note"
           style="
@@ -107,22 +107,10 @@
           "
         >
           <i class="fa-solid fa-circle-exclamation"></i>
-          {{ form.errors|first }}
+          {{ message }}
         </p>
-        {% endif %} {% if form.errors and not form.term_expired %}
-        <p
-          class="error-note"
-          style="
-            color: #d32f2f;
-            margin-bottom: 15px;
-            font-size: 14px;
-            font-weight: 500;
-          "
-        >
-          <i class="fa-solid fa-circle-exclamation"></i> Invalid username or
-          password.
-        </p>
-        {% endif %}
+        {% endfor %} {% endif %}
+        <div id="loginError" class="error-note" style="display: none;"></div>
 
         <div>
           <label for="username">Username</label>
@@ -133,6 +121,7 @@
               name="username"
               type="text"
               placeholder="Enter username"
+              autocomplete="username"
               required
             />
           </div>
@@ -147,6 +136,7 @@
               name="password"
               type="password"
               placeholder="Enter password"
+              autocomplete="new-password"
               required
             />
             <button
@@ -179,8 +169,15 @@
       <form id="mfaForm" class="mfa-form" novalidate style="margin-top: 24px; display: block;">
         {% csrf_token %}
         <p class="mfa-intro">
-          Enter the 6-digit verification code sent to your registered device.
+          Enter the 6-digit verification code sent to your registered email address.
         </p>
+
+        {% if form.email_warning %}
+        <div class="error-note" style="margin-bottom: 15px;">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          {{ form.email_warning }}
+        </div>
+        {% endif %}
 
         <div id="mfaError" class="error-note" style="display: none;">
           <i class="fa-solid fa-circle-exclamation"></i>
@@ -205,25 +202,24 @@
           </div>
         </div>
 
-        <input type="hidden" id="preAuthToken" value="" />
+        <input type="hidden" id="preAuthToken" value="{{ form.pre_auth_token|default:'' }}" />
         <input type="hidden" id="mfaUsername" value="{{ form.username|default:'' }}" />
 
         <div class="mfa-actions">
-          <button class="submit-btn" type="submit" id="mfaSubmitBtn">
+          <button class="btn-slim btn-primary" type="submit" id="mfaSubmitBtn">
             <i class="fa-solid fa-check"></i> Verify
           </button>
           <button
-            class="secondary-btn"
+            class="btn-slim btn-secondary"
             type="button"
             id="resendBtn"
-            style="margin-top: 10px;"
           >
             <i class="fa-solid fa-rotate-right"></i> Resend Code
           </button>
         </div>
 
         <p class="mfa-footer">
-          Didn't receive it? Check your push notifications or email.
+          Didn't receive it? Check your email's spam.
         </p>
       </form>
       {% endif %}
@@ -315,7 +311,8 @@
               btn.disabled = false;
               btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Resend Code';
               if (data && data.ok) {
-                alert("Verification code resent via " + (data.delivery === "email" ? "email" : "push notification") + ".");
+                showError("Verification code sent! Please check your email inbox.");
+                setTimeout(hideError, 4000);
               } else {
                 showError((data && data.error) || "Failed to resend code.");
               }

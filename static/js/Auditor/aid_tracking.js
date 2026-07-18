@@ -661,7 +661,7 @@
   }
 
   function renderHistoryTable() {
-    var tbody = getEl("historyPostsTableBody");
+    var tbody = getEl("history-posts-tbody");
     if (!tbody) return;
     tbody.innerHTML = "";
 

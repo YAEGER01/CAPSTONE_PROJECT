@@ -1,138 +1,186 @@
 (function () {
   "use strict";
 
-  const originalFetch = window.fetch;
-  window.fetch = async function (...args) {
-    let response = await originalFetch(...args);
+  var originalFetch = window.fetch;
+  window.fetch = async function () {
+    var args = arguments;
+    var response = await originalFetch.apply(window, args);
+
+    if (response.redirected && response.url && response.url.indexOf("session_expired=1") !== -1) {
+      window.location.href = response.url;
+      return new Response("", { status: 0, statusText: "Session expired" });
+    }
 
     if (response.status === 403 && response.headers.get("X-Zero-Trust-Challenge") === "true") {
-      const verified = await triggerZeroTrustModal();
+      var verified = await triggerZeroTrustModal();
       if (verified) {
-        return originalFetch(...args);
+        return originalFetch.apply(window, args);
       }
     }
     return response;
   };
 
+  function getCsrf() {
+    var el = document.querySelector("[name=csrfmiddlewaretoken]");
+    return el ? el.value : "";
+  }
+
+  var ztModalId = "zt-modal-overlay";
+
+  function removeModal() {
+    var existing = document.getElementById(ztModalId);
+    if (existing) existing.remove();
+    document.body.style.overflow = "";
+  }
+
   function triggerZeroTrustModal() {
-    return new Promise((resolve) => {
-      const overlay = document.createElement("div");
-      overlay.style.position = "fixed";
-      overlay.style.top = "0";
-      overlay.style.left = "0";
-      overlay.style.width = "100%";
-      overlay.style.height = "100%";
-      overlay.style.backgroundColor = "rgba(0, 0, 0, 0.6)";
-      overlay.style.display = "flex";
-      overlay.style.justifyContent = "center";
-      overlay.style.alignItems = "center";
-      overlay.style.zIndex = "99999";
-      overlay.style.backdropFilter = "blur(5px)";
+    return new Promise(function (resolve) {
+      removeModal();
 
-      const modal = document.createElement("div");
-      modal.style.backgroundColor = "#fff";
-      modal.style.padding = "30px";
-      modal.style.borderRadius = "12px";
-      modal.style.boxShadow = "0 8px 30px rgba(0,0,0,0.3)";
-      modal.style.width = "400px";
-      modal.style.textAlign = "center";
-      modal.style.fontFamily = "system-ui, -apple-system, sans-serif";
+      var overlay = document.createElement("div");
+      overlay.id = ztModalId;
+      overlay.style.cssText =
+        "position:fixed;top:0;left:0;width:100vw;height:100vh;" +
+        "background:rgba(0,0,0,0.4);z-index:9999;display:flex;" +
+        "align-items:center;justify-content:center;";
 
-      modal.innerHTML = `
-        <div style="font-size: 40px; margin-bottom: 15px; color: #1b5e20;">🛡️</div>
-        <h3 style="margin: 0 0 10px; color: #333;">Zero Trust Verification</h3>
-        <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
-          For security, please enter the verification code sent to your registered email or push notification device.
-        </p>
-        <div id="zt-error" style="color: #c62828; font-size: 13px; margin-bottom: 15px; display: none;"></div>
-        <input type="text" id="zt-otp" placeholder="000000" maxlength="6" style="width: 100%; padding: 12px; font-size: 18px; letter-spacing: 5px; text-align: center; border: 2px solid #ccc; border-radius: 6px; margin-bottom: 20px; box-sizing: border-box;" />
-        <div style="display: flex; gap: 10px;">
-          <button id="zt-verify-btn" style="flex: 1; padding: 12px; font-size: 15px; background: #1b5e20; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Verify</button>
-          <button id="zt-resend-btn" style="padding: 12px; font-size: 14px; background: #eceff1; color: #37474f; border: none; border-radius: 6px; cursor: pointer;">Resend</button>
-        </div>
-      `;
+      var card = document.createElement("div");
+      card.style.cssText =
+        "background:white;border-radius:14px;width:90%;max-width:420px;" +
+        "padding:28px;box-shadow:0 15px 40px rgba(0,0,0,0.15);" +
+        "text-align:center;position:relative;";
 
-      overlay.appendChild(modal);
+      card.innerHTML =
+        '<div style="font-size:40px;margin-bottom:10px;color:#1b5e20;">&#128737;&#65039;</div>' +
+        '<h3 style="color:#1b5e20;margin-bottom:8px;">Zero Trust Verification</h3>' +
+        '<p style="font-size:14px;color:#666;margin-bottom:18px;">' +
+        "For security, please enter the verification code sent to your registered email." +
+        "</p>" +
+        '<div id="zt-error" style="color:#c62828;font-size:13px;margin-bottom:12px;display:none;"></div>' +
+        '<input type="text" id="zt-otp" maxlength="6" placeholder="000000"' +
+        ' style="width:80%;padding:12px;font-size:20px;text-align:center;letter-spacing:5px;' +
+        'border:2px solid #ddd;border-radius:8px;margin:0 auto 16px;display:block;outline:none;" />' +
+        '<div style="display:flex;gap:10px;justify-content:center;margin-bottom:12px;">' +
+        '<button id="zt-resend-btn" type="button"' +
+        ' style="padding:8px 20px;background:#eceff1;color:#37474f;border:none;border-radius:6px;' +
+        'cursor:pointer;font-size:13px;font-weight:600;">Resend Code</button>' +
+        "</div>" +
+        '<div style="display:flex;gap:10px;justify-content:center;">' +
+        '<button id="zt-cancel-btn" type="button"' +
+        ' style="padding:10px 24px;background:#546e7a;color:#fff;border:none;border-radius:8px;' +
+        'cursor:pointer;font-size:14px;font-weight:600;">Cancel</button>' +
+        '<button id="zt-verify-btn" type="button"' +
+        ' style="padding:10px 24px;background:#1b5e20;color:#fff;border:none;border-radius:8px;' +
+        'cursor:pointer;font-size:14px;font-weight:600;">Verify</button>' +
+        "</div>";
+
+      overlay.appendChild(card);
       document.body.appendChild(overlay);
+      document.body.style.overflow = "hidden";
 
-      const otpInput = modal.querySelector("#zt-otp");
-      const verifyBtn = modal.querySelector("#zt-verify-btn");
-      const resendBtn = modal.querySelector("#zt-resend-btn");
-      const errorDiv = modal.querySelector("#zt-error");
-
-      sendChallenge();
+      var otpInput = document.getElementById("zt-otp");
+      var errorDiv = document.getElementById("zt-error");
+      var resendBtn = document.getElementById("zt-resend-btn");
+      var verifyBtn = document.getElementById("zt-verify-btn");
+      var cancelBtn = document.getElementById("zt-cancel-btn");
 
       function sendChallenge() {
         errorDiv.style.display = "none";
         resendBtn.disabled = true;
-        resendBtn.innerText = "Sending...";
-
-        const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]")?.value || "";
+        resendBtn.textContent = "Sending...";
 
         originalFetch("/api/auth/zero-trust/challenge/", {
           method: "POST",
-          headers: {
-            "X-CSRFToken": csrfToken,
-          }
+          headers: { "X-CSRFToken": getCsrf() },
         })
-        .then(r => r.json())
-        .then(data => {
-          resendBtn.disabled = false;
-          resendBtn.innerText = "Resend";
-          if (!data.ok) {
-            errorDiv.innerText = data.error || "Failed to send code.";
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            resendBtn.disabled = false;
+            resendBtn.textContent = "Resend Code";
+            if (!data.ok) {
+              errorDiv.textContent = data.error || "Failed to send code.";
+              errorDiv.style.display = "block";
+            }
+          })
+          .catch(function () {
+            resendBtn.disabled = false;
+            resendBtn.textContent = "Resend Code";
+            errorDiv.textContent = "Network error while sending code.";
             errorDiv.style.display = "block";
-          }
-        })
-        .catch(() => {
-          resendBtn.disabled = false;
-          resendBtn.innerText = "Resend";
-          errorDiv.innerText = "Network error while sending code.";
-          errorDiv.style.display = "block";
-        });
+          });
       }
 
-      resendBtn.addEventListener("click", sendChallenge);
-
-      verifyBtn.addEventListener("click", () => {
-        const otp = otpInput.value.trim();
+      function verifyOtp() {
+        var otp = otpInput.value.trim();
         if (otp.length !== 6) {
-          errorDiv.innerText = "Please enter a 6-digit code.";
+          errorDiv.textContent = "Please enter a 6-digit code.";
           errorDiv.style.display = "block";
           return;
         }
-
         verifyBtn.disabled = true;
-        verifyBtn.innerText = "Verifying...";
-        const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]")?.value || "";
+        verifyBtn.textContent = "Verifying...";
+        errorDiv.style.display = "none";
 
         originalFetch("/api/auth/zero-trust/verify/", {
           method: "POST",
           headers: {
             "Content-Type": "application/x-www-form-urlencoded",
-            "X-CSRFToken": csrfToken,
+            "X-CSRFToken": getCsrf(),
           },
-          body: new URLSearchParams({ otp: otp })
+          body: new URLSearchParams({ otp: otp }),
         })
-        .then(r => r.json())
-        .then(data => {
-          verifyBtn.disabled = false;
-          verifyBtn.innerText = "Verify";
-          if (data.ok) {
-            document.body.removeChild(overlay);
-            resolve(true);
-          } else {
-            errorDiv.innerText = data.error || "Verification failed.";
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = "Verify";
+            if (data.ok) {
+              removeModal();
+              resolve(true);
+            } else {
+              errorDiv.textContent = data.error || "Verification failed.";
+              errorDiv.style.display = "block";
+            }
+          })
+          .catch(function () {
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = "Verify";
+            errorDiv.textContent = "Network error. Please try again.";
             errorDiv.style.display = "block";
-          }
-        })
-        .catch(() => {
-          verifyBtn.disabled = false;
-          verifyBtn.innerText = "Verify";
-          errorDiv.innerText = "Network error. Please try again.";
-          errorDiv.style.display = "block";
-        });
+          });
+      }
+
+      function handleCancel() {
+        removeModal();
+        resolve(false);
+      }
+
+      sendChallenge();
+
+      otpInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") verifyOtp();
       });
+
+      resendBtn.addEventListener("click", sendChallenge);
+      verifyBtn.addEventListener("click", verifyOtp);
+      cancelBtn.addEventListener("click", handleCancel);
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) handleCancel();
+      });
+
+      otpInput.focus();
     });
   }
+
+  window.ensureZeroTrust = async function () {
+    try {
+      var resp = await originalFetch("/api/auth/zero-trust/status/", {
+        method: "GET",
+        headers: { "X-CSRFToken": getCsrf() },
+      });
+      var data = await resp.json();
+      if (data.ok && data.verified) return true;
+    } catch (e) {
+    }
+    return await triggerZeroTrustModal();
+  };
 })();

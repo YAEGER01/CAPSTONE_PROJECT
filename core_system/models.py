@@ -25,6 +25,7 @@ class OfficerUser(models.Model):
     mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=255, null=True, blank=True)
     last_mfa_email_sent_at = models.DateTimeField(null=True, blank=True)
+    email = models.CharField(max_length=255, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -788,6 +789,38 @@ class AidTrackingPost(models.Model):
         default=False,
         help_text="True when the post was paid using organizational funds instead of member contributions"
     )
+    deduction_sheet = models.FileField(
+        upload_to="deduction_sheets/", null=True, blank=True,
+        help_text="Uploaded salary deduction accounting sheet"
+    )
+    deduction_batch_reference = models.CharField(
+        max_length=100, blank=True, default="",
+        help_text="Reference or batch number from the salary deduction sheet"
+    )
+    deduction_payroll_period = models.CharField(
+        max_length=50, blank=True, default="",
+        help_text="Payroll period covered (e.g. 2026-07)"
+    )
+    deduction_sheet_uploaded_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the deduction sheet was uploaded"
+    )
+    deduction_remitted_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Amount deposited from salary deduction remittance"
+    )
+    deduction_remittance_reference = models.CharField(
+        max_length=100, blank=True, default="",
+        help_text="Bank reference or deposit slip number for the remittance"
+    )
+    deduction_remitted_date = models.DateField(
+        null=True, blank=True,
+        help_text="Date the remittance was deposited"
+    )
+    deduction_remitted_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When the remittance was recorded in the system"
+    )
 
     class Meta:
         db_table = "AID_TRACKING_POST"
@@ -795,6 +828,20 @@ class AidTrackingPost(models.Model):
 
 
 class Contribution(models.Model):
+    STATUS_NOT_PAID = "NOT_PAID"
+    STATUS_RECORDED = "RECORDED"
+    STATUS_PENDING_VERIFICATION = "PENDING_VERIFICATION"
+    STATUS_PAID = "PAID"
+    STATUS_SKIPPED = "SKIPPED"
+
+    STATUS_CHOICES = [
+        (STATUS_NOT_PAID, "Not Paid"),
+        (STATUS_RECORDED, "Recorded"),
+        (STATUS_PENDING_VERIFICATION, "Pending Verification"),
+        (STATUS_PAID, "Paid"),
+        (STATUS_SKIPPED, "Skipped"),
+    ]
+
     contribution_id_PK = models.AutoField(primary_key=True)
 
     aid_tracking_post_id_FK = models.ForeignKey(
@@ -811,7 +858,7 @@ class Contribution(models.Model):
     expected_amount = models.DecimalField(max_digits=10, decimal_places=2)
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     payment_date = models.DateField(null=True, blank=True)
-    status = models.CharField(max_length=20, default="NOT_PAID")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NOT_PAID)
     is_manually_overridden = models.BooleanField(default=False)
     notes = models.TextField(blank=True)
 
@@ -835,7 +882,7 @@ class GlobalAuditTrail(models.Model):
 
     table_name = models.CharField(max_length=100)
     record_id = models.IntegerField()
-    action = models.CharField(max_length=20)
+    action = models.CharField(max_length=50)
 
     document_archive_id_FK = models.ForeignKey(
         FinancialDocumentArchive,
@@ -901,6 +948,7 @@ class SensitiveReadLog(models.Model):
     reader_name = models.CharField(max_length=255)
 
     ip_address = models.GenericIPAddressField(protocol="both", unpack_ipv4=False, null=True, blank=True)
+    device_info = models.CharField(max_length=255, null=True, blank=True)
     description = models.TextField(blank=True)
 
     read_at = models.DateTimeField(auto_now_add=True)
@@ -923,6 +971,7 @@ class FundTransaction(models.Model):
         ("contribution", "Contribution"),
         ("manual_adjustment", "Manual Adjustment"),
         ("aid_post_payment", "Aid Post Fund Payment"),
+        ("salary_deduction_remittance", "Salary Deduction Remittance"),
     ]
     DIRECTION_CHOICES = [("inflow", "Inflow"), ("outflow", "Outflow")]
 

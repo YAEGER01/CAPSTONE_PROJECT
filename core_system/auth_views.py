@@ -1,7 +1,13 @@
+import logging
 import secrets
+import time
+import threading
 from datetime import timedelta
 
-from django.http import HttpRequest, HttpResponse, JsonResponse
+logger = logging.getLogger(__name__)
+
+from django.contrib import messages
+from django.http import HttpRequest, HttpResponse, JsonResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
@@ -18,12 +24,27 @@ from core_system.services.mfa_service import (
     generate_otp,
     send_mfa_email,
     verify_otp,
-    MFA_EMAIL_RATE_LIMIT_HOURS,
+    MFA_EMAIL_RATE_LIMIT_SECONDS,
 )
 
 MFA_SESSION_KEY = "mfa_pre_auth_token"
 MFA_OFFICER_ID_KEY = "mfa_officer_id"
 MFA_USERNAME_KEY = "mfa_username"
+
+
+def _queue_mfa_email(officer, otp):
+    from core_system.services.email_service import queue_email, process_email_queue
+    queue_email(
+        subject="CAUFA MFA Verification Code",
+        recipient_list=[officer.email],
+        html_template="emails/mfa_challenge.html",
+        context={
+            "full_name": officer.full_name,
+            "otp_code": otp,
+            "expiry_minutes": 5,
+        },
+    )
+    threading.Thread(target=process_email_queue, kwargs={"batch_size": 5}, daemon=True).start()
 
 
 def _check_term_validity(officer: OfficerUser) -> tuple[bool, str]:
@@ -75,7 +96,30 @@ def officer_login(request: HttpRequest) -> HttpResponse:
     if request.method == "GET":
         if "access_token" in request.session:
             return redirect(_workspace_redirect(request.session.get("role", "")))
-        return render(request, "website/login.html")
+
+        # If the MFA keys were set by the POST handler (redirect from login POST),
+        # preserve them and clear the flag. Otherwise clear stale MFA state.
+        if request.session.pop("_mfa_initiated", None):
+            pass  # MFA keys are fresh from POST — keep them
+        else:
+            for key in (MFA_SESSION_KEY, MFA_OFFICER_ID_KEY, MFA_USERNAME_KEY, "mfa_email_warning"):
+                request.session.pop(key, None)
+
+        context = {}
+        if request.session.get(MFA_SESSION_KEY):
+            context["form"] = {
+                "errors": [],
+                "mfa_required": True,
+                "pre_auth_token": request.session.get(MFA_SESSION_KEY, ""),
+                "username": request.session.get(MFA_USERNAME_KEY, ""),
+                "delivery": "Email",
+            }
+            if request.session.get("mfa_email_warning"):
+                context["form"]["email_warning"] = request.session.get("mfa_email_warning")
+                del request.session["mfa_email_warning"]
+        return render(request, "website/login.html", context)
+
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     username = (request.POST.get("username") or "").strip()
     password_input = request.POST.get("password") or ""
@@ -101,30 +145,36 @@ def officer_login(request: HttpRequest) -> HttpResponse:
                 result="Term expired",
                 user_id=officer.user_id_PK,
             )
-            return render(
-                request,
-                "website/login.html",
-                context={"form": {"errors": [term_error], "term_expired": True}},
-            )
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": term_error, "term_expired": True}, status=400)
+            messages.error(request, term_error, extra_tags="term_expired")
+            return redirect("login")
 
         if officer.mfa_enabled and officer.mfa_secret:
-            otp = generate_otp(officer.mfa_secret)
-
-            email_sent = False
             now = timezone.now()
-            time_limit = now - timedelta(hours=MFA_EMAIL_RATE_LIMIT_HOURS)
+            time_limit = now - timedelta(seconds=MFA_EMAIL_RATE_LIMIT_SECONDS)
+            rate_limited = False
 
             if not officer.last_mfa_email_sent_at or officer.last_mfa_email_sent_at < time_limit:
-                email_sent = send_mfa_email(officer, otp)
-                if email_sent:
-                    officer.last_mfa_email_sent_at = now
-                    officer.save(update_fields=["last_mfa_email_sent_at"])
+                otp = generate_otp(officer.mfa_secret)
+                _queue_mfa_email(officer, otp)
+                email_sent = True
+                officer.last_mfa_email_sent_at = now
+                officer.save(update_fields=["last_mfa_email_sent_at"])
+            else:
+                email_sent = False
+                rate_limited = True
 
             pre_auth_token = secrets.token_urlsafe(32)
             request.session[MFA_SESSION_KEY] = pre_auth_token
             request.session[MFA_OFFICER_ID_KEY] = officer.user_id_PK
             request.session[MFA_USERNAME_KEY] = officer.username
-            request.session.set_expiry(300)
+            request.session.set_expiry(600)
+
+            if rate_limited:
+                request.session["mfa_email_warning"] = "A verification code was already sent recently. Please check your inbox."
+            elif not email_sent:
+                request.session["mfa_email_warning"] = "Failed to send verification email. Please use the resend option or contact support."
 
             log_login_attempt(
                 username=username,
@@ -133,19 +183,11 @@ def officer_login(request: HttpRequest) -> HttpResponse:
                 result="MFA_REQUIRED",
                 user_id=officer.user_id_PK,
             )
+            request.session["_mfa_initiated"] = True
+            if is_ajax:
+                return JsonResponse({"ok": True, "mfa_required": True, "redirect_url": "/login/"})
+            return redirect("login")
 
-            context = {
-                "form": {
-                    "errors": [],
-                    "mfa_required": True,
-                    "pre_auth_token": pre_auth_token,
-                    "username": officer.username,
-                    "delivery": "Email",
-                }
-            }
-            return render(request, "website/login.html", context=context)
-
-        # No MFA: complete login sequence immediately
         session, token = create_access_session(officer=officer, ip_address=ip_address, device_info=user_agent)
         request.session["access_token"] = token
         request.session["officer_id"] = officer.user_id_PK
@@ -158,9 +200,10 @@ def officer_login(request: HttpRequest) -> HttpResponse:
             result="Success",
             user_id=officer.user_id_PK,
         )
+        if is_ajax:
+            return JsonResponse({"ok": True, "redirect_url": _workspace_redirect(officer.role)})
         return redirect(_workspace_redirect(officer.role))
 
-    # Failed credentials fallback
     log_login_attempt(
         username=username,
         ip_address=ip_address,
@@ -168,7 +211,10 @@ def officer_login(request: HttpRequest) -> HttpResponse:
         result="Invalid credentials",
         user_id=officer.user_id_PK if officer else None,
     )
-    return render(request, "website/login.html", context={"form": {"errors": [True]}})
+    if is_ajax:
+        return JsonResponse({"ok": False, "error": "Invalid username or password."}, status=401)
+    messages.error(request, "Invalid username or password.")
+    return redirect("login")
 
 
 @require_POST
@@ -196,7 +242,11 @@ def mfa_verify(request: HttpRequest) -> JsonResponse:
         return JsonResponse({"ok": False, "error": "Officer account not found."}, status=404)
 
     # Verify the code
+    import logging as _lg
+    _log = _lg.getLogger(__name__)
+    _log.info("mfa_verify: officer=%s otp_input=%s", officer.full_name, otp)
     if not verify_otp(officer.mfa_secret, otp):
+        _log.warning("mfa_verify FAILED: secret=%s...", officer.mfa_secret[:8])
         return JsonResponse({"ok": False, "error": "Invalid verification code."}, status=401)
 
     term_ok, term_error = _check_term_validity(officer)
@@ -230,6 +280,7 @@ def mfa_verify(request: HttpRequest) -> JsonResponse:
     request.session["access_token"] = token
     request.session["officer_id"] = officer.user_id_PK
     request.session["role"] = officer.role
+    request.session.set_expiry(None)
 
     log_login_attempt(
         username=officer.username,
@@ -261,23 +312,23 @@ def mfa_challenge(request: HttpRequest) -> JsonResponse:
     except OfficerUser.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Officer context missing."}, status=404)
 
-    otp = generate_otp(officer.mfa_secret)
-
     now = timezone.now()
-    time_limit = now - timedelta(hours=MFA_EMAIL_RATE_LIMIT_HOURS)
+    time_limit = now - timedelta(seconds=MFA_EMAIL_RATE_LIMIT_SECONDS)
 
     if not officer.last_mfa_email_sent_at or officer.last_mfa_email_sent_at < time_limit:
+        otp = generate_otp(officer.mfa_secret)
         email_sent = send_mfa_email(officer, otp)
         if email_sent:
             officer.last_mfa_email_sent_at = now
             officer.save(update_fields=["last_mfa_email_sent_at"])
+            request.session.set_expiry(600)
         return JsonResponse({
-            "ok": True,
-            "message": "Verification code sent via email.",
+            "ok": email_sent,
+            "message": "Verification code sent via email." if email_sent else "Failed to send email. Try again.",
             "delivery": "email",
         })
 
-    wait_minutes = int(MFA_EMAIL_RATE_LIMIT_HOURS * 60 - (now - officer.last_mfa_email_sent_at).total_seconds() / 60)
+    wait_minutes = int(MFA_EMAIL_RATE_LIMIT_SECONDS / 60 - (now - officer.last_mfa_email_sent_at).total_seconds() / 60)
     return JsonResponse({
         "ok": False,
         "error": f"Email OTP was recently sent. Please wait {wait_minutes} minutes.",
@@ -348,6 +399,11 @@ def zero_trust_challenge(request: HttpRequest) -> HttpResponse:
         return JsonResponse({"ok": False, "error": "MFA must be enabled to perform zero trust verification."}, status=400)
 
     otp = generate_otp(officer.mfa_secret)
+    import logging as _lg
+    _lg.getLogger(__name__).info(
+        "ZT challenge: officer=%s otp=%s now=%s",
+        officer.full_name, otp, __import__("time").time(),
+    )
     request.session["zero_trust_otp"] = {
         "otp": otp,
         "expires_at": (timezone.now() + timedelta(minutes=5)).isoformat(),
@@ -355,11 +411,23 @@ def zero_trust_challenge(request: HttpRequest) -> HttpResponse:
 
     email_sent = send_mfa_email(officer=officer, otp=otp)
     return JsonResponse({
-        "ok": True,
-        "message": "Verification code sent via email.",
+        "ok": email_sent,
+        "message": "Verification code sent via email." if email_sent else "Failed to send email. Try again.",
         "delivery": "email",
         "sent": email_sent,
     })
+
+
+@require_GET
+def zero_trust_status(request: HttpRequest) -> HttpResponse:
+    stored_officer_id = request.session.get("officer_id")
+    if stored_officer_id is None:
+        return JsonResponse({"ok": False, "verified": False, "error": "Not authenticated."}, status=401)
+    from core_system.guards import check_zero_trust
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return JsonResponse({"ok": True, "verified": False})
+    return JsonResponse({"ok": True, "verified": True})
 
 
 @require_POST
@@ -386,6 +454,11 @@ def zero_trust_verify(request: HttpRequest) -> HttpResponse:
     except OfficerUser.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Officer not found."}, status=404)
 
+    computed_otp = generate_otp(officer.mfa_secret)
+    logger.info(
+        "ZT verify: officer=%s otp_input=%s computed_otp=%s now=%s",
+        officer.full_name, otp_input, computed_otp, time.time(),
+    )
     if not verify_otp(officer.mfa_secret, otp_input):
         return JsonResponse({"ok": False, "error": "Invalid verification code."}, status=401)
 

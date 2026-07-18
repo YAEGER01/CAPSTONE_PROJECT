@@ -2,8 +2,8 @@ import hashlib
 import json
 import logging
 import secrets
-import threading
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Dict, List
 
 from django.core.files.base import ContentFile
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 from core_system.guards import check_zero_trust, require_role
 from core_system.models import (
     AidTrackingPost,
+    BackupJob,
     BylawsFile,
     Department,
     Contribution,
@@ -42,6 +43,11 @@ from core_system.models import (
     TransactionArchive,
     TransactionVerification,
 )
+from core_system.services.backup_service import (
+    list_backup_jobs,
+    trigger_manual_backup,
+    restore_backup_job,
+)
 from core_system.constants.status_constants import Status, can_president_act, is_approved, is_rejected
 from core_system.constants.policy_constants import (
     get_death_aid_amount,
@@ -56,6 +62,7 @@ from core_system.shared_view_utils import (
     MODEL_MAP,
     _audit_evidence_filename,
     _get_auditor_verification,
+    _officer_to_json,
     _record_audit_trail,
     _record_bulk_audit_trail,
     _log_sensitive_read,
@@ -69,10 +76,7 @@ from core_system.services.compliance import (
     dues_compliance_summary,
     active_members_qs,
 )
-from core_system.services.email_service import (
-    queue_aid_emails,
-    process_email_queue,
-)
+from core_system.services.email_service import send_aid_emails
 from core_system.auth_utils import sha256_hex
 
 
@@ -1035,11 +1039,13 @@ def submit_presidential_aid_decision(request):
             if table_name == "death_aid":
                 relationship = getattr(record, "relationship_to_member", "")
 
-            per_member_amount = get_contribution_amount_for_aid(table_name, relationship)
             active_members = Member.objects.exclude(
                 membership_status__iexact="Retired",
             )
-            total_expected = active_members.count() * per_member_amount
+            member_count = active_members.count()
+            approved_dec = Decimal(str(approved_amount))
+            per_member_amount = (approved_dec / Decimal(str(member_count))).quantize(Decimal("0.01")) if member_count > 0 else Decimal("0")
+            total_expected = approved_dec
 
             post = AidTrackingPost.objects.create(
                 archive_id_FK=archive,
@@ -1065,10 +1071,7 @@ def submit_presidential_aid_decision(request):
             ])
 
             transaction.on_commit(
-                lambda: queue_aid_emails(record, table_name, per_member_amount)
-            )
-            transaction.on_commit(
-                lambda: threading.Thread(target=process_email_queue, kwargs={"batch_size": 5}).start()
+                lambda r=record, tn=table_name, pm=per_member_amount: send_aid_emails(r, tn, pm)
             )
 
         TransactionVerification.objects.filter(
@@ -1362,7 +1365,7 @@ def submit_presidential_aid_decision_batch(request):
                     ])
 
                     transaction.on_commit(
-                        lambda r=record, tn=v.table_name, pm=per_member_amount: queue_aid_emails(r, tn, pm)
+                        lambda r=record, tn=v.table_name, pm=per_member_amount: send_aid_emails(r, tn, pm)
                     )
 
                     member_name = record.member_id_FK.full_name if record is not None and hasattr(record, "member_id_FK") and record.member_id_FK else ""
@@ -1391,9 +1394,6 @@ def submit_presidential_aid_decision_batch(request):
 
         _broadcast_pending_counts()
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
-        transaction.on_commit(
-            lambda: threading.Thread(target=process_email_queue, kwargs={"batch_size": 5}).start()
-        )
         return JsonResponse({
             "success": True,
             "processed": processed,
@@ -1523,6 +1523,13 @@ def president_pending_finish_requests(request: HttpRequest):
             "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
             "created_at": post.created_at.isoformat() if post.created_at else "",
             "verified_by_auditor": post.finish_status == "pending_president",
+            "has_deduction_sheet": bool(post.deduction_sheet),
+            "deduction_batch_reference": post.deduction_batch_reference or "",
+            "deduction_payroll_period": post.deduction_payroll_period or "",
+            "has_remittance": bool(post.deduction_remitted_amount is not None),
+            "deduction_remitted_amount": str(post.deduction_remitted_amount) if post.deduction_remitted_amount is not None else None,
+            "deduction_remittance_reference": post.deduction_remittance_reference or "",
+            "deduction_remitted_date": post.deduction_remitted_date.isoformat() if post.deduction_remitted_date else None,
         })
 
     return JsonResponse({"ok": True, "posts": items})
@@ -1554,7 +1561,7 @@ def president_finish_request_details(request: HttpRequest):
         member_name = c.member_id_FK.full_name if c.member_id_FK else "Unknown"
         paid = float(c.paid_amount) if c.paid_amount else 0
         expected = float(c.expected_amount) if c.expected_amount else 0
-        if c.status == "PAID":
+        if c.status in ("PAID", "RECORDED", "PENDING_VERIFICATION"):
             total_paid += paid
             paid_count += 1
         details.append({
@@ -1631,7 +1638,7 @@ def president_approve_aid_post_finish(request: HttpRequest):
         pending_ids = list(
             Contribution.objects.filter(
                 aid_tracking_post_id_FK=post,
-                status="PENDING_VERIFICATION",
+                status__in=["PENDING_VERIFICATION", "RECORDED"],
             ).values_list("contribution_id_PK", flat=True)
         )
         if pending_ids:
@@ -1641,6 +1648,52 @@ def president_approve_aid_post_finish(request: HttpRequest):
             )
             post.total_collected = totals["total_collected"] or 0
 
+        if post.finish_paid_with_funds:
+            paid_contributions_qs = Contribution.objects.filter(
+                aid_tracking_post_id_FK=post, status="PAID",
+            )
+
+            if paid_contributions_qs.exists():
+                # Second cycle — repayments have been collected, close the post
+                # (inflow was already recorded at Auditor verify time)
+                post.finish_status = "approved"
+                post.is_active = False
+                post.save(update_fields=["finish_status", "is_active", "total_collected"])
+
+                if archive is not None:
+                    if archive.transaction_type == "death_aid":
+                        DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
+                    elif archive.transaction_type == "medical_aid":
+                        MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+
+                _record_audit_trail(
+                    table="AID_TRACKING_POST",
+                    record_id=post.post_id_PK,
+                    action="REPAYMENT_APPROVED",
+                    actor=president,
+                    new={
+                        "finish_status": "approved",
+                        "is_active": False,
+                        "total_collected": float(post.total_collected),
+                    },
+                    ip=request.META.get("REMOTE_ADDR"),
+                    notes="President approved repayment — post closed.",
+                )
+
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)("treasurer_dashboard", {
+                    "type": "aid_post_finished", "post_id": post.post_id_PK, "member_name": member_name,
+                })
+                async_to_sync(channel_layer.group_send)("auditor_dashboard", {
+                    "type": "data_changed", "section": "aids",
+                })
+                async_to_sync(channel_layer.group_send)("president_dashboard", {
+                    "type": "data_changed", "section": "aids",
+                })
+
+                return JsonResponse({"ok": True, "message": "Repayment approved. Aid post closed."})
+
+        # First cycle (paid-with-funds, no repayments yet) or normal pay: route to release
         post.finish_status = "pending_release"
         post.save(update_fields=["finish_status", "total_collected"])
 
@@ -1649,8 +1702,13 @@ def president_approve_aid_post_finish(request: HttpRequest):
             record_id=post.post_id_PK,
             action="FINISH_APPROVED",
             actor=president,
-            new={"finish_status": "pending_release"},
+            new={
+                "finish_status": "pending_release",
+                "deduction_batch_reference": post.deduction_batch_reference or "",
+                "deduction_payroll_period": post.deduction_payroll_period or "",
+            },
             ip=request.META.get("REMOTE_ADDR"),
+            notes=f"Finish approved (pending release) — deduction ref {post.deduction_batch_reference}, period {post.deduction_payroll_period}" if post.deduction_batch_reference else "Finish approved (pending release)",
         )
 
         channel_layer = get_channel_layer()
@@ -1683,8 +1741,14 @@ def president_approve_aid_post_finish(request: HttpRequest):
             record_id=post.post_id_PK,
             action="FINISH_APPROVED",
             actor=president,
-            new={"finish_status": "approved", "is_active": False},
+            new={
+                "finish_status": "approved",
+                "is_active": False,
+                "deduction_batch_reference": post.deduction_batch_reference or "",
+                "deduction_payroll_period": post.deduction_payroll_period or "",
+            },
             ip=request.META.get("REMOTE_ADDR"),
+            notes=f"Finish approved — deduction ref {post.deduction_batch_reference}, period {post.deduction_payroll_period}" if post.deduction_batch_reference else "Finish approved",
         )
 
         channel_layer = get_channel_layer()
@@ -2059,25 +2123,6 @@ def _parse_iso_date(value: Any):
         return None
 
 
-def _officer_to_json(officer: OfficerUser) -> Dict[str, Any]:
-    department = getattr(officer, "department_id_FK", None)
-    return {
-        "id": officer.user_id_PK,
-        "full_name": officer.full_name,
-        "username": officer.username,
-        "role": officer.role,
-        "account_status": officer.account_status,
-        "term_start": officer.term_start.isoformat() if officer.term_start else "",
-        "term_end": officer.term_end.isoformat() if officer.term_end else "",
-        "department_id": department.department_id_PK if department else None,
-        "department_name": department.name if department else "",
-        "department_code": department.code if department else "",
-        "mfa_enabled": bool(officer.mfa_enabled),
-        "created_at": officer.created_at.isoformat() if officer.created_at else "",
-        "updated_at": officer.updated_at.isoformat() if officer.updated_at else "",
-    }
-
-
 def _extract_request_data(request: HttpRequest) -> Dict[str, Any]:
     if request.content_type and "json" in request.content_type.lower():
         try:
@@ -2113,6 +2158,7 @@ def president_officers_create(request: HttpRequest):
     full_name = (payload.get("full_name") or payload.get("name") or "").strip()
     username = (payload.get("username") or "").strip()
     password = (payload.get("password") or "").strip()
+    email = (payload.get("email") or "").strip() or None
     role = (payload.get("role") or "Officer").strip()
     account_status = (payload.get("account_status") or "Active").strip() or "Active"
     term_start = _parse_iso_date(payload.get("term_start"))
@@ -2140,6 +2186,7 @@ def president_officers_create(request: HttpRequest):
         username=username,
         password_hash=sha256_hex(password),
         role=role,
+        email=email,
         department_id_FK=department,
         account_status=account_status,
         term_start=term_start,
@@ -2173,6 +2220,7 @@ def president_officers_update(request: HttpRequest, officer_id: int):
     username = (payload.get("username") or officer.username).strip()
     full_name = (payload.get("full_name") or officer.full_name).strip()
     role = (payload.get("role") or officer.role).strip()
+    email = (payload.get("email") or getattr(officer, "email", "") or "").strip() or None
     account_status = (payload.get("account_status") or officer.account_status).strip()
     term_start = _parse_iso_date(payload.get("term_start")) if payload.get("term_start") not in (None, "") else officer.term_start
     term_end = _parse_iso_date(payload.get("term_end")) if payload.get("term_end") not in (None, "") else officer.term_end
@@ -2198,6 +2246,7 @@ def president_officers_update(request: HttpRequest, officer_id: int):
     officer.full_name = full_name
     officer.username = username
     officer.role = role
+    officer.email = email
     officer.account_status = account_status
     officer.term_start = term_start
     officer.term_end = term_end
@@ -2209,6 +2258,7 @@ def president_officers_update(request: HttpRequest, officer_id: int):
         "full_name",
         "username",
         "role",
+        "email",
         "account_status",
         "term_start",
         "term_end",
@@ -2689,4 +2739,106 @@ def delete_bylaws_file(request: HttpRequest, document_id: int):
     )
 
     return JsonResponse({"ok": True, "message": "Bylaws file deleted successfully."})
+
+
+@require_GET
+def president_backups_list(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="read")
+    if guard is not None:
+        return guard
+
+    limit = request.GET.get("limit", 50)
+    jobs = list_backup_jobs(limit=limit)
+    return JsonResponse({
+        "ok": True,
+        "jobs": [
+            {
+                "job_id": j.job_id,
+                "backup_type": j.backup_type,
+                "backup_status": j.backup_status,
+                "created_at": j.created_at.isoformat() if j.created_at else None,
+                "db_dump_path": j.db_dump_path,
+                "media_archive_path": j.media_archive_path,
+            }
+            for j in jobs
+        ],
+    })
+
+
+@require_POST
+@transaction.atomic
+def president_backups_manual(request: HttpRequest):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+
+    president = _resolve_president(request)
+    if president is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    try:
+        jobs = trigger_manual_backup()
+        _record_audit_trail(
+            table="backup_job",
+            record_id=0,
+            action="BACKUP_MANUAL",
+            actor=president,
+            ip=request.META.get("REMOTE_ADDR"),
+            notes=f"Manual backup triggered ({', '.join(j.backup_type for j in jobs)})",
+        )
+        return JsonResponse({
+            "ok": True,
+            "jobs": [
+                {
+                    "job_id": j.job_id,
+                    "backup_type": j.backup_type,
+                    "backup_status": j.backup_status,
+                    "created_at": j.created_at.isoformat() if j.created_at else None,
+                }
+                for j in jobs
+            ],
+        })
+    except Exception as e:
+        logger.exception("Manual backup failed")
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@require_POST
+@transaction.atomic
+def president_backups_restore(request: HttpRequest, job_id: int):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+
+    president = _resolve_president(request)
+    if president is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    result = restore_backup_job(
+        job_id=job_id,
+        actor_officer=president,
+        ip=request.META.get("REMOTE_ADDR"),
+    )
+
+    _record_audit_trail(
+        table="backup_job",
+        record_id=job_id,
+        action="BACKUP_RESTORE",
+        actor=president,
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Restore attempted for backup job {job_id}: {'succeeded' if result.get('ok') else 'failed - ' + result.get('error', '')}",
+    )
+
+    if not result.get("ok"):
+        return JsonResponse(result, status=500)
+    return JsonResponse(result)
 

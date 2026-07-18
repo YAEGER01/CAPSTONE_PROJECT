@@ -10,6 +10,7 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.http import HttpRequest
+from django.utils import timezone
 
 from core_system.constants.status_constants import Status
 from core_system.constants.policy_constants import (
@@ -276,6 +277,7 @@ def _record_audit_trail(
     old=None,
     new=None,
     ip=None,
+    device_info=None,
     notes=None,
     actor_type_override=None,
     actor_name_override=None,
@@ -304,6 +306,7 @@ def _record_audit_trail(
         actor_id=actor_id,
         actor_name=actor_name,
         ip_address=ip,
+        device_info=device_info,
         notes=notes.strip() if isinstance(notes, str) else notes,
         previous_hash=previous_hash,
     )
@@ -322,7 +325,7 @@ def _record_bulk_audit_trail(entries, actor):
     """Bulk-create audit entries with hash-chain integrity.
 
     `entries` is a list of dicts, each with keys:
-        table, record_id, action, [old], [new], [ip], [notes]
+        table, record_id, action, [old], [new], [ip], [device_info], [notes]
     All entries share the same `actor`.
     Each entry is chained to the previous via `previous_hash`.
     """
@@ -361,6 +364,7 @@ def _record_bulk_audit_trail(entries, actor):
             actor_id=actor_id,
             actor_name=actor_name,
             ip_address=e.get("ip"),
+            device_info=e.get("device_info"),
             notes=e.get("notes", "").strip() if isinstance(e.get("notes"), str) else e.get("notes"),
             previous_hash=prev_hash,
             entry_hash=entry_hash,
@@ -372,7 +376,7 @@ def _record_bulk_audit_trail(entries, actor):
 
 
 
-def _log_sensitive_read(request, table_name, record_ids, description=""):
+def _log_sensitive_read(request, table_name, record_ids, description="", device_info=None):
     """Log read access to sensitive records.
     - SensitiveReadLog: one entry per record_id
     - GlobalAuditTrail: one summary entry with notes describing the bulk read.
@@ -382,6 +386,8 @@ def _log_sensitive_read(request, table_name, record_ids, description=""):
     actor_name = getattr(officer, "full_name", "") if officer else ""
     actor_type = getattr(officer, "role", "") if officer else ""
     ip = request.META.get("REMOTE_ADDR")
+    if device_info is None:
+        device_info = request.META.get("HTTP_USER_AGENT", "")
 
     batch = [
         SensitiveReadLog(
@@ -391,6 +397,7 @@ def _log_sensitive_read(request, table_name, record_ids, description=""):
             reader_id=actor_id,
             reader_name=actor_name,
             ip_address=ip,
+            device_info=device_info,
             description=description,
         )
         for rid in record_ids
@@ -403,6 +410,7 @@ def _log_sensitive_read(request, table_name, record_ids, description=""):
         action="READ",
         actor=officer,
         ip=ip,
+        device_info=device_info,
         notes=f"{description} ({len(record_ids)} records)",
     )
 
@@ -453,6 +461,26 @@ def _payment_item_to_json(kind: str, obj: Any) -> Dict[str, Any]:
         "method": str(payment_method) if payment_method is not None else "",
         "encoded_by": getattr(getattr(obj, "recorded_by_user_id_FK", None), "full_name", "") or "",
         "payment_status": getattr(obj, "payment_status", None) or "",
+    }
+
+
+def _officer_to_json(officer):
+    department = getattr(officer, "department_id_FK", None)
+    return {
+        "id": officer.user_id_PK,
+        "full_name": officer.full_name,
+        "username": officer.username,
+        "email": getattr(officer, "email", "") or "",
+        "role": officer.role,
+        "account_status": officer.account_status,
+        "term_start": officer.term_start.isoformat() if officer.term_start else "",
+        "term_end": officer.term_end.isoformat() if officer.term_end else "",
+        "department_id": department.department_id_PK if department else None,
+        "department_name": department.name if department else "",
+        "department_code": department.code if department else "",
+        "mfa_enabled": bool(officer.mfa_enabled),
+        "created_at": officer.created_at.isoformat() if officer.created_at else "",
+        "updated_at": officer.updated_at.isoformat() if officer.updated_at else "",
     }
 
 
@@ -627,3 +655,117 @@ def _send_push_notifications(auditor_pending: int, president_pending: int) -> No
                 )
             except Exception as exc:
                 logger.warning("Push notification failed for president subscription %s: %s", sub.pk, exc)
+
+
+def _notify_release(post, officer, request=None):
+    from core_system.models import PushSubscription, OfficerUser
+    from core_system.services.email_service import send_html_email
+    from pywebpush import webpush
+
+    archive = getattr(post, "archive_id_FK", None)
+    member_name = archive.member_name if archive else "Unknown"
+    aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+
+    total = Contribution.objects.filter(aid_tracking_post_id_FK=post).count()
+    paid = Contribution.objects.filter(
+        aid_tracking_post_id_FK=post, status__in=["PAID", "RECORDED"],
+    ).count()
+    skipped = Contribution.objects.filter(
+        aid_tracking_post_id_FK=post, status="SKIPPED",
+    ).count()
+    ip = request.META.get("REMOTE_ADDR") if request else None
+
+    summary = (
+        f"Release completed \u2014 {aid_label} for {member_name}. "
+        f"\u20b1{post.total_collected} collected | {paid}/{total} members paid"
+    )
+
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="RELEASE_NOTIFIED",
+        actor=officer,
+        new={
+            "total_collected": float(post.total_collected),
+            "total_members": total,
+            "paid_count": paid,
+            "skipped_count": skipped,
+        },
+        ip=ip,
+        notes=f"Release completed \u2014 {aid_label} for {member_name}. \u20b1{post.total_collected} from {paid}/{total} members. Released by {officer.full_name}",
+    )
+
+    _broadcast_to_group("auditor_dashboard", {
+        "type": "release_notification",
+        "post_id": post.post_id_PK,
+        "member_name": member_name,
+        "aid_label": aid_label,
+        "total_collected": float(post.total_collected),
+        "paid_count": paid,
+        "total_count": total,
+        "released_by": officer.full_name,
+    })
+    _broadcast_to_group("president_dashboard", {
+        "type": "release_notification",
+        "post_id": post.post_id_PK,
+        "member_name": member_name,
+        "aid_label": aid_label,
+        "total_collected": float(post.total_collected),
+        "paid_count": paid,
+        "total_count": total,
+        "released_by": officer.full_name,
+    })
+
+    try:
+        for role_name in ("Auditor", "President"):
+            officer_ids = OfficerUser.objects.filter(role=role_name).values_list("user_id_PK", flat=True)
+            subs = PushSubscription.objects.filter(officer_id_FK__in=list(officer_ids))
+            if not subs:
+                continue
+            payload = json.dumps({
+                "title": f"Release: {member_name[:20]}\u2019s {aid_label.split()[0]} Aid",
+                "body": f"\u20b1{post.total_collected} from {paid}/{total} members",
+                "url": f"/{role_name.lower()}/",
+            })
+            for sub in subs:
+                try:
+                    webpush(
+                        subscription_info={
+                            "endpoint": sub.endpoint,
+                            "keys": {"p256dh": sub.p256dh_key, "auth": sub.auth_key},
+                        },
+                        data=payload,
+                        vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                        vapid_claims={
+                            "sub": "mailto:admin@caufa.local",
+                            "aud": getattr(settings, "PUSH_VAPID_AUD", "http://127.0.0.1:8000"),
+                        },
+                    )
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        for role_name in ("Auditor", "President"):
+            officers = OfficerUser.objects.filter(role=role_name)
+            recipient_emails = [o.email for o in officers if o.email]
+            if not recipient_emails:
+                continue
+            send_html_email(
+                subject=f"Release Completed \u2014 {aid_label} for {member_name}",
+                recipient_list=recipient_emails,
+                html_template="emails/release_notification.html",
+                context={
+                    "aid_type": aid_label,
+                    "member_name": member_name,
+                    "total_collected": f"{post.total_collected:,.2f}",
+                    "paid_count": paid,
+                    "total_count": total,
+                    "skipped_count": skipped,
+                    "released_by": officer.full_name,
+                    "released_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+                },
+            )
+    except Exception:
+        pass

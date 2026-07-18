@@ -393,7 +393,7 @@ def generate_organization_fund_report(year: int, month: int, report_type: str = 
     contributions = Contribution.objects.filter(
         payment_date__gte=period_start,
         payment_date__lte=period_end,
-        status="PAID",
+        status__in=["PAID", "RECORDED", "PENDING_VERIFICATION"],
     ).select_related("member_id_FK", "aid_tracking_post_id_FK").order_by("payment_date")
 
     total_contributions = sum(float(c.paid_amount) for c in contributions)

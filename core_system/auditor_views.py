@@ -186,9 +186,12 @@ def auditor_dashboard(request):
 
 
 @require_GET
-def auditor_audit_trail_verify(request: HttpRequest, table_name: str, record_id: int):
+def auditor_audit_trail_verify(request: HttpRequest, table_name: str = None, record_id: int = None):
     """
-    Verify audit-log hash-chain integrity for a specific (table_name, record_id).
+    Verify audit-log hash-chain integrity.
+
+    If table_name and record_id are provided, verifies the chain for that specific record.
+    Otherwise, verifies the global chain across all entries.
 
     Returns:
       {
@@ -198,6 +201,7 @@ def auditor_audit_trail_verify(request: HttpRequest, table_name: str, record_id:
         total_entries,
         valid: bool,
         issues: [ ... ],
+        entries: [ ... ],
       }
     """
     guard = require_role(request, role="Auditor")
@@ -207,13 +211,16 @@ def auditor_audit_trail_verify(request: HttpRequest, table_name: str, record_id:
     table_name = (table_name or "").strip()
     issues = []
 
-    qs = (
-        GlobalAuditTrail.objects.filter(
-            table_name=table_name,
-            record_id=int(record_id),
+    if table_name and record_id is not None:
+        qs = (
+            GlobalAuditTrail.objects.filter(
+                table_name=table_name,
+                record_id=int(record_id),
+            )
+            .order_by("timestamp", "trail_id")
         )
-        .order_by("timestamp", "trail_id")
-    )
+    else:
+        qs = GlobalAuditTrail.objects.all().order_by("trail_id")
 
     entries = list(qs)
     total = len(entries)
@@ -221,11 +228,12 @@ def auditor_audit_trail_verify(request: HttpRequest, table_name: str, record_id:
         return JsonResponse(
             {
                 "ok": True,
-                "table_name": table_name,
+                "table_name": table_name or "ALL",
                 "record_id": record_id,
                 "total_entries": 0,
                 "valid": True,
                 "issues": [],
+                "entries": [],
             }
         )
 
@@ -302,11 +310,30 @@ def auditor_audit_trail_verify(request: HttpRequest, table_name: str, record_id:
     return JsonResponse(
         {
             "ok": True,
-            "table_name": table_name,
+            "table_name": table_name or "ALL",
             "record_id": record_id,
             "total_entries": total,
             "valid": len(issues) == 0,
             "issues": issues,
+            "entries": [
+                {
+                    "trail_id": e.trail_id,
+                    "action": e.action,
+                    "actor_name": e.actor_name,
+                    "timestamp": e.timestamp.isoformat() if e.timestamp else "",
+                    "old_values": _serialize_for_audit(
+                        e.old_values if isinstance(e.old_values, dict)
+                        else (json.loads(e.old_values) if e.old_values else None)
+                    ),
+                    "new_values": _serialize_for_audit(
+                        e.new_values if isinstance(e.new_values, dict)
+                        else (json.loads(e.new_values) if e.new_values else None)
+                    ),
+                    "entry_hash": e.entry_hash or "",
+                    "hmac_signature": e.hmac_signature or "",
+                }
+                for e in entries
+            ],
         }
     )
 
@@ -1420,7 +1447,7 @@ def auditor_pending_finish_requests(request: HttpRequest):
     for post in posts:
         archive = post.archive_id_FK
         total = Contribution.objects.filter(aid_tracking_post_id_FK=post).count()
-        paid = Contribution.objects.filter(aid_tracking_post_id_FK=post, status__in=["PAID", "PENDING_VERIFICATION"]).count()
+        paid = Contribution.objects.filter(aid_tracking_post_id_FK=post, status__in=["PAID", "RECORDED", "PENDING_VERIFICATION"]).count()
         items.append({
             "post_id": post.post_id_PK,
             "aid_type": post.aid_type,
@@ -1432,6 +1459,13 @@ def auditor_pending_finish_requests(request: HttpRequest):
             "collection_rate": round((paid / total * 100) if total else 0, 1),
             "paid_count": paid,
             "total_count": total,
+            "has_deduction_sheet": bool(post.deduction_sheet),
+            "deduction_batch_reference": post.deduction_batch_reference or "",
+            "deduction_payroll_period": post.deduction_payroll_period or "",
+            "has_remittance": bool(post.deduction_remitted_amount is not None),
+            "deduction_remitted_amount": str(post.deduction_remitted_amount) if post.deduction_remitted_amount is not None else None,
+            "deduction_remittance_reference": post.deduction_remittance_reference or "",
+            "deduction_remitted_date": post.deduction_remitted_date.isoformat() if post.deduction_remitted_date else None,
             "created_at": post.created_at.isoformat() if post.created_at else "",
         })
     return JsonResponse({"ok": True, "items": items})
@@ -1463,7 +1497,7 @@ def auditor_finish_request_details(request: HttpRequest):
         member_name = c.member_id_FK.full_name if c.member_id_FK else "Unknown"
         paid = float(c.paid_amount) if c.paid_amount else 0
         expected = float(c.expected_amount) if c.expected_amount else 0
-        if c.status in ("PAID", "PENDING_VERIFICATION"):
+        if c.status in ("PAID", "RECORDED", "PENDING_VERIFICATION"):
             total_paid += paid
             paid_count += 1
         details.append({
@@ -1516,6 +1550,9 @@ def auditor_verify_post_finish(request: HttpRequest):
     archive = post.archive_id_FK
     member_name = archive.member_name if archive else ""
 
+    if decision == "verified" and not post.finish_paid_with_funds and not post.deduction_sheet:
+        return JsonResponse({"ok": False, "error": "Deduction sheet has not been uploaded for this post. Treasurer must upload the salary deduction sheet before Auditor can verify."}, status=400)
+
     if decision == "rejected":
         post.finish_status = "rejected"
         post.save(update_fields=["finish_status"])
@@ -1539,14 +1576,24 @@ def auditor_verify_post_finish(request: HttpRequest):
     post.finish_status = "pending_president"
     post.save(update_fields=["finish_status"])
 
+    recorded_ids = list(
+        Contribution.objects.filter(
+            aid_tracking_post_id_FK=post,
+            status="RECORDED",
+        ).values_list("contribution_id_PK", flat=True)
+    )
     pending_ids = list(
         Contribution.objects.filter(
             aid_tracking_post_id_FK=post,
             status="PENDING_VERIFICATION",
         ).values_list("contribution_id_PK", flat=True)
     )
-    if pending_ids:
-        Contribution.objects.filter(contribution_id_PK__in=pending_ids).update(
+
+    all_to_pay = recorded_ids + pending_ids
+    inflow_count = 0
+
+    if all_to_pay:
+        Contribution.objects.filter(contribution_id_PK__in=all_to_pay).update(
             status="PAID",
             updated_by_user_id_FK=officer,
         )
@@ -1556,22 +1603,49 @@ def auditor_verify_post_finish(request: HttpRequest):
         post.total_collected = totals["total_collected"] or 0
         post.save(update_fields=["total_collected"])
 
-        TransactionVerification.objects.filter(
-            table_name="contribution",
-            record_id__in=pending_ids,
-        ).update(
-            verification_status="Auditor Verified",
-            auditor_id_FK=officer,
-            verified_at=timezone.now(),
-        )
+        if pending_ids:
+            TransactionVerification.objects.filter(
+                table_name="contribution",
+                record_id__in=pending_ids,
+            ).update(
+                verification_status="Auditor Verified",
+                auditor_id_FK=officer,
+                verified_at=timezone.now(),
+            )
+
+        paid_contributions = Contribution.objects.filter(
+            contribution_id_PK__in=all_to_pay,
+        ).select_related("member_id_FK")
+
+        fund_tx_batch = []
+        for c in paid_contributions:
+            fund_tx_batch.append(FundTransaction(
+                direction="inflow",
+                amount=c.paid_amount,
+                source_type="contribution",
+                source_id=c.contribution_id_PK,
+                description=f"Aid contribution — {getattr(c.member_id_FK, 'full_name', '')} for {member_name}'s {'Medical Aid' if post.aid_type == 'medical_aid' else 'Death Aid'}",
+                reference_number=f"AID-{post.post_id_PK}-C-{c.contribution_id_PK}",
+                recorded_by_user_id_FK=officer,
+            ))
+            inflow_count += 1
+
+        if fund_tx_batch:
+            FundTransaction.objects.bulk_create(fund_tx_batch)
 
     _record_audit_trail(
         table="AID_TRACKING_POST",
         record_id=post.post_id_PK,
         action="FINISH_VERIFIED",
         actor=officer,
+        new={
+            "deduction_batch_reference": post.deduction_batch_reference or "",
+            "deduction_payroll_period": post.deduction_payroll_period or "",
+            "paid_count": len(all_to_pay),
+            "inflow_count": inflow_count,
+        },
         ip=request.META.get("REMOTE_ADDR"),
-        notes=remarks or "Auditor verified finish request",
+        notes=f"Auditor verified finish — ref {post.deduction_batch_reference}, period {post.deduction_payroll_period}. {remarks}" if remarks else f"Auditor verified finish — ref {post.deduction_batch_reference}, period {post.deduction_payroll_period}",
     )
 
     channel_layer = get_channel_layer()
@@ -1638,6 +1712,7 @@ TRANSACTION_TYPE_LABELS = {
     "monthly_dues": "Monthly Dues",
     "medical_aid": "Medical Aid",
     "death_aid": "Death Aid",
+    "contribution": "Aid Contribution",
 }
 
 
@@ -1691,6 +1766,10 @@ def auditor_audited_logs(request: HttpRequest):
                 amount = str(record.requested_amount)
             elif hasattr(record, "benefit_amount"):
                 amount = str(record.benefit_amount)
+            elif hasattr(record, "paid_amount"):
+                amount = str(record.paid_amount)
+            elif hasattr(record, "expected_amount"):
+                amount = str(record.expected_amount)
 
         items.append({
             "verification_id": tv.verification_id,

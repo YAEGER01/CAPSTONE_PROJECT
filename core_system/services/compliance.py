@@ -132,7 +132,7 @@ def contribution_compliance_summary(post_id: int):
             }
         row = contrib_by_dept[dept.department_id_PK]
         row["total_members"] += 1
-        if c.status == "PAID":
+        if c.status in ("PAID", "RECORDED", "PENDING_VERIFICATION"):
             row["paid_count"] += 1
         elif c.status == "SKIPPED":
             row["skipped_count"] += 1

@@ -1,9 +1,10 @@
 import decimal
 import hashlib
 import json
+import logging
 import re
 from datetime import datetime
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpRequest, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.cache import never_cache
@@ -37,6 +38,7 @@ from core_system.models import (
     AuditFindingsReport,
     TransactionArchive,
     GlobalAuditTrail,
+    SensitiveReadLog,
     SystemSetting,
 )
 from core_system.constants.policy_constants import (
@@ -49,7 +51,7 @@ from core_system.constants.policy_constants import (
     get_monthly_dues_amount,
     is_exempt_from_dues_and_aid,
 )
-from core_system.services.email_service import send_member_added_email
+from core_system.services.email_service import send_html_email
 from core_system.shared_view_utils import (
     MODEL_MAP,
     UPDATABLE_FIELDS,
@@ -70,8 +72,10 @@ from core_system.shared_view_utils import (
     _get_auditor_verification_remarks,
     _serialize_value,
     _serialize_for_audit,
+    _officer_to_json,
     _record_audit_trail,
     _log_sensitive_read,
+    _notify_release,
     archive_transaction,
     _broadcast_pending_counts,
     _broadcast_to_group,
@@ -79,6 +83,7 @@ from core_system.shared_view_utils import (
 from django.core.files.storage import default_storage
 from django.http import HttpRequest
 
+logger = logging.getLogger(__name__)
 
 # ==========================================================================
 # TREASURER WORKSPACE VIEWS
@@ -92,6 +97,48 @@ def _broadcast_treasurer(section: str) -> None:
         )
     except Exception:
         pass
+
+
+@require_GET
+def treasurer_officers_list(request: HttpRequest):
+    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    officers = OfficerUser.objects.select_related("department_id_FK").order_by("-created_at", "full_name")
+    officers_json = [_officer_to_json(o) for o in officers]
+
+    ip = request.META.get("REMOTE_ADDR")
+    device_info = request.META.get("HTTP_USER_AGENT", "")
+    actor_name = getattr(officer, "full_name", "") if officer else ""
+    actor_role = getattr(officer, "role", "") if officer else ""
+
+    _record_audit_trail(
+        table="officer_user",
+        record_id=0,
+        action="READ",
+        actor=officer,
+        ip=ip,
+        device_info=device_info,
+        notes=f"Shared read by {actor_role} — officer dropdown loaded for member enrollment form on treasurer dashboard",
+    )
+
+    SensitiveReadLog.objects.bulk_create([
+        SensitiveReadLog(
+            table_name="officer_user",
+            record_id=o["id"],
+            reader_type=actor_role,
+            reader_id=getattr(officer, "user_id_PK", None) if officer else None,
+            reader_name=actor_name,
+            ip_address=ip,
+            device_info=device_info,
+            description=f"Treasurer dashboard member enrollment — viewed officer record #{o['id']} ({o['full_name']}) for linked-officer dropdown",
+        )
+        for o in officers_json
+    ])
+
+    return JsonResponse({"ok": True, "officers": officers_json})
 
 
 @never_cache
@@ -322,10 +369,23 @@ def treasurer_add_member(request: HttpRequest):
     except Exception as ex:
         return JsonResponse({"ok": False, "error": f"Internal pipeline transactional exception: {str(ex)}"}, status=500)
 
-    email_sent = False
+    email_sent = True
     try:
         if member.email:
-            email_sent = send_member_added_email(member)
+            email_sent = send_html_email(
+                subject="Welcome to ISU CAUFA – Membership Registration Confirmed",
+                recipient_list=[member.email],
+                html_template="emails/member_added.html",
+                context={
+                    "full_name": member.full_name,
+                    "employee_id": member.employee_id or "N/A",
+                    "date_joined": member.date_joined.strftime("%B %d, %Y") if member.date_joined else str(timezone.now().date()),
+                    "department": member.department or "",
+                    "monthly_dues_amount": get_monthly_dues_amount(),
+                    "membership_fee_amount": get_membership_fee_amount(),
+                    "officer_contact": "",
+                },
+            )
     except Exception:
         pass
 
@@ -416,9 +476,25 @@ def treasurer_member_batch_add(request):
                         record_id=fee.fee_id_PK,
                         verification_status="Pending",
                     )
+                if member.email:
+                    send_html_email(
+                        subject="Welcome to ISU CAUFA – Membership Registration Confirmed",
+                        recipient_list=[member.email],
+                        html_template="emails/member_added.html",
+                        context={
+                            "full_name": member.full_name,
+                            "employee_id": member.employee_id or "N/A",
+                            "date_joined": member.date_joined.strftime("%B %d, %Y") if member.date_joined else str(timezone.now().date()),
+                            "department": member.department or "",
+                            "monthly_dues_amount": get_monthly_dues_amount(),
+                            "membership_fee_amount": get_membership_fee_amount(),
+                            "officer_contact": "",
+                        },
+                    )
                 results.append({"ok": True, "name": name, "id": member.member_id_PK})
             except Exception as ex:
                 results.append({"ok": False, "name": name, "error": str(ex)})
+
 
     _broadcast_treasurer("members")
     return JsonResponse({"ok": True, "results": results})
@@ -2658,6 +2734,13 @@ def treasurer_approved_aid_posts(request: HttpRequest):
             "remaining_balance": max(0, float(post.total_expected) - float(post.total_collected)),
             "created_at": post.created_at.isoformat() if post.created_at else "",
             "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
+            "has_deduction_sheet": bool(post.deduction_sheet),
+            "deduction_batch_reference": post.deduction_batch_reference or "",
+            "deduction_payroll_period": post.deduction_payroll_period or "",
+            "has_remittance": bool(post.deduction_remitted_amount is not None),
+            "deduction_remitted_amount": str(post.deduction_remitted_amount) if post.deduction_remitted_amount is not None else None,
+            "deduction_remittance_reference": post.deduction_remittance_reference or "",
+            "deduction_remitted_date": post.deduction_remitted_date.isoformat() if post.deduction_remitted_date else None,
         })
 
     return JsonResponse({"ok": True, "posts": items})
@@ -2705,6 +2788,13 @@ def treasurer_aid_post_members(request: HttpRequest, post_id: int):
             "target_month": post.target_month,
             "total_expected": str(post.total_expected),
             "total_collected": str(post.total_collected),
+            "has_deduction_sheet": bool(post.deduction_sheet),
+            "deduction_batch_reference": post.deduction_batch_reference or "",
+            "deduction_payroll_period": post.deduction_payroll_period or "",
+            "has_remittance": bool(post.deduction_remitted_amount is not None),
+            "deduction_remitted_amount": str(post.deduction_remitted_amount) if post.deduction_remitted_amount is not None else None,
+            "deduction_remittance_reference": post.deduction_remittance_reference or "",
+            "deduction_remitted_date": post.deduction_remitted_date.isoformat() if post.deduction_remitted_date else None,
         },
         "members": members_data,
     })
@@ -2713,7 +2803,7 @@ def treasurer_aid_post_members(request: HttpRequest, post_id: int):
 def _recalculate_total_collected(post_id: int) -> None:
     total = Contribution.objects.filter(
         aid_tracking_post_id_FK=post_id,
-        status__in=["PAID", "PENDING_VERIFICATION"],
+        status__in=["PAID", "RECORDED", "PENDING_VERIFICATION"],
     ).aggregate(total=Sum("paid_amount"))["total"] or 0
     AidTrackingPost.objects.filter(post_id_PK=post_id).update(total_collected=total)
 
@@ -2748,21 +2838,13 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
 
     for contribution in contributions:
         post = contribution.aid_tracking_post_id_FK
+
         contribution.paid_amount = contribution.expected_amount
         contribution.payment_date = timezone.now().date()
-        contribution.status = "PENDING_VERIFICATION"
+        contribution.status = "RECORDED"
         contribution.is_manually_overridden = False
         contribution.updated_by_user_id_FK = officer
         contribution.save()
-
-        TransactionVerification.objects.update_or_create(
-            table_name="contribution",
-            record_id=contribution.contribution_id_PK,
-            defaults={
-                "verification_status": "Pending Verification",
-                "target_category": "aid_contribution",
-            },
-        )
 
         _record_audit_trail(
             table="contribution",
@@ -2770,14 +2852,14 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
             action="PAYMENT_RECORDED",
             actor=officer,
             new={
-                "status": "PENDING_VERIFICATION",
+                "status": "RECORDED",
                 "paid_amount": str(contribution.expected_amount),
                 "payment_date": str(contribution.payment_date),
                 "aid_tracking_post_id": post.post_id_PK,
                 "member_id": getattr(contribution.member_id_FK, "member_id_PK", None),
             },
             ip=request.META.get("REMOTE_ADDR"),
-            notes="Contribution payment recorded; verification pending.",
+            notes="Contribution payment recorded.",
         )
 
         async_to_sync(channel_layer.group_send)(
@@ -2787,7 +2869,7 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
                 "post_id": post.post_id_PK,
                 "contribution_id": contribution.contribution_id_PK,
                 "member_name": getattr(contribution.member_id_FK, "full_name", ""),
-                "status": "PENDING_VERIFICATION",
+                "status": "RECORDED",
                 "paid_amount": float(contribution.expected_amount),
             },
         )
@@ -2798,16 +2880,15 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
                 "post_id": post.post_id_PK,
                 "contribution_id": contribution.contribution_id_PK,
                 "member_name": getattr(contribution.member_id_FK, "full_name", ""),
-                "status": "PENDING_VERIFICATION",
+                "status": "RECORDED",
                 "paid_amount": float(contribution.expected_amount),
             },
         )
 
     if post:
         _recalculate_total_collected(post.post_id_PK)
-        _broadcast_pending_counts()
 
-    return JsonResponse({"ok": True, "status": "PENDING_VERIFICATION", "paid": len(contributions)})
+    return JsonResponse({"ok": True, "status": "RECORDED", "paid": len(contributions)})
 
 
 @require_POST
@@ -2835,6 +2916,7 @@ def treasurer_aid_post_member_skip(request: HttpRequest):
     except (ValueError, Contribution.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Contribution not found."}, status=404)
 
+    old_status = contribution.status
     contribution.status = "SKIPPED"
     contribution.is_manually_overridden = True
     contribution.paid_amount = 0
@@ -2847,7 +2929,7 @@ def treasurer_aid_post_member_skip(request: HttpRequest):
         record_id=contribution.contribution_id_PK,
         action="SKIPPED",
         actor=officer,
-        old={"status": "PAID"},
+        old={"status": old_status},
         new={
             "status": "SKIPPED",
             "paid_amount": "0",
@@ -2976,12 +3058,18 @@ def treasurer_aid_post_mark_finished(request: HttpRequest):
     total = Contribution.objects.filter(aid_tracking_post_id_FK=post).count()
     paid_or_pending = Contribution.objects.filter(
         aid_tracking_post_id_FK=post,
-        status__in=["PAID", "PENDING_VERIFICATION"],
+        status__in=["PAID", "RECORDED", "PENDING_VERIFICATION"],
     ).count()
     if total == 0:
         return JsonResponse({"ok": False, "error": "No contributions found for this post."}, status=400)
     if (paid_or_pending / total) < 0.7:
         return JsonResponse({"ok": False, "error": f"At least 70% of members must be PAID (currently {paid_or_pending}/{total})."}, status=400)
+
+    if not post.deduction_sheet:
+        return JsonResponse({
+            "ok": False,
+            "error": "Salary deduction sheet must be uploaded before marking as finished. Please upload the deduction sheet with batch reference and payroll period first.",
+        }, status=400)
 
     post.finish_status = "pending_auditor"
     post.finish_skip_remaining = True
@@ -2999,8 +3087,11 @@ def treasurer_aid_post_mark_finished(request: HttpRequest):
             "finish_status": "pending_auditor",
             "finish_skip_remaining": True,
             "paid_ratio": f"{paid_or_pending}/{total}",
+            "deduction_batch_reference": post.deduction_batch_reference,
+            "deduction_payroll_period": post.deduction_payroll_period,
         },
         ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Finish requested with deduction ref {post.deduction_batch_reference} for period {post.deduction_payroll_period}",
     )
 
     channel_layer = get_channel_layer()
@@ -3790,24 +3881,8 @@ def treasurer_aid_post_release(request: HttpRequest):
             )
         )
     else:
-        # Record inflow for each PAID member contribution
-        paid_contributions = Contribution.objects.filter(
-            aid_tracking_post_id_FK=post, status="PAID",
-        ).select_related("member_id_FK")
-
-        for c in paid_contributions:
-            transactions.append(
-                FundTransaction(
-                    direction="inflow",
-                    amount=c.paid_amount,
-                    source_type="contribution",
-                    source_id=c.contribution_id_PK,
-                    description=f"Contribution — {c.member_id_FK.full_name if c.member_id_FK else 'Unknown'} ({post.aid_type})",
-                    recorded_by_user_id_FK=officer,
-                )
-            )
-
         # Record outflow for the total collected amount (aid disbursement to member)
+        # (inflow was already recorded at Auditor verify time)
         transactions.append(
             FundTransaction(
                 direction="outflow",
@@ -3894,7 +3969,58 @@ def treasurer_aid_post_release(request: HttpRequest):
         async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
         async_to_sync(channel_layer.group_send)("president_dashboard", payload)
 
+        try:
+            _notify_release(post, officer, request=request)
+        except Exception:
+            logger.exception("Release notification failed for post %s", post.post_id_PK)
+
         return JsonResponse({"ok": True, "message": "Funds released. Aid post closed."})
+
+
+@require_POST
+def treasurer_aid_post_release_acknowledge(request: HttpRequest, post_id: int):
+    guard = require_role(request, role=["Auditor", "President"])
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    try:
+        post = AidTrackingPost.objects.select_related("archive_id_FK").get(
+            post_id_PK=post_id, is_active=False, finish_status="approved"
+        )
+    except AidTrackingPost.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "Released post not found."}, status=404)
+
+    archive = post.archive_id_FK
+    member_name = archive.member_name if archive else "Unknown"
+    aid_label = "Medical Aid" if post.aid_type == "medical_aid" else "Death Aid"
+
+    already = GlobalAuditTrail.objects.filter(
+        action="RELEASE_ACKNOWLEDGED",
+        table_name="AID_TRACKING_POST",
+        record_id=post_id,
+        actor_id=officer.user_id_PK,
+    ).exists()
+    if already:
+        return JsonResponse({"ok": True, "acknowledged": True})
+
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
+        record_id=post_id,
+        action="RELEASE_ACKNOWLEDGED",
+        actor=officer,
+        new={
+            "finish_status": post.finish_status,
+            "total_collected": float(post.total_collected),
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f'{officer.role} acknowledged release of {member_name}\'s {aid_label} aid \u2014 \u20b1{post.total_collected:,.2f}',
+    )
+
+    return JsonResponse({"ok": True, "acknowledged": True})
 
 
 @require_POST
@@ -3934,18 +4060,16 @@ def treasurer_aid_post_close_repayment(request: HttpRequest):
         total_collected=Sum("paid_amount"),
     )
     post.total_collected = totals["total_collected"] or 0
-    post.finish_status = "approved"
-    post.is_active = False
-    post.save(update_fields=["finish_status", "is_active", "total_collected"])
+    post.finish_status = "pending_auditor"
+    post.save(update_fields=["finish_status", "total_collected"])
 
     _record_audit_trail(
         table="AID_TRACKING_POST",
         record_id=post.post_id_PK,
-        action="REPAYMENT_CLOSED",
+        action="REPAYMENT_SUBMITTED_FOR_VERIFICATION",
         actor=officer,
         new={
-            "finish_status": "approved",
-            "is_active": False,
+            "finish_status": "pending_auditor",
             "skipped_count": skipped,
             "total_collected": float(post.total_collected),
         },
@@ -3959,7 +4083,7 @@ def treasurer_aid_post_close_repayment(request: HttpRequest):
 
     channel_layer = get_channel_layer()
     payload = {
-        "type": "aid_post_finished",
+        "type": "aid_post_repayment_pending",
         "post_id": post.post_id_PK,
         "member_name": member_name,
     }
@@ -3967,7 +4091,202 @@ def treasurer_aid_post_close_repayment(request: HttpRequest):
     async_to_sync(channel_layer.group_send)("auditor_dashboard", payload)
     async_to_sync(channel_layer.group_send)("president_dashboard", payload)
 
-    return JsonResponse({"ok": True, "message": f"Repayment closed. {skipped} members skipped. Total collected: ₱{post.total_collected:.2f}"})
+    return JsonResponse({"ok": True, "message": f"Repayment submitted for verification. {skipped} members skipped. Total collected: ₱{post.total_collected:.2f}"})
+
+
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_upload_deduction_sheet(request: HttpRequest):
+    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    post_id = (request.POST.get("post_id") or request.POST.get("post") or "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id))
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+
+    sheet_file = request.FILES.get("deduction_sheet")
+    batch_reference = (request.POST.get("batch_reference") or "").strip()
+    payroll_period = (request.POST.get("payroll_period") or "").strip()
+
+    if not sheet_file:
+        return JsonResponse({"ok": False, "error": "Deduction sheet file is required."}, status=400)
+    if not batch_reference:
+        return JsonResponse({"ok": False, "error": "Batch reference is required."}, status=400)
+    if not payroll_period:
+        return JsonResponse({"ok": False, "error": "Payroll period is required."}, status=400)
+
+    post.deduction_sheet.save(sheet_file.name, sheet_file, save=False)
+    post.deduction_batch_reference = batch_reference
+    post.deduction_payroll_period = payroll_period
+    post.deduction_sheet_uploaded_at = timezone.now()
+    post.save(update_fields=[
+        "deduction_sheet",
+        "deduction_batch_reference",
+        "deduction_payroll_period",
+        "deduction_sheet_uploaded_at",
+        "updated_at",
+    ])
+
+    _record_audit_trail(
+        table="AID_TRACKING_POST",
+        record_id=post.post_id_PK,
+        action="DEDUCTION_SHEET_UPLOADED",
+        actor=officer,
+        new={
+            "batch_reference": batch_reference,
+            "payroll_period": payroll_period,
+            "file_name": sheet_file.name,
+        },
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Deduction sheet uploaded for post {post.post_id_PK}: ref {batch_reference}, period {payroll_period}",
+    )
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {
+            "type": "deduction_sheet_uploaded",
+            "post_id": post.post_id_PK,
+            "batch_reference": batch_reference,
+            "payroll_period": payroll_period,
+        },
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "message": "Deduction sheet uploaded successfully.",
+        "batch_reference": batch_reference,
+        "payroll_period": payroll_period,
+    })
+
+
+@require_POST
+@transaction.atomic
+def treasurer_aid_post_record_remittance(request: HttpRequest):
+    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    if officer is None:
+        return JsonResponse({"ok": False, "error": "Session missing."}, status=401)
+
+    post_id = (request.POST.get("post_id") or request.POST.get("post") or "").strip()
+    if not post_id:
+        return JsonResponse({"ok": False, "error": "Missing post_id."}, status=400)
+
+    try:
+        post = AidTrackingPost.objects.get(post_id_PK=int(post_id))
+    except (ValueError, AidTrackingPost.DoesNotExist):
+        return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
+
+    remitted_amount = request.POST.get("remitted_amount", "").strip()
+    remittance_reference = request.POST.get("remittance_reference", "").strip()
+    remitted_date = request.POST.get("remitted_date", "").strip()
+
+    if not remitted_amount:
+        return JsonResponse({"ok": False, "error": "Remitted amount is required."}, status=400)
+    if not remittance_reference:
+        return JsonResponse({"ok": False, "error": "Remittance reference is required."}, status=400)
+    if not remitted_date:
+        return JsonResponse({"ok": False, "error": "Remitted date is required."}, status=400)
+
+    try:
+        amount = decimal.Decimal(str(remitted_amount))
+        if amount <= 0:
+            raise ValueError
+    except (ValueError, decimal.InvalidOperation):
+        return JsonResponse({"ok": False, "error": "Remitted amount must be a positive number."}, status=400)
+
+    from datetime import date as date_type
+    try:
+        parsed_date = date_type.fromisoformat(remitted_date)
+    except (ValueError, TypeError):
+        return JsonResponse({"ok": False, "error": "Invalid date format. Use YYYY-MM-DD."}, status=400)
+
+    old_values = {}
+    if post.deduction_remitted_amount is not None:
+        old_values = {
+            "old_remitted_amount": str(post.deduction_remitted_amount),
+            "old_remittance_reference": post.deduction_remittance_reference,
+            "old_remitted_date": str(post.deduction_remitted_date) if post.deduction_remitted_date else None,
+        }
+
+    post.deduction_remitted_amount = amount
+    post.deduction_remittance_reference = remittance_reference
+    post.deduction_remitted_date = parsed_date
+    post.deduction_remitted_at = timezone.now()
+    post.save(update_fields=[
+        "deduction_remitted_amount",
+        "deduction_remittance_reference",
+        "deduction_remitted_date",
+        "deduction_remitted_at",
+        "updated_at",
+    ])
+
+    FundTransaction.objects.create(
+        direction="inflow",
+        amount=amount,
+        source_type="salary_deduction_remittance",
+        source_id=post.post_id_PK,
+        description=f"Salary deduction remittance ref {remittance_reference} for aid post {post.post_id_PK}",
+        reference_number=remittance_reference,
+        recorded_by_user_id_FK=officer,
+    )
+
+    action = "DEDUCTION_REMITTANCE_UPDATED" if old_values else "DEDUCTION_REMITTANCE_RECORDED"
+    audit_new = {
+        "remitted_amount": str(amount),
+        "remittance_reference": remittance_reference,
+        "remitted_date": remitted_date,
+    }
+    audit_kwargs = {
+        "table": "AID_TRACKING_POST",
+        "record_id": post.post_id_PK,
+        "action": action,
+        "actor": officer,
+        "new": audit_new,
+        "ip": request.META.get("REMOTE_ADDR"),
+        "notes": f"Remittance {'updated' if old_values else 'recorded'} — ref {remittance_reference}, amount {amount}, date {remitted_date}",
+    }
+    if old_values:
+        audit_kwargs["old"] = old_values
+    _record_audit_trail(**audit_kwargs)
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "auditor_dashboard",
+        {
+            "type": "deduction_remittance_recorded",
+            "post_id": post.post_id_PK,
+            "remitted_amount": str(amount),
+            "remittance_reference": remittance_reference,
+        },
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "message": "Remittance recorded successfully.",
+        "remitted_amount": str(amount),
+        "remittance_reference": remittance_reference,
+        "remitted_date": remitted_date,
+    })
 
 
 # ============================================================================

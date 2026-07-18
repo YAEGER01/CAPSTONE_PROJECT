@@ -1,6 +1,6 @@
 from django.conf import settings
 import logging
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.utils import timezone
 from core_system.models import AccessSession
 
@@ -18,6 +18,8 @@ class NoCacheMiddleware:
                 response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
                 response["Pragma"] = "no-cache"
                 response["Expires"] = "0"
+            elif isinstance(response, HttpResponseRedirect):
+                return response
             elif response.get("Content-Type", "").startswith("text/html"):
                 response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
                 response["Pragma"] = "no-cache"

@@ -35,6 +35,11 @@ urlpatterns = [
         name="treasurer_active_members_count",
     ),
     path(
+        "api/treasurer/officers/list/",
+        treasurer_views.treasurer_officers_list,
+        name="treasurer_officers_list",
+    ),
+    path(
         "api/treasurer/records/requiring-revision/",
         treasurer_views.treasurer_records_requiring_revision,
         name="treasurer_records_requiring_revision",
@@ -308,6 +313,9 @@ urlpatterns = [
     path("api/president/profile/", president_views.president_profile, name="president_profile"),
     path("api/president/profile/update/", president_views.president_profile_update, name="president_profile_update"),
     path("api/president/officers/self-enroll/", president_views.president_officer_self_enroll, name="president_officer_self_enroll"),
+    path("api/president/backups/", president_views.president_backups_list, name="president_backups_list"),
+    path("api/president/backups/manual/", president_views.president_backups_manual, name="president_backups_manual"),
+    path("api/president/backups/<int:job_id>/restore/", president_views.president_backups_restore, name="president_backups_restore"),
     # --- President Payroll Batch APIs ---
     path(
         "api/president/pending-payroll-batches/",
@@ -405,6 +413,16 @@ urlpatterns = [
         "api/auditor/audited-logs/",
         auditor_views.auditor_audited_logs,
         name="auditor_audited_logs",
+    ),
+    path(
+        "api/audit/trail/verify/",
+        auditor_views.auditor_audit_trail_verify,
+        name="audit_trail_verify_all",
+    ),
+    path(
+        "api/audit/trail/verify/<str:table_name>/<int:record_id>/",
+        auditor_views.auditor_audit_trail_verify,
+        name="audit_trail_verify",
     ),
     # --- Treasurer Aid Tracking Post Endpoints ---
     # NOTE: approved-aid-posts is kept for the PayrollBatch UI to list active posts
@@ -554,9 +572,12 @@ urlpatterns = [
         name="president_reject_fund_report",
     ),
     # --- Treasurer: Mark Aid Post as Finished (sends to Auditor) ---
+    path("api/treasurer/aid-post-upload-deduction-sheet/", treasurer_views.treasurer_aid_post_upload_deduction_sheet, name="treasurer_aid_post_upload_deduction_sheet"),
+    path("api/treasurer/aid-post-record-remittance/", treasurer_views.treasurer_aid_post_record_remittance, name="treasurer_aid_post_record_remittance"),
     path("api/treasurer/aid-post-mark-finished/", treasurer_views.treasurer_aid_post_mark_finished, name="treasurer_aid_post_mark_finished"),
     # --- Treasurer: Release Aid Post (record fund in/out and close) ---
     path("api/treasurer/aid-post-release/", treasurer_views.treasurer_aid_post_release, name="treasurer_aid_post_release"),
+    path("api/treasurer/aid-post-release-acknowledge/<int:post_id>/", treasurer_views.treasurer_aid_post_release_acknowledge, name="treasurer_aid_post_release_acknowledge"),
     path("api/treasurer/aid-post-close-repayment/", treasurer_views.treasurer_aid_post_close_repayment, name="treasurer_aid_post_close_repayment"),
     # --- Auditor: Aid Post Finish Verification ---
     path("api/auditor/pending-finish-requests/", auditor_views.auditor_pending_finish_requests, name="auditor_pending_finish_requests"),
@@ -626,6 +647,7 @@ urlpatterns = [
     path("mfa/challenge/", auth_views.mfa_challenge_page, name="mfa_challenge_page"),
     path("api/auth/zero-trust/challenge/", auth_views.zero_trust_challenge, name="zero_trust_challenge"),
     path("api/auth/zero-trust/verify/", auth_views.zero_trust_verify, name="zero_trust_verify"),
+    path("api/auth/zero-trust/status/", auth_views.zero_trust_status, name="zero_trust_status"),
     path("api/auth/term-info/", auth_views.term_info, name="term_info"),
 ]
 
