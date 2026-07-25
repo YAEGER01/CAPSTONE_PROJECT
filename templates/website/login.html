@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CAUFA | LOGIN</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{% static 'img/isu_caufa_official.png' %}"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="{% static 'css/login.css' %}" />
+
+  </head>
+  <body>
+    <a href="{% url 'home' %}" class="sticky-back-home">
+      <i class="fa-solid fa-arrow-left"></i> Back to Home
+    </a>
+    <section class="login-shell">
+      <div class="brand">
+        <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA logo" />
+        <div>
+          <strong>CAUFA</strong>
+          <span>System Portal Login</span>
+        </div>
+      </div>
+
+      <form method="post" novalidate id="loginForm" autocomplete="off" {% if form.mfa_required %}style="display:none;"{% endif %}>
+        {% csrf_token %} {% if messages %} {% for message in messages %}
+        <p
+          class="error-note"
+          style="
+            color: #d32f2f;
+            margin-bottom: 15px;
+            font-size: 14px;
+            font-weight: 500;
+          "
+        >
+          <i class="fa-solid fa-circle-exclamation"></i>
+          {{ message }}
+        </p>
+        {% endfor %} {% endif %}
+
+        {% if login_error_title %}
+        <div class="login-status-card">
+          <div class="status-card-header">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <strong>{{ login_error_title }}</strong>
+          </div>
+          <p>{{ login_error_detail }}</p>
+        </div>
+        {% endif %}
+
+        <div id="loginError" class="login-status-card login-status-error" style="display: none;" role="alert" aria-live="polite"></div>
+
+        <div>
+          <label for="username">Username</label>
+          <div class="input-wrap">
+            <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              placeholder="Enter username"
+              autocomplete="username"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label for="password">Password</label>
+          <div class="input-wrap password-wrap">
+            <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter password"
+              autocomplete="current-password"
+              required
+            />
+            <button
+              class="password-toggle"
+              type="button"
+              id="passwordToggle"
+              aria-label="Show password"
+            >
+              <i
+                class="fa-regular fa-eye"
+                id="passwordToggleIcon"
+                aria-hidden="true"
+              ></i>
+            </button>
+          </div>
+
+          <div class="forgot-row">
+            <a class="forgot-link" href="#" onclick="return false;"
+              >Forgot password?</a
+            >
+          </div>
+        </div>
+
+        <button class="submit-btn" type="submit">
+          <i class="fa-solid fa-right-to-bracket"></i> Login
+        </button>
+      </form>
+
+      {% if form.mfa_required %}
+      <form id="mfaForm" class="mfa-form" novalidate style="margin-top: 24px; display: block;">
+        {% csrf_token %}
+        <p class="mfa-intro">
+          Enter the 6-digit verification code sent to your registered email address.
+        </p>
+
+        {% if form.email_warning %}
+        <div class="error-note" style="margin-bottom: 15px;">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          {{ form.email_warning }}
+        </div>
+        {% endif %}
+
+        <div id="mfaError" class="error-note" style="display: none;">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span id="mfaErrorText"></span>
+        </div>
+
+        <div>
+          <label for="otp">Verification Code</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-shield-halved field-icon" aria-hidden="true"></i>
+            <input
+              id="otp"
+              name="otp"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              pattern="[0-9]*"
+              placeholder="000000"
+              required
+              autofocus
+            />
+          </div>
+        </div>
+
+        <input type="hidden" id="preAuthToken" value="{{ form.pre_auth_token|default:'' }}" />
+        <input type="hidden" id="mfaUsername" value="{{ form.username|default:'' }}" />
+
+        <div class="mfa-actions">
+          <button class="btn-slim btn-primary" type="submit" id="mfaSubmitBtn">
+            <i class="fa-solid fa-check"></i> Verify
+          </button>
+          <button
+            class="btn-slim btn-secondary"
+            type="button"
+            id="resendBtn"
+          >
+            <i class="fa-solid fa-rotate-right"></i> Resend Code
+          </button>
+        </div>
+
+        <p class="mfa-footer">
+          Didn't receive it? Check your email's spam.
+        </p>
+      </form>
+      {% endif %}
+    </section>
+
+    <script src="{% static 'js/login.js' %}"></script>
+    {% if form.mfa_required %}
+    <script>
+      (function () {
+        var form = document.getElementById("mfaForm");
+        var errorBox = document.getElementById("mfaError");
+        var errorText = document.getElementById("mfaErrorText");
+        var username = document.getElementById("mfaUsername").value;
+        var otpInput = document.getElementById("otp");
+
+        function showError(msg) {
+          errorText.textContent = msg;
+          errorBox.style.display = "block";
+        }
+
+        function hideError() {
+          errorBox.style.display = "none";
+        }
+
+        function setLoading(loading) {
+          var btn = document.getElementById("mfaSubmitBtn");
+          btn.disabled = loading;
+          btn.innerHTML = loading
+            ? '<i class="fa-solid fa-circle-notch fa-spin"></i> Verifying...'
+            : '<i class="fa-solid fa-check"></i> Verify';
+        }
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          hideError();
+          setLoading(true);
+
+          var otp = otpInput.value.trim();
+          if (!otp || otp.length !== 6) {
+            showError("Please enter the 6-digit code.");
+            setLoading(false);
+            return;
+          }
+
+          fetch("/api/auth/mfa/verify/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+            },
+            body: new URLSearchParams({
+              otp: otp,
+              pre_auth_token: document.getElementById("preAuthToken").value,
+            }),
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              setLoading(false);
+              if (data && data.ok && data.redirect_url) {
+                window.location.href = data.redirect_url;
+              } else {
+                showError((data && data.error) || "Verification failed.");
+              }
+            })
+            .catch(function () {
+              setLoading(false);
+              showError("Network error. Please try again.");
+            });
+        });
+
+        document.getElementById("resendBtn").addEventListener("click", function () {
+          hideError();
+          var btn = document.getElementById("resendBtn");
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Sending...';
+
+          var formData = new FormData();
+          formData.append("username", username);
+
+          fetch("/api/auth/mfa/challenge/", {
+            method: "POST",
+            headers: {
+              "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]").value,
+            },
+            body: formData,
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              btn.disabled = false;
+              btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Resend Code';
+              if (data && data.ok) {
+                showError("Verification code sent! Please check your email inbox.");
+                setTimeout(hideError, 4000);
+              } else {
+                showError((data && data.error) || "Failed to resend code.");
+              }
+            })
+            .catch(function () {
+              btn.disabled = false;
+              btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Resend Code';
+              showError("Network error. Please try again.");
+            });
+        });
+      })();
+    </script>
+    {% endif %}
+
+
+  </body>
+</html>
