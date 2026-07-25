@@ -8,6 +8,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.DeleteModel(name="SensitiveReadLog"),
         migrations.CreateModel(
             name="SensitiveReadLog",
             fields=[

@@ -30,26 +30,40 @@
   // Mock initial storage cache keys matched to role context paths
   const cacheKey = `cauffa_profile_state_${currentRole}`;
 
+  function showProfileToast(msg) {
+    try {
+      if (typeof showToast === "function") {
+        showToast(msg);
+      } else {
+        elements.syncStatus.textContent = msg;
+        elements.syncStatus.style.opacity = "1";
+        setTimeout(function () { elements.syncStatus.style.opacity = "0"; }, 2500);
+      }
+    } catch (e) {
+      elements.syncStatus.textContent = msg;
+    }
+  }
+
   /**
    * Loads saved attributes out of memory context paths
    */
   function loadProfileState() {
-    const defaultNames = {
-      treasurer: "Prof. Marcus Vance",
-      auditor: "Dr. Elena Rostova",
-      president: "Dr. Arthur Pendleton",
-    };
-
-    const defaultIds = {
-      treasurer: "INST-TR-1022",
-      auditor: "INST-AUD-4409",
-      president: "INST-PRES-0001",
-    };
+    // Security: removed hardcoded mock officer credentials (H4).
+    // Default display names and IDs were previously hardcoded here;
+    // profile data now comes exclusively from localStorage or empty fields.
 
     const savedData = localStorage.getItem(cacheKey);
+    let data = null;
 
     if (savedData) {
-      const data = JSON.parse(savedData);
+      try {
+        data = JSON.parse(savedData);
+      } catch (e) {
+        data = null;
+      }
+    }
+
+    if (data) {
       elements.displayName.value = data.displayName || "";
       elements.title.value = data.title || "";
       elements.instructorId.value = data.instructorId || "";
@@ -57,10 +71,8 @@
       elements.college.value = data.college || "";
       if (data.avatarData) elements.avatarDisplay.src = data.avatarData;
     } else {
-      // Apply default structural parameters if clear
-      elements.displayName.value =
-        defaultNames[currentRole] || "New Faculty User";
-      elements.instructorId.value = defaultIds[currentRole] || "INST-2026-XXXX";
+      elements.displayName.value = "New Faculty User";
+      elements.instructorId.value = "INST-2026-XXXX";
       elements.title.value = currentRole === "president" ? "PhD MIT" : "MSc";
       elements.rank.value =
         currentRole === "president" ? "Full Professor" : "Instructor 1";
@@ -94,9 +106,7 @@
 
     // Ensure target is valid image structure
     if (!targetFile.type.startsWith("image/")) {
-      alert(
-        "Security Halt: Target item must be a valid image file formatting pattern.",
-      );
+      showProfileToast("Target item must be a valid image file.");
       return;
     }
 
@@ -149,7 +159,7 @@
         setTimeout(() => (systemAlert.style.display = "none"), 2500);
       }
     } else {
-      alert("Profile configuration synchronized successfully.");
+      showProfileToast("Profile configuration synchronized successfully.");
     }
   }
 

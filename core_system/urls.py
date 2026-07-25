@@ -9,8 +9,11 @@ from . import report_views
 from . import auditor_report_views
 from . import fund_report_views
 from . import htmx_views
+from . import shared_view_utils
 from . import public_views
 from . import auth_views
+from . import finance_collections_views
+from . import admin_views
 
 
 urlpatterns = [
@@ -415,11 +418,6 @@ urlpatterns = [
         name="auditor_audited_logs",
     ),
     path(
-        "api/audit/trail/verify/",
-        auditor_views.auditor_audit_trail_verify,
-        name="audit_trail_verify_all",
-    ),
-    path(
         "api/audit/trail/verify/<str:table_name>/<int:record_id>/",
         auditor_views.auditor_audit_trail_verify,
         name="audit_trail_verify",
@@ -591,6 +589,7 @@ urlpatterns = [
     # --- President ByLaws Constants Management ---
     path("api/president/pending-contributions/", president_views.president_pending_contributions, name="president_pending_contributions"),
     path("api/president/contribution-decision/", president_views.submit_presidential_contribution_decision, name="president_contribution_decision"),
+    path("api/president/contribution-decision/batch/", president_views.submit_presidential_contribution_decision_batch, name="president_contribution_decision_batch"),
     path("api/president/bylaws/constants/", president_views.get_policy_constants, name="president_bylaws_constants"),
     path("api/president/bylaws/constants/update/", president_views.update_policy_constant, name="president_bylaws_constant_update"),
     path("api/president/bylaws/files/", president_views.bylaws_files_api, name="president_bylaws_files"),
@@ -599,9 +598,19 @@ urlpatterns = [
 
     # --- HTMX Partial Endpoints ---
     path(
+        "hx/returns/",
+        htmx_views.hx_returns_panel,
+        name="hx_returns_panel",
+    ),
+    path(
         "hx/cash-flow-summary/",
         htmx_views.hx_cash_flow_summary,
         name="hx_cash_flow_summary",
+    ),
+    path(
+        "hx/info/",
+        htmx_views.hx_info_panel,
+        name="hx_info_panel",
     ),
     path(
         "hx/treasurer/module/<str:module_name>/",
@@ -617,6 +626,12 @@ urlpatterns = [
         "hx/president/module/<str:module_name>/",
         htmx_views.hx_president_module,
         name="hx_president_module",
+    ),
+    # --- Shared Returns & Revisions API ---
+    path(
+        "api/shared/returns/list/",
+        shared_view_utils.shared_returns_list,
+        name="shared_returns_list",
     ),
     # --- Shared Fund Ledger & Transparency APIs ---
     path(
@@ -649,6 +664,62 @@ urlpatterns = [
     path("api/auth/zero-trust/verify/", auth_views.zero_trust_verify, name="zero_trust_verify"),
     path("api/auth/zero-trust/status/", auth_views.zero_trust_status, name="zero_trust_status"),
     path("api/auth/term-info/", auth_views.term_info, name="term_info"),
+    # --- Finance & Collections Module (Treasurer / Auditor / President) ---
+    path(
+        "hx/finance-collections/",
+        finance_collections_views.hx_finance_collections_module,
+        name="hx_finance_collections",
+    ),
+    path(
+        "api/finance-collections/departments/",
+        finance_collections_views.fc_department_list,
+        name="fc_department_list",
+    ),
+    path(
+        "api/finance-collections/department/<int:dept_id>/summary/",
+        finance_collections_views.fc_department_summary,
+        name="fc_department_summary",
+    ),
+    path(
+        "api/finance-collections/member/<int:member_id>/collections/",
+        finance_collections_views.fc_member_collections,
+        name="fc_member_collections",
+    ),
+    path(
+        "api/finance-collections/fund-activity/",
+        finance_collections_views.fc_fund_activity,
+        name="fc_fund_activity",
+    ),
+    path(
+        "api/finance-collections/member/<int:member_id>/proofs/",
+        finance_collections_views.fc_member_proofs,
+        name="fc_member_proofs",
+    ),
+    path(
+        "api/finance-collections/medical-aid/<int:claim_id>/detail/",
+        finance_collections_views.fc_medical_aid_detail,
+        name="fc_medical_aid_detail",
+    ),
+    path(
+        "api/finance-collections/death-aid/<int:claim_id>/detail/",
+        finance_collections_views.fc_death_aid_detail,
+        name="fc_death_aid_detail",
+    ),
+    # --- Admin / Super Admin Endpoints ---
+    path("admin/", admin_views.admin_dashboard, name="admin_dashboard"),
+    path("api/admin/officers/", admin_views.admin_officers_list, name="admin_officers_list"),
+    path("api/admin/officers/create/", admin_views.admin_officers_create, name="admin_officers_create"),
+    path("api/admin/officers/<int:officer_id>/update/", admin_views.admin_officers_update, name="admin_officers_update"),
+    path("api/admin/officers/<int:officer_id>/reset-password/", admin_views.admin_officers_reset_password, name="admin_officers_reset_password"),
+    path("api/admin/officers/<int:officer_id>/toggle-status/", admin_views.admin_officers_toggle_status, name="admin_officers_toggle_status"),
+    path("api/admin/audit-trail/", admin_views.admin_audit_trail, name="admin_audit_trail"),
+    path("api/admin/login-attempts/", admin_views.admin_login_attempts, name="admin_login_attempts"),
+    path("api/admin/sessions/", admin_views.admin_sessions, name="admin_sessions"),
+    path("api/admin/email-queue/", admin_views.admin_email_queue, name="admin_email_queue"),
+    path("api/admin/settings/", admin_views.admin_settings, name="admin_settings"),
+    path("api/admin/backups/", admin_views.admin_backups, name="admin_backups"),
+# --- Error page ---
+    path("error/", views.error_page, name="error_page"),
 ]
 
 handler403 = "core_system.president_views.permission_denied_view"

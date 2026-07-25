@@ -22,10 +22,9 @@ class OfficerUser(models.Model):
     account_status = models.CharField(max_length=50)
     term_start = models.DateField(null=True, blank=True)
     term_end = models.DateField(null=True, blank=True)
-    mfa_enabled = models.BooleanField(default=False)
     mfa_secret = models.CharField(max_length=255, null=True, blank=True)
     last_mfa_email_sent_at = models.DateTimeField(null=True, blank=True)
-    email = models.CharField(max_length=255, null=True, blank=True)
+    email = models.EmailField(max_length=255, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -79,7 +78,7 @@ class Member(models.Model):
     )
     position = models.CharField(max_length=100, null=True, blank=True)
     contact_number = models.CharField(max_length=50, null=True, blank=True)
-    email = models.CharField(max_length=255, null=True, blank=True)
+    email = models.EmailField(max_length=255, null=True, blank=True)
     employment_status = models.CharField(max_length=50)
     membership_status = models.CharField(max_length=50)
     member_type = models.CharField(max_length=50, blank=True)
@@ -444,6 +443,7 @@ class MedicalAid(models.Model):
 
     request_date = models.DateField()
     requested_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    reason = models.CharField(max_length=255, blank=True)
     hospital_name = models.CharField(max_length=255, blank=True)
     hospital_date = models.CharField(max_length=50, null=True, blank=True)
     hospital_bill_amount = models.DecimalField(max_digits=10, decimal_places=2)

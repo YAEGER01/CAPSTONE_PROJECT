@@ -64,6 +64,13 @@ def get_accidental_sickness_aid_threshold() -> float:
     return _get_float("accidental_sickness_aid_threshold", POLICY.accidental_sickness_aid_threshold)
 
 
+DEATH_AID_RELATIONSHIP_MAP = {
+    "husband", "wife",
+    "father", "mother", "son", "daughter",
+    "full-blood brother", "full-blood sister",
+}
+
+
 def get_accidental_sickness_aid_benefit() -> float:
     return _get_float("accidental_sickness_aid_benefit", POLICY.accidental_sickness_aid_benefit)
 

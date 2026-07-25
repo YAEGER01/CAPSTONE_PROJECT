@@ -2,10 +2,14 @@ import hashlib
 import json
 import logging
 import secrets
+import threading
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List
 
+from django.contrib.auth.password_validation import validate_password
+from django.views.decorators.cache import never_cache
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import transaction
@@ -84,6 +88,24 @@ def permission_denied_view(request, exception=None):
     return render(request, "errors/403.html", status=403)
 
 
+def page_not_found_view(request, exception=None):
+    return render(request, "errors/generic_error.html", {
+        "code": "404",
+        "title": "Page Not Found",
+        "message": "The page you requested does not exist or has been moved.",
+        "icon": "magnifying-glass",
+    }, status=404)
+
+
+def server_error_view(request):
+    return render(request, "errors/generic_error.html", {
+        "code": "500",
+        "title": "Internal Server Error",
+        "message": "An unexpected server error occurred. Please try again later.",
+        "icon": "gear",
+    }, status=500)
+
+
 @require_GET
 def audit_trail_api(request: HttpRequest, table_name: str, record_id: int):
     allowed_roles = {"Treasurer", "Auditor", "President"}
@@ -136,6 +158,7 @@ def audit_trail_api(request: HttpRequest, table_name: str, record_id: int):
 # PRESIDENT WORKSPACE VIEWS
 # ==========================================================================
 
+@never_cache
 def president_dashboard(request):
     guard = require_role(request, role="President")
     if guard is not None:
@@ -618,6 +641,102 @@ def submit_presidential_contribution_decision(request):
         return JsonResponse({"success": False, "message": str(e)}, status=500)
 
 
+@require_http_methods(["POST"])
+def submit_presidential_contribution_decision_batch(request):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
+    try:
+        body = json.loads(request.body)
+        ids = body.get("ids", [])
+        decision = (body.get("decision") or "").strip()
+        remarks = (body.get("remarks") or "").strip()
+
+        if not ids or not isinstance(ids, list):
+            return JsonResponse({"success": False, "message": "ids must be a non-empty array."}, status=400)
+        if decision not in {"Approved", "Rejected"}:
+            return JsonResponse({"success": False, "message": "Invalid decision. Use Approved or Rejected."}, status=400)
+        if decision == "Rejected" and not remarks:
+            return JsonResponse({"success": False, "message": "Remarks are mandatory for rejections."}, status=400)
+
+        stored_officer_id = request.session.get("officer_id")
+        if stored_officer_id is None:
+            return JsonResponse({"success": False, "message": "Officer session missing."}, status=401)
+        officer = get_object_or_404(OfficerUser, user_id_PK=int(stored_officer_id))
+
+        verifications = TransactionVerification.objects.select_for_update().filter(
+            verification_id__in=ids,
+        )
+        existing_map = {v.verification_id: v for v in verifications}
+
+        processed = 0
+        skipped = 0
+        audit_entries = []
+        fund_transactions = []
+        ip_address = request.META.get("REMOTE_ADDR")
+        for vid in ids:
+            v = existing_map.get(vid)
+            if v is None:
+                skipped += 1
+                continue
+            if not can_president_act(v.verification_status):
+                skipped += 1
+                continue
+
+            if decision == "Approved":
+                v.verification_status = "Approved"
+                v.approved_at = timezone.now()
+                action_str = "APPROVED"
+            else:
+                v.verification_status = "Rejected"
+                action_str = "REJECTED"
+
+            v.president_id_FK = officer
+            v.save()
+
+            if decision == "Approved":
+                archive = archive_transaction(v.table_name, v.record_id, officer)
+                if archive and v.table_name == "aid_contribution":
+                    fund_transactions.append(
+                        FundTransaction(
+                            direction="inflow",
+                            amount=archive.amount,
+                            source_type="aid_contribution",
+                            source_id=v.record_id,
+                            description=f"Aid contribution — {archive.member_name}",
+                            recorded_by_user_id_FK=officer,
+                        )
+                    )
+
+            audit_entries.append({
+                "table": v.table_name,
+                "record_id": v.record_id,
+                "action": action_str,
+                "ip": ip_address,
+                "notes": remarks.strip() if remarks else None,
+            })
+            processed += 1
+
+        if audit_entries:
+            _record_bulk_audit_trail(audit_entries, actor=officer)
+
+        if fund_transactions:
+            FundTransaction.objects.bulk_create(fund_transactions)
+
+        _broadcast_pending_counts()
+        return JsonResponse({
+            "success": True,
+            "processed": processed,
+            "skipped": skipped,
+            "message": f"Processed {processed} entr{processed == 1 and 'y' or 'ies'} ({skipped} skipped).",
+        })
+    except Exception as e:
+        return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+
 @require_GET
 def president_auditor_approved_aids_queue(request: HttpRequest):
     guard = require_role(request, role="President")
@@ -698,13 +817,13 @@ def president_auditor_approved_aids_queue(request: HttpRequest):
                 "aid_type": "medical_aid",
                 "type": "Medical Aid Request",
                 "request_date": str(m.request_date),
-                "medical_case": m.document_status or m.policy_record_status or "",
+                "medical_case": m.reason or m.document_status or m.policy_record_status or "",
                 "requested_amount": req_amount,
                 "hospital": m.hospital_name or member_name,
                 "hospital_date": str(m.hospital_date) if m.hospital_date else "",
                 "total_hospital_bill": bill_amount,
                 "validated_aid_amount": float(m.validated_aid_amount or 0),
-                "treasurer_validation": m.document_status or m.policy_record_status or "",
+                "treasurer_validation": m.status or "Pending",
                 "date": str(m.request_date),
                 "reqAmount": req_amount,
                 "bill": bill_amount,
@@ -1071,7 +1190,7 @@ def submit_presidential_aid_decision(request):
             ])
 
             transaction.on_commit(
-                lambda r=record, tn=table_name, pm=per_member_amount: send_aid_emails(r, tn, pm)
+                lambda r=record, tn=table_name, pm=per_member_amount: threading.Thread(target=send_aid_emails, args=(r, tn, pm), daemon=True).start()
             )
 
         TransactionVerification.objects.filter(
@@ -1365,7 +1484,7 @@ def submit_presidential_aid_decision_batch(request):
                     ])
 
                     transaction.on_commit(
-                        lambda r=record, tn=v.table_name, pm=per_member_amount: send_aid_emails(r, tn, pm)
+                        lambda r=record, tn=v.table_name, pm=per_member_amount: threading.Thread(target=send_aid_emails, args=(r, tn, pm), daemon=True).start()
                     )
 
                     member_name = record.member_id_FK.full_name if record is not None and hasattr(record, "member_id_FK") and record.member_id_FK else ""
@@ -2172,6 +2291,11 @@ def president_officers_create(request: HttpRequest):
     if not password:
         return JsonResponse({"ok": False, "error": "Password is required."}, status=400)
 
+    try:
+        validate_password(password)
+    except DjangoValidationError as e:
+        return JsonResponse({"ok": False, "error": "; ".join(e.messages)}, status=400)
+
     if OfficerUser.objects.filter(username=username).exists():
         return JsonResponse({"ok": False, "error": "Username already exists."}, status=409)
 
@@ -2252,6 +2376,10 @@ def president_officers_update(request: HttpRequest, officer_id: int):
     officer.term_end = term_end
     officer.department_id_FK = department
     if password:
+        try:
+            validate_password(password)
+        except DjangoValidationError as e:
+            return JsonResponse({"ok": False, "error": "; ".join(e.messages)}, status=400)
         officer.password_hash = sha256_hex(password)
 
     update_fields = [
@@ -2292,6 +2420,10 @@ def president_officers_reset_password(request: HttpRequest, officer_id: int):
 
     officer = get_object_or_404(OfficerUser, pk=officer_id)
     temp_password = secrets.token_urlsafe(10)
+    try:
+        validate_password(temp_password)
+    except DjangoValidationError as e:
+        return JsonResponse({"ok": False, "error": "; ".join(e.messages)}, status=400)
     officer.password_hash = sha256_hex(temp_password)
     officer.save(update_fields=["password_hash", "updated_at"])
 
@@ -2303,10 +2435,10 @@ def president_officers_reset_password(request: HttpRequest, officer_id: int):
         actor=president,
         new={"username": officer.username, "temp_password_generated": True},
         ip=request.META.get("REMOTE_ADDR"),
-        notes=f"Reset password for {officer.full_name}",
+        notes=f"Reset password for {officer.full_name} — temp password: {temp_password}",
     )
 
-    return JsonResponse({"ok": True, "temp_password": temp_password, "officer": _officer_to_json(officer)})
+    return JsonResponse({"ok": True, "message": "Password reset successfully. The temporary password has been recorded in the audit trail."})
 
 
 @require_POST

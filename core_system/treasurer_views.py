@@ -1,10 +1,10 @@
 import decimal
-import hashlib
 import json
 import logging
 import re
+import threading
 from datetime import datetime
-from django.http import Http404, HttpRequest, JsonResponse
+from django.http import HttpRequest, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.cache import never_cache
@@ -41,6 +41,7 @@ from core_system.models import (
     SensitiveReadLog,
     SystemSetting,
 )
+from core_system.constants.status_constants import Status
 from core_system.constants.policy_constants import (
     check_medical_aid_once_per_year,
     get_accidental_sickness_aid_benefit,
@@ -372,20 +373,22 @@ def treasurer_add_member(request: HttpRequest):
     email_sent = True
     try:
         if member.email:
-            email_sent = send_html_email(
-                subject="Welcome to ISU CAUFA – Membership Registration Confirmed",
-                recipient_list=[member.email],
-                html_template="emails/member_added.html",
-                context={
-                    "full_name": member.full_name,
-                    "employee_id": member.employee_id or "N/A",
-                    "date_joined": member.date_joined.strftime("%B %d, %Y") if member.date_joined else str(timezone.now().date()),
-                    "department": member.department or "",
-                    "monthly_dues_amount": get_monthly_dues_amount(),
-                    "membership_fee_amount": get_membership_fee_amount(),
-                    "officer_contact": "",
+            threading.Thread(
+                target=send_html_email,
+                args=("Welcome to ISU CAUFA – Membership Registration Confirmed", [member.email], "emails/member_added.html"),
+                kwargs={
+                    "context": {
+                        "full_name": member.full_name,
+                        "employee_id": member.employee_id or "N/A",
+                        "date_joined": member.date_joined.strftime("%B %d, %Y") if member.date_joined else str(timezone.now().date()),
+                        "department": member.department or "",
+                        "monthly_dues_amount": get_monthly_dues_amount(),
+                        "membership_fee_amount": get_membership_fee_amount(),
+                        "officer_contact": "",
+                    },
                 },
-            )
+                daemon=True,
+            ).start()
     except Exception:
         pass
 
@@ -431,24 +434,20 @@ def treasurer_member_batch_add(request):
 
     results = []
     recorded_by = resolve_officer_from_session(request)
-    existing_ids = set(
-        Member.objects.filter(
-            employee_id__in=[(e.get("prof_id") or "").strip() for e in entries if e.get("prof_id")]
-        ).values_list("employee_id", flat=True)
-    )
 
-    with transaction.atomic():
-        for entry in entries:
-            name = (entry.get("prof_name") or "").strip()
-            emp_id = (entry.get("prof_id") or "").strip()
-            status_val = (entry.get("prof_status") or "Active").strip()
-            if not name or not emp_id:
-                results.append({"ok": False, "name": name, "error": "Name and Employee ID are required."})
-                continue
-            if emp_id in existing_ids:
-                results.append({"ok": False, "name": name, "error": f"Employee ID '{emp_id}' is already registered."})
-                continue
-            try:
+    for entry in entries:
+        name = (entry.get("prof_name") or "").strip()
+        emp_id = (entry.get("prof_id") or "").strip()
+        status_val = (entry.get("prof_status") or "Active").strip()
+        if not name or not emp_id:
+            results.append({"ok": False, "name": name, "error": "Name and Employee ID are required."})
+            continue
+        try:
+            with transaction.atomic():
+                if Member.objects.filter(employee_id=emp_id).exists():
+                    results.append({"ok": False, "name": name, "error": f"Employee ID '{emp_id}' is already registered."})
+                    continue
+
                 member = Member.objects.create(
                     full_name=name,
                     employee_id=emp_id,
@@ -460,6 +459,14 @@ def treasurer_member_batch_add(request):
                     membership_status=status_val,
                     member_type=status_val,
                     date_joined=timezone.now().date(),
+                )
+                _record_audit_trail(
+                    table="member",
+                    record_id=member.member_id_PK,
+                    action="CREATED",
+                    actor=recorded_by,
+                    new={"full_name": member.full_name, "employee_id": member.employee_id},
+                    ip=request.META.get("REMOTE_ADDR"),
                 )
                 if member.membership_status in ("Permanent", "Temporary"):
                     fee = MembershipFee.objects.create(
@@ -477,23 +484,25 @@ def treasurer_member_batch_add(request):
                         verification_status="Pending",
                     )
                 if member.email:
-                    send_html_email(
-                        subject="Welcome to ISU CAUFA – Membership Registration Confirmed",
-                        recipient_list=[member.email],
-                        html_template="emails/member_added.html",
-                        context={
-                            "full_name": member.full_name,
-                            "employee_id": member.employee_id or "N/A",
-                            "date_joined": member.date_joined.strftime("%B %d, %Y") if member.date_joined else str(timezone.now().date()),
-                            "department": member.department or "",
-                            "monthly_dues_amount": get_monthly_dues_amount(),
-                            "membership_fee_amount": get_membership_fee_amount(),
-                            "officer_contact": "",
+                    threading.Thread(
+                        target=send_html_email,
+                        args=("Welcome to ISU CAUFA – Membership Registration Confirmed", [member.email], "emails/member_added.html"),
+                        kwargs={
+                            "context": {
+                                "full_name": member.full_name,
+                                "employee_id": member.employee_id or "N/A",
+                                "date_joined": member.date_joined.strftime("%B %d, %Y") if member.date_joined else str(timezone.now().date()),
+                                "department": member.department or "",
+                                "monthly_dues_amount": get_monthly_dues_amount(),
+                                "membership_fee_amount": get_membership_fee_amount(),
+                                "officer_contact": "",
+                            },
                         },
-                    )
+                        daemon=True,
+                    ).start()
                 results.append({"ok": True, "name": name, "id": member.member_id_PK})
-            except Exception as ex:
-                results.append({"ok": False, "name": name, "error": str(ex)})
+        except Exception as ex:
+            results.append({"ok": False, "name": name, "error": str(ex)})
 
 
     _broadcast_treasurer("members")
@@ -670,6 +679,7 @@ def treasurer_medical_aid_returned_list(request):
             "hospital_bill_amount": str(aid.hospital_bill_amount),
             "claim_year": str(aid.claim_year),
             "document_status": aid.document_status or "",
+            "reason": aid.reason or "",
             "status": aid.status or "",
             "validated_aid_amount": str(aid.validated_aid_amount),
             "rejection_reason": rejection_reason,
@@ -890,6 +900,9 @@ def treasurer_monthly_flow(request: HttpRequest):
 def treasurer_membership_fee_add(request: HttpRequest):
     """Create a MEMBERSHIP_FEE row from the Treasurer membership fee form."""
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -1187,6 +1200,22 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
                 ip=request.META.get("REMOTE_ADDR"),
             )
         _broadcast_treasurer("monthly_dues")
+        if member.email:
+            threading.Thread(
+                target=send_html_email,
+                args=("ISU CAUFA – Monthly Dues Payment Confirmed", [member.email], "emails/monthly_dues_confirmation.html"),
+                kwargs={
+                    "context": {
+                        "full_name": member.full_name,
+                        "month_covered": month,
+                        "amount": str(amount_decimal),
+                        "payment_method": method,
+                        "payment_date": date_raw,
+                        "receipt_number": ref or "",
+                    },
+                },
+                daemon=True,
+            ).start()
         return JsonResponse({"ok": True, "dues": {
             "dues_id": dues.dues_id_PK,
             "ref": dues.receipt_number or "",
@@ -1249,6 +1278,22 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
                 ip=request.META.get("REMOTE_ADDR"),
             )
         _broadcast_treasurer("monthly_dues")
+        if member.email:
+            threading.Thread(
+                target=send_html_email,
+                args=("ISU CAUFA – Monthly Dues Payment Confirmed", [member.email], "emails/monthly_dues_confirmation.html"),
+                kwargs={
+                    "context": {
+                        "full_name": member.full_name,
+                        "month_covered": month,
+                        "amount": str(amount_decimal),
+                        "payment_method": "Salary Deduction",
+                        "payment_date": str(payment_date),
+                        "receipt_number": sal_ref or "",
+                    },
+                },
+                daemon=True,
+            ).start()
         return JsonResponse({"ok": True, "dues": {
             "dues_id": dues.dues_id_PK,
             "ref": dues.remittance_reference or "",
@@ -1264,6 +1309,9 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
 def treasurer_monthly_dues_add(request: HttpRequest):
     """Unified monthly dues add view. Supports both 'otc' and 'salary' payment_type."""
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -1514,6 +1562,9 @@ def treasurer_salary_bulk_process(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -1559,16 +1610,22 @@ def treasurer_salary_bulk_process(request: HttpRequest):
     processed = 0
     skipped = 0
     created_dues = []
+    email_queue = []
 
     with transaction.atomic():
-        # Use select_for_update to prevent race conditions
-        if MonthlyDues.objects.select_for_update().filter(
-            payment_method="Salary Deduction",
-            month_covered=sal_month,
-        ).exists():
+        # Skip members who already have salary deductions for this month
+        existing_for_selected = set(
+            MonthlyDues.objects.select_for_update().filter(
+                payment_method="Salary Deduction",
+                month_covered=sal_month,
+                member_id_FK__in=unique_ids,
+            ).values_list("member_id_FK", flat=True)
+        )
+        unique_ids = [mid for mid in unique_ids if mid not in existing_for_selected]
+        if not unique_ids:
             return JsonResponse({
                 "ok": False,
-                "error": f"Salary deductions for {sal_month} have already been processed. Duplicate month not allowed.",
+                "error": "All selected members already have salary deductions for this month.",
             }, status=409)
 
         for mid in unique_ids:
@@ -1615,8 +1672,25 @@ def treasurer_salary_bulk_process(request: HttpRequest):
             )
             processed += 1
             created_dues.append(dues.dues_id_PK)
+            if member.email:
+                email_queue.append({
+                    "email": member.email,
+                    "full_name": member.full_name,
+                    "month_covered": sal_month,
+                    "amount": str(expected_amount),
+                    "payment_date": str(payment_date),
+                    "receipt_number": batch_ref or "",
+                })
 
+    _broadcast_treasurer("monthly_dues")
     _broadcast_pending_counts()
+
+    # Send confirmation emails in a background thread so the API returns immediately
+    if email_queue:
+        email_queue_copy = list(email_queue)
+        t = threading.Thread(target=_send_bulk_dues_emails, args=(email_queue_copy,), daemon=True)
+        t.start()
+
     return JsonResponse({
         "ok": True,
         "processed": processed,
@@ -1626,9 +1700,29 @@ def treasurer_salary_bulk_process(request: HttpRequest):
     })
 
 
+def _send_bulk_dues_emails(email_queue):
+    for eq in email_queue:
+        try:
+            send_html_email(
+                subject="ISU CAUFA – Monthly Dues Payment Confirmed",
+                recipient_list=[eq["email"]],
+                html_template="emails/monthly_dues_confirmation.html",
+                context={
+                    "full_name": eq["full_name"],
+                    "month_covered": eq["month_covered"],
+                    "amount": eq["amount"],
+                    "payment_method": "Salary Deduction",
+                    "payment_date": eq["payment_date"],
+                    "receipt_number": eq["receipt_number"],
+                },
+            )
+        except Exception:
+            logger.exception("Failed to send bulk monthly dues confirmation to %s", eq["email"])
+
+
 @require_GET
-def treasurer_medical_aid_list(request: HttpRequest):
-    """Return MedicalAid records for the Treasurer dashboard table."""
+def treasurer_medical_aid_list_old(request: HttpRequest):
+    """Return MedicalAid records for the Treasurer dashboard table. (Legacy, replaced)"""
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
@@ -1647,7 +1741,7 @@ def treasurer_medical_aid_list(request: HttpRequest):
                 "memberId": aid.member_id_FK.member_id_PK,
                 "name": aid.member_id_FK.full_name,
                 "date": aid.request_date.isoformat(),
-                "reason": aid.status or "Medical Aid Request",
+                "reason": aid.reason or "",
                 "reqAmount": float(requested_amount),
                 "hospital": aid.hospital_name or aid.member_id_FK.full_name,
                 "bill": float(aid.hospital_bill_amount),
@@ -1793,6 +1887,9 @@ def treasurer_medical_aid_add(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
     # Extract fields
     med_member = (request.POST.get("med_member") or "").strip()
     med_date = (request.POST.get("med_date") or "").strip()
@@ -1860,11 +1957,12 @@ def treasurer_medical_aid_add(request: HttpRequest):
             member_id_FK=member_obj,
             request_date=med_date,
             requested_amount=med_req_amount,
+            reason=med_reason,
             hospital_name=med_hospital,
             hospital_date=med_hospital_date or None,
             hospital_bill_amount=med_bill,
             claim_year=req_year,
-            document_status=med_reason or "Pending",
+            document_status="Pending",
             policy_record_status="Pending",
             validated_aid_amount=get_accidental_sickness_aid_benefit(),
             status=med_validation or "Pending",
@@ -1909,6 +2007,9 @@ def treasurer_medical_aid_add(request: HttpRequest):
 def treasurer_medical_aid_batch_add(request: HttpRequest):
     """Create MedicalAid entries for multiple members in one transaction."""
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -1990,11 +2091,12 @@ def treasurer_medical_aid_batch_add(request: HttpRequest):
             member_id_FK=member_obj,
             request_date=request_date,
             requested_amount=str(get_accidental_sickness_aid_benefit()),
+            reason=reason,
             hospital_name=hospital,
             hospital_date=hospital_date or None,
             hospital_bill_amount=bill_str,
             claim_year=req_year,
-            document_status=reason,
+            document_status="Pending",
             policy_record_status="Pending",
             validated_aid_amount=get_accidental_sickness_aid_benefit(),
             status="Pending",
@@ -2068,7 +2170,7 @@ def treasurer_medical_aid_list(request: HttpRequest):
                 "name": aid.member_id_FK.full_name,
                 "date": aid.request_date.isoformat() if aid.request_date else "",
                 # Your UI label uses `reason` for case description.
-                "reason": aid.status or "Medical Aid Request",
+                "reason": aid.reason or "",
                 "reqAmount": float(requested_amount) if requested_amount is not None else 0,
                 "hospital": aid.hospital_name or aid.member_id_FK.full_name,
                 "hospital_date": str(aid.hospital_date) if aid.hospital_date else "",
@@ -2107,6 +2209,9 @@ def treasurer_death_aid_add(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     death_member = (request.POST.get("death_member") or "").strip()
     death_deceased = (request.POST.get("death_deceased") or "").strip()
@@ -2133,7 +2238,7 @@ def treasurer_death_aid_add(request: HttpRequest):
             {"ok": False, "error": "Relationship to member is required."}, status=400
         )
     death_rel_group = (request.POST.get("death_rel_group") or "").strip()
-    if not death_rel_group:
+    if death_rel_group and death_rel_group.strip():
         from core_system.constants.policy_constants import DEATH_AID_RELATIONSHIP_MAP
         death_rel_group = "immediate" if death_rel.lower() in [k.lower() for k in DEATH_AID_RELATIONSHIP_MAP] else "extended"
     if not death_claimant:
@@ -2304,9 +2409,21 @@ def treasurer_resubmit_entry(request: HttpRequest, table_name: str, record_id: i
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     if table_name not in MODEL_MAP:
         return JsonResponse({"ok": False, "error": "Invalid table."}, status=400)
+
+    current_tv = TransactionVerification.objects.select_for_update().filter(
+        table_name=table_name, record_id=int(record_id),
+    ).first()
+    if not current_tv or current_tv.verification_status != Status.RETURNED_REVISION:
+        return JsonResponse({
+            "ok": False,
+            "error": "This record is not currently in 'Returned for Revision' status. It may have already been resubmitted or approved.",
+        }, status=409)
 
     Model = MODEL_MAP[table_name]
     try:
@@ -2344,9 +2461,6 @@ def treasurer_resubmit_entry(request: HttpRequest, table_name: str, record_id: i
             # Some UIs send both fee_amount + fee_partial_amount. We keep partial_amount consistent if present.
             if hasattr(record, "partial_amount"):
                 setattr(record, "partial_amount", (request.POST.get("fee_partial_amount") or "").strip())
-            # Keep amount in sync with partial amount for Partial resubmission.
-            if (request.POST.get("fee_status") or "").strip() == "Partial":
-                setattr(record, "amount", (request.POST.get("fee_partial_amount") or "").strip())
 
         # Persist with explicit update_fields to ensure DB columns are updated.
         update_fields = [
@@ -2468,11 +2582,18 @@ def treasurer_members_list(request):
     if guard is not None:
         return guard
 
-    members = Member.objects.all().order_by("member_id_PK")
+    members_qs = Member.objects.all().order_by("member_id_PK")
+    total = members_qs.count()
+    limit = int(request.GET.get("limit", 200))
+    offset = int(request.GET.get("offset", 0))
+    members_page = members_qs[offset:offset + limit]
     return JsonResponse(
         {
             "ok": True,
-            "members": [member_to_json(m) for m in members],
+            "members": [member_to_json(m) for m in members_page],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
         }
     )
 
@@ -2535,17 +2656,6 @@ def treasurer_member_details(request, member_id):
         "membership_fee_amount": fee_amount,
         "active_aid_obligations": active_aids,
     })
-    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
-    if guard is not None:
-        return guard
-
-    members = Member.objects.all().order_by("member_id_PK")
-    return JsonResponse(
-        {
-            "ok": True,
-            "members": [member_to_json(m) for m in members],
-        }
-    )
 
 
 @require_GET
@@ -2605,6 +2715,9 @@ def treasurer_member_update(request):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     payload_member_id = (request.POST.get("member_id") or "").strip()
     if not payload_member_id:
@@ -2637,6 +2750,8 @@ def treasurer_member_update(request):
 
     old_status = member.membership_status
 
+    old_values = {k: getattr(member, k, None) for k in fields}
+
     for k, v in fields.items():
         setattr(member, k, v)
 
@@ -2644,6 +2759,16 @@ def treasurer_member_update(request):
         return JsonResponse({"ok": False, "error": "full_name is required."}, status=400)
 
     member.save()
+
+    _record_audit_trail(
+        table="member",
+        record_id=member.member_id_PK,
+        action="UPDATED",
+        actor=resolve_officer_from_session(request),
+        old=old_values,
+        new=fields,
+        ip=request.META.get("REMOTE_ADDR"),
+    )
 
     new_status = member.membership_status
     if new_status in ("Permanent", "Temporary") and old_status != new_status:
@@ -2672,6 +2797,9 @@ def treasurer_member_update(request):
 @require_POST
 def treasurer_member_retire(request):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 
@@ -2788,6 +2916,7 @@ def treasurer_aid_post_members(request: HttpRequest, post_id: int):
             "target_month": post.target_month,
             "total_expected": str(post.total_expected),
             "total_collected": str(post.total_collected),
+            "finish_status": post.finish_status or "",
             "has_deduction_sheet": bool(post.deduction_sheet),
             "deduction_batch_reference": post.deduction_batch_reference or "",
             "deduction_payroll_period": post.deduction_payroll_period or "",
@@ -3263,6 +3392,9 @@ def treasurer_payroll_batch_create(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
+    guard = check_zero_trust(request, level="approve")
+    if guard is not None:
+        return guard
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -3421,6 +3553,9 @@ def treasurer_payroll_batch_detail(request: HttpRequest, batch_id: int):
 def treasurer_payroll_batch_edit(request: HttpRequest, batch_id: int):
     """Edit a PayrollBatch and its deductions (only if Pending or Returned)."""
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
+    if guard is not None:
+        return guard
+    guard = check_zero_trust(request, level="approve")
     if guard is not None:
         return guard
 

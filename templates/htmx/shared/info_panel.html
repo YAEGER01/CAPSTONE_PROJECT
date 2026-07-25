@@ -1,0 +1,312 @@
+<div class="info-panel-handle"></div>
+<div class="info-panel-header">
+  <span class="info-panel-header-title">
+    <i class="fa-solid fa-circle-info" style="color:#1b5e20;"></i>
+    Help & Information
+  </span>
+  <button type="button" class="info-panel-close" onclick="toggleInfoPanel()" title="Close">
+    <i class="fa-solid fa-xmark"></i>
+  </button>
+</div>
+<div class="info-panel-body">
+
+  <!-- ─── System Guides (all roles) ─── -->
+  <div class="info-section-title">System Guide</div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-info-circle" style="color:#1b5e20;width:18px;"></i> About This System</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+      <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-compass" style="color:#1b5e20;width:18px;"></i> Navigation Guide</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ul>
+        <li>Use the <strong>sidebar</strong> on the left to switch between modules.</li>
+        <li>Click a module name to load its content in the main viewport.</li>
+        <li>Use the <strong>collapse button</strong> (&#9776;) at the top of the sidebar to expand/collapse it.</li>
+        <li>Some sections are grouped into <strong>folders</strong> — click the folder name to expand its contents.</li>
+        <li>Your current role is shown at the top of the sidebar.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-shield-halved" style="color:#1b5e20;width:18px;"></i> Session & Security</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ul>
+        <li><strong>Session timeout:</strong> Your session expires after a period of inactivity. You will be redirected to the login page.</li>
+        <li><strong>MFA:</strong> Multi-factor authentication is required for all logins. Keep your authenticator app accessible.</li>
+        <li><strong>Logout:</strong> Always use the logout button when done. Do not simply close the browser tab.</li>
+        <li><strong>Audit trail:</strong> Every action you take is recorded. Always verify entries before submitting.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-headset" style="color:#1b5e20;width:18px;"></i> Getting Help</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <p>If you encounter issues or have questions:</p>
+      <ul>
+        <li>Contact the <strong>system administrator</strong> via the board's official communication channel.</li>
+        <li>Report bugs or request features through the board's IT support team.</li>
+        <li>Check this help panel for updated guides — content is reviewed regularly.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ─── Role-specific guides ─── -->
+  {% if officer_role == "treasurer" %}
+  <div class="info-section-title">Treasurer Guides</div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-user-plus" style="color:#1b5e20;width:18px;"></i> Add Members</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ol>
+        <li>Go to <strong>Members</strong> in the sidebar</li>
+        <li>Click <strong>Add Member</strong> and fill in their details</li>
+        <li>A Membership Fee record is auto-created</li>
+        <li>Collect the fee → goes to <span class="info-role-tag auditor">Auditor</span> → <span class="info-role-tag president">President</span> for approval</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-calendar-check" style="color:#1b5e20;width:18px;"></i> Monthly Dues</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ol>
+        <li>Go to <strong>Monthly Dues → By Salary Deduction</strong></li>
+        <li>Select month and upload the accounting sheet</li>
+        <li>Submit batch → <span class="info-role-tag auditor">Auditor</span> verifies → <span class="info-role-tag president">President</span> approves</li>
+        <li>Fund inflow recorded automatically upon approval</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-hand-holding-heart" style="color:#1b5e20;width:18px;"></i> Aids — Prerequisite</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ol>
+        <li>File aid at <strong>Aid Requests → Medical Aid</strong> or <strong>Death Aid Claim</strong></li>
+        <li><span class="info-role-tag auditor">Auditor</span> verifies → <span class="info-role-tag president">President</span> approves → AidTrackingPost created</li>
+        <li>Go to <strong>Record Contribution</strong> tab and choose a workflow below</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-arrow-trend-up" style="color:#1b5e20;width:18px;"></i> Normal Pay — Flow</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <p><span class="info-role-tag treasurer">Treasurer</span></p>
+      <ol>
+        <li>Click <strong>Pay per member</strong> or use checkbox → <strong>Pay Selected</strong> → sets to RECORDED</li>
+        <li>Use <strong>Skip</strong> for members who won't pay | <strong>Notify</strong> to send reminders</li>
+        <li>Upload <strong>Deduction Sheet</strong> (file + batch reference + payroll period) at bottom panel</li>
+        <li><strong>Record Remittance</strong> (salary deduction posts only) — log when deducted amounts are deposited to CAUFA's account</li>
+        <li>Click <strong>Mark as Finished</strong> (requires ≥70% RECORDED/PAID + deduction sheet uploaded)</li>
+      </ol>
+      <p><span class="info-role-tag auditor">Auditor</span> <span class="info-role-tag arrow">→</span> <span class="info-role-tag president">President</span></p>
+      <ol start="6">
+        <li>Auditor batch-verifies → all RECORDED become PAID → fund inflow recorded → President approves</li>
+      </ol>
+      <p><span class="info-role-tag treasurer">Treasurer</span></p>
+      <ol start="7">
+        <li>Click <strong>Release</strong> → post closed → <span class="info-role-tag auditor">Auditor</span> &amp; <span class="info-role-tag president">President</span> get notified with Acknowledge button</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-sack-dollar" style="color:#1b5e20;width:18px;"></i> Paid with Funds — Flow</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <p><span class="info-role-tag treasurer">Treasurer</span></p>
+      <ol>
+        <li>Click <strong>Paid with Funds</strong> → request sent to <span class="info-role-tag auditor">Auditor</span></li>
+      </ol>
+      <p><span class="info-role-tag auditor">Auditor</span> <span class="info-role-tag arrow">→</span> <span class="info-role-tag president">President</span></p>
+      <ol start="2">
+        <li>Auditor verifies → President approves → post enters pending_release</li>
+      </ol>
+      <p><span class="info-role-tag treasurer">Treasurer</span></p>
+      <ol start="3">
+        <li>Click <strong>Release</strong> → OUTFLOW recorded (fund disburses) → post enters repayment phase</li>
+      </ol>
+      <p><span class="info-role-tag treasurer">Treasurer</span></p>
+      <ol start="4">
+        <li>Members pay individually via <strong>Pay</strong> buttons (sets RECORDED) to replenish the fund</li>
+      </ol>
+      <p><span class="info-role-tag treasurer">Treasurer</span></p>
+      <ol start="5">
+        <li>Click <strong>Close Repayment</strong> → remaining unpaid auto-skipped → sent to <span class="info-role-tag auditor">Auditor</span></li>
+      </ol>
+      <p><span class="info-role-tag auditor">Auditor</span> <span class="info-role-tag arrow">→</span> <span class="info-role-tag president">President</span></p>
+      <ol start="6">
+        <li>Auditor batch-verifies → all RECORDED become PAID → INFLOW recorded → President approves → post closed</li>
+      </ol>
+    </div>
+  </div>
+
+  {% elif officer_role == "auditor" %}
+  <div class="info-section-title">Auditor Guides</div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-magnifying-glass-dollar" style="color:#1b5e20;width:18px;"></i> Auditing Payments</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ol>
+        <li>Navigate to <strong>Membership Fee Audit</strong> or <strong>Monthly Dues</strong> audit sections.</li>
+        <li>Review pending entries submitted by the Treasurer.</li>
+        <li>Verify the proof of payment and cross-check member details.</li>
+        <li>Approve (<strong>Verified</strong>) or return for revision (<strong>Returned for Revision</strong>) with a comment.</li>
+      </ol>
+      <p>All audit actions are recorded in the audit trail.</p>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-file-shield" style="color:#1b5e20;width:18px;"></i> Verifying Aid Requests</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ol>
+        <li>Navigate to <strong>Aid Audit</strong> sections (Medical Aid / Death Aid).</li>
+        <li>Review the member's supporting documents and eligibility.</li>
+        <li>Verify the amounts against the scheme's aid policy.</li>
+        <li>Approve or return with feedback.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-rotate-left" style="color:#1b5e20;width:18px;"></i> Using the Returns Panel</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <p>The <strong>Returns &amp; Revision</strong> panel shows entries that were returned by the Auditor (you) that have been resubmitted by the Treasurer.</p>
+      <ul>
+        <li>Navigate to <strong>Returns &amp; Revision</strong> in the sidebar.</li>
+        <li>View resubmitted entries and their updated details.</li>
+        <li>Re-verify and approve or return again as needed.</li>
+      </ul>
+      <p>As an Auditor, this panel is <strong>read-only</strong> — you cannot edit entries directly.</p>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-chart-pie" style="color:#1b5e20;width:18px;"></i> Audit Reports</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ul>
+        <li><strong>Audit Reports Compiler:</strong> Generate comprehensive audit reports for board reviews.</li>
+        <li><strong>Comprehensive Audit Collection:</strong> Review the full audit history across all transaction types.</li>
+        <li><strong>Payroll Batch Audit:</strong> Verify salary deduction batches before approval.</li>
+      </ul>
+    </div>
+  </div>
+
+  {% elif officer_role == "president" %}
+  <div class="info-section-title">President Guides</div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-check-double" style="color:#1b5e20;width:18px;"></i> Approving Payments</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ol>
+        <li>Navigate to <strong>Presidential Payments</strong> in the sidebar.</li>
+        <li>Review entries that have been verified by the Auditor and are pending your approval.</li>
+        <li>Verify the details and supporting documents.</li>
+        <li>Approve or reject with a reason.</li>
+      </ol>
+      <p>Your approval is the final step in the payment workflow.</p>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-hand-holding-heart" style="color:#1b5e20;width:18px;"></i> Reviewing Aid Requests</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ol>
+        <li>Navigate to <strong>Presidential Aid Requests</strong> in the sidebar.</li>
+        <li>Review aid requests that have passed audit verification.</li>
+        <li>Confirm the disbursement amounts and recipient details.</li>
+        <li>Approve for final processing.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-users-gear" style="color:#1b5e20;width:18px;"></i> Payroll & Executive Oversight</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <ul>
+        <li><strong>Approve Payroll Batches:</strong> Review and approve payroll deduction batches submitted by the Treasurer and audited by the Auditor.</li>
+        <li><strong>Executive Ledger:</strong> View the full financial ledger for high-level oversight.</li>
+        <li><strong>Reports Compiler:</strong> Generate executive summaries and board-ready reports.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="info-topic">
+    <div class="info-topic-header" onclick="toggleInfoTopic(this)">
+      <span><i class="fa-solid fa-file-lines" style="color:#1b5e20;width:18px;"></i> Board Resolutions & Bylaws</span>
+      <i class="fa-solid fa-chevron-down info-topic-header-icon"></i>
+    </div>
+    <div class="info-topic-content">
+      <p>Access and manage board resolutions and bylaws documents:</p>
+      <ul>
+        <li>Upload new bylaws files for board record-keeping.</li>
+        <li>View and download existing bylaws documents.</li>
+        <li>Delete outdated documents (with appropriate authorization).</li>
+      </ul>
+    </div>
+  </div>
+
+  {% endif %}
+
+  <div style="text-align:center;padding:12px 0 4px;font-size:0.72rem;color:#b0bec5;">
+    <i class="fa-solid fa-robot"></i> This is a static help guide — no AI involved.
+  </div>
+
+</div>

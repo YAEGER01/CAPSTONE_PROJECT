@@ -42,15 +42,6 @@
         scroll-behavior: smooth;
       }
 
-      /* Department Analytics */
-      .dept-tab-btn {
-        border-radius: 8px !important;
-        transition: all 0.2s ease !important;
-      }
-      .dept-tab-panel {
-        animation: fadeInSlide 0.3s ease-out;
-      }
-
       /* Master Layout Grid */
       .app-container {
         display: flex;
@@ -491,6 +482,166 @@
       .panel-subtitle {
         font-size: 0.85rem;
         color: #757575;
+      }
+
+      /* Overview Brand + Carousel card */
+      .overview-hero-card {
+        display: flex;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        background: #fff;
+        border: 1px solid #dfe9df;
+        min-height: 200px;
+      }
+      .overview-brand-panel {
+        flex: 0 0 30%;
+        background: linear-gradient(135deg, #1b5e20, #2e7d32);
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 20px;
+        text-align: center;
+      }
+      .overview-brand-panel img {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 12px;
+        border: 3px solid rgba(255,255,255,0.3);
+      }
+      .overview-brand-panel h2 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: 1px;
+      }
+      .overview-brand-panel p {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        margin: 4px 0 0;
+      }
+      .overview-carousel-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        padding: 0;
+        overflow: hidden;
+      }
+      .ocarousel-slides {
+        display: flex;
+        flex: 1;
+        transition: transform 0.4s ease;
+      }
+      .ocarousel-slide {
+        flex: 0 0 100%;
+        padding: 28px 32px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .ocarousel-slide h3 {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+        color: #1b5e20;
+        font-weight: 700;
+      }
+      .ocarousel-slide p {
+        margin: 0 0 14px;
+        font-size: 0.82rem;
+        color: #666;
+        line-height: 1.5;
+      }
+      .ocarousel-slide .btn-group {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .ocarousel-slide .btn-group a {
+        display: inline-block;
+        padding: 8px 18px;
+        border-radius: 24px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+        background: #1b5e20;
+        color: #fff;
+      }
+      .ocarousel-slide .btn-group a:hover {
+        background: #2e7d32;
+        transform: translateY(-1px);
+      }
+      .ocarousel-slide .btn-group a.btn-outline {
+        background: transparent;
+        color: #1b5e20;
+        border: 1.5px solid #1b5e20;
+      }
+      .ocarousel-slide .btn-group a.btn-outline:hover {
+        background: #e8f5e9;
+      }
+      .ocarousel-nav {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 6px 0 14px;
+      }
+      .ocarousel-nav button {
+        background: #fff;
+        border: 1.5px solid #ccc;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #555;
+        transition: 0.2s;
+        line-height: 1;
+        padding: 0;
+      }
+      .ocarousel-nav button:hover {
+        border-color: #1b5e20;
+        color: #1b5e20;
+        background: #e8f5e9;
+      }
+      .ocarousel-dots {
+        display: flex;
+        gap: 6px;
+      }
+      .ocarousel-dot {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        color: #888;
+        cursor: pointer;
+        transition: all 0.25s;
+        border: 2px solid transparent;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+      }
+      .ocarousel-dot.active {
+        background: #e8f5e9;
+        color: #1b5e20;
+        border-color: #1b5e20;
+      }
+      .ocarousel-dot:hover {
+        background: #eee;
       }
 
       /* KPI Grid cards */
@@ -1345,6 +1496,42 @@
         padding: 0 6px;
       }
       .overview-card-value { font-size: 1.6rem; font-weight: 700; color: #1b5e20; text-align: center; }
+      .info-fab{position:fixed;bottom:28px;right:28px;width:54px;height:54px;border-radius:50%;background:#1b5e20;color:#fff;border:none;box-shadow:0 4px 16px rgba(27,94,32,.35);cursor:pointer;z-index:1050;display:flex;align-items:center;justify-content:center;font-size:1.5rem;transition:transform .2s ease,box-shadow .2s ease}
+      .info-fab:hover{transform:scale(1.08);box-shadow:0 6px 24px rgba(27,94,32,.5)}
+      .info-fab:active{transform:scale(.95)}
+      .info-panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1055;opacity:0;pointer-events:none;transition:opacity .3s ease}
+      .info-panel-overlay.open{opacity:1;pointer-events:auto}
+      .info-panel{position:fixed;bottom:0;right:20px;z-index:1060;width:420px;max-width:calc(100vw - 40px);max-height:70vh;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,.15);transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+      .info-panel.open{transform:translateY(0)}
+      #infoPanelContent{display:flex;flex-direction:column;flex:1;overflow:hidden}
+      .info-panel-header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid #e8f0e8;flex-shrink:0}
+      .info-panel-header-title{font-size:1.05rem;font-weight:600;color:#1b5e20;display:flex;align-items:center;gap:10px}
+      .info-panel-close{width:36px;height:36px;border-radius:50%;border:none;background:#f0f7f0;color:#546e7a;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:background .2s}
+      .info-panel-close:hover{background:#e0f0e0;color:#1b5e20}
+      .info-panel-body{flex:1;overflow-y:auto;padding:16px 24px 24px}
+      .info-section-title{font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#78909c;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid #e8f0e8}
+      .info-section-title:first-child{margin-top:0}
+      .info-topic{border:1px solid #e8f0e8;border-radius:10px;margin-bottom:8px;overflow:hidden;transition:box-shadow .2s}
+      .info-topic:hover{box-shadow:0 2px 8px rgba(0,0,0,.04)}
+      .info-topic-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;user-select:none;font-size:.9rem;font-weight:500;color:#263238;background:#fafffa;transition:background .2s;gap:12px}
+      .info-topic-header:hover{background:#f0f9f0}
+      .info-topic-header-icon{font-size:.75rem;color:#90a4ae;transition:transform .25s ease;flex-shrink:0}
+      .info-topic.open .info-topic-header-icon{transform:rotate(180deg)}
+      .info-topic-content{max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease;padding:0 16px;font-size:.85rem;line-height:1.6;color:#455a64}
+      .info-topic.open .info-topic-content{max-height:800px;padding:4px 16px 14px}
+      .info-topic-content p{margin:6px 0}
+      .info-topic-content ol{margin:4px 0 10px;padding-left:24px}
+      .info-topic-content ul{margin:4px 0 10px 16px;padding:0}
+      .info-topic-content li{margin-bottom:6px;line-height:1.55}
+      .info-topic-content code{background:#f0f7f0;padding:1px 6px;border-radius:4px;font-size:.8rem;color:#1b5e20}
+      .info-topic-content strong:first-child{display:inline-block;margin-top:6px}
+      .info-role-tag{display:inline-block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 10px;border-radius:4px;margin:8px 0 4px}
+      .info-role-tag.treasurer{background:#e3f2fd;color:#0d47a1}
+      .info-role-tag.auditor{background:#fce4ec;color:#880e4f}
+      .info-role-tag.president{background:#fff3e0;color:#e65100}
+      .info-role-tag.arrow{background:transparent;color:#78909c;padding:2px 4px;font-size:.85rem}
+      .info-panel-handle{width:40px;height:4px;background:#cfdccc;border-radius:2px;margin:10px auto 0;flex-shrink:0}
+      @media(max-width:600px){.info-panel{max-height:85vh;border-radius:16px 16px 0 0}.info-panel-body{padding:12px 16px 20px}.info-fab{bottom:18px;right:18px;width:48px;height:48px;font-size:1.3rem}}
     </style>
   </head>
   <body>
@@ -1857,8 +2044,48 @@
              id="dashboard-overview"
              class="dashboard-module active module-fade-in"
            >
-             <!-- KPI Stats grid overview -->
-             <div class="stats-grid">
+              <!-- Overview Hero Card -->
+              <div class="overview-hero-card">
+                <div class="overview-brand-panel">
+                  <img src="{% static 'img/isu_caufa_official.png' %}" alt="ISU CAUFA" />
+                  <h2>ISU CAUFA</h2>
+                  <p>Audit &amp; Verification Console</p>
+                </div>
+                <div class="overview-carousel-panel">
+                  <div class="ocarousel-slides" id="ocarouselSlides">
+                    <div class="ocarousel-slide">
+                      <h3>Payments Auditing</h3>
+                      <p>Review and verify member payment records. Audit dues collections and mark payments as verified.</p>
+                      <div class="btn-group">
+                        <a class="btn-outline" data-nav="audit-members-payments">Payments Auditing</a>
+                      </div>
+                    </div>
+                    <div class="ocarousel-slide">
+                      <h3>Aid Claims Auditing</h3>
+                      <p>Inspect medical and death aid claims, verify supporting documents, and approve or flag discrepancies.</p>
+                      <div class="btn-group">
+                        <a data-nav="audit-aid-requests">Aid Claims</a>
+                        <a class="btn-outline" data-nav="audit-finish-requests">Post Verifications</a>
+                      </div>
+                    </div>
+                    <div class="ocarousel-slide">
+                      <h3>Verified Registry</h3>
+                      <p>View the complete audit trail — all verified payment and aid records with timestamps and auditor notes.</p>
+                      <div class="btn-group">
+                        <a data-nav="view-audit-ledger">Audited Logs</a>
+                        <a class="btn-outline" data-nav="fund-ledger">Fund Ledger</a>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="ocarousel-nav">
+                    <button id="ocarouselPrev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <div class="ocarousel-dots" id="ocarouselDots"></div>
+                    <button id="ocarouselNext"><i class="fa-solid fa-chevron-right"></i></button>
+                  </div>
+                </div>
+              </div>
+              <!-- KPI Stats grid overview -->
+              <div class="stats-grid">
                <div class="stat-card">
                  <div class="stat-icon"><i class="fa-solid fa-inbox"></i></div>
                  <div class="stat-info">
@@ -1878,120 +2105,6 @@
                  <div class="stat-info">
                    <h4>Total Verified Log Entries</h4>
                    <div class="stat-value" id="kpi-total-audits">0</div>
-                 </div>
-               </div>
-             </div>
-
-             <!-- Department Visualization Section -->
-             <div class="dashboard-panel" style="margin-bottom: 20px;">
-               <div class="panel-header-row">
-                 <h3 class="panel-title"><i class="fas fa-building"></i> Department Analytics</h3>
-                 <div class="header-actions">
-                   <button class="btn-brand btn-brand-primary" onclick="refreshDepartmentData()" style="padding: 4px 12px; font-size: 0.75rem;">
-                     <i class="fas fa-sync-alt"></i> Refresh
-                   </button>
-                 </div>
-               </div>
-               <div style="display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap;">
-                 <button type="button" class="dept-tab-btn btn-brand btn-brand-primary" data-tab="dept-member-stats" style="padding: 6px 14px; font-size: 0.82rem;">Member Stats</button>
-                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-payment-tracking" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Payment Tracking</button>
-                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-financial-summary" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Financial Summary</button>
-                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-aid-trends" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Aid Trends</button>
-                 <button type="button" class="dept-tab-btn btn-brand" data-tab="dept-payroll-analysis" style="padding: 6px 14px; font-size: 0.82rem; opacity: 0.7;">Payroll Analysis</button>
-               </div>
-               <div id="dept-member-stats" class="dept-tab-panel">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptMemberStatsTable">
-                     <thead>
-                       <tr>
-                          <th>Department</th>
-                          <th>Total Members</th>
-                          <th>Permanent</th>
-                          <th>Temporary</th>
-                          <th>Retired</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr><td colspan="5" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-               <div id="dept-payment-tracking" class="dept-tab-panel" style="display:none;">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptPaymentTrackingTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Total Members</th>
-                         <th>Dues Paid (Current Month)</th>
-                         <th>Dues Collection Rate</th>
-                         <th>Membership Fee Paid</th>
-                         <th>Fee Collection Rate</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="6" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-               <div id="dept-financial-summary" class="dept-tab-panel" style="display:none;">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptFinancialSummaryTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Monthly Dues</th>
-                         <th>Membership Fees</th>
-                         <th>Medical Aid</th>
-                         <th>Death Aid</th>
-                         <th>Total Inflow</th>
-                         <th>Total Outflow</th>
-                         <th>Net Position</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="8" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-               <div id="dept-aid-trends" class="dept-tab-panel" style="display:none;">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptAidTrendsTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Medical Aid Count</th>
-                         <th>Medical Aid Amount</th>
-                         <th>Death Aid Count</th>
-                         <th>Death Aid Amount</th>
-                         <th>Total Count</th>
-                         <th>Total Amount</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="7" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
-               <div id="dept-payroll-analysis" class="dept-tab-panel" style="display:none;">
-                 <div class="table-container">
-                   <table class="custom-table" id="deptPayrollAnalysisTable">
-                     <thead>
-                       <tr>
-                         <th>Department</th>
-                         <th>Total Deductions</th>
-                         <th>Deduction Count</th>
-                         <th>Average Deduction</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       <tr><td colspan="4" style="text-align:center;color:#6c757d;">Loading...</td></tr>
-                     </tbody>
-                   </table>
                  </div>
                </div>
              </div>
@@ -5682,150 +5795,48 @@
     </script>
     <script src="{% static 'js/push-init.js' %}"></script>
     <script>
-      // Department Analytics Tabs
-      var deptEndpoints = {
-        "dept-member-stats": {
-          tableId: "deptMemberStatsTable",
-          url: "/api/treasurer/department/member-stats/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + (dept.total || 0) + '</td>' +
-                '<td>' + (dept.permanent || 0) + '</td>' +
-                '<td>' + (dept.temporary || 0) + '</td>' +
-                '<td>' + (dept.retired || 0) + '</td>' +
-                '</tr>';
-            });
-            if (data.unassigned_count) {
-              tbody.innerHTML += '<tr><td><em>Unassigned</em></td><td>' + data.unassigned_count + '</td><td colspan="3" style="color:#999;">No department assigned</td></tr>';
-            }
-          }
-        },
-        "dept-payment-tracking": {
-          tableId: "deptPaymentTrackingTable",
-          url: "/api/treasurer/department/payment-tracking/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + (dept.total_members || 0) + '</td>' +
-                '<td>' + (dept.dues_paid_current_month || 0) + '</td>' +
-                '<td>' + (dept.dues_collection_rate || 0) + '%</td>' +
-                '<td>' + (dept.membership_fee_paid || 0) + '</td>' +
-                '<td>' + (dept.fee_collection_rate || 0) + '%</td>' +
-                '</tr>';
-            });
-          }
-        },
-        "dept-financial-summary": {
-          tableId: "deptFinancialSummaryTable",
-          url: "/api/treasurer/department/financial-summary/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + Number(dept.monthly_dues).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.membership_fees).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.medical_aid).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.death_aid).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.total_inflow).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.total_outflow).toLocaleString() + '</td>' +
-                '<td>' + Number(dept.net_position).toLocaleString() + '</td>' +
-                '</tr>';
-            });
-          }
-        },
-        "dept-aid-trends": {
-          tableId: "deptAidTrendsTable",
-          url: "/api/treasurer/department/aid-trends/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              var medCount = dept.medical_aid_counts.reduce(function(a, b) { return a + b; }, 0);
-              var medAmount = dept.medical_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
-              var deathCount = dept.death_aid_counts.reduce(function(a, b) { return a + b; }, 0);
-              var deathAmount = dept.death_aid_amounts.reduce(function(a, b) { return a + b; }, 0);
-              var totalCount = dept.total_counts.reduce(function(a, b) { return a + b; }, 0);
-              var totalAmount = dept.total_amounts.reduce(function(a, b) { return a + b; }, 0);
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + medCount + '</td>' +
-                '<td>' + Number(medAmount).toLocaleString() + '</td>' +
-                '<td>' + deathCount + '</td>' +
-                '<td>' + Number(deathAmount).toLocaleString() + '</td>' +
-                '<td>' + totalCount + '</td>' +
-                '<td>' + Number(totalAmount).toLocaleString() + '</td>' +
-                '</tr>';
-            });
-          }
-        },
-        "dept-payroll-analysis": {
-          tableId: "deptPayrollAnalysisTable",
-          url: "/api/treasurer/department/payroll-analysis/",
-          render: function(data, tbody) {
-            data.departments.forEach(function(dept) {
-              tbody.innerHTML += '<tr>' +
-                '<td>' + escapeHtml(dept.department) + '</td>' +
-                '<td>' + Number(dept.total_deductions).toLocaleString() + '</td>' +
-                '<td>' + (dept.deduction_count || 0) + '</td>' +
-                '<td>' + Number(dept.average_deduction).toLocaleString() + '</td>' +
-                '</tr>';
-            });
-          }
+      // Overview carousel
+      function initOverviewCarousel() {
+        var slides = document.getElementById("ocarouselSlides");
+        var dotsContainer = document.getElementById("ocarouselDots");
+        var prevBtn = document.getElementById("ocarouselPrev");
+        var nextBtn = document.getElementById("ocarouselNext");
+        if (!slides || !dotsContainer) return;
+        var total = slides.children.length;
+        var current = 0;
+        function render() {
+          slides.style.transform = "translateX(-" + (current * 100) + "%)";
+          var dots = dotsContainer.querySelectorAll(".ocarousel-dot");
+          dots.forEach(function (d, i) { d.classList.toggle("active", i === current); });
         }
-      };
+        function goTo(idx) {
+          if (idx < 0) idx = total - 1;
+          if (idx >= total) idx = 0;
+          current = idx;
+          render();
+        }
+        var icons = ["fa-inbox", "fa-folder", "fa-shield-halved"];
+        dotsContainer.innerHTML = "";
+        for (var i = 0; i < total; i++) {
+          var dot = document.createElement("button");
+          dot.className = "ocarousel-dot" + (i === 0 ? " active" : "");
+          dot.setAttribute("aria-label", "Slide " + (i + 1));
+          dot.innerHTML = '<i class="fa-solid ' + icons[i] + '"></i>';
+          (function (idx) { dot.addEventListener("click", function () { goTo(idx); }); })(i);
+          dotsContainer.appendChild(dot);
+        }
+        if (prevBtn) prevBtn.addEventListener("click", function () { goTo(current - 1); });
+        if (nextBtn) nextBtn.addEventListener("click", function () { goTo(current + 1); });
 
-      document.addEventListener("turbo:load", function() {
-        var tabBtns = document.querySelectorAll(".dept-tab-btn");
-        tabBtns.forEach(function(btn) {
-          btn.addEventListener("click", function() {
-            var target = btn.getAttribute("data-tab");
-            document.querySelectorAll(".dept-tab-panel").forEach(function(panel) {
-              panel.style.display = "none";
-            });
-            document.getElementById(target).style.display = "block";
-            tabBtns.forEach(function(b) {
-              b.classList.remove("btn-brand-primary");
-              b.style.opacity = "0.7";
-            });
-            btn.classList.add("btn-brand-primary");
-            btn.style.opacity = "1";
-
-            var ep = deptEndpoints[target];
-            if (!ep) return;
-            var table = document.getElementById(ep.tableId);
-            if (table && table.getAttribute("data-loaded") !== "true") {
-              fetch(ep.url, { credentials: "same-origin" })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                  if (!data.ok) return;
-                  table.setAttribute("data-loaded", "true");
-                  var tbody = table.getElementsByTagName("tbody")[0];
-                  tbody.innerHTML = "";
-                  ep.render(data, tbody);
-                })
-                .catch(function(e) { console.error("Failed to load " + ep.url, e); });
-            }
+        document.querySelectorAll(".ocarousel-slide [data-nav]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var target = this.getAttribute("data-nav");
+            if (target && typeof setActiveModule === "function") { setActiveModule(target); }
           });
         });
-
-        document.querySelector(".dept-tab-btn[data-tab='dept-member-stats']").click();
-      });
-
-      function refreshDepartmentData() {
-        var tables = ["deptMemberStatsTable", "deptPaymentTrackingTable", "deptFinancialSummaryTable", "deptAidTrendsTable", "deptPayrollAnalysisTable"];
-        tables.forEach(function(id) {
-          var table = document.getElementById(id);
-          if (table) table.setAttribute("data-loaded", "false");
-        });
-        document.querySelector(".dept-tab-btn[data-tab='dept-member-stats']").click();
       }
 
-      function escapeHtml(text) {
-        var div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
-      }
+      document.addEventListener("turbo:load", initOverviewCarousel);
 
       async function loadTermWarning() {
         var banner = document.getElementById("termWarningBanner");
@@ -5862,5 +5873,20 @@
         loadTermWarning();
       });
     </script>
+
+    <!-- ─── Info Panel (Floating Help) ─── -->
+    <button id="infoFab" class="info-fab" onclick="toggleInfoPanel()" title="Help & Information" aria-label="Help">
+      <i class="fa-solid fa-circle-info"></i>
+    </button>
+
+    <div id="infoPanelOverlay" class="info-panel-overlay"></div>
+
+    <div id="infoPanel" class="info-panel">
+      <div id="infoPanelContent">
+      </div>
+    </div>
+
+    <script src="{% static 'js/shared/error_utils.js' %}"></script>
+    <script src="{% static 'js/shared/info_panel.js' %}"></script>
   </body>
 </html>

@@ -665,6 +665,12 @@ function getCookie(name) {
           return;
         }
 
+        // Show immediate confirmation before API call
+        showToast(
+          "Processing " + checkedIds.length + " member" + (checkedIds.length !== 1 ? "s" : "") + " — this may take a moment while emails are sent in the background.",
+          false,
+        );
+
         processBtn.disabled = true;
         processBtn.textContent = "Processing...";
 

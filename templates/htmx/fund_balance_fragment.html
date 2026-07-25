@@ -1,0 +1,16 @@
+<div class="fund-balance-fragment" style="padding: 16px;">
+  <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+    <div style="flex:1; min-width:140px; background: #e8f5e9; border-radius: 12px; padding: 16px; text-align: center;">
+      <div style="font-size: 0.75rem; color: #2e7d32; text-transform: uppercase; letter-spacing: 0.5px;">Balance</div>
+      <div style="font-size: 1.6rem; font-weight: 700; color: #1b5e20;">₱{{ balance|floatformat:2 }}</div>
+    </div>
+    <div style="flex:1; min-width:140px; background: #fff3e0; border-radius: 12px; padding: 16px; text-align: center;">
+      <div style="font-size: 0.75rem; color: #e65100; text-transform: uppercase; letter-spacing: 0.5px;">Safety Threshold</div>
+      <div style="font-size: 1.6rem; font-weight: 700; color: #bf360c;">₱{{ safety_threshold|floatformat:2 }}</div>
+    </div>
+    <div style="flex:1; min-width:140px; background: #e3f2fd; border-radius: 12px; padding: 16px; text-align: center;">
+      <div style="font-size: 0.75rem; color: #1565c0; text-transform: uppercase; letter-spacing: 0.5px;">Available</div>
+      <div style="font-size: 1.6rem; font-weight: 700; color: #0d47a1;">₱{{ available|floatformat:2 }}</div>
+    </div>
+  </div>
+</div>

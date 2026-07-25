@@ -1,16 +1,26 @@
 import hashlib
 import hmac
 import json
+import logging
 import re
+import threading
 from typing import Any, Dict, Optional
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+
+logger = logging.getLogger(__name__)
+
+VAPID_CONTACT = getattr(settings, "VAPID_CONTACT", "mailto:admin@caufa.local")
+VAPID_ORIGIN = getattr(settings, "VAPID_ORIGIN", "http://127.0.0.1:8000")
 from django.core.cache import cache
-from django.http import HttpRequest
+from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
+from core_system.guards import require_role
+from django.views.decorators.http import require_GET
+from django.views.decorators.cache import never_cache
 
 from core_system.constants.status_constants import Status
 from core_system.constants.policy_constants import (
@@ -48,7 +58,7 @@ MODEL_MAP = {
 UPDATABLE_FIELDS = {
     "membership_fee": ["amount", "payment_method", "payment_status", "payment_date", "receipt_number", "deposit_reference"],
     "monthly_dues": ["month_covered", "amount", "payment_method", "payment_status", "receipt_number", "payment_date", "remittance_reference", "deduction_batch_reference"],
-    "medical_aid": ["request_date", "requested_amount", "hospital_name", "hospital_date", "hospital_bill_amount", "document_status"],
+    "medical_aid": ["request_date", "requested_amount", "reason", "hospital_name", "hospital_date", "hospital_bill_amount", "document_status"],
     "death_aid": ["claim_date", "claim_type", "deceased_name", "relationship_to_member", "relationship_group", "bill_amount", "document_status"],
 }
 
@@ -196,7 +206,7 @@ def _get_proof_url(content_type_model, object_id) -> str:
         if proof and getattr(proof, "file", None):
             return proof.file.url
     except Exception:
-        pass
+        logger.exception("Failed to get proof URL for %s id=%s", content_type_model, object_id)
     return ""
 
 
@@ -478,7 +488,6 @@ def _officer_to_json(officer):
         "department_id": department.department_id_PK if department else None,
         "department_name": department.name if department else "",
         "department_code": department.code if department else "",
-        "mfa_enabled": bool(officer.mfa_enabled),
         "created_at": officer.created_at.isoformat() if officer.created_at else "",
         "updated_at": officer.updated_at.isoformat() if officer.updated_at else "",
     }
@@ -548,7 +557,7 @@ def _broadcast_to_group(group_name: str, message: dict) -> None:
             message,
         )
     except Exception:
-        pass
+        logger.exception("Failed to broadcast to group %s", group_name)
 
 
 def _broadcast_pending_counts(target_groups: Optional[list[str]] = None) -> None:
@@ -592,19 +601,16 @@ def _broadcast_pending_counts(target_groups: Optional[list[str]] = None) -> None
     try:
         _send_push_notifications(auditor_pending, president_pending)
     except Exception:
-        pass
+        logger.exception("Failed to send push notifications")
 
 
 def _send_push_notifications(auditor_pending: int, president_pending: int) -> None:
     from core_system.models import PushSubscription, OfficerUser
     from pywebpush import webpush
-    import logging
-
-    logger = logging.getLogger(__name__)
 
     vapid_private_key = settings.VAPID_PRIVATE_KEY
     vapid_public_key = settings.VAPID_PUBLIC_KEY
-    vapid_aud = getattr(settings, "PUSH_VAPID_AUD", "http://127.0.0.1:8000")
+    vapid_aud = VAPID_ORIGIN
 
     auditor_officers = OfficerUser.objects.filter(role="Auditor").values_list("user_id_PK", flat=True)
     if auditor_pending > 0 and auditor_officers:
@@ -624,7 +630,7 @@ def _send_push_notifications(auditor_pending: int, president_pending: int) -> No
                     data=payload,
                     vapid_private_key=vapid_private_key,
                     vapid_claims={
-                        "sub": "mailto:admin@caufa.local",
+                        "sub": VAPID_CONTACT,
                         "aud": vapid_aud,
                     },
                 )
@@ -649,7 +655,7 @@ def _send_push_notifications(auditor_pending: int, president_pending: int) -> No
                     data=payload,
                     vapid_private_key=vapid_private_key,
                     vapid_claims={
-                        "sub": "mailto:admin@caufa.local",
+                        "sub": VAPID_CONTACT,
                         "aud": vapid_aud,
                     },
                 )
@@ -737,14 +743,14 @@ def _notify_release(post, officer, request=None):
                         data=payload,
                         vapid_private_key=settings.VAPID_PRIVATE_KEY,
                         vapid_claims={
-                            "sub": "mailto:admin@caufa.local",
-                            "aud": getattr(settings, "PUSH_VAPID_AUD", "http://127.0.0.1:8000"),
+                            "sub": VAPID_CONTACT,
+                            "aud": VAPID_ORIGIN,
                         },
                     )
                 except Exception:
-                    pass
+                    logger.exception("Failed to send push notification for release")
     except Exception:
-        pass
+        logger.exception("Failed to send release push notifications")
 
     try:
         for role_name in ("Auditor", "President"):
@@ -752,20 +758,145 @@ def _notify_release(post, officer, request=None):
             recipient_emails = [o.email for o in officers if o.email]
             if not recipient_emails:
                 continue
-            send_html_email(
-                subject=f"Release Completed \u2014 {aid_label} for {member_name}",
-                recipient_list=recipient_emails,
-                html_template="emails/release_notification.html",
-                context={
-                    "aid_type": aid_label,
-                    "member_name": member_name,
-                    "total_collected": f"{post.total_collected:,.2f}",
-                    "paid_count": paid,
-                    "total_count": total,
-                    "skipped_count": skipped,
-                    "released_by": officer.full_name,
-                    "released_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+            threading.Thread(
+                target=send_html_email,
+                args=(f"Release Completed \u2014 {aid_label} for {member_name}", recipient_emails, "emails/release_notification.html"),
+                kwargs={
+                    "context": {
+                        "aid_type": aid_label,
+                        "member_name": member_name,
+                        "total_collected": f"{post.total_collected:,.2f}",
+                        "paid_count": paid,
+                        "total_count": total,
+                        "skipped_count": skipped,
+                        "released_by": officer.full_name,
+                        "released_at": timezone.now().strftime("%Y-%m-%d %H:%M"),
+                    },
                 },
-            )
+                daemon=True,
+            ).start()
     except Exception:
-        pass
+        logger.exception("Failed to send release email notifications")
+
+
+ENTITY_LABELS = {
+    "membership_fee": "Membership Fee",
+    "monthly_dues": "Monthly Dues",
+    "medical_aid": "Medical Aid",
+    "death_aid": "Death Aid",
+}
+
+
+def _get_month_covered(record, table_name):
+    if table_name == "membership_fee":
+        d = getattr(record, "payment_date", None)
+        return d.isoformat() if d else ""
+    if table_name == "monthly_dues":
+        return getattr(record, "month_covered", "") or ""
+    if table_name == "medical_aid":
+        d = getattr(record, "request_date", None)
+        return d.isoformat() if d else ""
+    if table_name == "death_aid":
+        d = getattr(record, "claim_date", None)
+        return d.isoformat() if d else ""
+    return ""
+
+
+def _get_amount_value(record, table_name):
+    if table_name == "membership_fee":
+        return str(getattr(record, "amount", 0) or 0)
+    if table_name == "monthly_dues":
+        return str(getattr(record, "amount", 0) or 0)
+    if table_name == "medical_aid":
+        return str(getattr(record, "requested_amount", 0) or 0)
+    if table_name == "death_aid":
+        return str(getattr(record, "benefit_amount", 0) or 0)
+    return ""
+
+
+def _serialize_editable_fields(record, table_name):
+    field_names = UPDATABLE_FIELDS.get(table_name, [])
+    fields = []
+    for fname in field_names:
+        val = getattr(record, fname, None)
+        ftype = "text"
+        if val is not None and hasattr(val, "isoformat"):
+            val = val.isoformat()
+            ftype = "date"
+        elif val is not None and hasattr(val, "__float__"):
+            val = str(val)
+            ftype = "number"
+        if fname in ("payment_method", "payment_status", "document_status", "claim_type", "relationship_group", "payment_status", "method"):
+            ftype = "select"
+        fields.append({
+            "name": fname,
+            "label": fname.replace("_", " ").title(),
+            "value": str(val) if val is not None else "",
+            "type": ftype,
+            "required": True,
+        })
+    return fields
+
+
+def _get_proof_url_for_record(record, table_name):
+    Model = MODEL_MAP.get(table_name)
+    if Model:
+        return _get_proof_url(Model, record.pk)
+    return ""
+
+
+@require_GET
+@never_cache
+def shared_returns_list(request):
+    from core_system.guards import require_role
+    guard = require_role(request, role=["Treasurer", "Auditor"])
+    if guard:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    role = (officer.role or "").lower() if officer else ""
+
+    tvs = TransactionVerification.objects.filter(
+        verification_status=Status.RETURNED_REVISION,
+    ).select_related("returned_by_auditor_id_FK")
+
+    if role == "auditor" and officer:
+        tvs = tvs.filter(returned_by_auditor_id_FK=officer)
+
+    results = []
+    for tv in tvs:
+        Model = MODEL_MAP.get(tv.table_name)
+        if not Model or tv.table_name == "payroll_batch" or tv.table_name == "contribution":
+            continue
+        try:
+            record = Model.objects.select_related("member_id_FK").get(pk=tv.record_id)
+        except Model.DoesNotExist:
+            continue
+
+        revision = GlobalAuditTrail.objects.filter(
+            table_name=tv.table_name,
+            record_id=tv.record_id,
+            action__in=["RETURNED", "CORRECTION_REQUIRED"],
+        ).order_by("-timestamp").first()
+
+        member = getattr(record, "member_id_FK", None)
+        results.append({
+            "tv_id": tv.verification_id,
+            "table_name": tv.table_name,
+            "record_id": tv.record_id,
+            "entity_label": ENTITY_LABELS.get(tv.table_name, tv.table_name.replace("_", " ").title()),
+            "member_name": member.full_name if member else "",
+            "member_id": member.member_id_PK if member else None,
+            "month_covered": _get_month_covered(record, tv.table_name),
+            "amount": _get_amount_value(record, tv.table_name),
+            "return_count": tv.return_count,
+            "returned_by": tv.returned_by_auditor_id_FK.full_name if tv.returned_by_auditor_id_FK else "",
+            "returned_at": revision.timestamp.isoformat() if revision and revision.timestamp else "",
+            "returned_reason": tv.returned_reason or "",
+            "auditor_remarks": tv.auditor_remarks or "",
+            "resubmitted": False,
+            "fields": _serialize_editable_fields(record, tv.table_name),
+            "proof_url": _get_proof_url_for_record(record, tv.table_name),
+        })
+
+    return JsonResponse({"ok": True, "returns": results, "role": role})

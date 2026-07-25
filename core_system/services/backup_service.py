@@ -51,7 +51,9 @@ def _get_db_connection_env() -> dict:
     # Build best-effort parameters from Django settings.
     db = settings.DATABASES["default"]
     user = db.get("USER") or "root"
-    password = db.get("PASSWORD") or "new_pasword"
+    password = db.get("PASSWORD")
+    if not password:
+        raise ValueError("Database PASSWORD not configured in settings.DATABASES['default']")
     host = db.get("HOST") or "127.0.0.1"
     port = str(db.get("PORT") or "3307")
     name = db.get("NAME") or ""

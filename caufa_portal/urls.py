@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.urls import include, path
 from django.contrib.auth import views as auth_views
 from core_system.auth_views import officer_login
+from core_system.admin_views import admin_dashboard
 
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
@@ -12,6 +13,7 @@ from django.views.generic import TemplateView, RedirectView
 
 urlpatterns = [
     path("favicon.ico", RedirectView.as_view(url="/static/img/isu_caufa_official.png", permanent=True)),
+    path("supaadmin/", admin_dashboard, name="admin_dashboard"),
     path("admin/", admin.site.urls),
     # 1. Main Landing: Shows your index.html homepage immediately at http://127.0.0.1:8000/
     path("", TemplateView.as_view(template_name="website/index.html"), name="home"),
@@ -32,3 +34,5 @@ if settings.DEBUG:
     urlpatterns += staticfiles_urlpatterns()
 
 handler403 = "core_system.president_views.permission_denied_view"
+handler404 = "core_system.president_views.page_not_found_view"
+handler500 = "core_system.president_views.server_error_view"

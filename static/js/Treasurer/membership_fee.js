@@ -378,12 +378,7 @@ function getMemberOptionLabel(m) {
         submitBtn.innerHTML = originalBtnHTML;
       }
 
-      Swal.fire({
-        title: "Fee Recorded",
-        text: "Membership fee payment has been successfully recorded and logged.",
-        icon: "success",
-        confirmButtonColor: "#1b5e20"
-      });
+      showToast("Membership fee payment has been successfully recorded and logged.", false);
     } catch (err) {
       isSubmitting = false;
       if (submitBtn) {

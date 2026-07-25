@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0, private" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>CAUFA | LOGIN</title>
     <link
       rel="icon"
@@ -23,6 +26,7 @@
     />
     <link rel="stylesheet" href="{% static 'css/login.css' %}" />
 
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   </head>
   <body>
     <a
@@ -46,12 +50,11 @@
         transition: 0.2s;
         z-index: 9999;
       "
-      onmouseover="this.style.transform = 'translateY(-2px)'"
-      onmouseout="this.style.transform = 'translateY(0)'"
+      id="backToHomeBtn"
     >
       <i class="fa-solid fa-arrow-left"></i> Back to Home
     </a>
-    <body>
+
       <!-- Combined Back Button and Push Notification Bell -->
 <div style="
   position: absolute;
@@ -64,6 +67,7 @@
 ">
   <a
     href="{% url 'home' %}"
+    id="backToHomeBtn2"
     style="
       display: inline-flex;
       align-items: center;
@@ -79,8 +83,6 @@
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       transition: 0.2s;
     "
-    onmouseover="this.style.transform = 'translateY(-2px)'"
-    onmouseout="this.style.transform = 'translateY(0)'"
   >
     <i class="fa-solid fa-arrow-left"></i> Back to Home
   </a>
@@ -154,7 +156,7 @@
           </div>
 
           <div class="forgot-row">
-            <a class="forgot-link" href="#" onclick="return false;"
+            <a class="forgot-link" href="#" id="forgotPasswordLink"
               >Forgot password?</a
             >
           </div>
@@ -169,7 +171,7 @@
       <form id="mfaForm" class="mfa-form" novalidate style="margin-top: 24px; display: block;">
         {% csrf_token %}
         <p class="mfa-intro">
-          Enter the 6-digit verification code sent to your registered email address.
+          Enter the 6-digit verification code sent to your registered email: <strong>{{ form.officer_email }}</strong>
         </p>
 
         {% if form.email_warning %}
@@ -225,6 +227,24 @@
       {% endif %}
     </section>
 
+    <script>
+// Prevent browser back/forward from showing cached pages after logout
+(function() {
+    if (window.performance && window.performance.navigation.type === window.performance.navigation.TYPE_BACK_FORWARD) {
+        window.location.reload();
+    }
+    window.addEventListener("pageshow", function(e) {
+        if (e.persisted) {
+            window.location.reload();
+        }
+    });
+    // Ensure no caching via history
+    history.pushState(null, "", location.href);
+    window.addEventListener("popstate", function() {
+        history.pushState(null, "", location.href);
+    });
+})();
+    </script>
     <script src="{% static 'js/login.js' %}"></script>
     {% if form.mfa_required %}
     <script>
@@ -327,6 +347,24 @@
     </script>
     {% endif %}
 
+    <script>
+document.addEventListener("DOMContentLoaded", function() {
+  var btn1 = document.getElementById("backToHomeBtn");
+  if (btn1) {
+    btn1.addEventListener("mouseover", function() { this.style.transform = "translateY(-2px)"; });
+    btn1.addEventListener("mouseout", function() { this.style.transform = "translateY(0)"; });
+  }
+  var btn2 = document.getElementById("backToHomeBtn2");
+  if (btn2) {
+    btn2.addEventListener("mouseover", function() { this.style.transform = "translateY(-2px)"; });
+    btn2.addEventListener("mouseout", function() { this.style.transform = "translateY(0)"; });
+  }
+  var fl = document.getElementById("forgotPasswordLink");
+  if (fl) {
+    fl.addEventListener("click", function(e) { e.preventDefault(); });
+  }
+});
+    </script>
 
   </body>
 </html>

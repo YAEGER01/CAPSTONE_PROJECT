@@ -1,6 +1,12 @@
+window.db = window.db || {};
+
 function formatAuditEvidence(value) {
   const evidence = String(value || "").trim();
-  return evidence ? `Evidence: ${evidence}` : "—";
+  if (!evidence) return "—";
+  const isUrl = evidence.startsWith("http://") || evidence.startsWith("https://");
+  return isUrl
+    ? '<a href="' + escapeHtml(evidence) + '" target="_blank" rel="noopener">' + escapeHtml(evidence) + '</a>'
+    : escapeHtml(evidence);
 }
 
 function formatAuditRemarks(value) {
@@ -14,6 +20,8 @@ function formatAuditRemarks(value) {
 function getEl(id) {
   return document.getElementById(id);
 }
+
+let presidentialQueueCache = [];
 
 function updatePresidentNotifDots() {
   const dot = getEl("approval-desk-dot");
@@ -90,7 +98,7 @@ function ppToggleFilter() {
 }
 function ppFillFilters() {
   var types = {}, i, p, arr = db.pendingPayments || [];
-  for (i = 0; i < arr.length; i++) { p = arr[i]; if (p.type) types[p.type] = 1; }
+  for (i = 0; i < arr.length; i++) { p = arr[i]; if (p.type) types[String(p.type).trim().replace(/\s+/g, " ")] = 1; }
   var tk = Object.keys(types).sort();
   var tc = document.getElementById("ppTypeCheckboxes");
   if (tc) {
@@ -241,10 +249,9 @@ function selectPaymentToAudit(id) {
   });
 
   document.getElementById("p_target_id").value = item.id;
-  document.getElementById("p_approved_amount").value = item.amount;
+  var pa = document.getElementById("p_approved_amount");
+  if (pa) pa.textContent = item.amount_paid || item.amount;
 }
-
-let presidentialQueueCache = [];
 
 document.addEventListener("turbo:load", function () {
   updatePresidentNotifDots();
@@ -401,8 +408,26 @@ async function submitPpBatchVerify(decision) {
   const confirmed = await Swal.fire({title:label + ' ' + ids.length + ' payment entr' + (ids.length === 1 ? 'y' : 'ies') + '?',icon:'question',showCancelButton:true,confirmButtonText:label,cancelButtonText:'Cancel'});
   if (!confirmed.isConfirmed) return;
 
-  var ztOk = await window.ensureZeroTrust();
+  var ztOk = await window.ensureZeroTrust("Authorize Batch Payment Decision");
   if (!ztOk) return;
+
+  let batchRemarks = "";
+  if (decision === "Rejected") {
+    const remarkResult = await Swal.fire({
+      title: `Reject ${ids.length} entries?`,
+      input: 'textarea',
+      inputLabel: 'Reason for rejection (all selected items)',
+      inputPlaceholder: 'Explain what needs to be corrected...',
+      inputValidator: v => !v ? 'A reason is required.' : null,
+      showCancelButton: true,
+      confirmButtonText: 'Yes, reject',
+    });
+    if (!remarkResult.isConfirmed) return;
+    batchRemarks = remarkResult.value;
+  }
+
+  var ppLoading = document.getElementById("pp-batch-loading");
+  if (ppLoading) ppLoading.style.display = "inline-block";
 
   try {
     const resp = await fetch("/api/payments/presidential-decision/batch/", {
@@ -415,7 +440,7 @@ async function submitPpBatchVerify(decision) {
       body: JSON.stringify({
         ids: ids,
         decision: decision,
-        remarks: decision === "Rejected" ? "Batch rejected." : "",
+        remarks: batchRemarks,
       }),
     });
     const data = await resp.json();
@@ -430,6 +455,7 @@ async function submitPpBatchVerify(decision) {
   } catch (e) {
     showToast("Network/server error during batch operation.", true);
   }
+  if (ppLoading) ppLoading.style.display = "none";
 }
 
 function populateDecisionDesk(item) {
@@ -482,8 +508,8 @@ function populateDecisionDesk(item) {
     item.returned_reason || "—";
 
   document.getElementById("p_target_id").value = item.id;
-  document.getElementById("p_approved_amount").value =
-    item.amount_paid.toFixed(2);
+  var pa2 = document.getElementById("p_approved_amount");
+  if (pa2) pa2.textContent = item.amount_paid.toFixed(2);
 
   renderTimeline(item.timeline);
 }
@@ -667,6 +693,32 @@ async function submitPresidentialPaymentDecision(event) {
     return;
   }
 
+  if (!decision) {
+    showToast("Please select a decision (Approve or Reject).", true);
+    return;
+  }
+
+  if (decision === "Rejected" && !remarks.trim()) {
+    showToast("Remarks are required when rejecting a payment entry.", true);
+    return;
+  }
+
+  const confirm = await Swal.fire({
+    title: `Submit decision as "${decision}"?`,
+    text: decision === 'Approved'
+      ? 'This will RECORD A FUND INFLOW and finalize the transaction. Continue?'
+      : 'This will send the record back to the Treasurer with your remarks.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, confirm',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+  });
+  if (!confirm.isConfirmed) return;
+
+  const btn = event.target.querySelector('button[type="submit"]');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
+
   const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]").value;
 
   const payload = {
@@ -697,10 +749,12 @@ async function submitPresidentialPaymentDecision(event) {
       }
     } else {
       Swal.fire({icon:'error',title:'Error',text:"Execution Error: " + result.message});
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Confirm Decision'; }
     }
     } catch (error) {
     console.error("Transmission layout communication interruption: ", error);
     Swal.fire({icon:'error',title:'Critical Failure',text:"Critical failure submitting transaction ruling updates.\n\nDetails: " + (error.message || error)});
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Confirm Decision'; }
   }
 }
 

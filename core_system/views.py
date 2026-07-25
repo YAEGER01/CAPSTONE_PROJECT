@@ -11,7 +11,7 @@ from typing import Any
 
 from django.db.models import Q, Sum, Prefetch
 from django.http import HttpRequest, JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
@@ -26,6 +26,22 @@ from core_system.models import (
 from core_system.logout_view import logout_view
 
 logout_view = logout_view
+
+
+def error_page(request):
+    code = request.GET.get("code", "Error")
+    title = request.GET.get("title", "Something went wrong")
+    message = request.GET.get("message", "An unexpected error occurred.")
+    details = request.GET.get("details", "")
+    icon_map = {"403": "shield-keyhole", "404": "magnifying-glass", "500": "gear"}
+    icon = icon_map.get(str(code), "triangle-exclamation")
+    return render(request, "errors/generic_error.html", {
+        "code": code,
+        "title": title,
+        "message": message,
+        "details": details,
+        "icon": icon,
+    })
 
 
 @require_GET

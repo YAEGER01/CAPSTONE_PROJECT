@@ -2,8 +2,10 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.db.models import Sum, Q
 from django.views.decorators.cache import never_cache
+from django.template.exceptions import TemplateDoesNotExist
 
 from core_system.guards import require_officer_session, require_role
+from core_system.shared_view_utils import resolve_officer_from_session
 from core_system.models import (
     AidTrackingPost,
     Contribution,
@@ -51,25 +53,33 @@ def hx_cash_flow_summary(request: HttpRequest):
 
 TREASURER_MODULE_WHITELIST = {
     "dashboard-overview", "view-member-profile", "view-fee-payment",
-    "view-returned-entries", "view-otc-payment", "view-salary-deduction",
-    "view-monthly-dues-returned", "view-dues-tracking", "view-medical-aid",
-    "view-death-aid", "view-medical-aid-returned", "view-death-aid-returned",
+    "view-otc-payment", "view-salary-deduction",
+    "view-dues-tracking", "view-medical-aid",
+    "view-death-aid",
     "treasurer-aid-tracking-posts", "treasurer-aid-history", "view-reports",
-    "view-payroll-batches",
+    "view-payroll-batches", "finance-collections",
 }
 
 AUDITOR_MODULE_WHITELIST = {
     "dashboard-overview", "audit-members-payments", "Membership-Fee-Audit",
     "audit-aid-requests", "audit-comprehensive-aid-collection",
     "audit-aid-history", "view-audit-ledger", "view-reports-compiler",
-    "audit-payroll-batches",
+    "audit-payroll-batches", "finance-collections",
 }
 
 PRESIDENT_MODULE_WHITELIST = {
     "dashboard-overview", "presidential-payments", "presidential-aid-requests",
     "president-finish-approvals", "view-executive-ledger", "view-reports-compiler",
-    "approve-payroll-batches",
+    "approve-payroll-batches", "finance-collections",
 }
+
+
+def _render_module(request, template, context, fallback_role):
+    try:
+        return render(request, template, context)
+    except TemplateDoesNotExist:
+        logger.warning("HTMX module template not found: %s — using placeholder", template)
+        return render(request, f"htmx/{fallback_role}/module_placeholder.html", context)
 
 
 @never_cache
@@ -122,7 +132,7 @@ def hx_treasurer_module(request: HttpRequest, module_name: str):
         context["officer_full_name"] = context["officer_role"]
 
     template = f"htmx/treasurer/{module_name}.html"
-    return render(request, template, context)
+    return _render_module(request, template, context, "treasurer")
 
 
 @never_cache
@@ -155,9 +165,23 @@ def hx_auditor_module(request: HttpRequest, module_name: str):
         context["officer_full_name"] = context["officer_role"]
 
     template = f"htmx/auditor/{module_name}.html"
-    return render(request, template, context)
+    return _render_module(request, template, context, "auditor")
 
 
+@never_cache
+def hx_returns_panel(request: HttpRequest):
+    guard = require_role(request, role=["Treasurer", "Auditor"])
+    if guard:
+        return guard
+
+    officer = resolve_officer_from_session(request)
+    officer_role = officer.role.lower() if officer else ""
+    officer_name = officer.full_name if officer else ""
+
+    return render(request, "htmx/shared/returns_panel.html", {
+        "officer_role": officer_role,
+        "officer_name": officer_name,
+    })
 
 
 @never_cache
@@ -190,4 +214,16 @@ def hx_president_module(request: HttpRequest, module_name: str):
         context["officer_full_name"] = context["officer_role"]
 
     template = f"htmx/president/{module_name}.html"
-    return render(request, template, context)
+    return _render_module(request, template, context, "president")
+
+
+@never_cache
+def hx_info_panel(request: HttpRequest):
+    officer = resolve_officer_from_session(request)
+    officer_role = officer.role.lower() if officer else ""
+    officer_name = officer.full_name if officer else ""
+
+    return render(request, "htmx/shared/info_panel.html", {
+        "officer_role": officer_role,
+        "officer_name": officer_name,
+    })

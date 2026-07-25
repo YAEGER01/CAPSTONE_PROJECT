@@ -11,6 +11,15 @@ function escapeAttr(s) {
     .replace(/>/g, "&gt;");
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function formatPhone(num) {
   if (!num) return "";
   var cleaned = num.replace(/[^\d]/g, "");
@@ -115,7 +124,7 @@ function renderMedicalTableFromApi(medicalAids) {
 
   if (!Array.isArray(medicalAids) || medicalAids.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="3" style="text-align:center;color:#757575;">No medical aid requests found</td></tr>';
+      '<tr><td colspan="4" style="text-align:center;color:#757575;">No medical aid requests found</td></tr>';
     return;
   }
 
@@ -124,9 +133,48 @@ function renderMedicalTableFromApi(medicalAids) {
     tr.innerHTML = `
       <td>${m.name}</td>
       <td>${m.reason} <br><span style="font-size:0.75rem;color:#757575;">At: ${m.hospital} (Bill: ₱${m.bill})</span></td>
-      <td style="font-weight:600;">${formatCurrencyPHP(m.reqAmount)}</td>
+      <td style="font-weight:600;">${formatCurrencyPHP(m.reqAmount)} <span style="font-size:0.7rem;color:#90a4ae;font-weight:400;">/member</span></td>
+      <td style="text-align:center;"><button type="button" class="btn-brand btn-brand-secondary med-details-btn" style="padding:4px 10px;font-size:0.75rem;border-radius:6px;">Details</button></td>
     `;
+    tr.querySelector(".med-details-btn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      showMedicalAidDetails(m);
+    });
     tbody.appendChild(tr);
+  });
+}
+
+function showMedicalAidDetails(m) {
+  const details = [
+    { label: "Reference", value: m.id },
+    { label: "Member Name", value: m.name },
+    { label: "Request Date", value: m.date || "—" },
+    { label: "Reason", value: m.reason || "—" },
+    { label: "Hospital", value: m.hospital || "—" },
+    { label: "Hospital Date", value: m.hospital_date || "—" },
+    { label: "Hospital Bill", value: m.bill ? "₱" + Number(m.bill).toLocaleString("en-PH", {minimumFractionDigits: 2}) : "—" },
+    { label: "Contribution per Member", value: m.reqAmount ? "₱" + Number(m.reqAmount).toLocaleString("en-PH", {minimumFractionDigits: 2}) : "—" },
+    { label: "Claim Year", value: m.claim_year || "—" },
+    { label: "Status", value: m.status || "—" },
+  ];
+
+  let html = '<div style="font-family:Poppins,sans-serif;">';
+  details.forEach((d) => {
+    html += '<div style="display:flex;padding:6px 0;border-bottom:1px solid #f0f0f0;">';
+    html += '<span style="width:180px;font-weight:600;color:#1b5e20;font-size:0.85rem;">' + d.label + '</span>';
+    html += '<span style="flex:1;color:#263238;font-size:0.85rem;">' + d.value + '</span>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  Swal.fire({
+    title: "Medical Aid Details",
+    html: html,
+    icon: "info",
+    width: 600,
+    confirmButtonText: "Close",
+    confirmButtonColor: "#1b5e20",
+    customClass: { popup: "swal-custom-animated" },
   });
 }
 
@@ -367,7 +415,7 @@ function renderMedCards() {
       '">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
       '<strong style="color:#1b5e20;">' +
-      m.name +
+      escapeHtml(m.name) +
       "</strong>" +
       '<button type="button" onclick="removeMedMember(' +
       i +
@@ -457,17 +505,21 @@ function renderMedCards() {
       '<span style="font-weight:700;" id="med_estimate_' +
       i +
       '" data-threshold="' +
-      (document.getElementById("med_aid_estimate_data")
-        ? document
-            .getElementById("med_aid_estimate_data")
-            .getAttribute("data-threshold")
-        : "20000") +
+      (function(){
+        var el = document.getElementById("med_aid_estimate_data");
+        if (!el) { console.warn("med_aid_estimate_data element missing"); return "20000"; }
+        var th = el.getAttribute("data-threshold");
+        if (!th) { console.warn("med_aid_estimate_data element missing threshold attribute"); return "20000"; }
+        return th;
+      })() +
       '">₱' +
-      (document.getElementById("med_aid_estimate_data")
-        ? document
-            .getElementById("med_aid_estimate_data")
-            .getAttribute("data-benefit")
-        : "0") +
+      (function(){
+        var el = document.getElementById("med_aid_estimate_data");
+        if (!el) { console.warn("med_aid_estimate_data element missing"); return "0"; }
+        var b = el.getAttribute("data-benefit");
+        if (!b) { console.warn("med_aid_estimate_data element missing benefit attribute"); return "0"; }
+        return b;
+      })() +
       " / member</span>" +
       "</div>" +
       '<div class="form-group">' +
@@ -551,8 +603,7 @@ async function bootMedicalAidTable() {
   try {
     const data = await apiListMedicalAids();
     if (!data || !data.ok) return;
-    window.db = window.db || {};
-    window.db.medical_aids = data.medical_aids || [];
+    db.medical_aids = data.medical_aids || [];
     renderMedicalTableFromApi(data.medical_aids || []);
   } catch (e) {
     console.error(e);
@@ -563,6 +614,8 @@ document.addEventListener("turbo:load", bootMedicalAidTable);
 
 function handleMedicalSubmit(event) {
   event.preventDefault();
+  var submitBtn = event.target.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting..."; }
   if (medMembers.length === 0) {
     showToast("Add at least one member.", true);
     return;
@@ -653,6 +706,7 @@ function handleMedicalSubmit(event) {
     })
     .catch(function (err) {
       console.error(err);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit All Requests (" + medMembers.length + ")"; }
       showToast("Network error while submitting.", true);
     });
 }
@@ -666,6 +720,8 @@ function deathToggleFilter() {
   var opening = card.style.display === "none";
   card.style.display = opening ? "block" : "none";
   if (opening) {
+    var btn = document.querySelector('[onclick="deathToggleFilter()"]');
+    if (btn) { btn.style.color = ''; btn.style.fontWeight = ''; }
     deathFillFilters();
     var handler = function (e) {
       var btn = document.querySelector('[onclick="deathToggleFilter()"]');
@@ -729,6 +785,8 @@ function deathSyncAll(containerId) {
 
 function deathApplyFilter() {
   refreshDeathAidTables();
+  var btn = document.querySelector('[onclick="deathToggleFilter()"]');
+  if (btn) { btn.style.color = '#1b5e20'; btn.style.fontWeight = '600'; }
 }
 
 function deathFillFilters() {
@@ -803,19 +861,19 @@ function renderDeathTableFromApi(deathAids, tableId) {
     var tr = document.createElement("tr");
     tr.innerHTML =
       '<td style="font-weight:600;color:#1b5e20;">' +
-      d.id +
+      escapeHtml(d.id) +
       "</td>" +
       "<td>" +
-      d.claimant +
+      escapeHtml(d.claimant) +
       ' <br><span style="font-size:0.75rem;color:#757575;">Member: ' +
-      d.name +
+      escapeHtml(d.name) +
       "</span></td>" +
       "<td>" +
       scenarioBadge +
       ' <br><span style="font-size:0.85rem;">' +
-      d.deceased +
+      escapeHtml(d.deceased) +
       '</span> <br><span style="font-size:0.75rem;color:#757575;">' +
-      (isMember ? "" : "Relationship: " + d.relationship) +
+      (isMember ? "" : "Relationship: " + escapeHtml(d.relationship)) +
       "</span></td>" +
       '<td style="font-weight:600;">' +
       formatCurrencyPHP(d.benefit_amount) +
@@ -981,21 +1039,22 @@ function showDeathForm(scenario, memberId) {
     }
   }
 
-  filterDeathTableByScenario(scenario);
+  filterDeathTableByScenario(scenario, memberId);
 }
 
-function filterDeathTableByScenario(scenario) {
+function filterDeathTableByScenario(scenario, memberId) {
   var all = (typeof db !== "undefined" && db.death_aids) || [];
   var filtered = all;
   var tableId = "deathTable";
+  var rawMemberId = memberId ? String(memberId).replace(/^M-/, "") : "";
   if (scenario === "member") {
     filtered = all.filter(function (d) {
-      return d.is_member_deceased === true;
+      return d.is_member_deceased === true && (!rawMemberId || String(d.memberId) === rawMemberId);
     });
     tableId = "deathTableMember";
   } else if (scenario === "dependent") {
     filtered = all.filter(function (d) {
-      return d.is_member_deceased !== true;
+      return d.is_member_deceased !== true && (!rawMemberId || String(d.memberId) === rawMemberId);
     });
     tableId = "deathTableDependent";
   }
@@ -1077,9 +1136,8 @@ async function bootDeathAidTable() {
   try {
     var data = await apiListDeathAids();
     if (!data || !data.ok) return;
-    window.db = window.db || {};
-    window.db.death_aids = data.death_aids || [];
-    renderDeathTableFromApi(window.db.death_aids, "deathTable");
+    db.death_aids = data.death_aids || [];
+    refreshDeathAidTables();
   } catch (e) {
     console.error(e);
   }
@@ -1103,6 +1161,8 @@ function refreshDeathAidTables() {
 
 function handleDeathSubmit(event) {
   event.preventDefault();
+  var submitBtn = event.target.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting..."; }
   var form = event.target;
   var formData = new FormData(form);
 
@@ -1194,15 +1254,17 @@ function handleDeathSubmit(event) {
         showToast(data.error || "Death Aid table refresh failed.", true);
         return;
       }
-      window.db = window.db || {};
-      window.db.death_aids = data.death_aids || [];
-      refreshDeathAidTables();
+      db.death_aids = data.death_aids || [];
+      renderDeathTableFromApi(db.death_aids || [], "deathTable");
+      filterDeathTableByScenario(scenario, memberId);
       showToast("Death Aid claim submitted successfully.", false);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit Death Aid Claim"; }
       form.reset();
       FileQueue.clear("death");
     })
     ["catch"](function (err) {
       console.error(err);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit Death Aid Claim"; }
       showToast("Network error while submitting.", true);
     });
 }

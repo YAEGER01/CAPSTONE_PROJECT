@@ -11,6 +11,15 @@ from core_system.guards import require_role
 from core_system.models import OfficerUser, PushSubscription
 
 
+def _verify_push_origin(request):
+    from django.conf import settings
+    origin = request.META.get("HTTP_ORIGIN") or request.META.get("HTTP_REFERER") or ""
+    valid = getattr(settings, "VAPID_ORIGIN", "http://127.0.0.1:8000")
+    if valid not in origin:
+        return JsonResponse({"ok": False, "error": "Invalid request origin."}, status=403)
+    return None
+
+
 def vapid_public_key(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"publicKey": settings.VAPID_PUBLIC_KEY})
 
@@ -18,6 +27,10 @@ def vapid_public_key(request: HttpRequest) -> JsonResponse:
 @require_POST
 @csrf_exempt
 def push_subscribe(request: HttpRequest):
+    guard = _verify_push_origin(request)
+    if guard is not None:
+        return guard
+
     guard = require_role(request, role=None)
     if guard is not None:
         return guard
@@ -61,6 +74,10 @@ def push_subscribe(request: HttpRequest):
 @require_POST
 @csrf_exempt
 def push_unsubscribe(request: HttpRequest):
+    guard = _verify_push_origin(request)
+    if guard is not None:
+        return guard
+
     stored_officer_id = request.session.get("officer_id")
     if stored_officer_id is None:
         return JsonResponse({"ok": False, "error": "Not authenticated."}, status=401)

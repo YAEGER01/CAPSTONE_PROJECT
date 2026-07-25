@@ -19,6 +19,7 @@
       if (pending) pending.innerText = fmt(data.pending_contributions);
     } catch (e) {
       console.error("Cash flow init failed:", e);
+      showToast("Error loading data.", true);
     }
   }
 

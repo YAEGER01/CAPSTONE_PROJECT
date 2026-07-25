@@ -6,10 +6,7 @@
   function fmt(num) {
     return "₱" + Number(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-
-  function fmtPeso(num) {
-    return "₱" + Number(num).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
+  var fmtPeso = fmt;
 
   function renderInflowOutflow(data) {
     var log = document.getElementById("io-log");
@@ -57,6 +54,8 @@
   }
 
   async function initIO() {
+    var loadingEl = document.getElementById("io-loading");
+    if (loadingEl) loadingEl.style.display = "block";
     try {
       var res = await fetch("/api/treasurer/dashboard/inflow-outflow/", { method: "GET", credentials: "same-origin" });
       var data = await res.json();
@@ -72,17 +71,26 @@
         if (moneyInEl && typeof data.money_in === "number") moneyInEl.innerText = fmt(data.money_in);
         if (moneyOutEl && typeof data.money_out === "number") moneyOutEl.innerText = fmt(data.money_out);
       }
-    } catch (e) { console.error("Inflow/outflow init failed:", e); }
+    } catch (e) { console.error("Inflow/outflow init failed:", e); showToast("Error loading data.", true); }
+    if (loadingEl) loadingEl.style.display = "none";
   }
 
   async function initMonthlyChart() {
+    var chartContainer = document.getElementById("monthlyFlowChart");
+    if (!chartContainer) return;
+    var parent = chartContainer.parentNode;
+    var loadingMsg = document.createElement("p");
+    loadingMsg.className = "overview-card-placeholder";
+    loadingMsg.style.cssText = "margin:8px 0;text-align:center;color:#999;";
+    loadingMsg.textContent = "Loading chart data...";
+    parent.insertBefore(loadingMsg, chartContainer);
+    chartContainer.style.display = "none";
     try {
       var res = await fetch("/api/treasurer/dashboard/monthly-flow/", { method: "GET", credentials: "same-origin" });
       var data = await res.json();
-      if (!data || !data.ok || !data.months || data.months.length === 0) return;
+      if (!data || !data.ok || !data.months || data.months.length === 0) { loadingMsg.remove(); chartContainer.style.display = "block"; return; }
 
-      var ctx = document.getElementById("monthlyFlowChart");
-      if (!ctx) return;
+      var ctx = chartContainer;
 
       if (chartInstance) chartInstance.destroy();
 
@@ -95,7 +103,7 @@
             { label: "Monthly Dues", data: data.monthly_dues, backgroundColor: "rgba(0,188,212,0.7)", borderColor: "#00bcd4", borderWidth: 1 },
             { label: "Medical Aid", data: data.medical_aid, backgroundColor: "rgba(255,23,68,0.7)", borderColor: "#ff1744", borderWidth: 1 },
             { label: "Death Aid", data: data.death_aid, backgroundColor: "rgba(124,77,255,0.7)", borderColor: "#7c4dff", borderWidth: 1 },
-            { label: "Fund Payment", data: data.fund_payment, backgroundColor: "rgba(124,77,255,0.7)", borderColor: "#7c4dff", borderWidth: 1 },
+            { label: "Fund Payment", data: data.fund_payment, backgroundColor: "rgba(255,213,0,0.7)", borderColor: "#ffd500", borderWidth: 1 },
             { label: "Contribution", data: data.contribution, backgroundColor: "rgba(255,111,0,0.7)", borderColor: "#ff6f00", borderWidth: 1 },
           ],
         },
@@ -135,9 +143,12 @@
           var meta = chartInstance.getDatasetMeta(idx);
           meta.hidden = meta.hidden === null ? !chartInstance.data.datasets[idx].hidden : !meta.hidden;
           chartInstance.update();
+          this.style.opacity = meta.hidden ? "0.3" : "1";
         });
       });
-    } catch (e) { console.error("Monthly chart init failed:", e); }
+      loadingMsg.remove();
+      chartContainer.style.display = "block";
+    } catch (e) { console.error("Monthly chart init failed:", e); loadingMsg.remove(); chartContainer.style.display = "block"; showToast("Error loading data.", true); }
   }
 
   document.addEventListener("turbo:load", function () {

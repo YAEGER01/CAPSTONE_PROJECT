@@ -1,0 +1,43 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title|default:"Error" }} | CAUFA Security</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="{% static 'css/error_pages.css' %}" />
+  </head>
+  <body>
+    <div class="error-container">
+      <div class="security-shield-icon">
+        <i class="fa-solid fa-{{ icon|default:'triangle-exclamation' }}"></i>
+      </div>
+
+      <h1 class="error-code">{{ code|default:"Error" }}</h1>
+      <h2 class="error-title">{{ title|default:"Something went wrong" }}</h2>
+
+      <p class="error-message">{{ message|default:"An unexpected error occurred." }}</p>
+
+      {% if details %}
+      <div class="context-alert-box">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>{{ details }}</span>
+      </div>
+      {% endif %}
+
+      <div class="action-button-group">
+        <button onclick="window.history.back()" class="btn-error-back">
+          <i class="fa-solid fa-arrow-left-long"></i> Go Back
+        </button>
+        <a href="{% url 'logout' %}" class="btn-error-switch"
+           onclick="return confirm('Are you sure you want to exit your active session?');">
+          <i class="fa-solid fa-right-from-bracket"></i> Switch Account
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

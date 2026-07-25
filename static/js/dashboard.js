@@ -129,12 +129,14 @@ document.addEventListener("turbo:load", () => {
             }
           } catch (e) {
             console.error("Module init hook failed:", e);
+            showToast("Error loading data.", true);
           }
         }
         updateViewTitle(moduleName);
       })
       .catch((err) => {
         console.error(err);
+        showToast("Error loading data.", true);
         if (viewport)
           viewport.innerHTML =
             '<p style="color: red; padding: 20px;">Routing Error: Module layout swap failed.</p>';

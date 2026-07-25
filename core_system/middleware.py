@@ -13,17 +13,16 @@ class NoCacheMiddleware:
 
     def __call__(self, request):
         response = self.get_response(request)
-        if settings.DEBUG:
-            if request.path.startswith(("/static/", "/media/")):
-                response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
-                response["Pragma"] = "no-cache"
-                response["Expires"] = "0"
-            elif isinstance(response, HttpResponseRedirect):
-                return response
-            elif response.get("Content-Type", "").startswith("text/html"):
-                response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
-                response["Pragma"] = "no-cache"
-                response["Expires"] = "0"
+        if request.path.startswith(("/static/", "/media/")):
+            response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+            response["Pragma"] = "no-cache"
+            response["Expires"] = "0"
+        elif isinstance(response, HttpResponseRedirect):
+            return response
+        elif response.get("Content-Type", "").startswith("text/html"):
+            response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+            response["Pragma"] = "no-cache"
+            response["Expires"] = "0"
         return response
 
 

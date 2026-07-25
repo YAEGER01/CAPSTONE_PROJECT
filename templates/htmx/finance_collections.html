@@ -1,0 +1,128 @@
+{% load static %}
+<div class="fc-module" data-officer-role="{{ officer_role }}">
+  <div class="fc-tab-bar">
+    <button class="fc-tab active" data-tab="fund-activity">Fund Activity</button>
+    <button class="fc-tab" data-tab="departments">Departments</button>
+    <button class="fc-tab" data-tab="aids-claims">Aids & Claims</button>
+  </div>
+
+  <div class="fc-tab-content active" id="fc-tab-fund-activity">
+    <div class="fc-balance-widget" id="fc-balance-widget">
+      <div class="fc-balance-card">
+        <span class="fc-balance-label">Current Balance</span>
+        <span class="fc-balance-value" id="fc-balance-amount">--</span>
+      </div>
+      {% if officer_role == "treasurer" %}
+      <button class="fc-btn" id="fc-record-transaction-btn">Record Fund Transaction</button>
+      {% endif %}
+    </div>
+    <div class="fc-timeline" id="fc-timeline">
+      <div class="fc-loading">Loading fund activity...</div>
+    </div>
+    <div class="fc-pagination" id="fc-timeline-pagination"></div>
+  </div>
+
+  <div class="fc-tab-content" id="fc-tab-departments">
+    <div class="fc-dept-layout">
+      <div class="fc-dept-sidebar" id="fc-dept-sidebar">
+        <div class="fc-loading">Loading departments...</div>
+      </div>
+      <div class="fc-dept-detail" id="fc-dept-detail">
+        <div class="fc-dept-placeholder">Select a department to view members</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fc-tab-content" id="fc-tab-aids-claims">
+    <div class="fc-filter-bar">
+      <div class="fc-filter-group">
+        <button class="fc-filter-btn active" data-aid-type="medical">Medical</button>
+        <button class="fc-filter-btn" data-aid-type="death">Death</button>
+      </div>
+      <select class="fc-dept-filter" id="fc-claims-dept-filter">
+        <option value="">All Departments</option>
+      </select>
+    </div>
+    <div class="fc-claims-grid" id="fc-claims-grid">
+      <div class="fc-loading">Loading claims...</div>
+    </div>
+  </div>
+</div>
+
+<style>
+.fc-module { padding: 20px; max-width: 1400px; margin: 0 auto; }
+.fc-tab-bar { display: flex; gap: 4px; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px; }
+.fc-tab { padding: 10px 20px; border: none; background: transparent; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+.fc-tab:hover { color: #1a7a2e; }
+.fc-tab.active { color: #1a7a2e; border-bottom-color: #1a7a2e; }
+.fc-tab-content { display: none; }
+.fc-tab-content.active { display: block; }
+.fc-loading { text-align: center; padding: 40px; color: #999; font-style: italic; }
+
+.fc-balance-widget { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding: 16px 20px; background: linear-gradient(135deg, #1a7a2e, #2ecc71); border-radius: 12px; color: #fff; }
+.fc-balance-card { display: flex; flex-direction: column; }
+.fc-balance-label { font-size: 12px; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; }
+.fc-balance-value { font-size: 28px; font-weight: 700; }
+.fc-btn { padding: 10px 20px; border: none; border-radius: 8px; background: rgba(255,255,255,0.2); color: #fff; cursor: pointer; font-size: 13px; font-weight: 600; }
+.fc-btn:hover { background: rgba(255,255,255,0.3); }
+
+.fc-timeline { display: flex; flex-direction: column; gap: 8px; }
+.fc-tx-row { display: grid; grid-template-columns: 40px 80px 1fr 120px 160px; align-items: center; padding: 12px 16px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); gap: 12px; }
+.fc-tx-row:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.fc-tx-idx { font-size: 12px; color: #999; font-weight: 600; }
+.fc-tx-direction { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; text-align: center; }
+.fc-tx-direction.inflow { background: #e8f5e9; color: #2e7d32; }
+.fc-tx-direction.outflow { background: #fce4ec; color: #c62828; }
+.fc-tx-desc { font-size: 13px; color: #333; }
+.fc-tx-amount { font-size: 14px; font-weight: 600; text-align: right; }
+.fc-tx-date { font-size: 12px; color: #999; text-align: right; }
+.fc-tx-proofs { grid-column: 1 / -1; padding: 8px 0 0 52px; display: flex; gap: 8px; flex-wrap: wrap; }
+.fc-tx-proof-link { font-size: 12px; color: #1a7a2e; text-decoration: underline; cursor: pointer; }
+
+.fc-pagination { display: flex; justify-content: center; gap: 6px; margin-top: 16px; }
+.fc-page-btn { padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; }
+.fc-page-btn.active { background: #1a7a2e; color: #fff; border-color: #1a7a2e; }
+.fc-page-btn:hover:not(.active) { background: #f5f5f5; }
+
+.fc-dept-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; }
+.fc-dept-sidebar { display: flex; flex-direction: column; gap: 4px; }
+.fc-dept-item { padding: 10px 14px; background: #fff; border-radius: 8px; cursor: pointer; font-size: 13px; border: 1px solid transparent; transition: all 0.15s; }
+.fc-dept-item:hover { border-color: #c8e6c9; }
+.fc-dept-item.active { border-color: #1a7a2e; background: #e8f5e9; font-weight: 600; }
+.fc-dept-item .dept-count { float: right; font-size: 11px; color: #999; }
+
+.fc-member-row { display: grid; grid-template-columns: 1fr 120px 100px; align-items: center; padding: 10px 14px; background: #fff; border-radius: 8px; margin-bottom: 4px; cursor: pointer; font-size: 13px; border: 1px solid #f0f0f0; }
+.fc-member-row:hover { border-color: #c8e6c9; }
+.fc-member-row .member-name { font-weight: 500; }
+.fc-member-row .member-dues { font-size: 12px; color: #666; }
+.fc-member-row .member-claims { text-align: right; font-size: 12px; }
+
+.fc-member-detail-panel { padding: 16px; background: #f9fafb; border-radius: 8px; margin: 4px 0 8px 0; border: 1px solid #e0e0e0; display: none; }
+.fc-member-detail-panel.open { display: block; }
+
+.fc-heat-cell.paid { background: #c8e6c9; color: #2e7d32; }
+.fc-heat-cell.none { background: #f0f0f0; }
+.fc-heat-cell.missed { background: #ffcdd2; color: #c62828; }
+
+.fc-progress-wrap { margin-bottom: 12px; }
+.fc-progress-label { font-size: 12px; color: #666; margin-bottom: 4px; }
+.fc-progress-bar { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
+.fc-progress-fill { height: 100%; background: #1a7a2e; border-radius: 4px; transition: width 0.3s; }
+
+.fc-filter-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.fc-filter-group { display: flex; gap: 4px; }
+.fc-filter-btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; }
+.fc-filter-btn.active { background: #1a7a2e; color: #fff; border-color: #1a7a2e; }
+.fc-dept-filter { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
+
+.fc-claims-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.fc-claim-card { padding: 14px; background: #fff; border-radius: 8px; border: 1px solid #f0f0f0; }
+.fc-claim-clickable { cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
+.fc-claim-clickable:hover { border-color: #1a7a2e; box-shadow: 0 2px 8px rgba(26,122,46,0.15); }
+.fc-claim-card .claim-member { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.fc-claim-card .claim-detail { font-size: 12px; color: #666; }
+.fc-claim-card .claim-amount { font-size: 16px; font-weight: 700; color: #1a7a2e; margin-top: 4px; }
+.fc-claim-badge:hover { opacity: 0.75; }
+</style>
+
+<script type="module" src="{% static 'js/finance_collections.js' %}"></script>

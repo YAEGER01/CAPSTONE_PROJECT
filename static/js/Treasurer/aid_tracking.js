@@ -374,9 +374,18 @@
     var btn = e.target.closest(".btn-finish-post");
     if (btn) {
       var postId = parseInt(btn.dataset.postId);
-      if (confirm("Mark this post as finished? It will move to History.")) {
-        handleFinishPost(postId);
-      }
+      Swal.fire({
+        title: 'Confirm?',
+        text: 'Mark this post as finished? It will move to History.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes',
+        cancelButtonText: 'Cancel',
+      }).then(function(result) {
+        if (result.isConfirmed) {
+          handleFinishPost(postId);
+        }
+      });
     }
   });
 

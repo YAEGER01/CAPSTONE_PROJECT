@@ -100,6 +100,23 @@
     { key: "encoded_by", label: "Encoded by" },
   ];
 
+  const AID_VERIFICATION_FIELDS = {
+    medical_aid: [
+      { key: "member_name", label: "Member Name" },
+      { key: "claim_amount", label: "Claim Amount" },
+      { key: "documents", label: "Supporting Documents" },
+      { key: "supporting_evidence", label: "Supporting Evidence" },
+      { key: "hospital_details", label: "Hospital Details" },
+    ],
+    death_aid: [
+      { key: "member_name", label: "Member Name" },
+      { key: "claim_amount", label: "Claim Amount" },
+      { key: "documents", label: "Supporting Documents" },
+      { key: "supporting_evidence", label: "Supporting Evidence" },
+      { key: "deceased_details", label: "Deceased Details" },
+    ],
+  };
+
   function getFieldValue(item, fieldKey) {
     if (fieldKey === "proof_status") {
       return "Review evidence viewer above";
@@ -148,6 +165,49 @@
         "</div>";
       const chk = wrapper.querySelector('input[type="checkbox"]');
       const detail = wrapper.querySelector(".chk-p-detail");
+      chk.addEventListener("change", function () {
+        detail.style.display = chk.checked ? "block" : "none";
+      });
+      container.appendChild(wrapper);
+    });
+  }
+
+  function renderAidFieldCheckboxes(item) {
+    const container = getEl("aAuditFieldCheckboxes");
+    if (!container) return;
+
+    const aidType = item.aid_type || (item.type === "Medical Aid Request" ? "medical_aid" : "death_aid");
+    const fields = AID_VERIFICATION_FIELDS[aidType] || AID_VERIFICATION_FIELDS.medical_aid;
+
+    container.innerHTML = "";
+    fields.forEach(function (f) {
+      const value = getFieldValue(item, f.key);
+      const uid = "chk_a_" + f.key.replace(/\./g, "_");
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "border:1px solid #dfe9df;border-radius:10px;margin-bottom:8px;background:#fff;overflow:hidden;";
+      wrapper.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;">' +
+        '<input type="checkbox" id="' +
+        uid +
+        '" data-field="' +
+        f.key +
+        '" style="flex-shrink:0;width:16px;height:16px;">' +
+        '<label for="' +
+        uid +
+        '" style="font-weight:600;font-size:0.82rem;color:#1b5e20;margin:0;cursor:pointer;flex:1;">' +
+        escapeHtml(f.label) +
+        '</label>' +
+        "</div>" +
+        '<div class="chk-a-detail" style="display:none;padding:0 12px 12px 36px;">' +
+        '<div style="font-size:0.78rem;color:#757575;margin-bottom:6px;line-height:1.3;">' +
+        escapeHtml(value) +
+        '</div>' +
+        '<input type="text" data-remark-for="' +
+        f.key +
+        '" placeholder="Describe the issue..." style="width:100%;padding:6px 10px;border-radius:8px;border:1px solid #cfdccc;font-size:0.8rem;font-family:inherit;box-sizing:border-box;">' +
+        "</div>";
+      const chk = wrapper.querySelector('input[type="checkbox"]');
+      const detail = wrapper.querySelector(".chk-a-detail");
       chk.addEventListener("change", function () {
         detail.style.display = chk.checked ? "block" : "none";
       });
@@ -239,6 +299,7 @@
     selectedMembershipFeeId: "",
     selectedPaymentIds: new Set(),
     selectedAidIds: new Set(),
+    selectedMfIds: new Set(),
   };
 
   async function getJSON(url) {
@@ -314,6 +375,8 @@
     if (auditId) auditId.value = "";
     const preview = getEl("p_findings_preview");
     if (preview) preview.style.display = "none";
+    const evidenceScreen = getEl("paymentEvidenceScreen");
+    if (evidenceScreen) evidenceScreen.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L6 21"/></svg>';
   }
 
   function clearAidUI() {
@@ -342,7 +405,12 @@
     if (window.toggleAidAuditEvidenceRequirement) {
       window.toggleAidAuditEvidenceRequirement();
     }
-  }
+    const aidEvidenceScreen = getEl("aidEvidenceScreen");
+      if (aidEvidenceScreen) aidEvidenceScreen.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L6 21"/></svg>';
+
+    const chkContainer = getEl("aAuditFieldCheckboxes");
+    if (chkContainer) chkContainer.innerHTML = "";
+    }
 
   function getCurrentOfficerId() {
     const el = document.getElementById("currentOfficerId");
@@ -370,6 +438,21 @@
     });
     if (!swalResult.isConfirmed) return;
 
+    let batchRemarks = "";
+    if (result === "Returned") {
+      const { value: remarks } = await Swal.fire({
+        title: `Return ${items.length} entries?`,
+        input: 'textarea',
+        inputLabel: 'Reason for return (all selected items)',
+        inputPlaceholder: 'Describe what needs to be corrected...',
+        inputValidator: v => !v ? 'Reason is required.' : null,
+        showCancelButton: true,
+        confirmButtonText: 'Yes, return',
+      });
+      if (!remarks) return;
+      batchRemarks = remarks;
+    }
+
     try {
       const resp = await fetch("/api/auditor/verify-batch/", {
         method: "POST",
@@ -381,7 +464,7 @@
         body: JSON.stringify({
           items: items,
           result: result,
-          remarks: result === "Returned" ? "Batch returned for revision." : "",
+          remarks: batchRemarks,
         }),
       });
       const data = await resp.json();
@@ -465,19 +548,19 @@
 
   function auditGetChecked(id) {
     var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]:checked"), vals = [];
-    for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v !== "") vals.push(v); }
+    for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v && v !== "__all__") vals.push(v); }
     return vals;
   }
   function auditGetAllValues(id) {
     var cbs = document.querySelectorAll("#" + id + " input[type=checkbox]"), vals = [];
-    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") vals.push(cbs[i].value); }
+    for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v && v !== "__all__") vals.push(v); }
     return vals;
   }
   function auditToggleAll(containerId, checked) {
     var container = document.getElementById(containerId);
     if (!container) return;
     var cbs = container.querySelectorAll('input[type="checkbox"]');
-    for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
+    for (var i = 0; i < cbs.length; i++) { var v = cbs[i].value; if (v && v !== "__all__") cbs[i].checked = checked; }
     refreshAll();
   }
   function auditSyncAll(containerId) {
@@ -507,7 +590,6 @@
           if (card.contains(e.target)) return;
           document.removeEventListener("click", handler);
           card.style.display = "none";
-          applyFn();
         };
         setTimeout(function() { document.addEventListener("click", handler); }, 0);
       }
@@ -518,7 +600,7 @@
     function() {
       var tc = document.getElementById("audPayTypeCheckboxes");
       if (tc) {
-        tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="auditToggleAll(\'audPayTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>' +
+        tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="__all__" checked onchange="auditToggleAll(\'audPayTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>' +
           '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="monthly_dues" checked onchange="auditSyncAll(\'audPayTypeCheckboxes\');refreshAll()"> <span>Monthly Dues</span></label>' +
           '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="membership_fee" checked onchange="auditSyncAll(\'audPayTypeCheckboxes\');refreshAll()"> <span>Membership Fee</span></label>';
       }
@@ -527,7 +609,7 @@
     function() {
       var tc = document.getElementById("audAidTypeCheckboxes");
       if (tc) {
-        tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="auditToggleAll(\'audAidTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>' +
+        tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="__all__" checked onchange="auditToggleAll(\'audAidTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>' +
           '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="medical" checked onchange="auditSyncAll(\'audAidTypeCheckboxes\');refreshAll()"> <span>Medical</span></label>' +
           '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="death" checked onchange="auditSyncAll(\'audAidTypeCheckboxes\');refreshAll()"> <span>Death Aid</span></label>';
       }
@@ -535,11 +617,11 @@
   window.audFeeToggle = makeAuditToggle("audFeeFilterCard",
     function() {
       var stats = {}, i, f, arr = state.pendingMembershipFees || [];
-      for (i = 0; i < arr.length; i++) { f = arr[i]; if (f.payment_status) stats[f.payment_status] = 1; }
+      for (i = 0; i < arr.length; i++) { f = arr[i]; if (f.payment_status) stats[String(f.payment_status).trim().replace(/\s+/g, " ")] = 1; }
       var sk = Object.keys(stats).sort();
       var sc = document.getElementById("audFeeStatusCheckboxes");
       if (sc) {
-        sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="auditToggleAll(\'audFeeStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
+        sc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="__all__" checked onchange="auditToggleAll(\'audFeeStatusCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
         for (i = 0; i < sk.length; i++) sc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + escapeHtml(sk[i]) + '" checked onchange="auditSyncAll(\'audFeeStatusCheckboxes\');refreshAll()"> <span>' + escapeHtml(sk[i]) + '</span></label>';
       }
     }, refreshAll);
@@ -603,6 +685,98 @@
     updateAidBatchBar();
   }
 
+  function toggleMfRowCheck(fid, checked) {
+    if (checked) {
+      state.selectedMfIds.add(String(fid));
+    } else {
+      state.selectedMfIds.delete(String(fid));
+    }
+    const row = document.querySelector(`#pendingMfTable .mf-row-check[value="${fid}"]`)?.closest("tr");
+    if (row) row.classList.toggle("selected-row", checked);
+    updateMfBatchBar();
+  }
+
+  function updateMfBatchBar() {
+    const bar = document.getElementById("mf-batch-bar");
+    const countEl = document.getElementById("mf-selected-count");
+    const count = state.selectedMfIds.size;
+    if (!bar || !countEl) return;
+    countEl.textContent = count + " selected";
+    bar.style.display = count > 0 ? "flex" : "none";
+  }
+
+  function clearMfSelection() {
+    state.selectedMfIds.clear();
+    document.querySelectorAll("#pendingMfTable .mf-row-check").forEach(cb => cb.checked = false);
+    document.querySelectorAll("#pendingMfTable tr").forEach(tr => tr.classList.remove("selected-row"));
+    const selectAll = document.getElementById("mf-select-all");
+    if (selectAll) selectAll.checked = false;
+    updateMfBatchBar();
+  }
+
+  async function submitMfBatchVerify(result) {
+    const ids = Array.from(state.selectedMfIds).map(Number);
+    if (ids.length === 0) return;
+
+    const items = state.pendingMembershipFees
+      .filter(f => state.selectedMfIds.has(String(f.fee_id)))
+      .map(f => ({ table_name: "membership_fee", record_id: f.fee_id }));
+
+    if (items.length === 0) return;
+
+    const label = result === "Verified" ? "Verify" : "Return";
+    const swalResult = await Swal.fire({
+      title: `${label} ${items.length} Membership Fee${items.length === 1 ? "" : "s"}?`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: `Yes, ${label.toLowerCase()}`,
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+    if (!swalResult.isConfirmed) return;
+
+    let batchRemarks = "";
+    if (result === "Returned") {
+      const { value: remarks } = await Swal.fire({
+        title: `Return ${items.length} entries?`,
+        input: 'textarea',
+        inputLabel: 'Reason for return (all selected items)',
+        inputPlaceholder: 'Describe what needs to be corrected...',
+        inputValidator: v => !v ? 'Reason is required.' : null,
+        showCancelButton: true,
+        confirmButtonText: 'Yes, return',
+      });
+      if (!remarks) return;
+      batchRemarks = remarks;
+    }
+
+    try {
+      const resp = await fetch("/api/auditor/verify-batch/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken(),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          items: items,
+          result: result,
+          remarks: batchRemarks,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        showToast(data.error || "Batch operation failed.", true);
+        return;
+      }
+      showToast(`Processed ${data.processed} entr${data.processed === 1 ? "y" : "ies"} (${data.skipped} skipped).`, false);
+      clearMfSelection();
+      await refreshAll();
+    } catch (e) {
+      showToast("Network/server error during batch operation.", true);
+    }
+  }
+
   function getAidTableName(a) {
     const t = (a.type || "").toLowerCase();
     return t.includes("medical") ? "medical_aid" : "death_aid";
@@ -629,6 +803,21 @@
     });
     if (!swalResult.isConfirmed) return;
 
+    let batchRemarks = "";
+    if (result === "Returned") {
+      const { value: remarks } = await Swal.fire({
+        title: `Return ${items.length} entries?`,
+        input: 'textarea',
+        inputLabel: 'Reason for return (all selected items)',
+        inputPlaceholder: 'Describe what needs to be corrected...',
+        inputValidator: v => !v ? 'Reason is required.' : null,
+        showCancelButton: true,
+        confirmButtonText: 'Yes, return',
+      });
+      if (!remarks) return;
+      batchRemarks = remarks;
+    }
+
     try {
       const resp = await fetch("/api/auditor/verify-batch/", {
         method: "POST",
@@ -640,7 +829,7 @@
         body: JSON.stringify({
           items: items,
           result: result,
-          remarks: result === "Returned" ? "Batch returned for revision." : "",
+          remarks: batchRemarks,
         }),
       });
       const data = await resp.json();
@@ -688,8 +877,8 @@
       }
       tr.innerHTML = `
         <td><input type="checkbox" class="aid-row-check" value="${aid}" ${state.selectedAidIds.has(String(aid)) ? "checked" : ""}></td>
-        <td>${a.member && a.member.member_name ? a.member.member_name : a.claimantName || ""}</td>
-        <td><span class="${getStatusBadgeClass(a.type)}" style="font-size:0.75rem;">${a.type || ""}</span></td>
+        <td>${escapeHtml(a.member && a.member.member_name ? a.member.member_name : a.claimantName || "")}</td>
+        <td><span class="${getStatusBadgeClass(a.type)}" style="font-size:0.75rem;">${escapeHtml(a.type || "")}</span></td>
         <td style="font-weight:600;">${formatMoneyPHP(a.reqAmount || a.benefit || 0)} <span style="font-size:0.7rem;color:#90a4ae;font-weight:400;">/per member</span></td>
         <td><button class="btn-select-glow">Select</button></td>
       `;
@@ -726,17 +915,18 @@
 
     tbody.innerHTML = "";
     if (flt.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>';
       return;
     }
     flt.forEach((fee) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td style="font-weight:600;color:#1b5e20;">${fee.ref || ""}</td>
-        <td>${fee.member_name || ""}</td>
+        <td><input type="checkbox" class="mf-row-check" value="${fee.fee_id}"></td>
+        <td style="font-weight:600;color:#1b5e20;">${escapeHtml(fee.ref || "")}</td>
+        <td>${escapeHtml(fee.member_name || "")}</td>
         <td style="font-weight:600;">${formatMoneyPHP(fee.amount)}</td>
-        <td>${fee.payment_date || ""}</td>
-        <td><span class="${getStatusBadgeClass(fee.payment_status)}" style="font-size:0.75rem;">${fee.payment_status || "Pending"}</span></td>
+        <td>${escapeHtml(fee.payment_date || "")}</td>
+        <td><span class="${getStatusBadgeClass(fee.payment_status)}" style="font-size:0.75rem;">${escapeHtml(fee.payment_status || "Pending")}</span></td>
         <td><button class="btn-select-glow">Select</button></td>
       `;
       tr.onclick = () => selectMembershipFee(fee.fee_id);
@@ -852,6 +1042,8 @@
     if (window.toggleAidAuditEvidenceRequirement) {
       window.toggleAidAuditEvidenceRequirement();
     }
+
+    renderAidFieldCheckboxes(item);
   }
 
   function clearMembershipFeeUI() {
@@ -896,6 +1088,8 @@
     if (auditId) auditId.value = "";
     const preview = getEl("mf_findings_preview");
     if (preview) preview.style.display = "none";
+    const mfEvidenceScreen = getEl("membershipFeeEvidenceScreen");
+    if (mfEvidenceScreen) mfEvidenceScreen.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L6 21"/></svg>';
   }
 
   function selectMembershipFee(id) {
@@ -1101,11 +1295,40 @@
     }
 
     const result = (getEl("pAuditResult") || {}).value || "";
+    const swalResult1 = await Swal.fire({
+      title: `Submit audit as "${result}"?`,
+      text: result === 'Returned'
+        ? 'This will send the record back to the Treasurer for correction.'
+        : 'This will forward the record to the President for final approval.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, submit',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+    });
+    if (!swalResult1.isConfirmed) return;
+
+    if (result === "Returned") {
+      const checkedBoxes = document.querySelectorAll("#pAuditFieldCheckboxes input[type='checkbox']:checked");
+      if (checkedBoxes.length === 0) {
+        showToast("Please check at least one field that needs correction, or add a remark.", true);
+        return;
+      }
+      const fileInput = getEl("p_findings_file");
+      if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+        showToast("Please attach finding evidence before returning.", true);
+        return;
+      }
+    }
+
     let fieldRemarks = "";
     if (result === "Returned") {
       const json = buildRejectionDetailsJSON("pAuditFieldCheckboxes");
       if (json) fieldRemarks = json;
     }
+
+    const submitBtn = document.querySelector("#paymentVerificationForm button[type='submit']");
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
 
     const fd = new FormData();
     fd.append("pAuditID", auditTargetId);
@@ -1125,6 +1348,9 @@
       await refreshAll();
     } catch (err) {
       showToast(err.message || "Failed submitting payment audit.", true);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = 'Submit Verification'; }
+      const btnReturn = getEl("btnReturnPaymentForCorrection");
+      if (btnReturn) { btnReturn.dataset.submitting = ""; btnReturn.disabled = false; }
     }
   }
 
@@ -1140,10 +1366,47 @@
       return;
     }
 
+    const aResult = (getEl("aAuditResult") || {}).value || "";
+    const swalResultA1 = await Swal.fire({
+      title: `Submit audit as "${aResult}"?`,
+      text: aResult === 'Returned'
+        ? 'This will send the record back to the Treasurer for correction.'
+        : 'This will forward the record to the President for final approval.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, submit',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+    });
+    if (!swalResultA1.isConfirmed) return;
+
+    if (aResult === "Returned") {
+      const checkedBoxes = document.querySelectorAll("#aAuditFieldCheckboxes input[type='checkbox']:checked");
+      if (checkedBoxes.length === 0) {
+        showToast("Please check at least one field that needs correction, or add a remark.", true);
+        return;
+      }
+      const fileInput = getEl("a_findings_file");
+      if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+        showToast("Please attach finding evidence before returning.", true);
+        return;
+      }
+    }
+
+    let fieldRemarks = "";
+    if (aResult === "Returned") {
+      const json = buildRejectionDetailsJSON("aAuditFieldCheckboxes");
+      if (json) fieldRemarks = json;
+    }
+
+    const submitBtn = document.querySelector("#aidVerificationForm button[type='submit']");
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
+
     const fd = new FormData();
     fd.append("aAuditID", auditTargetId);
     fd.append("aAuditRemarks", (getEl("aAuditRemarks") || {}).value || "");
-    fd.append("aAuditResult", (getEl("aAuditResult") || {}).value || "");
+    fd.append("aAuditResult", aResult);
+    fd.append("aAuditFieldRemarks", fieldRemarks);
 
     const fileInput = getEl("a_findings_file");
     if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -1157,6 +1420,9 @@
       await refreshAll();
     } catch (err) {
       showToast(err.message || "Failed submitting aid audit.", true);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = 'Submit Verification'; }
+      const btnReturn = getEl("btnReturnAidForCorrection");
+      if (btnReturn) { btnReturn.dataset.submitting = ""; btnReturn.disabled = false; }
     }
   }
 
@@ -1173,11 +1439,40 @@
     }
 
     const result = (getEl("mfAuditResult") || {}).value || "";
+    const swalResultMf1 = await Swal.fire({
+      title: `Submit audit as "${result}"?`,
+      text: result === 'Returned'
+        ? 'This will send the record back to the Treasurer for correction.'
+        : 'This will forward the record to the President for final approval.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, submit',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+    });
+    if (!swalResultMf1.isConfirmed) return;
+
+    if (result === "Returned") {
+      const checkedBoxes = document.querySelectorAll("#mfAuditFieldCheckboxes input[type='checkbox']:checked");
+      if (checkedBoxes.length === 0) {
+        showToast("Please check at least one field that needs correction, or add a remark.", true);
+        return;
+      }
+      const fileInput = getEl("mf_findings_file");
+      if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+        showToast("Please attach finding evidence before returning.", true);
+        return;
+      }
+    }
+
     let fieldRemarks = "";
     if (result === "Returned") {
       const json = buildRejectionDetailsJSON("mfAuditFieldCheckboxes");
       if (json) fieldRemarks = json;
     }
+
+    const submitBtn = document.querySelector("#membershipFeeVerificationForm button[type='submit']");
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; }
 
     const fd = new FormData();
     fd.append("mfAuditID", auditTargetId);
@@ -1197,6 +1492,11 @@
       await refreshAll();
     } catch (err) {
       showToast(err.message || "Failed submitting membership fee audit.", true);
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = 'Submit Verification'; }
+      const btnReturn = getEl("btnReturnMembershipFeeForCorrection");
+      if (btnReturn) { btnReturn.dataset.submitting = ""; btnReturn.disabled = false; }
+      const mfAuditBtn = getEl("btnReturnMembershipFeeAuditForCorrection");
+      if (mfAuditBtn) { mfAuditBtn.dataset.submitting = ""; mfAuditBtn.disabled = false; }
     }
   }
 
@@ -1208,13 +1508,11 @@
     const paymentForm = getEl("paymentVerificationForm");
     if (paymentForm) {
       paymentForm.onsubmit = handlePaymentSubmit;
-      paymentForm.addEventListener("submit", handlePaymentSubmit);
     }
 
     const aidForm = getEl("aidVerificationForm");
     if (aidForm) {
       aidForm.onsubmit = handleAidSubmit;
-      aidForm.addEventListener("submit", handleAidSubmit);
     }
 
     const membershipFeeForm = getEl("membershipFeeVerificationForm");
@@ -1227,10 +1525,6 @@
     const membershipFeeAuditForm = getEl("membershipFeeAuditForm");
     if (membershipFeeAuditForm) {
       membershipFeeAuditForm.onsubmit = handleMembershipFeeSubmit;
-      membershipFeeAuditForm.addEventListener(
-        "submit",
-        handleMembershipFeeSubmit,
-      );
     }
   }
 
@@ -1243,8 +1537,17 @@
   function bindReturnForCorrectionButtons() {
     const paymentBtn = getEl("btnReturnPaymentForCorrection");
     if (paymentBtn) {
-      paymentBtn.addEventListener("click", () => {
+      paymentBtn.addEventListener("click", async () => {
         if (paymentBtn.dataset.submitting === "1") return;
+        const swalRes = await Swal.fire({
+          title: 'Return for Correction?',
+          text: 'This will send the record back to the Treasurer and require attached evidence.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Yes, return',
+          cancelButtonText: 'Cancel',
+        });
+        if (!swalRes.isConfirmed) return;
         paymentBtn.dataset.submitting = "1";
         paymentBtn.disabled = true;
 
@@ -1258,8 +1561,17 @@
 
     const aidBtn = getEl("btnReturnAidForCorrection");
     if (aidBtn) {
-      aidBtn.addEventListener("click", () => {
+      aidBtn.addEventListener("click", async () => {
         if (aidBtn.dataset.submitting === "1") return;
+        const swalRes = await Swal.fire({
+          title: 'Return for Correction?',
+          text: 'This will send the record back to the Treasurer and require attached evidence.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Yes, return',
+          cancelButtonText: 'Cancel',
+        });
+        if (!swalRes.isConfirmed) return;
         aidBtn.dataset.submitting = "1";
         aidBtn.disabled = true;
 
@@ -1273,8 +1585,17 @@
 
     const mfBtn = getEl("btnReturnMembershipFeeForCorrection");
     if (mfBtn) {
-      mfBtn.addEventListener("click", () => {
+      mfBtn.addEventListener("click", async () => {
         if (mfBtn.dataset.submitting === "1") return;
+        const swalRes = await Swal.fire({
+          title: 'Return for Correction?',
+          text: 'This will send the record back to the Treasurer and require attached evidence.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Yes, return',
+          cancelButtonText: 'Cancel',
+        });
+        if (!swalRes.isConfirmed) return;
         mfBtn.dataset.submitting = "1";
         mfBtn.disabled = true;
 
@@ -1381,6 +1702,11 @@
     const sidebar = getEl("appSidebar");
     if (sidebar) sidebar.classList.remove("open-mobile");
 
+    var liveTabs = ["audit-members-payments", "audit-aid-requests", "Membership-Fee-Audit"];
+    if (liveTabs.indexOf(targetId) !== -1) {
+      refreshAll();
+    }
+
     const activeItem = document.querySelector(
       `.menu-item[data-target="${targetId}"]`,
     );
@@ -1392,6 +1718,46 @@
           currentModuleTitle.innerText = titleEl.innerText;
       }
     }
+  }
+
+  function initOverviewCarousel() {
+    var slides = document.getElementById("ocarouselSlides");
+    var dotsContainer = document.getElementById("ocarouselDots");
+    var prevBtn = document.getElementById("ocarouselPrev");
+    var nextBtn = document.getElementById("ocarouselNext");
+    if (!slides || !dotsContainer) return;
+    var total = slides.children.length;
+    var current = 0;
+    function render() {
+      slides.style.transform = "translateX(-" + (current * 100) + "%)";
+      var dots = dotsContainer.querySelectorAll(".ocarousel-dot");
+      dots.forEach(function (d, i) { d.classList.toggle("active", i === current); });
+    }
+    function goTo(idx) {
+      if (idx < 0) idx = total - 1;
+      if (idx >= total) idx = 0;
+      current = idx;
+      render();
+    }
+    var icons = ["fa-money-bill-wave", "fa-file-invoice", "fa-book"];
+    dotsContainer.innerHTML = "";
+    for (var i = 0; i < total; i++) {
+      var dot = document.createElement("button");
+      dot.className = "ocarousel-dot" + (i === 0 ? " active" : "");
+      dot.setAttribute("aria-label", "Slide " + (i + 1));
+      dot.innerHTML = '<i class="fa-solid ' + icons[i] + '"></i>';
+      (function (idx) { dot.addEventListener("click", function () { goTo(idx); }); })(i);
+      dotsContainer.appendChild(dot);
+    }
+    if (prevBtn) prevBtn.addEventListener("click", function () { goTo(current - 1); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { goTo(current + 1); });
+
+    document.querySelectorAll(".ocarousel-slide [data-nav]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var target = this.getAttribute("data-nav");
+        if (target && typeof setActiveModule === "function") { setActiveModule(target); }
+      });
+    });
   }
 
   function setupNavigation() {
@@ -1569,6 +1935,7 @@
     bindCancelButtons();
     bindReturnForCorrectionButtons();
     setupNavigation();
+    initOverviewCarousel();
     setupFolders();
     setupCollapsibleSidebar();
 
@@ -1644,10 +2011,39 @@
       clearAidSelection();
     });
 
+    const mfSelectAll = document.getElementById("mf-select-all");
+    if (mfSelectAll) {
+      mfSelectAll.addEventListener("change", function () {
+        const checked = this.checked;
+        document.querySelectorAll("#pendingMfTable .mf-row-check").forEach(cb => {
+          cb.checked = checked;
+          const fid = cb.value;
+          if (checked) state.selectedMfIds.add(fid);
+          else state.selectedMfIds.delete(fid);
+          const row = cb.closest("tr");
+          if (row) row.classList.toggle("selected-row", checked);
+        });
+        updateMfBatchBar();
+      });
+    }
+    document.getElementById("mf-batch-verify")?.addEventListener("click", function () {
+      submitMfBatchVerify("Verified");
+    });
+    document.getElementById("mf-batch-return")?.addEventListener("click", function () {
+      submitMfBatchVerify("Returned");
+    });
+    document.getElementById("mf-batch-clear")?.addEventListener("click", function () {
+      clearMfSelection();
+    });
+
     refreshAll();
     loadAuditedLogs();
 
-    getEl("auditLogSearch")?.addEventListener("input", applyAuditLogFilters);
+    let logSearchDebounce;
+    getEl("auditLogSearch")?.addEventListener("input", function () {
+      clearTimeout(logSearchDebounce);
+      logSearchDebounce = setTimeout(applyAuditLogFilters, 300);
+    });
     getEl("auditLogResultFilter")?.addEventListener("change", applyAuditLogFilters);
     getEl("auditLogDateFrom")?.addEventListener("change", applyAuditLogFilters);
     getEl("auditLogDateTo")?.addEventListener("change", applyAuditLogFilters);

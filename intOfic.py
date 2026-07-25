@@ -1,30 +1,24 @@
 import os
 import django
-import hashlib
 from datetime import date
 
-# 1. Setup Django environment settings
-# Replace 'myproject' with your actual project root directory folder name
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "caufa_portal.settings")
 django.setup()
 
 from core_system.models import OfficerUser
-
-
-def generate_sha256_hash(password_string):
-    """
-    Computes a standard, raw SHA-256 hexadecimal hash string.
-    """
-    encoded_bytes = password_string.encode("utf-8")
-    sha256_engine = hashlib.sha256(encoded_bytes)
-    return sha256_engine.hexdigest()
+from core_system.auth_utils import sha256_hex
 
 
 def create_initial_officers():
-    print("--- Initializing CAUFA Portal Officer Accounts (SHA-256 Mode) ---")
+    print("--- Initializing CAUFA Portal Officer Accounts ---")
 
-    # Define our three core system roles with default baseline credentials
     initial_users = [
+        {
+            "full_name": "Super Admin",
+            "username": "superadmin",
+            "password": "admin123",
+            "role": "Admin",
+        },
         {
             "full_name": "Madam President",
             "username": "president_admin",
@@ -46,15 +40,12 @@ def create_initial_officers():
     ]
 
     for user_data in initial_users:
-        # Check if username already exists to prevent duplication crashes
         if OfficerUser.objects.filter(username=user_data["username"]).exists():
             print(f"[!] User '{user_data['username']}' already exists. Skipping.")
             continue
 
-        # Cryptographically hash the plaintext using SHA-256
-        hashed_password = generate_sha256_hash(user_data["password"])
+        hashed_password = sha256_hex(user_data["password"])
 
-        # Instantiate and commit row parameters to the database
         officer = OfficerUser(
             full_name=user_data["full_name"],
             username=user_data["username"],

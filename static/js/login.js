@@ -29,12 +29,24 @@
       })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        if (data && data.no_email) {
+          Swal.fire({
+            icon: "warning",
+            title: "No Email Bound",
+            text: "Your credentials are valid but no email is bound to this account.",
+            confirmButtonText: "OK",
+          }).then(function () {
+            window.location.reload();
+          });
+          return;
+        }
         if (data && data.ok && data.redirect_url) {
           window.location.href = data.redirect_url;
         } else if (data && !data.ok) {
           const container = document.getElementById('loginError');
           if (container) {
-            container.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + (data.error || 'Login failed.');
+            container.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ';
+            container.appendChild(document.createTextNode(data.error || 'Login failed.'));
             container.style.display = 'block';
           }
         }
@@ -42,7 +54,8 @@
       .catch(function () {
         const container = document.getElementById('loginError');
         if (container) {
-          container.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Network error. Please try again.';
+          container.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ';
+          container.appendChild(document.createTextNode('Network error. Please try again.'));
           container.style.display = 'block';
         }
       });

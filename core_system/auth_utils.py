@@ -1,4 +1,4 @@
-import hashlib
+from django.contrib.auth.hashers import check_password, make_password
 import secrets
 from datetime import timedelta
 
@@ -12,7 +12,7 @@ from core_system.models import AccessSession, LoginAttemptLog, OfficerUser
 
 
 def sha256_hex(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+    return make_password(value)
 
 
 @transaction.atomic
@@ -42,7 +42,7 @@ def create_access_session(
 def verify_officer_password(*, officer: OfficerUser, password_input: str) -> bool:
     if not officer.account_status or officer.account_status.lower() != "active":
         return False
-    return sha256_hex(password_input) == officer.password_hash
+    return check_password(password_input, officer.password_hash)
 
 
 @transaction.atomic

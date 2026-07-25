@@ -170,8 +170,8 @@ function renderMonthTags() {
 
 function addAidPostTag() {
   const sel = document.getElementById('header-aidpost-select');
-  if (!sel.value) { alert('Select an aid post'); return; }
-  if (selectedAidPosts.some(p => p.post_id === sel.value)) { alert('Aid post already added'); return; }
+  if (!sel.value) { showToast('Select an aid post', true); return; }
+  if (selectedAidPosts.some(p => p.post_id === sel.value)) { showToast('Aid post already added', true); return; }
   const label = sel.options[sel.selectedIndex].text;
   selectedAidPosts.push({ post_id: sel.value, label: label });
   renderAidPostTags();
@@ -235,11 +235,11 @@ function loadMemberList() {
 }
 
 function showMemberDetails(memberId) {
-  if (typeof Swal === 'undefined') { alert('SweetAlert2 not loaded'); return; }
+  if (typeof Swal === 'undefined') { showToast('SweetAlert2 not loaded', true); return; }
   fetch('/api/treasurer/member/'+memberId+'/details/')
     .then(r => r.json())
     .then(data => {
-      if (!data.ok) { alert('Error loading details'); return; }
+      if (!data.ok) { showToast('Error loading details', true); return; }
       let missedHtml = '';
       if (data.missed_months && data.missed_months.length > 0) {
         missedHtml = data.missed_months.map(m => {
@@ -312,8 +312,8 @@ function gatherDeductions() {
 function saveOrUpdateBatch() {
   const batchId = document.getElementById('batch-id').value;
   const deductions = gatherDeductions();
-  if (!deductions.length) { alert('Select at least one member and enable at least one deduction type.'); return; }
-  if (!document.getElementById('payroll-period').value) { alert('Select a payroll period.'); return; }
+  if (!deductions.length) { showToast('Select at least one member and enable at least one deduction type.', true); return; }
+  if (!document.getElementById('payroll-period').value) { showToast('Select a payroll period.', true); return; }
   const url = batchId ? '/api/treasurer/payroll-batches/'+batchId+'/edit/' : '/api/treasurer/payroll-batches/create/';
   fetch(url, {
     method: 'POST',
@@ -325,14 +325,14 @@ function saveOrUpdateBatch() {
       deductions: deductions,
     }),
   }).then(r=>r.json()).then(data => {
-    if (data.ok) { resetBatchForm(); loadPayrollBatches(); alert('Payroll batch saved!'); }
-    else alert(data.error||'Error saving batch');
-  }).catch(e=>{console.error('Save batch failed',e);alert('Error saving batch');});
+    if (data.ok) { resetBatchForm(); loadPayrollBatches(); showToast('Payroll batch saved!'); }
+    else showToast(data.error||'Error saving batch', true);
+  }).catch(e=>{console.error('Save batch failed',e);showToast('Error saving batch', true);});
 }
 
 function viewBatch(batchId) {
   fetch('/api/treasurer/payroll-batches/'+batchId+'/').then(r=>r.json()).then(data => {
-    if (!data.ok) { alert(data.error); return; }
+    if (!data.ok) { showToast(data.error, true); return; }
     const b = data.batch;
     document.getElementById('batch-detail-content').innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
@@ -358,7 +358,7 @@ function viewBatch(batchId) {
 
 function editBatch(batchId) {
   fetch('/api/treasurer/payroll-batches/'+batchId+'/').then(r=>r.json()).then(data => {
-    if (!data.ok) { alert(data.error); return; }
+    if (!data.ok) { showToast(data.error, true); return; }
     const b = data.batch;
     resetBatchForm();
     document.getElementById('batch-id').value = b.batch_id;
@@ -406,9 +406,19 @@ function editBatch(batchId) {
 }
 
 function deleteBatch(batchId) {
-  if (!confirm('Delete this payroll batch?')) return;
-  fetch('/api/treasurer/payroll-batches/'+batchId+'/delete/', {method:'POST', headers:{'X-CSRFToken': getCSRFToken()}})
-    .then(r=>r.json()).then(data => { if(data.ok) { loadPayrollBatches(); alert('Batch deleted.'); } else alert(data.error||'Error'); });
+  Swal.fire({
+    title: 'Confirm?',
+    text: 'Are you sure?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Yes',
+    cancelButtonText: 'No',
+  }).then(function(result) {
+    if (result.isConfirmed) {
+      fetch('/api/treasurer/payroll-batches/'+batchId+'/delete/', {method:'POST', headers:{'X-CSRFToken': getCSRFToken()}})
+        .then(r=>r.json()).then(data => { if(data.ok) { loadPayrollBatches(); showToast('Batch deleted.'); } else showToast(data.error||'Error', true); });
+    }
+  });
 }
 
 document.addEventListener('turbo:load', function() {

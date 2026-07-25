@@ -33,7 +33,8 @@
     document.body.style.overflow = "";
   }
 
-  function triggerZeroTrustModal() {
+  function triggerZeroTrustModal(action) {
+    action = action || "";
     return new Promise(function (resolve) {
       removeModal();
 
@@ -51,10 +52,12 @@
         "text-align:center;position:relative;";
 
       card.innerHTML =
-        '<div style="font-size:40px;margin-bottom:10px;color:#1b5e20;">&#128737;&#65039;</div>' +
-        '<h3 style="color:#1b5e20;margin-bottom:8px;">Zero Trust Verification</h3>' +
-        '<p style="font-size:14px;color:#666;margin-bottom:18px;">' +
-        "For security, please enter the verification code sent to your registered email." +
+        '<div style="font-size:36px;margin-bottom:6px;color:#1b5e20;">&#128522;</div>' +
+        '<h3 style="color:#1b5e20;margin-bottom:6px;font-size:1.2rem;">Quick Security Check</h3>' +
+        '<p style="font-size:13px;color:#666;margin-bottom:16px;line-height:1.5;">' +
+        "We've sent a one-time code to your registered email. " +
+        "Enter it below to continue" +
+        (action ? ' with <strong>' + action + "</strong>." : ".") +
         "</p>" +
         '<div id="zt-error" style="color:#c62828;font-size:13px;margin-bottom:12px;display:none;"></div>' +
         '<input type="text" id="zt-otp" maxlength="6" placeholder="000000"' +
@@ -88,10 +91,13 @@
         errorDiv.style.display = "none";
         resendBtn.disabled = true;
         resendBtn.textContent = "Sending...";
+        var body = new URLSearchParams();
+        if (action) body.append("action", action);
 
         originalFetch("/api/auth/zero-trust/challenge/", {
           method: "POST",
           headers: { "X-CSRFToken": getCsrf() },
+          body: body,
         })
           .then(function (r) { return r.json(); })
           .then(function (data) {
@@ -171,7 +177,7 @@
     });
   }
 
-  window.ensureZeroTrust = async function () {
+  window.ensureZeroTrust = async function (action) {
     try {
       var resp = await originalFetch("/api/auth/zero-trust/status/", {
         method: "GET",
@@ -180,7 +186,20 @@
       var data = await resp.json();
       if (data.ok && data.verified) return true;
     } catch (e) {
+      console.error("Zero-trust status check failed:", e);
+      var toast = document.getElementById("toastContainer");
+      if (toast) {
+        var t = document.createElement("div");
+        t.className = "custom-toast toast-error";
+        t.innerHTML = '<p style="font-size:0.85rem;font-weight:500;margin:0;">Security check failed. Please try again.</p>';
+        toast.appendChild(t);
+        setTimeout(function () { t.classList.add("show"); }, 10);
+        setTimeout(function () {
+          t.classList.remove("show");
+          setTimeout(function () { t.remove(); }, 300);
+        }, 4000);
+      }
     }
-    return await triggerZeroTrustModal();
+    return await triggerZeroTrustModal(action);
   };
 })();

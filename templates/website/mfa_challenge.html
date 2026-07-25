@@ -197,7 +197,7 @@
               btn.disabled = false;
               btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Resend Code';
               if (data && data.ok) {
-                alert("Verification code resent via email.");
+                showToast("Verification code resent via email.", false);
               } else {
                 showError((data && data.error) || "Failed to resend code.");
               }

@@ -35,15 +35,17 @@
       credentials: "same-origin",
     })
       .then(function (resp) {
-        return resp.json().catch(function () {
+        return resp.json().then(function (data) {
+          if (!resp.ok || (data && !data.ok)) {
+            throw new Error((data && data.error) || "Server error while saving.");
+          }
+          return data;
+        }).catch(function () {
+          if (!resp.ok) {
+            throw new Error("Server error while saving.");
+          }
           return {};
         });
-      })
-      .then(function (data) {
-        if (!resp.ok || (data && !data.ok)) {
-          throw new Error((data && data.error) || "Server error while saving.");
-        }
-        return data;
       });
   }
 
@@ -476,8 +478,7 @@
 
     var aidForm = getEl("aidVerificationForm");
     if (aidForm) {
-      aidForm.onsubmit = handleAidSubmit;
-      aidForm.addEventListener("submit", handleAidSubmit);
+      // Binding handled in auditor_dashboard.js to avoid duplicate POSTs
     }
 
     window.clearAidVerificationSelection = function () {

@@ -1,4 +1,5 @@
 import os
+import threading
 
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -219,8 +220,8 @@ def president_approve_fund_report(request: HttpRequest, report_id: int):
     report.approved_at = timezone.now()
     report.save(update_fields=["report_status", "approved_by_user_id_FK", "approved_at", "updated_at"])
 
-    # Send email to all members with report attached
-    _send_fund_report_email(report)
+    # Send email to all members with report attached in background
+    threading.Thread(target=_send_fund_report_email, args=(report,), daemon=True).start()
 
     return JsonResponse({"ok": True, "status": report.report_status})
 

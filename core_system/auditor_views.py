@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from django.conf import settings
+from django.views.decorators.cache import never_cache
 
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.storage import default_storage
@@ -110,6 +111,7 @@ def _file_upload_to_archive(
     file_hash = ""
     try:
         hasher = hashlib.sha256()
+        uploaded_file.seek(0)
         data = uploaded_file.read()
         hasher.update(data)
         file_hash = hasher.hexdigest()
@@ -153,6 +155,7 @@ def _create_placeholder_archive(
 # ==========================================================================
 # AUDITOR WORKSPACE VIEWS
 # ==========================================================================
+@never_cache
 def auditor_dashboard(request):
     guard = require_role(request, role="Auditor")
     if guard is not None:
@@ -431,18 +434,18 @@ def auditor_pending_aids(request: HttpRequest):
                     "aid_type": "medical_aid",
                     "type": "Medical Aid Request",
                     "request_date": str(m.request_date),
-                    "medical_case": m.document_status or m.policy_record_status or "",
+                    "medical_case": m.reason or m.document_status or m.policy_record_status or "",
                     "requested_amount": str(m.requested_amount),
                     "hospital": m.hospital_name or (member.full_name if member else ""),
                     "hospital_date": str(m.hospital_date) if m.hospital_date else "",
                     "total_hospital_bill": str(m.hospital_bill_amount),
                     "validated_aid_amount": str(m.validated_aid_amount),
-                    "treasurer_validation": m.document_status or m.policy_record_status or "",
+                    "treasurer_validation": m.status or "Pending",
                     "date": str(m.request_date),
                     "reqAmount": str(m.validated_aid_amount or m.requested_amount),
                     "bill": str(m.hospital_bill_amount),
-                    "reason": m.document_status or m.policy_record_status or "",
-                    "validation": m.document_status or m.policy_record_status or "",
+                    "reason": m.reason or m.document_status or m.policy_record_status or "",
+                    "validation": m.status or "Pending",
                     "member": {
                         "member_id": member.member_id_PK,
                         "member_name": member.full_name,
@@ -628,6 +631,7 @@ def auditor_verify_payment(request: HttpRequest):
     if uploaded and getattr(uploaded, "size", 0) > 0:
         import os
         safe_name = os.path.basename(uploaded.name) or "evidence"
+        uploaded.seek(0)
         evidence_file_path = default_storage.save(
             f"auditor_payment_evidence/{timezone.now().strftime('%Y%m%d')}_{safe_name}",
             uploaded,
@@ -680,7 +684,7 @@ def auditor_verify_payment(request: HttpRequest):
         record_id=related_record_id,
         action=audit_action,
         actor=officer,
-        new=snapshot,
+        old=snapshot,
         ip=request.META.get("REMOTE_ADDR"),
         notes=remarks or None,
     )
@@ -740,6 +744,16 @@ def auditor_verify_aid(request: HttpRequest):
 
     entity = None
     if med is not None:
+        # Check if already acted upon
+        tv_check = TransactionVerification.objects.filter(
+            table_name="medical_aid",
+            record_id=med.medical_aid_id_PK,
+        ).first()
+        if tv_check is not None and not is_pending(tv_check.verification_status):
+            return JsonResponse(
+                {"ok": False, "error": "This aid record has already been verified and cannot be re-verified."},
+                status=400,
+            )
         entity_type = "MedicalAid"
         related_record_id = med.medical_aid_id_PK
         canonical_status = Status.AUDITOR_VERIFIED if is_verify else Status.RETURNED_REVISION
@@ -750,6 +764,16 @@ def auditor_verify_aid(request: HttpRequest):
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
 
     elif dth is not None:
+        # Check if already acted upon
+        tv_check = TransactionVerification.objects.filter(
+            table_name="death_aid",
+            record_id=dth.death_aid_id_PK,
+        ).first()
+        if tv_check is not None and not is_pending(tv_check.verification_status):
+            return JsonResponse(
+                {"ok": False, "error": "This aid record has already been verified and cannot be re-verified."},
+                status=400,
+            )
         entity_type = "DeathAid"
         related_record_id = dth.death_aid_id_PK
         canonical_status = Status.AUDITOR_VERIFIED if is_verify else Status.RETURNED_REVISION
@@ -774,12 +798,14 @@ def auditor_verify_aid(request: HttpRequest):
     if uploaded and getattr(uploaded, "size", 0) > 0:
 
         filename = uploaded.name
+        uploaded.seek(0)
         evidence_file_path = default_storage.save(
             f"auditor_aid_evidence/{timezone.now().strftime('%Y%m%d')}_{filename}",
             uploaded,
         )
 
         try:
+            uploaded.seek(0)
             hasher = hashlib.sha256()
             data = uploaded.read()
             hasher.update(data)
@@ -802,6 +828,8 @@ def auditor_verify_aid(request: HttpRequest):
         tv_defaults["returned_by_auditor_id_FK"] = officer
         tv_defaults["returned_reason"] = remarks or ""
 
+    # TODO: update_or_create overwrites previous verification state with no history trail.
+    # Future: implement versioned TransactionVerification records to preserve audit history.
     TransactionVerification.objects.update_or_create(
         table_name=target_table,
         record_id=related_record_id,
@@ -821,7 +849,7 @@ def auditor_verify_aid(request: HttpRequest):
         record_id=related_record_id,
         action=audit_action,
         actor=officer,
-        new=snapshot,
+        old=snapshot,
         ip=request.META.get("REMOTE_ADDR"),
         notes=remarks or None,
     )
@@ -838,18 +866,18 @@ def auditor_pending_membership_fees(request: HttpRequest):
         return guard
 
     all_fees = MembershipFee.objects.select_related("member_id_FK", "recorded_by_user_id_FK").all()
+    fee_ids = [f.fee_id_PK for f in all_fees]
+    tv_map = {
+        tv.record_id: tv
+        for tv in TransactionVerification.objects.filter(
+            table_name="membership_fee",
+            record_id__in=fee_ids,
+        )
+    }
     items: List[Dict[str, Any]] = []
-    tv_cache: Dict[int, TransactionVerification] = {}
 
     for f in all_fees:
-        tv = tv_cache.get(f.fee_id_PK)
-        if tv is None:
-            tv = TransactionVerification.objects.filter(
-                table_name="membership_fee",
-                record_id=f.fee_id_PK,
-            ).first()
-            if tv:
-                tv_cache[f.fee_id_PK] = tv
+        tv = tv_map.get(f.fee_id_PK)
 
         verification_status = tv.verification_status if tv else None
 
@@ -881,6 +909,9 @@ def auditor_pending_membership_fees(request: HttpRequest):
 @require_POST
 @transaction.atomic
 def auditor_verify_membership_fee(request: HttpRequest):
+    # Workaround: auditor_verify_payment reads request.POST internally,
+    # so we inject mapped keys via a mutable copy instead of refactoring
+    # the callee to accept a separate data parameter.
     data = request.POST.copy()
     for mf_key, p_key in [("mfAuditID", "pAuditID"), ("mfAuditRemarks", "pAuditRemarks"),
                           ("mfAuditFieldRemarks", "pAuditFieldRemarks"), ("mfAuditResult", "pAuditResult")]:

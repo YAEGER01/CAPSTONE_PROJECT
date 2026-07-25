@@ -334,3 +334,299 @@ html {
   font-style: italic;
   text-align: center;
 }
+
+/* ==========================================================================
+   INFO PANEL — Floating "i" Help Button & Slide-Up Drawer
+   ========================================================================== */
+
+/* Floating Action Button */
+.info-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #1b5e20;
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 16px rgba(27, 94, 32, 0.35);
+  cursor: pointer;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.info-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(27, 94, 32, 0.5);
+}
+
+.info-fab:active {
+  transform: scale(0.95);
+}
+
+/* Overlay backdrop */
+.info-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1055;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.info-panel-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Slide-up panel */
+.info-panel {
+  position: fixed;
+  bottom: 0;
+  right: 20px;
+  z-index: 1060;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  max-height: 70vh;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.info-panel.open {
+  transform: translateY(0);
+}
+
+/* Content wrapper (fills flex height so body scrolls) */
+#infoPanelContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Panel header */
+.info-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #e8f0e8;
+  flex-shrink: 0;
+}
+
+.info-panel-header-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1b5e20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-panel-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #f0f7f0;
+  color: #546e7a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  transition: background 0.2s;
+}
+
+.info-panel-close:hover {
+  background: #e0f0e0;
+  color: #1b5e20;
+}
+
+/* Scrollable body */
+.info-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 24px 24px;
+}
+
+/* Section headers within the panel */
+.info-section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #78909c;
+  margin: 20px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e8f0e8;
+}
+
+.info-section-title:first-child {
+  margin-top: 0;
+}
+
+/* Accordion topic */
+.info-topic {
+  border: 1px solid #e8f0e8;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.info-topic:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.info-topic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #263238;
+  background: #fafffa;
+  transition: background 0.2s;
+  gap: 12px;
+}
+
+.info-topic-header:hover {
+  background: #f0f9f0;
+}
+
+.info-topic-header-icon {
+  font-size: 0.75rem;
+  color: #90a4ae;
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.info-topic.open .info-topic-header-icon {
+  transform: rotate(180deg);
+}
+
+.info-topic-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #455a64;
+}
+
+.info-topic.open .info-topic-content {
+  max-height: 800px;
+  padding: 4px 16px 14px;
+}
+
+.info-topic-content p {
+  margin: 6px 0;
+}
+
+.info-topic-content ol {
+  margin: 4px 0 10px;
+  padding-left: 24px;
+}
+
+.info-topic-content ul {
+  margin: 4px 0 10px 16px;
+  padding: 0;
+}
+
+.info-topic-content li {
+  margin-bottom: 6px;
+  line-height: 1.55;
+}
+
+.info-topic-content code {
+  background: #f0f7f0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #1b5e20;
+}
+
+.info-topic-content strong:first-child {
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.info-role-tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 10px;
+  border-radius: 4px;
+  margin: 8px 0 4px;
+}
+
+.info-role-tag.treasurer {
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+.info-role-tag.auditor {
+  background: #fce4ec;
+  color: #880e4f;
+}
+
+.info-role-tag.president {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.info-role-tag.arrow {
+  background: transparent;
+  color: #78909c;
+  padding: 2px 4px;
+  font-size: 0.85rem;
+}
+
+/* Drag handle visual cue */
+.info-panel-handle {
+  width: 40px;
+  height: 4px;
+  background: #cfdccc;
+  border-radius: 2px;
+  margin: 10px auto 0;
+  flex-shrink: 0;
+}
+
+/* Responsive: full-screen on small devices */
+@media (max-width: 600px) {
+  .info-panel {
+    max-height: 85vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .info-panel-body {
+    padding: 12px 16px 20px;
+  }
+
+  .info-fab {
+    bottom: 18px;
+    right: 18px;
+    width: 48px;
+    height: 48px;
+    font-size: 1.3rem;
+  }
+}

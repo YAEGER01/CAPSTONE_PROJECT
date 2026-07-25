@@ -3,59 +3,83 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CAUFA MFA Verification</title>
+  <title>CAUFA Verification Code</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f4f4f4; font-family:'Segoe UI',Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4; padding:20px;">
+<body style="margin:0; padding:0; background-color:#eef7ef; font-family:'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef7ef; padding:20px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+          <!-- Header -->
           <tr>
-            <td style="background-color:#1b5e20; text-align:center; padding:30px 20px 20px;">
-              <img src="cid:logo_cid" alt="ISU CAUFA" width="120" style="display:block; margin:0 auto 10px;" />
-              <h1 style="color:#ffffff; font-size:24px; margin:10px 0 0; font-weight:600;">
-                Two-Factor Authentication
+            <td style="background:linear-gradient(135deg,#1b5e20,#2e7d32); text-align:center; padding:24px 20px 14px;">
+              <img src="cid:logo_cid" alt="ISU CAUFA" width="100" style="display:block; margin:0 auto 8px;" />
+              <h1 style="color:#ffffff; font-size:20px; margin:0; font-weight:600; letter-spacing:0.5px;">
+                Verification Required
               </h1>
             </td>
           </tr>
+          <!-- Body -->
           <tr>
-            <td style="padding:30px 30px 20px; color:#333333;">
-              <p style="font-size:16px; line-height:1.6; margin:0 0 20px;">
-                Dear <strong>{{ full_name }}</strong>,
-              </p>
-              <p style="font-size:16px; line-height:1.6; margin:0 0 20px;">
-                Use the following verification code to complete your login to the
-                <strong>CAUFA System Portal</strong>.
+            <td style="padding:28px 30px 18px; color:#333333;">
+              <p style="font-size:15px; line-height:1.6; margin:0 0 8px;">
+                Hi <strong style="color:#1b5e20;">{{ full_name }}</strong>,
               </p>
 
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+              {% if action %}
+              <p style="font-size:15px; line-height:1.6; margin:0 0 16px;">
+                Is this you trying to authorize <strong style="color:#1b5e20;">{{ action }}</strong>?
+              </p>
+              <p style="font-size:14px; line-height:1.5; margin:0 0 18px; color:#555;">
+                To continue, enter the verification code below on the confirmation screen.
+              </p>
+              {% else %}
+              <p style="font-size:15px; line-height:1.6; margin:0 0 16px;">
+                Use the verification code below to complete your login to the
+                <strong>CAUFA System Portal</strong>.
+              </p>
+              {% endif %}
+
+              <!-- OTP Display -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;">
                 <tr>
-                  <td align="center">
-                    <span style="display:inline-block; background-color:#f8f9fa; border:2px dashed #1b5e20; border-radius:8px; padding:20px 40px; font-size:32px; font-weight:700; letter-spacing:8px; color:#1b5e20;">
-                      {{ otp_code }}
-                    </span>
+                  <td align="center" style="padding:6px 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" style="background:#f5faf5; border:2px dashed #4caf50; border-radius:10px;">
+                      <tr>
+                        <td style="padding:18px 44px; text-align:center;">
+                          <span style="font-size:34px; font-weight:700; letter-spacing:10px; color:#1b5e20; font-family:'Courier New',monospace;">
+                            {{ otp_code }}
+                          </span>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
 
-              <p style="font-size:14px; line-height:1.6; margin:0 0 20px; color:#666666;">
-                This code will expire in <strong>{{ expiry_minutes }} minutes</strong>. If you did not request this code,
-                please ignore this email or contact the system administrator.
+              <p style="font-size:13px; line-height:1.5; margin:0 0 14px; color:#888;">
+                This code expires in <strong style="color:#e65100;">{{ expiry_minutes }} minutes</strong>.
+                If you didn't request this, you can safely ignore this email.
               </p>
 
-              <p style="font-size:14px; line-height:1.6; margin:0 0 20px; color:#666666; border-top:1px solid #eeeeee; padding-top:20px;">
-                For security reasons, never share this code with anyone.
+              <p style="font-size:12px; line-height:1.5; margin:0; color:#aaa; border-top:1px solid #e8f0e8; padding-top:14px;">
+                Never share this code with anyone. CAUFA will never ask for your code outside of the official portal.
               </p>
             </td>
           </tr>
+          <!-- Footer -->
           <tr>
-            <td style="background-color:#1b5e20; text-align:center; padding:15px 20px;">
-              <p style="color:#ffffff; font-size:12px; margin:0;">
-                &copy; {% now "Y" %} ISU CAUFA &mdash; Isabela State University &bull; Cauayan City, Philippines
+            <td style="background:#1b5e20; text-align:center; padding:14px 20px;">
+              <p style="color:#a5d6a7; font-size:11px; margin:0;">
+                &copy; {% now "Y" %} ISU CAUFA &mdash; Isabela State University, Cauayan City
               </p>
             </td>
           </tr>
         </table>
+        <!-- Spacer note -->
+        <p style="font-size:11px; color:#999; margin:14px 0 0;">
+          This is an automated message from the CAUFA System Portal.
+        </p>
       </td>
     </tr>
   </table>

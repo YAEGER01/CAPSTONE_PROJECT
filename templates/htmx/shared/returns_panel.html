@@ -1,0 +1,80 @@
+<div id="sharedReturnsPanel" data-role="{{ officer_role|lower }}" data-officer="{{ officer_full_name }}">
+  <div class="dashboard-panel">
+    <div class="panel-header-row">
+      <h3 class="panel-title">Returns & Revisions</h3>
+      <div class="header-actions">
+        <span id="returnsTotalBadge" class="badge-zero badge-red" style="display:none;">0 items</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;" id="returnsFilterTabs">
+      <button type="button" class="btn-brand btn-brand-primary" data-tab="all" style="padding:4px 12px;font-size:0.78rem;">All</button>
+      <button type="button" class="btn-brand" data-tab="membership_fee" style="padding:4px 12px;font-size:0.78rem;opacity:0.7;">Fee</button>
+      <button type="button" class="btn-brand" data-tab="monthly_dues" style="padding:4px 12px;font-size:0.78rem;opacity:0.7;">Dues</button>
+      <button type="button" class="btn-brand" data-tab="medical_aid" style="padding:4px 12px;font-size:0.78rem;opacity:0.7;">Medical</button>
+      <button type="button" class="btn-brand" data-tab="death_aid" style="padding:4px 12px;font-size:0.78rem;opacity:0.7;">Death</button>
+    </div>
+
+    <div class="table-container" style="margin-bottom:16px;">
+      <table class="custom-table" id="returnsTable">
+        <thead>
+          <tr>
+            <th style="width:60px;">Status</th>
+            <th>Type</th>
+            <th>Member</th>
+            <th>Period</th>
+            <th>Amount</th>
+            <th style="width:50px;">#</th>
+            <th style="width:80px;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="returnsTableBody">
+          <tr><td colspan="7" style="text-align:center;color:#757575;padding:30px;">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="returnsDetailsPanel" style="display:none;border-top:2px solid #e8f0e8;padding-top:16px;">
+      <div class="panel-header-row">
+        <h3 class="panel-title" id="returnsDetailTitle">Details</h3>
+        <button type="button" class="btn-brand btn-brand-secondary" onclick="window.closeReturnsDetail()" style="padding:4px 10px;font-size:0.75rem;">Close</button>
+      </div>
+
+      <div id="returnsRejectionBanner" style="display:none;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:0.85rem;"></div>
+
+      <div id="returnsDetailFields" class="form-grid-2"></div>
+
+      <div id="returnsDetailProof" style="margin-top:12px;display:none;">
+        <label style="font-weight:600;font-size:0.8rem;color:#1b5e20;display:block;margin-bottom:4px;">Attached Proof</label>
+        <a id="returnsProofLink" href="#" target="_blank" style="font-size:0.85rem;">View document</a>
+      </div>
+
+      <div id="returnsAuditorRemarks" style="margin-top:12px;display:none;padding:10px 14px;background:#f5f5f5;border-radius:8px;">
+        <label style="font-weight:600;font-size:0.8rem;color:#1b5e20;display:block;margin-bottom:4px;">Auditor Remarks</label>
+        <p id="returnsAuditorRemarksText" style="font-size:0.85rem;color:#37474f;margin:0;"></p>
+      </div>
+
+      <div id="returnsResubmitSection" style="display:none;margin-top:16px;" data-role-guard="treasurer">
+        <form id="returnsResubmitForm" onsubmit="return window.submitReturnCorrection(event)">
+          <input type="hidden" id="r_tv_id" />
+          <input type="hidden" id="r_table_name" />
+          <input type="hidden" id="r_record_id" />
+          <div id="returnsEditableFields" class="form-grid-2"></div>
+          <div id="returnsFileUpload" style="margin-top:12px;">
+            <div class="photo-upload-slot" onclick="document.getElementById('r_file_input').click()">
+              <input type="file" id="r_file_input" accept="image/*,.pdf" style="display:none" />
+              <p><i class="fa-solid fa-upload"></i> Upload new proof (optional)</p>
+              <div class="upload-preview-indicator" id="r_file_preview" style="display:none;">File selected</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+            <button type="button" class="btn-brand btn-brand-secondary" onclick="window.closeReturnsDetail()" style="padding:6px 16px;font-size:0.82rem;">Cancel</button>
+            <button type="submit" class="btn-brand btn-brand-primary" id="r_submit_btn" style="padding:6px 16px;font-size:0.82rem;">Resubmit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'js/shared/returns_panel.js' %}"></script>

@@ -2,6 +2,7 @@
   "use strict";
 
   const BULK_COUNT = 5;
+  let bulkSubmitting = false;
 
   const RANK_OPTIONS = `
     <option value="">-- Select Academic Rank --</option>
@@ -148,6 +149,8 @@
 
   async function handleBulkSubmit(e) {
     e.preventDefault();
+    if (bulkSubmitting) return;
+    bulkSubmitting = true;
     const form = e.currentTarget;
     const btn = form.querySelector('button[type="submit"]');
     const originalBtnText = btn.innerHTML;
@@ -162,6 +165,7 @@
         document.getElementById(`bulk_email_${i}`).value || ""
       ).trim();
       if (email && !email.includes("@")) {
+        bulkSubmitting = false;
         return showToast(
           `Member ${i + 1}: Institutional Email looks invalid.`,
           true,
@@ -185,6 +189,7 @@
     }
 
     if (entries.length === 0) {
+      bulkSubmitting = false;
       return showToast(
         "Please fill in at least one member's Full Legal Name.",
         true,
@@ -244,14 +249,16 @@
         });
       }
     } catch (err) {
-      btn.disabled = false;
-      btn.innerHTML = originalBtnText;
       Swal.fire({
         title: "Error",
         text: "Network/server error while enrolling members.",
         icon: "error",
         confirmButtonColor: "#e53935",
       });
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnText;
+      bulkSubmitting = false;
     }
   }
 
