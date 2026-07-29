@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Release Completed</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f4f4; font-family:'Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4; padding:20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background-color:#1b5e20; text-align:center; padding:30px 20px 20px;">
+              <h1 style="color:#ffffff; font-size:22px; margin:10px 0 0; font-weight:600;">
+                Release Completed
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:30px 30px 20px; color:#333333;">
+              <table role="presentation" width="100%" cellpadding="6" cellspacing="0">
+                <tr><td style="font-weight:600; color:#555555; width:140px;">Aid Type</td><td>{{ aid_type }}</td></tr>
+                <tr><td style="font-weight:600; color:#555555;">Member</td><td>{{ member_name }}</td></tr>
+                <tr><td style="font-weight:600; color:#555555;">Total Collected</td><td>&#x20B1;{{ total_collected }}</td></tr>
+                <tr><td style="font-weight:600; color:#555555;">Members Paid</td><td>{{ paid_count }} out of {{ total_count }}</td></tr>
+                <tr><td style="font-weight:600; color:#555555;">Skipped</td><td>{{ skipped_count }}</td></tr>
+                <tr><td style="font-weight:600; color:#555555;">Released by</td><td>{{ released_by }}</td></tr>
+                <tr><td style="font-weight:600; color:#555555;">Released at</td><td>{{ released_at }}</td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

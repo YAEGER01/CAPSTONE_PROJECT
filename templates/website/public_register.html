@@ -1,0 +1,555 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CAUFA | Register</title>
+    <link rel="icon" type="image/png" href="{% static 'img/isu_caufa_official.png' %}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" />
+    <link rel="stylesheet" href="{% static 'css/login.css' %}" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body>
+    <a href="{% url 'home' %}" class="sticky-back-home">
+      <i class="fa-solid fa-arrow-left"></i> Back to Home
+    </a>
+
+    <section class="login-shell">
+      <div class="brand">
+        <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA logo" />
+        <div>
+          <strong>CAUFA</strong>
+          <span>Membership Registration!</span>
+        </div>
+      </div>
+
+      <div class="account-helper">
+        Already have an account? <a href="{% url 'login' %}">Login</a>
+      </div>
+
+      <form id="registrationForm" enctype="multipart/form-data" autocomplete="off">
+        {% csrf_token %}
+        <div id="formStatus" class="error-note" style="display:none;margin-bottom:8px;"></div>
+
+        <div class="split-row">
+          <div>
+            <label for="first_name">First Name</label>
+            <div class="input-wrap">
+              <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
+              <input type="text" id="first_name" name="first_name" placeholder="First name as shown on ID" required />
+            </div>
+          </div>
+          <div>
+            <label for="middle_initial">Middle Initial</label>
+            <div class="input-wrap">
+              <i class="fa-regular fa-id-badge field-icon" aria-hidden="true"></i>
+              <input type="text" id="middle_initial" name="middle_initial" placeholder="M" maxlength="1" />
+            </div>
+          </div>
+          <div>
+            <label for="last_name">Last Name</label>
+            <div class="input-wrap">
+              <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
+              <input type="text" id="last_name" name="last_name" placeholder="Last name as shown on ID" required />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label for="username">Username</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-user-gear field-icon" aria-hidden="true"></i>
+            <input type="text" id="username" name="username" placeholder="Faculty ID or chosen username" required autocomplete="username" />
+          </div>
+          <p class="field-note field-status" id="usernameAvailability" style="display:none;"></p>
+        </div>
+
+        <div>
+          <label for="email">Email Address</label>
+          <div class="input-wrap">
+            <i class="fa-regular fa-envelope field-icon" aria-hidden="true"></i>
+            <input type="email" id="email" name="email" placeholder="name@example.com" required autocomplete="email" />
+          </div>
+          <p class="field-note field-status" id="emailAvailability" style="display:none;"></p>
+        </div>
+
+        <div>
+          <label for="department">Department</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-building field-icon" aria-hidden="true"></i>
+            <select id="department" name="department" required>
+              <option value="">Select department</option>
+              <option value="IAT">IAT</option>
+              <option value="CCJE">CCJE</option>
+              <option value="CCSICT">CCSICT</option>
+              <option value="PS">PS</option>
+              <option value="SAS">SAS</option>
+              <option value="CBM">CBM</option>
+              <option value="CED">CED</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label for="position">Position / Rank</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-briefcase field-icon" aria-hidden="true"></i>
+            <input type="text" id="position" name="position" placeholder="e.g. Assistant Professor" />
+          </div>
+        </div>
+
+        <div>
+          <label for="password">Password</label>
+          <div class="input-wrap password-wrap">
+            <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+            <input type="password" id="password" name="password" placeholder="Choose a strong password" required autocomplete="new-password" />
+            <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password">
+              <i class="fa-regular fa-eye" id="passwordToggleIcon" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="strength-meter" aria-hidden="true">
+            <div class="strength-bar" id="passwordStrengthBar"></div>
+          </div>
+          <p class="field-note" id="passwordStrengthLabel">Password strength: <span>Weak</span></p>
+          <div class="password-rules">
+            <p>Password must include:</p>
+            <ul>
+              <li id="ruleLength">At least 8 characters</li>
+              <li id="ruleLower">A lowercase letter</li>
+              <li id="ruleUpper">An uppercase letter</li>
+              <li id="ruleNumber">A number</li>
+              <li id="ruleSpecial">A special character</li>
+            </ul>
+          </div>
+        </div>
+
+        <div>
+          <label for="confirm_password">Confirm Password</label>
+          <div class="input-wrap password-wrap">
+            <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+            <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required autocomplete="new-password" />
+            <button class="password-toggle" type="button" id="confirmPasswordToggle" aria-label="Show password">
+              <i class="fa-regular fa-eye" id="confirmPasswordToggleIcon" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p class="field-note field-error" id="confirmPasswordError" style="display:none;">Passwords do not match.</p>
+        </div>
+
+        <div>
+          <label for="membership_category">Membership Type</label>
+          <div class="input-wrap">
+            <select id="membership_category" name="membership_category">
+              <option value="Permanent" selected>Permanent</option>
+              <option value="Temporary">Temporary</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label for="amount">Amount Paid (₱)</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-money-bill field-icon" aria-hidden="true"></i>
+            <input type="number" step="0.01" id="amount" name="amount" value="{{ membership_fee_amount|default:'500.00' }}" required />
+          </div>
+        </div>
+
+        <div>
+          <label for="payment_method">Payment Method</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-credit-card field-icon" aria-hidden="true"></i>
+            <select id="payment_method" name="payment_method" required>
+              <option value="">Select method</option>
+              <option value="OTC Cash">OTC Cash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+            </select>
+          </div>
+        </div>
+
+
+        <div>
+          <label for="payment_date">Payment Date</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-calendar-days field-icon" aria-hidden="true"></i>
+            <input type="date" id="payment_date" name="payment_date" />
+          </div>
+        </div>
+
+        <div>
+          <label for="proof_file">Upload Proof</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-paperclip field-icon" aria-hidden="true"></i>
+            <input type="file" id="proof_file" name="proof_file" accept="image/*,.pdf,.docx" />
+          </div>
+        </div>
+
+        <div>
+          <label for="notes">Additional Notes</label>
+          <div class="input-wrap textarea-wrap">
+            <i class="fa-regular fa-comments field-icon" aria-hidden="true"></i>
+            <textarea id="notes" name="notes" placeholder="Optional: additional details or notes"></textarea>
+          </div>
+        </div>
+
+        <button class="submit-btn" id="registrationSubmit" type="submit">
+          Submit Registration Request
+        </button>
+      </form>
+
+      <div id="mobileProgressContainer" class="mobile-progress-container" aria-hidden="true">
+        <div class="mobile-progress-label">
+          <span>Form completion</span>
+          <span id="mobileProgressPercent">0%</span>
+        </div>
+        <div class="mobile-progress-track">
+          <div id="mobileProgressFill" class="mobile-progress-fill"></div>
+        </div>
+      </div>
+
+      <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="Go to top">
+        <i class="fa-solid fa-arrow-up"></i>
+      </button>
+    </section>
+
+    <script>
+      const registrationForm = document.getElementById("registrationForm");
+      const usernameInput = document.getElementById("username");
+      const emailInput = document.getElementById("email");
+      const passwordInput = document.getElementById("password");
+      const confirmPasswordInput = document.getElementById("confirm_password");
+      const passwordToggle = document.getElementById("passwordToggle");
+      const passwordToggleIcon = document.getElementById("passwordToggleIcon");
+      const confirmPasswordToggle = document.getElementById("confirmPasswordToggle");
+      const confirmPasswordToggleIcon = document.getElementById("confirmPasswordToggleIcon");
+      const passwordStrengthBar = document.getElementById("passwordStrengthBar");
+      const passwordStrengthLabel = document.getElementById("passwordStrengthLabel");
+      const confirmPasswordError = document.getElementById("confirmPasswordError");
+      const usernameAvailability = document.getElementById("usernameAvailability");
+      const emailAvailability = document.getElementById("emailAvailability");
+      const formStatus = document.getElementById("formStatus");
+      const submitButton = document.getElementById("registrationSubmit");
+      const mobileProgressFill = document.getElementById("mobileProgressFill");
+      const mobileProgressPercent = document.getElementById("mobileProgressPercent");
+      const scrollTopButton = document.getElementById("scrollTopButton");
+      const progressFields = [
+        "first_name",
+        "last_name",
+        "username",
+        "email",
+        "department",
+        "password",
+        "confirm_password",
+        "amount",
+        "payment_method",
+        "payment_date",
+        "proof_file",
+      ];
+
+      function getCSRFToken() {
+        const cookieValue = document.cookie
+          .split(";")
+          .map((cookie) => cookie.trim())
+          .find((cookie) => cookie.startsWith("csrftoken="));
+        return cookieValue ? decodeURIComponent(cookieValue.split("=")[1]) : document.querySelector('[name=csrfmiddlewaretoken]')?.value || null;
+      }
+
+      function debounce(fn, delay) {
+        let timer;
+        return function (...args) {
+          clearTimeout(timer);
+          timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+      }
+
+      function togglePasswordVisibility(input, icon, button) {
+        if (!input || !icon || !button) return;
+        const isVisible = input.type === "text";
+        input.type = isVisible ? "password" : "text";
+        icon.className = isVisible ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
+        button.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
+      }
+
+      if (passwordToggle) {
+        passwordToggle.addEventListener("click", function () {
+          togglePasswordVisibility(passwordInput, passwordToggleIcon, passwordToggle);
+        });
+      }
+
+      if (confirmPasswordToggle) {
+        confirmPasswordToggle.addEventListener("click", function () {
+          togglePasswordVisibility(confirmPasswordInput, confirmPasswordToggleIcon, confirmPasswordToggle);
+        });
+      }
+
+      function setFieldStatus(element, available, message) {
+        if (!element) return;
+        element.style.display = "block";
+        element.className = available ? "field-note field-success" : "field-note field-error";
+        element.textContent = message;
+      }
+
+      function isValidEmail(value) {
+        const emailValue = value.trim();
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailPattern.test(emailValue);
+      }
+
+      async function checkAvailability(field, value, statusElement) {
+        if (!value) {
+          if (statusElement) {
+            statusElement.style.display = "none";
+          }
+          return false;
+        }
+        if (value.length < 3) {
+          if (statusElement) {
+            setFieldStatus(statusElement, false, field === "email"
+              ? "Please enter a valid email address before checking availability."
+              : "Username must be at least 3 characters long.");
+          }
+          return false;
+        }
+
+        if (field === "email" && !isValidEmail(value)) {
+          if (statusElement) {
+            setFieldStatus(statusElement, false, "Please enter a valid email address, e.g. user@gmail.com.");
+          }
+          return false;
+        }
+
+        const url = new URL("{% url 'public_registration_field_availability' %}", window.location.origin);
+        url.searchParams.set("field", field);
+        url.searchParams.set("value", value);
+
+        try {
+          const response = await fetch(url.toString(), {
+            method: "GET",
+            credentials: "same-origin",
+          });
+          const data = await response.json();
+          if (!data.ok) {
+            setFieldStatus(statusElement, false, data.error || "Validation failed.");
+            return false;
+          }
+          if (data.available) {
+            setFieldStatus(statusElement, true, `${field.charAt(0).toUpperCase() + field.slice(1)} is available.`);
+            return true;
+          }
+          setFieldStatus(statusElement, false, `${field.charAt(0).toUpperCase() + field.slice(1)} is already taken.`);
+          return false;
+        } catch (err) {
+          setFieldStatus(statusElement, false, "Unable to verify availability.");
+          return false;
+        }
+      }
+
+      const debouncedUsernameCheck = debounce(() => checkAvailability("username", usernameInput.value.trim(), usernameAvailability), 400);
+      const debouncedEmailCheck = debounce(() => checkAvailability("email", emailInput.value.trim(), emailAvailability), 400);
+
+      function updatePasswordStrength() {
+        const value = passwordInput.value;
+        const rules = [/.{8,}/, /[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/];
+        const passed = rules.reduce((count, rule) => count + (rule.test(value) ? 1 : 0), 0);
+        const percent = (passed / rules.length) * 100;
+        const labels = ["Very weak", "Weak", "Fair", "Good", "Strong"];
+        const labelIndex = Math.min(passed, labels.length - 1);
+        passwordStrengthBar.style.width = `${percent}%`;
+        passwordStrengthBar.className = `strength-bar strength-${passed}`;
+        const labelSpan = passwordStrengthLabel.querySelector("span");
+        if (labelSpan) {
+          labelSpan.textContent = labels[labelIndex];
+        }
+      }
+
+      function validateConfirmPassword() {
+        const matched = passwordInput.value === confirmPasswordInput.value;
+        if (!confirmPasswordInput.value) {
+          confirmPasswordError.style.display = "none";
+          return true;
+        }
+        confirmPasswordError.style.display = matched ? "none" : "block";
+        return matched;
+      }
+
+      function showFormMessage(message, isError = true) {
+        if (!formStatus) return;
+        formStatus.style.display = "block";
+        formStatus.className = isError ? "error-note" : "success-note";
+        formStatus.textContent = message;
+      }
+
+      function updateFormProgress() {
+        const filled = progressFields.reduce((count, fieldId) => {
+          const field = document.getElementById(fieldId);
+          if (!field) return count;
+          if (field.type === "file") {
+            return count + (field.files && field.files.length > 0 ? 1 : 0);
+          }
+          const value = field.value ? field.value.toString().trim() : "";
+          return count + (value ? 1 : 0);
+        }, 0);
+        const percent = Math.round((filled / progressFields.length) * 100);
+        if (mobileProgressFill) {
+          mobileProgressFill.style.width = `${percent}%`;
+        }
+        if (mobileProgressPercent) {
+          mobileProgressPercent.textContent = `${percent}%`;
+        }
+      }
+
+      function updateScrollTopButton() {
+        if (!scrollTopButton) return;
+        const isMobile = window.matchMedia("(max-width: 900px)").matches;
+        const shouldShow = isMobile && window.scrollY > 250;
+        scrollTopButton.classList.toggle("visible", shouldShow);
+      }
+
+      if (usernameInput) usernameInput.addEventListener("input", () => { debouncedUsernameCheck(); updateFormProgress(); });
+      if (emailInput) emailInput.addEventListener("input", () => {
+        if (!isValidEmail(emailInput.value)) {
+          setFieldStatus(emailAvailability, false, "Please enter a valid email address, e.g. user@gmail.com.");
+        } else {
+          debouncedEmailCheck();
+        }
+        updateFormProgress();
+      });
+      if (passwordInput) passwordInput.addEventListener("input", () => { updatePasswordStrength(); validateConfirmPassword(); updateFormProgress(); });
+      if (confirmPasswordInput) confirmPasswordInput.addEventListener("input", () => { validateConfirmPassword(); updateFormProgress(); });
+
+      progressFields.forEach((fieldId) => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          field.addEventListener("change", updateFormProgress);
+          field.addEventListener("input", updateFormProgress);
+        }
+      });
+
+      if (scrollTopButton) {
+        scrollTopButton.addEventListener("click", () => {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      }
+
+      window.addEventListener("scroll", updateScrollTopButton);
+      updateFormProgress();
+      updateScrollTopButton();
+
+      registrationForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        const result = await Swal.fire({
+          title: "Submit registration?",
+          text: "Please confirm that your details are correct before submitting.",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Yes, submit",
+          cancelButtonText: "Review again",
+          reverseButtons: true,
+        });
+
+        if (!result.isConfirmed) {
+          return;
+        }
+
+        if (formStatus) { formStatus.style.display = "none"; formStatus.textContent = ""; }
+
+        const requiredFields = [
+          { id: "first_name", label: "First Name" },
+          { id: "last_name", label: "Last Name" },
+          { id: "username", label: "Username" },
+          { id: "email", label: "Email Address" },
+          { id: "department", label: "Department" },
+          { id: "password", label: "Password" },
+          { id: "confirm_password", label: "Confirm Password" },
+          { id: "amount", label: "Amount Paid" },
+          { id: "payment_method", label: "Payment Method" },
+        ];
+
+        for (const field of requiredFields) {
+          const el = document.getElementById(field.id);
+          if (!el || !el.value.trim()) {
+            showFormMessage(`${field.label} is required.`);
+            return;
+          }
+        }
+
+        const usernameValid = await checkAvailability("username", usernameInput.value.trim(), usernameAvailability);
+        const emailValid = await checkAvailability("email", emailInput.value.trim(), emailAvailability);
+        if (!usernameValid || !emailValid) {
+          showFormMessage("Please choose a unique username and valid email before submitting.");
+          return;
+        }
+
+        if (!validateConfirmPassword()) {
+          showFormMessage("Passwords do not match.");
+          return;
+        }
+
+        const passwordRules = [/.{8,}/, /[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/];
+        const passwordOkay = passwordRules.every((rule) => rule.test(passwordInput.value));
+        if (!passwordOkay) {
+          showFormMessage("Password does not meet the required complexity rules.");
+          return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Submitting...';
+
+        if (!isValidEmail(emailInput.value)) {
+          showFormMessage("Please enter a valid email address before submitting.");
+          return;
+        }
+        const formData = new FormData(this);
+        const fileInput = document.getElementById("proof_file");
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+          formData.set("proof_file", fileInput.files[0]);
+        }
+
+        try {
+          const response = await fetch("{% url 'public_submit_registration_request' %}", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": getCSRFToken() },
+            body: formData,
+          });
+          const data = await response.json();
+          if (!data.ok) {
+            const message = data.error || "Registration could not be submitted right now. Please try again later.";
+            await Swal.fire({
+              title: "Submission failed",
+              text: message,
+              icon: "error",
+              confirmButtonText: "OK",
+            });
+            return;
+          }
+          await Swal.fire({
+            title: "Registration Successful!",
+            html: `Thank you for submitting your membership application. Your request is now under review by the Treasurer.<br><br>A confirmation email will be sent to you shortly with next steps.`,
+            icon: "success",
+            confirmButtonText: "OK",
+          });
+          registrationForm.reset();
+          passwordStrengthBar.style.width = "0%";
+          passwordStrengthLabel.querySelector("span").textContent = "Weak";
+          usernameAvailability.style.display = "none";
+          emailAvailability.style.display = "none";
+        } catch (err) {
+          await Swal.fire({
+            title: "Submission error",
+            text: "Unable to submit your registration request at this time.",
+            icon: "error",
+            confirmButtonText: "Try again",
+          });
+        } finally {
+          submitButton.disabled = false;
+          submitButton.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Registration Request';
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1520 @@
+  <!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>ISU-CAUFA</title>
+
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="{% static 'img/isu_caufa_official.png' %}?v=2"
+    />
+    <link
+      rel="shortcut icon"
+      type="image/png"
+      href="{% static 'img/isu_caufa_official.png' %}?v=2"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="{% static 'img/isu_caufa_official.png' %}?v=2"
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Poppins", sans-serif;
+      }
+    
+      body {
+        background: 
+          radial-gradient(circle at 10% 20%, rgba(46, 125, 50, 0.15) 0%, transparent 40%),
+          radial-gradient(circle at 90% 10%, rgba(118, 115, 109, 0.2) 0%, transparent 35%),
+          radial-gradient(circle at 50% 80%, rgba(27, 94, 32, 0.12) 0%, transparent 50%),
+          #f4faf4;
+        background-attachment: scroll;
+        color: #1a2327;
+      }
+    
+      html {
+        scroll-behavior: smooth;
+      }
+    
+      /* --- Vibrant Glass Navigation --- */
+      nav {
+        width: 100%;
+        background: rgba(12, 60, 15, 0.92);
+        backdrop-filter: blur(10px) saturate(140%);
+        -webkit-backdrop-filter: blur(10px) saturate(140%);
+        padding: 18px 8%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 16px 0 rgba(12, 60, 15, 0.15);
+      }
+    
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: white;
+        font-weight: 700;
+        font-size: 20px;
+      }
+    
+      .logo-mark {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.15;
+      }
+    
+      .logo-mark strong {
+        font-size: 24px;
+        letter-spacing: 1px;
+        background: none;
+        -webkit-text-fill-color: initial;
+        color: #ffffff;
+      }
+    
+    
+      .logo-mark span {
+        font-size: 14px;
+        font-weight: 500;
+        color: #c8e6c9;
+        margin-top: 4px;
+      }
+    
+      .logo img {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(10px);
+        padding: 3px;
+        border: none;
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+      }
+
+    
+      .nav-links {
+        display: flex;
+        gap: 30px;
+      }
+    
+      .nav-links a {
+        color: rgba(255, 255, 255, 0.9);
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: 1px solid transparent;
+      }
+    
+      .nav-links a:hover {
+        color: #fbc02d;
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.15);
+        text-shadow: 0 0 10px rgba(251, 192, 45, 0.3);
+      }
+
+    
+      /* --- Cinematic High-Vibrancy Hero Section --- */
+      .hero-shell {
+        position: relative;
+        overflow: hidden;
+      }
+    
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 56px 8%;
+
+        /* Added deep color overlays over the background image to let the foreground burst with contrast */
+        background:
+          linear-gradient(135deg, rgba(12, 60, 15, 0.85), rgba(46, 125, 50, 0.75)),
+          url("https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=1400&auto=format&fit=crop");
+        background-position: center;
+        background-size: cover;
+        background-attachment: scroll;
+        color: white;
+      }
+
+    
+      /* Hyper-Vibrant Glass Dashboard Overlay */
+      .hero-content {
+        width: 100%;
+        max-width: 1320px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 50px;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.04);
+        backdrop-filter: blur(12px) saturate(150%);
+        -webkit-backdrop-filter: blur(12px) saturate(150%);
+        padding: 60px;
+        border-radius: 32px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 
+          0 20px 40px rgba(0, 0, 0, 0.2),
+          inset 0 0 20px rgba(255, 255, 255, 0.06);
+      }
+
+      .hero-text h1 {
+        font-size: 64px;
+        line-height: 1.1;
+        margin-bottom: 24px;
+        font-weight: 800;
+        text-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      }
+    
+      .hero-text .tagline {
+        display: inline-block;
+        font-size: 16px;
+        font-weight: 700;
+        color: #fbc02d;
+        background: rgba(251, 192, 45, 0.15);
+        padding: 6px 16px;
+        border-radius: 30px;
+        margin-bottom: 18px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        border: 1px solid rgba(251, 192, 45, 0.3);
+      }
+    
+      .hero-text p {
+        font-size: 19px;
+        line-height: 1.8;
+        margin-bottom: 36px;
+        color: rgba(255, 255, 255, 0.95);
+      }
+    
+      .hero-buttons {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+    
+      .btn {
+        padding: 16px 36px;
+        border-radius: 14px;
+        text-decoration: none;
+        font-weight: 700;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        letter-spacing: 0.5px;
+      }
+    
+      .btn-primary {
+        background: linear-gradient(135deg, #fbc02d 0%, #f9a825 100%);
+        color: #0c3c0f;
+        box-shadow: 0 10px 25px rgba(251, 192, 45, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+    
+      .btn-primary:hover {
+        background: linear-gradient(135deg, #ffd54f 0%, #fbc02d 100%);
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 15px 30px rgba(251, 192, 45, 0.5);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.16);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        backdrop-filter: blur(8px);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.28);
+        transform: translateY(-3px) scale(1.01);
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+
+      .btn-secondary i {
+        margin-right: 10px;
+      }
+
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+      }
+    
+      /* --- Layout Sections --- */
+      .about, .highlights, .members, .contact, .bylaws {
+        padding: 120px 8%;
+      }
+    
+      /* --- Highly Polarized Glass Containers --- */
+      .container {
+        max-width: 1320px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      .about-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: center;
+        /* Uses high-saturation translucent white tinted with an organic glow */
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        padding: 50px;
+        border-radius: 32px;
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 
+          0 20px 50px rgba(27, 94, 32, 0.05),
+          inset 0 0 20px rgba(255, 255, 255, 0.3);
+      }
+    
+      .about img {
+        width: 100%;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(12, 60, 15, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.7);
+      }
+    
+      .section-kicker {
+        display: inline-block;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #2e7d32;
+        background: rgba(46, 125, 50, 0.1);
+        padding: 4px 12px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+      }
+    
+      .section-title {
+        font-size: 46px;
+        color: #0c3c0f;
+        margin-bottom: 24px;
+        line-height: 1.15;
+        font-weight: 800;
+      }
+    
+      .about-text p {
+        line-height: 1.9;
+        color: #263238;
+        margin-bottom: 20px;
+        font-size: 17px;
+      }
+    
+      .quick-links {
+        margin-top: 30px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+    
+      .quick-links a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 24px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #1b5e20;
+        text-decoration: none;
+        font-weight: 700;
+        border: 1px solid rgba(27, 94, 32, 0.2);
+        box-shadow: 0 4px 15px rgba(27, 94, 32, 0.06);
+        transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+      }
+    
+      .quick-links a:hover {
+        background: #1b5e20;
+        color: white;
+        border-color: #1b5e20;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(27, 94, 32, 0.25);
+      }
+    
+      /* --- Crystal Glass Panels --- */
+      .panel {
+        background: rgba(229, 245, 229, 0.75);
+        backdrop-filter: blur(10px) saturate(140%);
+        -webkit-backdrop-filter: blur(10px) saturate(140%);
+        border-radius: 32px;
+        padding: 45px;
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.03);
+      }
+
+    
+      .panel h3 {
+        font-size: 30px;
+        color: #0c3c0f;
+        margin-bottom: 26px;
+        font-weight: 800;
+      }
+    
+      .announcement-list {
+        display: grid;
+        gap: 18px;
+      }
+    
+      .announcement {
+        padding: 20px 24px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(27, 94, 32, 0.12);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.01);
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      }
+    
+      .announcement:hover {
+        background: rgba(255, 255, 255, 0.95);
+        border-color: #2e7d32;
+        transform: scale(1.01) translateX(5px);
+        box-shadow: 0 10px 25px rgba(27, 94, 32, 0.08);
+      }
+    
+      .announcement strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #1b5e20;
+        font-size: 18px;
+        font-weight: 700;
+      }
+    
+      .announcement span {
+        color: #37474f;
+        font-size: 15px;
+        line-height: 1.7;
+      }
+    
+      /* --- Members Electric Frosted Grid --- */
+      .members-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 28px;
+        margin-top: 36px;
+      }
+    
+      .member-card {
+        border-radius: 28px;
+        padding: 40px 28px;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(8px) saturate(130%);
+        -webkit-backdrop-filter: blur(8px) saturate(130%);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.02);
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+    
+      .member-card:hover {
+        transform: translateY(-8px) scale(1.03);
+        background: rgba(255, 255, 255, 0.85);
+        border-color: rgba(46, 125, 50, 0.4);
+        box-shadow: 
+          0 25px 45px rgba(27, 94, 32, 0.1),
+          0 0 20px rgba(46, 125, 50, 0.05);
+      }
+    
+      .member-photo {
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin: 0 auto 22px;
+        border: 4px solid white;
+        box-shadow: 0 10px 25px rgba(27, 94, 32, 0.15);
+      }
+    
+      .member-card h3 {
+        font-size: 22px;
+        color: #0c3c0f;
+        margin-bottom: 8px;
+        font-weight: 700;
+      }
+    
+      .member-card p {
+        color: #455a64;
+        line-height: 1.7;
+        font-size: 15px;
+      }
+    
+      .term-note {
+        margin-top: 40px;
+        color: #546e7a;
+        font-size: 15px;
+        text-align: center;
+        font-weight: 500;
+      }
+    
+      /* --- Bylaws / Policy Public Section --- */
+      .bylaws-grid {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 32px;
+        margin-top: 36px;
+        align-items: start;
+      }
+
+      .bylaws-docs {
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 20px;
+        padding: 26px;
+        box-shadow: 0 15px 35px rgba(27, 94, 32, 0.05);
+      }
+
+      .bylaws-docs h3 {
+        font-size: 20px;
+        color: #0c3c0f;
+        margin-bottom: 6px;
+        font-weight: 800;
+      }
+
+      .bylaws-docs .docs-sub {
+        color: #607d8b;
+        font-size: 13px;
+        margin-bottom: 18px;
+      }
+
+      .bylaws-doc-list {
+        list-style: none;
+        display: grid;
+        gap: 10px;
+        max-height: 70vh;
+        overflow-y: auto;
+      }
+
+      .bylaws-doc-list li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 16px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(27, 94, 32, 0.12);
+        cursor: pointer;
+        transition: all 0.25s ease;
+      }
+
+      .bylaws-doc-list li:hover {
+        border-color: #2e7d32;
+        transform: translateX(4px);
+        box-shadow: 0 6px 18px rgba(27, 94, 32, 0.08);
+      }
+
+      .bylaws-doc-list li.active {
+        background: #1b5e20;
+        border-color: #1b5e20;
+      }
+
+      .bylaws-doc-list li.active .doc-name,
+      .bylaws-doc-list li.active .doc-date,
+      .bylaws-doc-list li.active .doc-icon {
+        color: #fff;
+      }
+
+      .bylaws-doc-list .doc-icon {
+        font-size: 22px;
+      }
+
+      .bylaws-doc-list .doc-name {
+        color: #1b5e20;
+        font-weight: 600;
+        flex: 1;
+        font-size: 14px;
+      }
+
+      .bylaws-doc-list .doc-date {
+        color: #607d8b;
+        font-size: 12px;
+      }
+
+      /* --- Document Previewer (client-side DOCX/PDF/TXT -> HTML rendering) --- */
+      .doc-preview {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 0;
+        box-shadow: 0 15px 35px rgba(27, 94, 32, 0.05);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-height: 70vh;
+      }
+
+      .doc-preview-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-bottom: 1px solid rgba(27, 94, 32, 0.1);
+        background: rgba(27, 94, 32, 0.04);
+      }
+
+      .doc-preview-header .doc-title {
+        font-weight: 700;
+        color: #0c3c0f;
+        font-size: 15px;
+      }
+
+      .doc-preview-header a.doc-download {
+        color: #1b5e20;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+        padding: 8px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(27, 94, 32, 0.3);
+        transition: all 0.2s ease;
+      }
+
+      .doc-preview-header a.doc-download:hover {
+        background: #1b5e20;
+        color: #fff;
+      }
+
+      .doc-preview-body {
+        padding: 32px 40px;
+        overflow-y: auto;
+        flex: 1;
+        max-height: calc(70vh - 60px);
+        line-height: 1.7;
+        color: #263238;
+      }
+
+      .doc-preview-body h1,
+      .doc-preview-body h2,
+      .doc-preview-body h3,
+      .doc-preview-body h4 {
+        color: #0c3c0f;
+        margin: 18px 0 10px;
+      }
+
+      .doc-preview-body p {
+        margin: 0 0 12px;
+      }
+
+      .doc-preview-body table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 12px 0;
+      }
+
+      .doc-preview-body th,
+      .doc-preview-body td {
+        border: 1px solid #cfd8dc;
+        padding: 8px 10px;
+        text-align: left;
+      }
+
+      .doc-preview-body ul,
+      .doc-preview-body ol {
+        margin: 0 0 12px 22px;
+      }
+
+      .doc-preview-body img {
+        max-width: 100%;
+      }
+
+      .doc-preview-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        color: #90a4ae;
+        text-align: center;
+        padding: 40px;
+        font-size: 15px;
+      }
+
+      .bylaws-loading,
+      .bylaws-empty {
+        color: #607d8b;
+        font-size: 14px;
+        padding: 18px 0;
+        text-align: center;
+      }
+
+      .doc-preview-body .docx-loading {
+        color: #607d8b;
+        text-align: center;
+        padding: 40px;
+      }
+
+      @media (max-width: 900px) {
+        .bylaws-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* --- Contact Neon Glass Layering --- */
+      .contact-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+        margin-top: 36px;
+      }
+    
+      .contact-card,
+      .contact-form {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(10px) saturate(140%);
+        -webkit-backdrop-filter: blur(10px) saturate(140%);
+        border-radius: 32px;
+        padding: 45px;
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.03);
+      }
+    
+      .contact-card p,
+      .contact-card a {
+        color: #263238;
+        line-height: 1.8;
+        text-decoration: none;
+      }
+    
+      .contact-details {
+        display: grid;
+        gap: 20px;
+        margin-top: 26px;
+      }
+    
+      .contact-item {
+        padding: 20px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.6);
+        border: 1px solid rgba(27, 94, 32, 0.1);
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);
+      }
+    
+      .contact-item strong {
+        display: block;
+        margin-bottom: 6px;
+        color: #1b5e20;
+        font-size: 16px;
+      }
+    
+      .social-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 26px;
+      }
+    
+      .social-links a {
+        padding: 14px 24px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+        color: #ffffff;
+        text-decoration: none;
+        font-weight: 700;
+        box-shadow: 0 6px 20px rgba(27, 94, 32, 0.25);
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+    
+      .social-links a:hover {
+        background: linear-gradient(135deg, #2e7d32 0%, #43a047 100%);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(46, 125, 50, 0.35);
+      }
+    
+      .contact-form {
+        display: grid;
+        gap: 20px;
+      }
+    
+      .contact-form label {
+        display: block;
+        font-size: 14px;
+        font-weight: 700;
+        color: #0c3c0f;
+        margin-bottom: 4px;
+      }
+    
+      /* Deep Gloss Input Fields */
+      .contact-form input,
+      .contact-form textarea {
+        width: 100%;
+        padding: 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(27, 94, 32, 0.2);
+        font: inherit;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        color: #1a2327;
+        transition: all 0.25s ease;
+      }
+    
+      .contact-form input:focus,
+      .contact-form textarea:focus {
+        outline: none;
+        background: #ffffff;
+        border-color: #2e7d32;
+        box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.15);
+      }
+    
+      .contact-form textarea {
+        min-height: 150px;
+        resize: vertical;
+      }
+    
+      /* --- Footer --- */
+      footer {
+        background: #0c3c0f;
+        color: rgba(255, 255, 255, 0.85);
+        text-align: center;
+        padding: 35px;
+        font-size: 15px;
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+      }
+    
+      /* --- Responsive Adaptive Adjustments --- */
+      @media (max-width: 900px) {
+        .hero-content,
+        .about-container,
+        .contact-grid {
+          grid-template-columns: 1fr;
+          text-align: center;
+          padding: 40px 24px;
+        }
+    
+        .hero-text h1 {
+          font-size: 44px;
+        }
+    
+        .hero-text p {
+          font-size: 17px;
+        }
+    
+        .section-title {
+          font-size: 34px;
+        }
+    
+        .logo {
+          font-size: 18px;
+        }
+    
+        .logo-mark strong {
+          font-size: 20px;
+        }
+    
+        .logo-mark span {
+          font-size: 12px;
+        }
+    
+        .logo img {
+          width: 62px;
+          height: 62px;
+        }
+    
+        .members-grid {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+    
+        .panel,
+        .contact-card,
+        .contact-form,
+        .member-card {
+          text-align: left;
+        }
+    
+        .quick-links,
+        .social-links,
+        .hero-buttons {
+          justify-content: center;
+        }
+    
+        .nav-links {
+          display: none;
+        }
+      }
+
+      /* --- Mobile Hamburger --- */
+      .hamburger {
+        display: none;
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 32px;
+        cursor: pointer;
+        padding: 4px 8px;
+        line-height: 1;
+        position: fixed;
+        top: 18px;
+        right: 5%;
+        z-index: 1100;
+      }
+
+      .mobile-menu {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(12, 60, 15, 0.97);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        z-index: 1050;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+      }
+      .mobile-menu.open {
+        display: flex;
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .mobile-menu a {
+        color: #fff;
+        font-size: 22px;
+        font-weight: 600;
+        text-decoration: none;
+        padding: 14px 40px;
+        border-radius: 14px;
+        transition: background 0.25s;
+      }
+      .mobile-menu a:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      @media (max-width: 900px) {
+        .hamburger { display: block; }
+      }
+
+      /* --- Phone (max-width: 480px) --- */
+      @media (max-width: 480px) {
+        nav { padding: 14px 5%; }
+        .logo { font-size: 15px; gap: 10px; }
+        .logo-mark strong { font-size: 17px; }
+        .logo-mark span { font-size: 11px; }
+        .logo img { width: 48px; height: 48px; }
+
+        .hero { min-height: 90vh; padding: 40px 5%; }
+        .hero-content {
+          padding: 32px 20px;
+          border-radius: 24px;
+          gap: 24px;
+        }
+        .hero-text h1 { font-size: 36px; }
+        .hero-text .tagline { font-size: 12px; padding: 4px 12px; }
+        .hero-text p { font-size: 15px; line-height: 1.7; }
+        .hero-buttons { flex-direction: column; gap: 12px; }
+        .hero-buttons .btn {
+          width: 100%; text-align: center;
+          padding: 14px 24px; font-size: 13px;
+        }
+        .hero-image { text-align: center; }
+        .hero-image img { max-width: 60%; height: auto; }
+
+        .about, .highlights, .members, .contact, .bylaws {
+          padding: 60px 5%;
+        }
+        .section-title { font-size: 28px; }
+        .about-container {
+          padding: 28px 18px;
+          gap: 24px;
+        }
+        .about-text p { font-size: 15px; }
+
+        .panel { padding: 28px 18px; border-radius: 24px; }
+        .panel h3 { font-size: 22px; }
+
+        .announcement { padding: 16px 18px; }
+        .announcement strong { font-size: 16px; }
+        .announcement span { font-size: 14px; }
+
+        .member-card { padding: 30px 20px; }
+        .member-photo { width: 90px; height: 90px; }
+        .member-card h3 { font-size: 19px; }
+        .member-card p { font-size: 14px; }
+        .term-note { font-size: 13px; }
+
+        .contact-card, .contact-form { padding: 28px 20px; border-radius: 24px; }
+        .contact-item { padding: 16px; }
+        .social-links a { padding: 12px 20px; font-size: 14px; }
+        .contact-form input, .contact-form textarea { padding: 14px; }
+        .contact-form textarea { min-height: 120px; }
+
+        .bylaws-docs { padding: 20px; }
+        .bylaws-docs h3 { font-size: 18px; }
+        .doc-preview-header { padding: 12px 16px; }
+        .doc-preview-body { padding: 20px 18px; }
+
+        .doc-preview-placeholder { padding: 24px; font-size: 14px; }
+
+        footer { padding: 24px 16px; font-size: 13px; }
+
+        .session-toast {
+          top: 12px; right: 12px; left: 12px;
+          max-width: none;
+          font-size: 13px;
+          padding: 14px 18px;
+        }
+      }
+    </style>
+
+  <body>
+    <nav>
+      <div class="logo">
+        <img src="{% static 'img/isu_caufa_official.png' %}" alt="ISU Logo" />
+        <div class="logo-mark">
+          <strong>CAUFA</strong>
+          <span>ISU Cauayan Faculty Association</span>
+        </div>
+      </div>
+
+<div class="nav-links">
+         <a href="#home">Home</a>
+         <a href="#about">About</a>
+         <a href="#bylaws">Bylaws</a>
+         <a href="#members">Members</a>
+         <a href="#contact">Contact</a>
+        </div>
+      <button class="hamburger" id="hamburgerBtn" aria-label="Toggle navigation menu">&#9776;</button>
+    </nav>
+    <div class="mobile-menu" id="mobileMenu">
+      <a href="#home">Home</a>
+      <a href="#about">About</a>
+      <a href="#bylaws">Bylaws</a>
+      <a href="#members">Members</a>
+      <a href="#contact">Contact</a>
+    </div>
+
+    <section class="hero-shell">
+      <section class="hero" id="home">
+        <div class="hero-content">
+          <div class="hero-text">
+            <span class="tagline">Faculty unity, service, and growth.</span>
+
+            <h1>CAUFA</h1>
+
+            <p>
+              The official web platform of the Isabela State University Cauayan
+              Faculty Association, built to share announcements, member
+              information, highlights, and contact details in one clear place.
+            </p>
+
+            <div class="hero-buttons">
+              <a href="{% url 'login' %}" class="btn btn-primary"
+                >LOGIN</a
+              >
+              <a href="{% url 'public_register' %}" class="btn btn-secondary">
+                <i class="fa-solid fa-user-plus"></i> Register
+              </a>
+            </div>
+          </div>
+
+          <div class="hero-image">
+            <img
+              src="{% static 'img/isu_caufa_official.png' %}"
+              alt="CAUFA Official Logo"
+            />
+        </div>
+        </div>
+      </div>
+    </section>
+    </section>
+
+    <section class="about" id="about">
+      <div class="about-container">
+        <img
+          src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=1200&auto=format&fit=crop"
+          alt="Isabela State University Cauayan Campus"
+        />
+
+        <div class="about-text">
+          <span class="section-kicker">About CAUFA</span>
+          <h2 class="section-title">About the Organization</h2>
+
+          <p>
+            The Isabela State University Cauayan Faculty Association (CAUFA) is
+            the official faculty organization of ISU Cauayan, focused on
+            representing members, strengthening collaboration, and supporting
+            institutional goals.
+          </p>
+
+          <p>
+            <strong>Mission:</strong> To promote unity, professional growth, and
+            meaningful faculty participation through responsible service and
+            coordinated activities.
+          </p>
+
+          <p>
+            <strong>Vision:</strong> To be a trusted faculty organization that
+            fosters excellence, integrity, and active engagement within the
+            university community.
+          </p>
+
+          <div class="quick-links">
+            <a href="#home">Home</a>
+            <a href="#about">About</a>
+            <a href="#members">Members</a>
+            <a href="#contact">Contact</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bylaws" id="bylaws">
+      <div class="container">
+        <span class="section-kicker">Policies &amp; Governance</span>
+        <h2 class="section-title">ByLaws &amp; Policy Reference</h2>
+
+        <div class="bylaws-grid">
+        <div class="bylaws-docs">
+          <h3>Bylaws Documents</h3>
+          <p class="docs-sub">Select a document to preview it in your browser.</p>
+          <ul class="bylaws-doc-list" id="bylawsDocsList">
+            <li class="bylaws-loading">Loading documents…</li>
+          </ul>
+          <div class="policy-constants" style="margin-top: 24px;">
+            <h3 style="margin-bottom: 12px; font-size: 18px; color: #0c3c0f;">Policy Constants</h3>
+            <table id="policyConstantsTable" style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <thead>
+                <tr style="border-bottom: 2px solid rgba(27, 94, 32, 0.2);">
+                  <th style="text-align: left; padding: 8px 4px; color: #1b5e20;">Item</th>
+                  <th style="text-align: right; padding: 8px 4px; color: #1b5e20;">Amount (₱)</th>
+                </tr>
+              </thead>
+              <tbody id="policyConstantsBody">
+                <tr><td colspan="2" style="padding: 12px; color: #607d8b; text-align: center;">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="doc-preview">
+          <div class="doc-preview-header">
+            <span class="doc-title" id="docPreviewTitle">Document Preview</span>
+            <a class="doc-download" id="docDownloadBtn" href="#" target="_blank" rel="noopener" style="display:none;">Download</a>
+          </div>
+          <div class="doc-preview-body" id="docPreviewBody">
+            <div class="doc-preview-placeholder">
+              Choose a bylaws document from the list to view its contents here.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="highlights" aria-labelledby="announcements-title">
+      <div class="panel">
+        <span class="section-kicker">Homepage highlights</span>
+        <h3 id="announcements-title">Latest Announcements</h3>
+
+        <div class="announcement-list">
+          <article class="announcement">
+            <strong>General Meeting Schedule</strong>
+            <span
+              >Please wait for the official schedule posted by CAUFA officers.
+              This area is reserved for verified announcements only.</span
+            >
+          </article>
+
+          <article class="announcement">
+            <strong>Faculty Coordination Update</strong>
+            <span
+              >Important faculty updates and notices will be posted here for
+              quick reference by members.</span
+            >
+          </article>
+
+          <article class="announcement">
+            <strong>Upcoming Activities</strong>
+            <span
+              >Featured activities and highlights from CAUFA events will appear
+              here once approved for release.</span
+            >
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="members" id="members">
+      <span class="section-kicker">Members / Officers</span>
+      <h2 class="section-title">CAUFA Officers</h2>
+
+      <div class="members-grid">
+        <article class="member-card">
+          <img
+            class="member-photo"
+            src="{% static 'img/isu_caufa_official.png' %}"
+            alt="Officer photo placeholder"
+          />
+          <h3>President</h3>
+          <p>Name to be supplied by the organization.</p>
+        </article>
+
+        <article class="member-card">
+          <img
+            class="member-photo"
+            src="{% static 'img/isu_caufa_official.png' %}"
+            alt="Officer photo placeholder"
+          />
+          <h3>Vice President</h3>
+          <p>Name to be supplied by the organization.</p>
+        </article>
+
+        <article class="member-card">
+          <img
+            class="member-photo"
+            src="{% static 'img/isu_caufa_official.png' %}"
+            alt="Officer photo placeholder"
+          />
+          <h3>Secretary</h3>
+          <p>Name to be supplied by the organization.</p>
+        </article>
+      </div>
+
+      <p class="term-note">
+        Term coverage: Academic Year 2026-2027, or the approved term designated
+        by the organization.
+      </p>
+    </section>
+
+    <section class="contact" id="contact">
+      <span class="section-kicker">Contact</span>
+      <h2 class="section-title">Get in Touch</h2>
+
+      <div class="contact-grid">
+        <div class="contact-card">
+          <p>
+            Use the official channels below for inquiries, coordination, and
+            verified communication with CAUFA.
+          </p>
+
+          <div class="contact-details">
+            <div class="contact-item">
+              <strong>Official Email</strong>
+              <span>Official email to be supplied by the organization</span>
+            </div>
+
+            <div class="contact-item">
+              <strong>Office / Location</strong>
+              <span>Isabela State University, Cauayan Campus</span>
+            </div>
+
+            <div class="contact-item">
+              <strong>Social Media</strong>
+              <span>Official pages to be linked by the organization.</span>
+            </div>
+          </div>
+
+          <div class="social-links">
+            <a href="#" aria-label="Facebook page">Facebook</a>
+            <a href="#" aria-label="Messenger">Messenger</a>
+            <a href="#" aria-label="Official website">Website</a>
+          </div>
+        </div>
+
+        <form class="contact-form">
+          <div>
+            <label for="name">Name</label>
+            <input id="name" name="name" type="text" placeholder="Your name" />
+          </div>
+
+          <div>
+            <label for="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="Your email"
+            />
+          </div>
+
+          <div>
+            <label for="message">Message</label>
+            <textarea
+              id="message"
+              name="message"
+              placeholder="Write your inquiry"
+            ></textarea>
+          </div>
+
+          <button class="btn btn-primary" type="submit">Send Message</button>
+        </form>
+      </div>
+    </section>
+
+    <footer>
+      <p>© 2026 CAUFA | Isabela State University Cauayan Faculty Association</p>
+    </footer>
+
+    <script>
+      (function () {
+        var docsList = document.getElementById("bylawsDocsList");
+        var previewBody = document.getElementById("docPreviewBody");
+        var previewTitle = document.getElementById("docPreviewTitle");
+        var downloadBtn = document.getElementById("docDownloadBtn");
+        var currentDocs = [];
+
+        function escapeHtml(s) {
+          return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        }
+
+        function isDocx(name, type) {
+          return /\.docx$/i.test(name) || (type || "").indexOf("wordprocessingml") !== -1;
+        }
+
+        function isPdf(name, type) {
+          return /\.pdf$/i.test(name) || (type || "").indexOf("pdf") !== -1;
+        }
+
+        function isTxt(name, type) {
+          return /\.txt$/i.test(name) || (type || "").indexOf("text/plain") !== -1;
+        }
+
+        function showPlaceholder(msg) {
+          previewBody.innerHTML = '<div class="doc-preview-placeholder">' + escapeHtml(msg) + "</div>";
+        }
+
+        function renderPreview(doc) {
+          previewTitle.textContent = doc.file_name;
+          downloadBtn.href = "/api/public/bylaws/file/" + doc.document_id + "/";
+          downloadBtn.style.display = "inline-block";
+
+          if (isTxt(doc.file_name, doc.file_type)) {
+            previewBody.innerHTML = '<div class="docx-loading">Loading…</div>';
+            fetch("/api/public/bylaws/file/" + doc.document_id + "/", { credentials: "same-origin" })
+              .then(function (r) { return r.text(); })
+              .then(function (txt) {
+                var escaped = escapeHtml(txt).replace(/\n/g, "<br>");
+                previewBody.innerHTML = "<div>" + escaped + "</div>";
+              })
+              .catch(function () { showPlaceholder("Unable to load this document."); });
+            return;
+          }
+
+          if (isPdf(doc.file_name, doc.file_type)) {
+            previewBody.innerHTML =
+              '<div class="doc-preview-placeholder">' +
+              "This is a PDF document. Use the <strong>Download</strong> button above to view it, " +
+              "or open it in a new tab." +
+              "</div>";
+            return;
+          }
+
+          if (isDocx(doc.file_name, doc.file_type)) {
+            previewBody.innerHTML = '<div class="docx-loading">Rendering document…</div>';
+            fetch("/api/public/bylaws/file/" + doc.document_id + "/", { credentials: "same-origin" })
+              .then(function (r) { return r.blob(); })
+              .then(function (blob) {
+                return new Promise(function (resolve, reject) {
+                  var reader = new FileReader();
+                  reader.onload = function (e) {
+                    mammoth.convertToHtml({ arrayBuffer: e.target.result })
+                      .then(function (result) {
+                        if (result && result.value) {
+                          resolve(result.value);
+                        } else {
+                          reject(new Error("No HTML generated from document."));
+                        }
+                      })
+                      .catch(function (err) {
+                        reject(err);
+                      });
+                  };
+                  reader.onerror = function () { reject(new Error("Failed to read file.")); };
+                  reader.readAsArrayBuffer(blob);
+                });
+              })
+              .then(function (html) {
+                previewBody.innerHTML = html;
+                previewBody.scrollTop = 0;
+              })
+              .catch(function (err) {
+                showPlaceholder(
+                  "This document could not be previewed in-browser (" + (err.message || "unknown error") +
+                  "). Please use the Download button."
+                );
+              });
+            return;
+          }
+
+          showPlaceholder("Preview not available for this file type. Use Download.");
+        }
+
+        function loadBylaws() {
+          fetch("/api/public/bylaws/", { credentials: "same-origin" })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+              if (!data.ok) throw new Error("Failed to load bylaws");
+
+              // Render policy constants table
+              var constantsBody = document.getElementById("policyConstantsBody");
+              if (data.constants && data.constants.length) {
+                constantsBody.innerHTML = "";
+                data.constants.forEach(function(c) {
+                  var tr = document.createElement("tr");
+                  tr.style.borderBottom = "1px solid rgba(27, 94, 32, 0.08)";
+                  var tdLabel = document.createElement("td");
+                  tdLabel.style.padding = "8px 4px";
+                  tdLabel.textContent = c.label;
+                  var tdValue = document.createElement("td");
+                  tdValue.style.padding = "8px 4px";
+                  tdValue.style.textAlign = "right";
+                  tdValue.style.fontWeight = "600";
+                  tdValue.textContent = new Intl.NumberFormat("en-PH", {
+                    style: "currency",
+                    currency: "PHP"
+                  }).format(c.value);
+                  tr.appendChild(tdLabel);
+                  tr.appendChild(tdValue);
+                  constantsBody.appendChild(tr);
+                });
+              } else {
+                constantsBody.innerHTML = '<tr><td colspan="2" style="padding: 12px; color: #607d8b; text-align: center;">No policy constants defined.</td></tr>';
+              }
+
+              if (data.files && data.files.length) {
+                currentDocs = data.files;
+                docsList.innerHTML = "";
+                data.files.forEach(function (f, idx) {
+                  var li = document.createElement("li");
+                  li.dataset.index = idx;
+                  var icon = document.createElement("span");
+                  icon.className = "doc-icon";
+                  icon.textContent = "📄";
+                  var name = document.createElement("span");
+                  name.className = "doc-name";
+                  name.textContent = f.file_name;
+                  var date = document.createElement("span");
+                  date.className = "doc-date";
+                  date.textContent = f.uploaded_at || "";
+                  li.appendChild(icon);
+                  li.appendChild(name);
+                  li.appendChild(date);
+                  li.addEventListener("click", function () {
+                    docsList.querySelectorAll("li").forEach(function (x) { x.classList.remove("active"); });
+                    li.classList.add("active");
+                    renderPreview(currentDocs[idx]);
+                  });
+                  docsList.appendChild(li);
+                });
+                // auto-open the first document
+                var first = docsList.querySelector("li");
+                if (first) first.click();
+              } else {
+                docsList.innerHTML =
+                  '<li class="bylaws-empty">No bylaws documents have been published yet.</li>';
+                showPlaceholder("No documents available to preview.");
+              }
+            })
+            .catch(function () {
+              docsList.innerHTML =
+                '<li class="bylaws-empty">Unable to load documents.</li>';
+              showPlaceholder("Unable to load documents.");
+            });
+        }
+
+        if (docsList) {
+          loadBylaws();
+        }
+      })();
+    </script>
+
+    <script>
+      (function () {
+        var btn = document.getElementById('hamburgerBtn');
+        var menu = document.getElementById('mobileMenu');
+        if (btn && menu) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            menu.classList.toggle('open');
+          });
+          menu.addEventListener('click', function () {
+            menu.classList.remove('open');
+          });
+        }
+      })();
+    </script>
+
+    <!-- Session Expired Toast -->
+    <div id="session-expired-toast" class="session-toast" style="
+      display: none;
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 9999;
+      background: #dc2626;
+      color: #fff;
+      padding: 16px 24px;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      max-width: 380px;
+      animation: toastSlideIn 0.4s ease-out;
+    ">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size: 20px;"></i>
+        <div>
+          <strong style="display: block; margin-bottom: 2px;">Session Expired</strong>
+          <span>You have been logged out due to inactivity.</span>
+        </div>
+      </div>
+    </div>
+    <style>
+      @keyframes toastSlideIn {
+        from { opacity: 0; transform: translateX(60px); }
+        to   { opacity: 1; transform: translateX(0); }
+      }
+    </style>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get("session_expired") === "1") {
+          var toast = document.getElementById("session-expired-toast");
+          if (toast) {
+            toast.style.display = "block";
+            setTimeout(function () {
+              toast.style.display = "none";
+            }, 6000);
+          }
+          if (window.history && window.history.replaceState) {
+            var cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+        }
+      })();
+    </script>
+
+  </body>
+</html>
+
+
+
+<!-- HOTRELOAD_MARKER_201246 -->
