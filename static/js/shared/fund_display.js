@@ -84,7 +84,9 @@
       var ctx = document.getElementById("monthlyFlowChart");
       if (!ctx) return;
 
-      if (chartInstance) chartInstance.destroy();
+      var existingChart = Chart.getChart(ctx);
+      if (existingChart) existingChart.destroy();
+      else if (chartInstance) chartInstance.destroy();
 
       var config = {
         type: "bar",

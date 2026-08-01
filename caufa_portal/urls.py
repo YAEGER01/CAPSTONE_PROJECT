@@ -8,13 +8,28 @@ from core_system.auth_views import forgot_password, officer_login, reset_passwor
 
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
-from django.views.generic import TemplateView, RedirectView
+from core_system.public_views import (
+    homepage, about_page, officers_page, activities_page,
+    gallery_page, resources_page, announcements_page, news_page, news_detail,
+    announcement_detail,
+)
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path("favicon.ico", RedirectView.as_view(url="/static/img/isu_caufa_official.png", permanent=True)),
     path("admin/", admin.site.urls),
-    # 1. Main Landing: Shows your index.html homepage immediately at http://127.0.0.1:8000/
-    path("", TemplateView.as_view(template_name="website/index.html"), name="home"),
+    # 1. Main Landing: Dynamic homepage that queries existing backend data
+    path("", homepage, name="home"),
+    # Page routes
+    path("about/", about_page, name="about_page"),
+    path("officers/", officers_page, name="officers_page"),
+    path("activities/", activities_page, name="activities_page"),
+    path("gallery/", gallery_page, name="gallery_page"),
+    path("news/", news_page, name="news_page"),
+    path("news/<slug:slug>/", news_detail, name="news_detail"),
+    path("resources/", resources_page, name="resources_page"),
+    path("announcements/", announcements_page, name="announcements_page"),
+    path("announcements/<int:announcement_id>/", announcement_detail, name="announcement_detail"),
     # 2. Login Portal: Moved to http://127.0.0.1:8000/login/
     path(
         "login/",

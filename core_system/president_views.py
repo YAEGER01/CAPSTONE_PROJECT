@@ -61,6 +61,8 @@ from core_system.constants.policy_constants import (
     is_exempt_from_dues_and_aid,
     POLICY,
     _get_setting_override,
+    _POLICY_CONSTANT_KEYS,
+    _POLICY_OVERRIDE_PREFIX,
 )
 from core_system.shared_view_utils import (
     MODEL_MAP,
@@ -146,6 +148,34 @@ def audit_trail_api(request: HttpRequest, table_name: str, record_id: int):
 # ==========================================================================
 # PRESIDENT WORKSPACE VIEWS
 # ==========================================================================
+
+OFFICER_DEPARTMENT_CODES = {
+    "CED": "CED",
+    "CCSICT": "CCSICT",
+    "IAT": "IAT",
+    "CCJE": "CCJE",
+    "SAS": "SAS",
+    "CBM": "CBM",
+    "PS": "PS",
+}
+
+def _resolve_officer_department(department_id):
+    if department_id in (None, "", 0, "0"):
+        return None
+    if str(department_id).isdigit():
+        department = Department.objects.filter(department_id_PK=int(department_id)).first()
+        if department:
+            return department
+    code = str(department_id).strip().upper()
+    if not code:
+        return None
+    department = Department.objects.filter(code__iexact=code).first()
+    if department:
+        return department
+    if code in OFFICER_DEPARTMENT_CODES:
+        return Department.objects.create(code=code, name=OFFICER_DEPARTMENT_CODES[code], is_active=True)
+    return None
+
 
 def president_dashboard(request):
     guard = require_role(request, role="President")
@@ -2415,7 +2445,11 @@ def president_officers_list(request: HttpRequest):
     if guard is not None:
         return guard
 
-    officers = OfficerUser.objects.select_related("department_id_FK").order_by("-created_at", "full_name")
+    officers = (
+        OfficerUser.objects.select_related("department_id_FK")
+        .exclude(role__iexact="Member")
+        .order_by("-created_at", "full_name")
+    )
     return JsonResponse({"ok": True, "officers": [_officer_to_json(officer) for officer in officers]})
 
 
@@ -2446,10 +2480,12 @@ def president_officers_create(request: HttpRequest):
 
     if OfficerUser.objects.filter(username=username).exists():
         return JsonResponse({"ok": False, "error": "Username already exists."}, status=409)
+    if email and OfficerUser.objects.filter(email__iexact=email).exists():
+        return JsonResponse({"ok": False, "error": "Email already exists."}, status=409)
 
     department = None
     if department_id not in (None, "", 0, "0"):
-        department = Department.objects.filter(department_id_PK=int(department_id)).first()
+        department = _resolve_officer_department(department_id)
         if department is None:
             return JsonResponse({"ok": False, "error": "Selected department was not found."}, status=400)
 
@@ -2506,10 +2542,12 @@ def president_officers_update(request: HttpRequest, officer_id: int):
 
     if OfficerUser.objects.exclude(pk=officer.pk).filter(username=username).exists():
         return JsonResponse({"ok": False, "error": "Username already exists."}, status=409)
+    if email and OfficerUser.objects.exclude(pk=officer.pk).filter(email__iexact=email).exists():
+        return JsonResponse({"ok": False, "error": "Email already exists."}, status=409)
 
     department = officer.department_id_FK
     if department_id not in (None, "", 0, "0"):
-        department = Department.objects.filter(department_id_PK=int(department_id)).first()
+        department = _resolve_officer_department(department_id)
         if department is None:
             return JsonResponse({"ok": False, "error": "Selected department was not found."}, status=400)
     elif department_id in ("", None):
@@ -2918,11 +2956,13 @@ def bylaws_files_api(request: HttpRequest):
     for f in files:
         data.append({
             "document_id": f.bylaws_file_id,
+            "document_type": f.document_type,
             "file_name": f.file_name,
             "file_type": f.file_type,
             "uploaded_at": f.uploaded_at.strftime("%Y-%m-%d %H:%M:%S") if f.uploaded_at else None,
             "uploaded_by": f.uploaded_by_user_id_FK.full_name if f.uploaded_by_user_id_FK else "System",
             "verification_status": f.verification_status,
+            "is_public_visible": f.is_public_visible,
         })
 
     _record_audit_trail(
@@ -2957,6 +2997,13 @@ def upload_bylaws_file(request: HttpRequest):
     if uploaded_file.content_type not in allowed_types:
         return JsonResponse({"ok": False, "error": f"Unsupported file type: {uploaded_file.content_type}"}, status=400)
 
+    allowed_doc_types = {"Constitution", "By-Laws", "Other", "Public Documents"}
+    document_type = (request.POST.get("document_type") or "By-Laws").strip()
+    if document_type not in allowed_doc_types:
+        document_type = "By-Laws"
+
+    is_public_visible = request.POST.get("is_public_visible") in ("1", "true", "True", "on")
+
     max_size = 10 * 1024 * 1024
     if uploaded_file.size > max_size:
         return JsonResponse({"ok": False, "error": "File size exceeds 10MB limit."}, status=400)
@@ -2971,12 +3018,14 @@ def upload_bylaws_file(request: HttpRequest):
         file_hash = ""
 
     doc = BylawsFile.objects.create(
+        document_type=document_type,
         file_name=uploaded_file.name,
         file_type=uploaded_file.content_type or "",
         file_data=file_bytes,
         file_size=uploaded_file.size or 0,
         file_hash=file_hash or "",
         verification_status="Active",
+        is_public_visible=is_public_visible,
         uploaded_by_user_id_FK=president,
     )
 
@@ -2986,6 +3035,7 @@ def upload_bylaws_file(request: HttpRequest):
         action="UPLOADED",
         actor=president,
         new={
+            "document_type": doc.document_type,
             "file_name": uploaded_file.name,
             "file_type": uploaded_file.content_type,
             "file_size": uploaded_file.size,
@@ -3037,6 +3087,39 @@ def delete_bylaws_file(request: HttpRequest, document_id: int):
     )
 
     return JsonResponse({"ok": True, "message": "Bylaws file deleted successfully."})
+
+
+@require_POST
+@transaction.atomic
+def toggle_bylaws_visibility(request: HttpRequest, document_id: int):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
+
+    president = _resolve_president(request)
+    if president is None:
+        return JsonResponse({"ok": False, "error": "Officer session missing."}, status=401)
+
+    doc = get_object_or_404(BylawsFile, pk=document_id)
+    doc.is_public_visible = not doc.is_public_visible
+    doc.save(update_fields=["is_public_visible"])
+
+    _record_audit_trail(
+        table="bylaws_documents",
+        record_id=doc.bylaws_file_id,
+        action="VISIBILITY_TOGGLED",
+        actor=president,
+        new={"is_public_visible": doc.is_public_visible},
+        old={"is_public_visible": not doc.is_public_visible},
+        ip=request.META.get("REMOTE_ADDR"),
+        notes=f"Toggled public visibility for bylaws file: {doc.file_name}",
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "is_public_visible": doc.is_public_visible,
+        "message": "Visibility updated.",
+    })
 
 
 @require_GET

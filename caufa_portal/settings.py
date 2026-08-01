@@ -44,6 +44,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+X_FRAME_OPTIONS = "SAMEORIGIN"
+
 ROOT_URLCONF = "caufa_portal.urls"
 # Inside caufa_portal/settings.py
 
@@ -184,5 +186,9 @@ GMAIL_SMTP_USE_TLS = _os.getenv(
 # -------------------------
 VAPID_PUBLIC_KEY = _os.getenv("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = _os.getenv("VAPID_PRIVATE_KEY", "")
+
+TURNSTILE_SITE_KEY = _os.getenv("TURNSTILE_SITE_KEY", "0x4AAAAAAEDmeu1kgCqrkQSI") 
+TURNSTILE_SECRET_KEY = _os.getenv("TURNSTILE_SECRET_KEY", "0x4AAAAAAEDmeh_ln6hedjXrv8pLdF869jA") 
+TURNSTILE_REQUIRE_ON_LOCALHOST = _os.getenv("TURNSTILE_REQUIRE_ON_LOCALHOST", "false").lower() in {"1", "true", "yes", "on"}
 
 

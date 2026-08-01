@@ -13,6 +13,7 @@ from . import fund_report_views
 from . import htmx_views
 from . import public_views
 from . import auth_views
+from . import pio_views
 
 
 urlpatterns = [
@@ -110,6 +111,7 @@ urlpatterns = [
     path("api/secretary/documents/replace/", secretary_views.secretary_document_replace, name="secretary_document_replace"),
     path("api/secretary/documents/version-history/", secretary_views.secretary_document_version_history, name="secretary_document_version_history"),
     path("api/secretary/documents/toggle-favorite/", secretary_views.secretary_document_toggle_favorite, name="secretary_document_toggle_favorite"),
+    path("api/secretary/documents/toggle-public/", secretary_views.secretary_document_toggle_public, name="secretary_document_toggle_public"),
     path("api/secretary/documents/preview/", secretary_views.secretary_document_preview, name="secretary_document_preview"),
     path("api/secretary/documents/download/", secretary_views.secretary_document_download, name="secretary_document_download"),
     path("api/secretary/categories/list/", secretary_views.secretary_category_list, name="secretary_category_list"),
@@ -596,6 +598,11 @@ urlpatterns = [
         public_views.public_bylaws_render,
         name="public_bylaws_render",
     ),
+    path(
+        "api/public/documents/render/<int:document_id>/",
+        public_views.public_document_render,
+        name="public_document_render",
+    ),
     # --- Logout (custom officer session) ---
     path("logout/", views.logout_view, name="logout"),
     # --- Push Notification Subscriptions ---
@@ -734,6 +741,7 @@ urlpatterns = [
     path("api/president/bylaws/files/", president_views.bylaws_files_api, name="president_bylaws_files"),
     path("api/president/bylaws/files/upload/", president_views.upload_bylaws_file, name="president_bylaws_file_upload"),
     path("api/president/bylaws/files/<int:document_id>/delete/", president_views.delete_bylaws_file, name="president_bylaws_file_delete"),
+    path("api/president/bylaws/files/<int:document_id>/visibility/", president_views.toggle_bylaws_visibility, name="president_bylaws_file_visibility"),
 
     # --- HTMX Partial Endpoints ---
     path(
@@ -787,6 +795,43 @@ urlpatterns = [
     path("api/auth/zero-trust/verify/", auth_views.zero_trust_verify, name="zero_trust_verify"),
     path("api/auth/zero-trust/status/", auth_views.zero_trust_status, name="zero_trust_status"),
     path("api/auth/term-info/", auth_views.term_info, name="term_info"),
+    # --- PIO Website Management ---
+    path("pio/", pio_views.pio_dashboard, name="pio_dashboard"),
+    path("api/pio/announcements/list/", pio_views.pio_announcements_list, name="pio_announcements_list"),
+    path("api/pio/announcements/create/", pio_views.pio_announcement_create, name="pio_announcement_create"),
+    path("api/pio/announcements/<int:announcement_id>/toggle/", pio_views.pio_announcement_toggle, name="pio_announcement_toggle"),
+    path("api/pio/announcements/<int:announcement_id>/delete/", pio_views.pio_announcement_delete, name="pio_announcement_delete"),
+    path("api/pio/announcement-categories/list/", pio_views.pio_announcement_categories_list, name="pio_announcement_categories_list"),
+    path("api/pio/announcement-categories/create/", pio_views.pio_announcement_category_create, name="pio_announcement_category_create"),
+    path("api/pio/announcement-categories/rename/", pio_views.pio_announcement_category_rename, name="pio_announcement_category_rename"),
+    path("api/pio/announcement-categories/delete/", pio_views.pio_announcement_category_delete, name="pio_announcement_category_delete"),
+    path("api/pio/news/list/", pio_views.pio_news_list, name="pio_news_list"),
+    path("api/pio/news/<int:news_id>/", pio_views.pio_news_detail, name="pio_news_detail"),
+    path("api/pio/news/create/", pio_views.pio_news_create, name="pio_news_create"),
+    path("api/pio/news/<int:news_id>/delete/", pio_views.pio_news_delete, name="pio_news_delete"),
+    path("api/pio/news-categories/list/", pio_views.pio_news_categories_list, name="pio_news_categories_list"),
+    path("api/pio/news-categories/create/", pio_views.pio_news_category_create, name="pio_news_category_create"),
+    path("api/pio/news-categories/rename/", pio_views.pio_news_category_rename, name="pio_news_category_rename"),
+    path("api/pio/news-categories/delete/", pio_views.pio_news_category_delete, name="pio_news_category_delete"),
+    path("api/pio/hero/list/", pio_views.pio_hero_list, name="pio_hero_list"),
+    path("api/pio/hero/<int:hero_id>/", pio_views.pio_hero_detail, name="pio_hero_detail"),
+    path("api/pio/hero/create/", pio_views.pio_hero_create, name="pio_hero_create"),
+    path("api/pio/hero/<int:hero_id>/toggle/", pio_views.pio_hero_toggle, name="pio_hero_toggle"),
+    path("api/pio/hero/<int:hero_id>/delete/", pio_views.pio_hero_delete, name="pio_hero_delete"),
+    path("api/pio/albums/list/", pio_views.pio_albums_list, name="pio_albums_list"),
+    path("api/pio/albums/create/", pio_views.pio_album_create, name="pio_album_create"),
+    path("api/pio/albums/<int:album_id>/delete/", pio_views.pio_album_delete, name="pio_album_delete"),
+    path("api/pio/albums/<int:album_id>/photos/", pio_views.pio_album_photos, name="pio_album_photos"),
+    path("api/pio/albums/<int:album_id>/photos/upload/", pio_views.pio_photo_upload, name="pio_photo_upload"),
+    path("api/pio/photos/<int:photo_id>/delete/", pio_views.pio_photo_delete, name="pio_photo_delete"),
+    path("api/pio/photos/set-featured/", pio_views.pio_photo_set_featured, name="pio_photo_set_featured"),
+    path("api/pio/about/content/", pio_views.pio_about_content, name="pio_about_content"),
+    path("api/pio/about/save/", pio_views.pio_about_save, name="pio_about_save"),
+    path("api/pio/events/list/", pio_views.pio_events_list, name="pio_events_list"),
+    path("api/pio/officers/list/", pio_views.pio_officers_list, name="pio_officers_list"),
+    path("api/pio/officers/save/", pio_views.pio_officer_profile_save, name="pio_officer_profile_save"),
+    path("api/pio/officers/<int:profile_id>/delete/", pio_views.pio_officer_profile_delete, name="pio_officer_profile_delete"),
+    path("api/pio/resources/list/", pio_views.pio_public_resources, name="pio_public_resources"),
 ]
 
 handler403 = "core_system.president_views.permission_denied_view"

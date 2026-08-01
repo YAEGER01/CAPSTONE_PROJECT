@@ -27,6 +27,11 @@ from core_system.services.mfa_service import (
     verify_otp,
     MFA_EMAIL_RATE_LIMIT_SECONDS,
 )
+from core_system.turnstile import (
+    get_turnstile_site_key,
+    is_turnstile_enabled,
+    validate_turnstile_token,
+)
 
 MFA_SESSION_KEY = "mfa_pre_auth_token"
 MFA_OFFICER_ID_KEY = "mfa_officer_id"
@@ -94,6 +99,8 @@ def _workspace_redirect(role: str) -> str:
         return "/secretary/"
     if role_norm == "superadmin":
         return "/superadmin/"
+    if role_norm == "public information officer":
+        return "/pio/"
     return "/"
 
 
@@ -196,7 +203,10 @@ def officer_login(request: HttpRequest) -> HttpResponse:
             for key in (MFA_SESSION_KEY, MFA_OFFICER_ID_KEY, MFA_USERNAME_KEY, "mfa_email_warning"):
                 request.session.pop(key, None)
 
-        context = {}
+        context = {
+            "turnstile_enabled": is_turnstile_enabled(),
+            "turnstile_site_key": get_turnstile_site_key(),
+        }
         if request.session.get(MFA_SESSION_KEY):
             context["form"] = {
                 "errors": [],
@@ -216,6 +226,29 @@ def officer_login(request: HttpRequest) -> HttpResponse:
     password_input = request.POST.get("password") or ""
     ip_address = request.META.get("REMOTE_ADDR") or "0.0.0.0"
     user_agent = request.META.get("HTTP_USER_AGENT") or "Unknown"
+    turnstile_token = (request.POST.get("cf-turnstile-response") or "").strip()
+
+    if is_turnstile_enabled(request) and not validate_turnstile_token(turnstile_token, remote_ip=ip_address, request=request):
+        error_info = {
+            "title": "Security Verification Failed",
+            "detail": "Please complete the security check and try again.",
+        }
+        if is_ajax:
+            return JsonResponse({
+                "ok": False,
+                "error_code": "turnstile_failed",
+                "error_title": error_info["title"],
+                "error_detail": error_info["detail"],
+                "error": error_info["detail"],
+            }, status=403)
+        context = {
+            "login_error_code": "turnstile_failed",
+            "login_error_title": error_info["title"],
+            "login_error_detail": error_info["detail"],
+            "turnstile_enabled": True,
+            "turnstile_site_key": get_turnstile_site_key(),
+        }
+        return render(request, "website/login.html", context)
 
     try:
         officer = OfficerUser.objects.get(username=username)
@@ -385,6 +418,8 @@ def officer_login(request: HttpRequest) -> HttpResponse:
         "login_error_code": error_code,
         "login_error_title": error_info["title"],
         "login_error_detail": error_info["detail"],
+        "turnstile_enabled": is_turnstile_enabled(),
+        "turnstile_site_key": get_turnstile_site_key(),
     }
     return render(request, "website/login.html", context)
 

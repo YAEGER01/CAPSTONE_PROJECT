@@ -4,6 +4,7 @@ import hmac
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
+from django.utils.text import slugify
 
 class OfficerUser(models.Model):
     user_id_PK = models.AutoField(primary_key=True)
@@ -461,8 +462,25 @@ class FinancialDocumentArchive(models.Model):
 
 
 class BylawsFile(models.Model):
+    BYLAWS_DOCUMENT_TYPE_CONSTITUTION = "Constitution"
+    BYLAWS_DOCUMENT_TYPE_BYLAWS = "By-Laws"
+    BYLAWS_DOCUMENT_TYPE_PUBLIC = "Public Documents"
+    BYLAWS_DOCUMENT_TYPE_OTHER = "Other"
+
+    BYLAWS_DOCUMENT_TYPE_CHOICES = [
+        (BYLAWS_DOCUMENT_TYPE_CONSTITUTION, "Constitution"),
+        (BYLAWS_DOCUMENT_TYPE_BYLAWS, "By-Laws"),
+        (BYLAWS_DOCUMENT_TYPE_PUBLIC, "Public Documents"),
+        (BYLAWS_DOCUMENT_TYPE_OTHER, "Other"),
+    ]
+
     bylaws_file_id = models.AutoField(primary_key=True)
 
+    document_type = models.CharField(
+        max_length=50,
+        choices=BYLAWS_DOCUMENT_TYPE_CHOICES,
+        default=BYLAWS_DOCUMENT_TYPE_BYLAWS,
+    )
     file_name = models.CharField(max_length=255)
     file_type = models.CharField(max_length=100)
     file_data = models.BinaryField()
@@ -470,6 +488,7 @@ class BylawsFile(models.Model):
     file_hash = models.CharField(max_length=255)
 
     verification_status = models.CharField(max_length=50, default="Active")
+    is_public_visible = models.BooleanField(default=False)
 
     uploaded_by_user_id_FK = models.ForeignKey(
         OfficerUser,
@@ -1468,6 +1487,7 @@ class Document(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     retention_period = models.DateField(null=True, blank=True)
     is_archived = models.BooleanField(default=False)
+    is_public_visible = models.BooleanField(default=False)
 
     class Meta:
         db_table = "DOCUMENT"
@@ -1480,6 +1500,18 @@ class Category(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
         db_table = "CATEGORY"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class AnnouncementCategory(models.Model):
+    category_id_PK = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        db_table = "ANNOUNCEMENT_CATEGORY"
         ordering = ["name"]
 
     def __str__(self):
@@ -1590,6 +1622,7 @@ class Announcement(models.Model):
     description = models.TextField()
     attachment_path = models.CharField(max_length=500, blank=True)
     attachment_name = models.CharField(max_length=255, blank=True)
+    image = models.ImageField(upload_to="announcements/%Y/%m/", null=True, blank=True)
     published_by_user_id_FK = models.ForeignKey(
         OfficerUser,
         null=True,
@@ -1666,5 +1699,225 @@ class Certificate(models.Model):
         db_table = "CERTIFICATE"
         ordering = ["-generated_at"]
         unique_together = [['member', 'event']]
+
+
+class Album(models.Model):
+    album_id_PK = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    cover_photo = models.ForeignKey(
+        "Photo", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    event = models.ForeignKey(
+        "Event", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="albums",
+    )
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        OfficerUser, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="created_albums",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "ALBUM"
+        ordering = ["-created_at"]
+
+
+class Photo(models.Model):
+    photo_id_PK = models.AutoField(primary_key=True)
+    album = models.ForeignKey(
+        Album, on_delete=models.CASCADE, related_name="photos",
+    )
+    image = models.ImageField(upload_to="gallery/%Y/%m/")
+    caption = models.CharField(max_length=255, blank=True)
+    is_featured = models.BooleanField(default=False)
+    uploaded_by = models.ForeignKey(
+        OfficerUser, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="uploaded_photos",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "PHOTO"
+        ordering = ["-uploaded_at"]
+
+
+class OfficerProfile(models.Model):
+    """PIO-owned officer directory entry shown on the public Officers page.
+
+    Independent from OfficerUser (dashboard login accounts managed by the
+    President). The PIO manages these profiles directly.
+    """
+
+    officer_profile_id = models.AutoField(primary_key=True)
+    full_name = models.CharField(max_length=255)
+    position = models.CharField(max_length=100)
+    category = models.CharField(
+        max_length=50,
+        choices=[
+            ("Executive Officer", "Executive Officer"),
+            ("Board of Directors", "Board of Directors"),
+            ("Adviser", "Adviser"),
+        ],
+        default="Executive Officer",
+    )
+    department = models.CharField(max_length=255, null=True, blank=True)
+    school_year = models.CharField(max_length=50, null=True, blank=True)
+    term_start = models.DateField(null=True, blank=True)
+    term_end = models.DateField(null=True, blank=True)
+    email = models.CharField(max_length=255, null=True, blank=True)
+    facebook = models.URLField(null=True, blank=True)
+    biography = models.TextField(null=True, blank=True)
+    photo = models.ImageField(upload_to="officer_profiles/", null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=[("Active", "Active"), ("Inactive", "Inactive")],
+        default="Active",
+    )
+    created_by = models.ForeignKey(
+        OfficerUser, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="created_officer_profiles",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "OFFICER_PROFILE"
+        ordering = ["category", "position", "full_name"]
+
+
+class NewsCategory(models.Model):
+    """Categories for organizing News & Highlights content."""
+    
+    category_id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    icon = models.CharField(max_length=50, blank=True, help_text="Font Awesome icon class")
+    order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "NEWS_CATEGORY"
+        ordering = ["order", "name"]
+        verbose_name_plural = "News Categories"
+
+    def __str__(self):
+        return self.name
+
+
+class NewsArticle(models.Model):
+    """News & Highlights articles with full content, galleries, and videos."""
+    
+    news_id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, unique=True)
+    category = models.ForeignKey(
+        NewsCategory, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="articles",
+    )
+    summary = models.TextField(max_length=500, help_text="Brief summary for article cards")
+    content = models.TextField(help_text="Full article content (supports HTML)")
+    featured_image = models.ImageField(upload_to="news/%Y/%m/", null=True, blank=True)
+    
+    # Event information (optional)
+    event_date = models.DateField(null=True, blank=True)
+    event_time = models.TimeField(null=True, blank=True)
+    venue = models.CharField(max_length=255, blank=True)
+    
+    # Media
+    video_url = models.URLField(blank=True, help_text="YouTube or other video platform URL")
+    video_thumbnail = models.ImageField(upload_to="news/%Y/%m/", null=True, blank=True)
+    
+    # Publication settings
+    is_featured = models.BooleanField(default=False, help_text="Show in featured news section")
+    is_published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+    
+    # Author tracking
+    author = models.ForeignKey(
+        OfficerUser, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="authored_news",
+    )
+    
+    # Metadata
+    view_count = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "NEWS_ARTICLE"
+        ordering = ["-published_at", "-created_at"]
+        verbose_name = "News Article"
+        verbose_name_plural = "News Articles"
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(self.title) or f"news-{self.news_id}"
+            self.slug = base
+            exists = NewsArticle.objects.filter(slug=self.slug).exists()
+            suffix = 2
+            while exists:
+                self.slug = f"{base}-{suffix}"
+                suffix += 1
+                exists = NewsArticle.objects.filter(slug=self.slug).exists()
+        super().save(*args, **kwargs)
+
+
+class NewsGallery(models.Model):
+    """Photo galleries associated with news articles."""
+    
+    gallery_id = models.AutoField(primary_key=True)
+    article = models.ForeignKey(
+        NewsArticle, on_delete=models.CASCADE, related_name="galleries",
+    )
+    caption = models.CharField(max_length=255, blank=True)
+    image = models.ImageField(upload_to="news/%Y/%m/")
+    is_featured = models.BooleanField(default=False, help_text="Featured image in article gallery")
+    order = models.IntegerField(default=0)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "NEWS_GALLERY"
+        ordering = ["order", "-uploaded_at"]
+        verbose_name_plural = "News Galleries"
+
+    def __str__(self):
+        return f"{self.article.title} - {self.caption or 'Untitled'}"
+
+
+class HeroSlide(models.Model):
+    """Standalone homepage hero carousel slides managed by the PIO."""
+
+    hero_id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=255)
+    subtitle = models.TextField(max_length=500, blank=True, help_text="Short text shown on the slide")
+    image = models.ImageField(upload_to="hero/%Y/%m/", null=True, blank=True)
+    button_text = models.CharField(max_length=50, default="Read More")
+    button_url = models.CharField(max_length=500, blank=True, help_text="Internal or external link for the slide button")
+    sort_order = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True, help_text="Show on the homepage hero carousel")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "HERO_SLIDE"
+        ordering = ["sort_order", "-created_at"]
+        verbose_name = "Hero Slide"
+        verbose_name_plural = "Hero Slides"
+
+    def __str__(self):
+        return self.title
+
+    def __str__(self):
+        return self.full_name
 
 

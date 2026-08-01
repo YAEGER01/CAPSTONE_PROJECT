@@ -10,211 +10,616 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" />
-    <link rel="stylesheet" href="{% static 'css/login.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/login-improved.css' %}" />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+      /* ============================================
+         ISU CAUFA Register - matches Login design
+         ============================================ */
+      .login-right-panel {
+        align-items: flex-start;
+      }
+
+      .register-wrapper {
+        max-width: 560px;
+      }
+
+      .reg-form {
+        display: grid;
+        gap: 18px;
+      }
+
+      .reg-form label {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 6px;
+        text-transform: capitalize;
+      }
+
+      .input-wrap {
+        position: relative;
+      }
+
+      .input-wrap .field-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        font-size: 16px;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .input-wrap input,
+      .input-wrap select,
+      .input-wrap textarea {
+        width: 100%;
+        padding: 13px 16px 13px 42px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-family: "Poppins", sans-serif;
+        font-size: 14px;
+        color: #333;
+        background: white;
+        transition: all 0.3s ease;
+      }
+
+      .input-wrap input::placeholder,
+      .input-wrap textarea::placeholder {
+        color: #999;
+      }
+
+      .input-wrap input:hover,
+      .input-wrap select:hover,
+      .input-wrap textarea:hover {
+        border-color: #bbb;
+      }
+
+      .input-wrap input:focus,
+      .input-wrap select:focus,
+      .input-wrap textarea:focus {
+        outline: none;
+        border-color: #1b5e3f;
+        box-shadow: 0 0 0 3px rgba(27, 94, 63, 0.1);
+        background: #fafafa;
+      }
+
+      /* Password field */
+      .password-wrap input {
+        padding-right: 54px;
+      }
+
+      .password-toggle {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background: transparent;
+        color: #666;
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+      }
+
+      .password-toggle:hover {
+        background: #eef4ee;
+        color: #1b5e3f;
+      }
+
+      /* Select chevron */
+      .input-wrap select {
+        padding-right: 44px;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3E%3Cpath fill='%231b5e3f' d='M2 5L0 0h4z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 18px center;
+        background-size: 12px 12px;
+      }
+
+      /* File input */
+      .input-wrap input[type="file"] {
+        padding-left: 50px;
+        padding-right: 16px;
+        cursor: pointer;
+      }
+
+      .input-wrap input[type="date"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+      }
+
+      /* Textarea */
+      .textarea-wrap textarea {
+        min-height: 140px;
+        resize: vertical;
+        padding-top: 16px;
+      }
+
+      .textarea-wrap .field-icon {
+        top: 18px;
+      }
+
+      /* Name row */
+      .split-row {
+        display: grid;
+        grid-template-columns: 1fr minmax(96px, 120px) 1fr;
+        gap: 16px;
+        align-items: end;
+      }
+
+      .split-row #middle_initial {
+        text-align: center;
+        max-width: 120px;
+        margin: 0 auto;
+      }
+
+      .split-row #middle_initial::placeholder {
+        text-align: center;
+      }
+
+      @media (max-width: 720px) {
+        .split-row {
+          grid-template-columns: 1fr;
+        }
+
+        .split-row #middle_initial {
+          max-width: none;
+          margin: 0;
+          text-align: left;
+        }
+      }
+
+      /* Strength meter */
+      .strength-meter {
+        background: #e6e6e6;
+        border-radius: 999px;
+        height: 8px;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+
+      .strength-bar {
+        height: 100%;
+        width: 0;
+        background: #d32f2f;
+        transition: width 0.2s ease;
+      }
+
+      .strength-bar.strength-1 { background: #d32f2f; }
+      .strength-bar.strength-2 { background: #f57c00; }
+      .strength-bar.strength-3 { background: #fbc02d; }
+      .strength-bar.strength-4 { background: #7cb342; }
+      .strength-bar.strength-5 { background: #2e7d32; }
+
+      .field-note {
+        margin-top: 6px;
+        font-size: 13px;
+      }
+
+      .field-note.field-error {
+        color: #d32f2f;
+      }
+
+      .field-note.field-success {
+        color: #1b5e3f;
+      }
+
+      /* Password rules */
+      .password-rules {
+        margin-top: 10px;
+        padding: 12px 14px;
+        background: #f7faf7;
+        border: 1px solid #e2ece2;
+        border-radius: 8px;
+        color: #4a4a4a;
+      }
+
+      .password-rules p {
+        margin: 0 0 6px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1b5e3f;
+      }
+
+      .password-rules ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .password-rules li {
+        margin-bottom: 4px;
+        font-size: 13px;
+      }
+
+      /* Status notes */
+      .error-note {
+        margin-bottom: 8px;
+        color: #d32f2f;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .success-note {
+        color: #1b5e3f;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        padding: 12px 14px;
+        border-radius: 8px;
+      }
+
+      /* Account helper */
+      .account-helper {
+        text-align: center;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 22px;
+      }
+
+      .account-helper a {
+        color: #1b5e3f;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color 0.3s ease;
+      }
+
+      .account-helper a:hover {
+        color: #0d3d28;
+        text-decoration: underline;
+      }
+
+      /* Mobile progress */
+      .mobile-progress-container {
+        display: none;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 99998;
+        background: rgba(255, 255, 255, 0.98);
+        border-top: 1px solid #d8e3d8;
+        padding: 10px 16px;
+      }
+
+      .mobile-progress-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1b5e3f;
+        margin-bottom: 8px;
+      }
+
+      .mobile-progress-track {
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: #e6e6e6;
+        overflow: hidden;
+      }
+
+      .mobile-progress-fill {
+        width: 0%;
+        height: 100%;
+        background: #2e7d32;
+        transition: width 0.2s ease;
+      }
+
+      /* Scroll top */
+      .scroll-top-button {
+        display: none;
+        position: fixed;
+        right: 18px;
+        bottom: 90px;
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        border: none;
+        background: #1b5e3f;
+        color: #ffffff;
+        box-shadow: 0 14px 28px rgba(0, 0, 0, 0.16);
+        cursor: pointer;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+      }
+
+      .scroll-top-button.visible {
+        display: inline-flex;
+      }
+
+      .scroll-top-button i {
+        font-size: 18px;
+      }
+
+      /* Mobile adjustments for the long registration form */
+      @media (max-width: 900px) {
+        .mobile-progress-container {
+          display: block;
+        }
+
+        .login-right-panel {
+          padding-bottom: 150px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        body {
+          overflow: auto;
+        }
+
+        .login-right-panel {
+          overflow: visible;
+          background-attachment: fixed;
+          background-size: cover;
+          background-position: center top;
+        }
+
+        .login-right-panel::before {
+          background: rgba(255, 255, 255, 0.82);
+        }
+
+        .back-home-btn {
+          position: fixed;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .reg-form input,
+        .reg-form select,
+        .reg-form textarea {
+          font-size: 16px;
+        }
+      }
+    </style>
   </head>
   <body>
-    <a href="{% url 'home' %}" class="sticky-back-home">
-      <i class="fa-solid fa-arrow-left"></i> Back to Home
-    </a>
+    <div class="login-container">
+      <a href="{% url 'home' %}" class="back-home-btn">
+        <i class="fa-solid fa-arrow-left"></i> Back to Home
+      </a>
 
-    <section class="login-shell">
-      <div class="brand">
-        <img src="{% static 'img/isu_caufa_official.png' %}" alt="CAUFA logo" />
-        <div>
-          <strong>CAUFA</strong>
-          <span>Membership Registration!</span>
+      <!-- Left Panel with Background Image -->
+      <div class="login-left-panel" style="background-image: url('{% static 'img/isugym.jpg' %}'); background-size: cover; background-position: center;">
+        <div class="left-panel-overlay"></div>
+
+        <div class="left-panel-content">
+          <div class="brand-section">
+            <h1 class="brand-title">
+              JOIN <span class="brand-accent">ISU CAUFA</span> TODAY!
+            </h1>
+
+            <p class="brand-subtitle">
+              ISABELA STATE UNIVERSITY CAUAYAN FACULTY ASSOCIATION
+            </p>
+
+            <div class="divider"></div>
+
+            <p class="brand-tagline">
+              Become a member and be part of the association that unites faculty and administrators through collaboration, service, and excellence.
+            </p>
+          </div>
         </div>
+
+        <!-- Wavy SVG Bottom -->
+        <svg class="wave-svg" viewBox="0 0 1000 120" preserveAspectRatio="none">
+          <path d="M0,50 Q250,0 500,50 T1000,50 L1000,120 L0,120 Z" fill="#FCD34D"></path>
+        </svg>
       </div>
 
-      <div class="account-helper">
-        Already have an account? <a href="{% url 'login' %}">Login</a>
-      </div>
+      <!-- Right Panel - Registration Form -->
+      <div class="login-right-panel">
+        <div class="login-form-wrapper register-wrapper">
+          <!-- ISU CAUFA Logo -->
+          <div class="security-badge">
+            <img src="{% static 'img/isu_caufa_official.png' %}" alt="ISU CAUFA logo" class="badge-logo" />
+          </div>
 
-      <form id="registrationForm" enctype="multipart/form-data" autocomplete="off">
-        {% csrf_token %}
-        <div id="formStatus" class="error-note" style="display:none;margin-bottom:8px;"></div>
+          <!-- Form Header -->
+          <h2 class="form-title">Create Your Account</h2>
+          <p class="form-subtitle">Join the ISU CAUFA System Portal as a new member</p>
 
-        <div class="split-row">
-          <div>
-            <label for="first_name">First Name</label>
-            <div class="input-wrap">
-              <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
-              <input type="text" id="first_name" name="first_name" placeholder="First name as shown on ID" required />
+          <div class="account-helper">
+            Already have an account? <a href="{% url 'login' %}">Login</a>
+          </div>
+
+          <form id="registrationForm" enctype="multipart/form-data" autocomplete="off" class="reg-form">
+            {% csrf_token %}
+            <div id="formStatus" class="error-note" style="display:none;margin-bottom:8px;"></div>
+
+            <div class="split-row">
+              <div>
+                <label for="first_name">First Name</label>
+                <div class="input-wrap">
+                  <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
+                  <input type="text" id="first_name" name="first_name" placeholder="First name as shown on ID" required />
+                </div>
+              </div>
+              <div>
+                <label for="middle_initial">Middle Initial</label>
+                <div class="input-wrap">
+                  <i class="fa-regular fa-id-badge field-icon" aria-hidden="true"></i>
+                  <input type="text" id="middle_initial" name="middle_initial" placeholder="M" maxlength="1" />
+                </div>
+              </div>
+              <div>
+                <label for="last_name">Last Name</label>
+                <div class="input-wrap">
+                  <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
+                  <input type="text" id="last_name" name="last_name" placeholder="Last name as shown on ID" required />
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <label for="middle_initial">Middle Initial</label>
-            <div class="input-wrap">
-              <i class="fa-regular fa-id-badge field-icon" aria-hidden="true"></i>
-              <input type="text" id="middle_initial" name="middle_initial" placeholder="M" maxlength="1" />
+
+            <div>
+              <label for="username">Username</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-user-gear field-icon" aria-hidden="true"></i>
+                <input type="text" id="username" name="username" placeholder="Faculty ID or chosen username" required autocomplete="username" />
+              </div>
+              <p class="field-note field-status" id="usernameAvailability" style="display:none;"></p>
             </div>
-          </div>
-          <div>
-            <label for="last_name">Last Name</label>
-            <div class="input-wrap">
-              <i class="fa-regular fa-user field-icon" aria-hidden="true"></i>
-              <input type="text" id="last_name" name="last_name" placeholder="Last name as shown on ID" required />
+
+            <div>
+              <label for="email">Email Address</label>
+              <div class="input-wrap">
+                <i class="fa-regular fa-envelope field-icon" aria-hidden="true"></i>
+                <input type="email" id="email" name="email" placeholder="name@example.com" required autocomplete="email" />
+              </div>
+              <p class="field-note field-status" id="emailAvailability" style="display:none;"></p>
             </div>
-          </div>
-        </div>
 
-        <div>
-          <label for="username">Username</label>
-          <div class="input-wrap">
-            <i class="fa-solid fa-user-gear field-icon" aria-hidden="true"></i>
-            <input type="text" id="username" name="username" placeholder="Faculty ID or chosen username" required autocomplete="username" />
-          </div>
-          <p class="field-note field-status" id="usernameAvailability" style="display:none;"></p>
-        </div>
+            <div>
+              <label for="department">Department</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-building field-icon" aria-hidden="true"></i>
+                <select id="department" name="department" required>
+                  <option value="">Select department</option>
+                  <option value="IAT">IAT</option>
+                  <option value="CCJE">CCJE</option>
+                  <option value="CCSICT">CCSICT</option>
+                  <option value="PS">PS</option>
+                  <option value="SAS">SAS</option>
+                  <option value="CBM">CBM</option>
+                  <option value="CED">CED</option>
+                </select>
+              </div>
+            </div>
 
-        <div>
-          <label for="email">Email Address</label>
-          <div class="input-wrap">
-            <i class="fa-regular fa-envelope field-icon" aria-hidden="true"></i>
-            <input type="email" id="email" name="email" placeholder="name@example.com" required autocomplete="email" />
-          </div>
-          <p class="field-note field-status" id="emailAvailability" style="display:none;"></p>
-        </div>
+            <div>
+              <label for="position">Position / Rank</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-briefcase field-icon" aria-hidden="true"></i>
+                <input type="text" id="position" name="position" placeholder="e.g. Assistant Professor" />
+              </div>
+            </div>
 
-        <div>
-          <label for="department">Department</label>
-          <div class="input-wrap">
-            <i class="fa-solid fa-building field-icon" aria-hidden="true"></i>
-            <select id="department" name="department" required>
-              <option value="">Select department</option>
-              <option value="IAT">IAT</option>
-              <option value="CCJE">CCJE</option>
-              <option value="CCSICT">CCSICT</option>
-              <option value="PS">PS</option>
-              <option value="SAS">SAS</option>
-              <option value="CBM">CBM</option>
-              <option value="CED">CED</option>
-            </select>
-          </div>
-        </div>
+            <div>
+              <label for="password">Password</label>
+              <div class="input-wrap password-wrap">
+                <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+                <input type="password" id="password" name="password" placeholder="Choose a strong password" required autocomplete="new-password" />
+                <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password">
+                  <i class="fa-regular fa-eye" id="passwordToggleIcon" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="strength-meter" aria-hidden="true">
+                <div class="strength-bar" id="passwordStrengthBar"></div>
+              </div>
+              <p class="field-note" id="passwordStrengthLabel">Password strength: <span>Weak</span></p>
+              <div class="password-rules">
+                <p>Password must include:</p>
+                <ul>
+                  <li id="ruleLength">At least 8 characters</li>
+                  <li id="ruleLower">A lowercase letter</li>
+                  <li id="ruleUpper">An uppercase letter</li>
+                  <li id="ruleNumber">A number</li>
+                  <li id="ruleSpecial">A special character</li>
+                </ul>
+              </div>
+            </div>
 
-        <div>
-          <label for="position">Position / Rank</label>
-          <div class="input-wrap">
-            <i class="fa-solid fa-briefcase field-icon" aria-hidden="true"></i>
-            <input type="text" id="position" name="position" placeholder="e.g. Assistant Professor" />
-          </div>
-        </div>
+            <div>
+              <label for="confirm_password">Confirm Password</label>
+              <div class="input-wrap password-wrap">
+                <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required autocomplete="new-password" />
+                <button class="password-toggle" type="button" id="confirmPasswordToggle" aria-label="Show password">
+                  <i class="fa-regular fa-eye" id="confirmPasswordToggleIcon" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="field-note field-error" id="confirmPasswordError" style="display:none;">Passwords do not match.</p>
+            </div>
 
-        <div>
-          <label for="password">Password</label>
-          <div class="input-wrap password-wrap">
-            <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
-            <input type="password" id="password" name="password" placeholder="Choose a strong password" required autocomplete="new-password" />
-            <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password">
-              <i class="fa-regular fa-eye" id="passwordToggleIcon" aria-hidden="true"></i>
+            <div>
+              <label for="membership_category">Membership Type</label>
+              <div class="input-wrap">
+                <select id="membership_category" name="membership_category">
+                  <option value="Permanent" selected>Permanent</option>
+                  <option value="Temporary">Temporary</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label for="amount">Amount Paid (₱)</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-money-bill field-icon" aria-hidden="true"></i>
+                <input type="number" step="0.01" id="amount" name="amount" value="{{ membership_fee_amount|default:'500.00' }}" required />
+              </div>
+            </div>
+
+            <div>
+              <label for="payment_method">Payment Method</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-credit-card field-icon" aria-hidden="true"></i>
+                <select id="payment_method" name="payment_method" required>
+                  <option value="">Select method</option>
+                  <option value="OTC Cash">OTC Cash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="GCash">GCash</option>
+                  <option value="Maya">Maya</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label for="payment_date">Payment Date</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-calendar-days field-icon" aria-hidden="true"></i>
+                <input type="date" id="payment_date" name="payment_date" />
+              </div>
+            </div>
+
+            <div>
+              <label for="proof_file">Upload Proof</label>
+              <div class="input-wrap">
+                <i class="fa-solid fa-paperclip field-icon" aria-hidden="true"></i>
+                <input type="file" id="proof_file" name="proof_file" accept="image/*,.pdf,.docx" />
+              </div>
+            </div>
+
+            <div>
+              <label for="notes">Additional Notes</label>
+              <div class="input-wrap textarea-wrap">
+                <i class="fa-regular fa-comments field-icon" aria-hidden="true"></i>
+                <textarea id="notes" name="notes" placeholder="Optional: additional details or notes"></textarea>
+              </div>
+            </div>
+
+            <button class="btn-login" id="registrationSubmit" type="submit">
+              <i class="fa-solid fa-paper-plane"></i> Submit Registration Request
             </button>
-          </div>
-          <div class="strength-meter" aria-hidden="true">
-            <div class="strength-bar" id="passwordStrengthBar"></div>
-          </div>
-          <p class="field-note" id="passwordStrengthLabel">Password strength: <span>Weak</span></p>
-          <div class="password-rules">
-            <p>Password must include:</p>
-            <ul>
-              <li id="ruleLength">At least 8 characters</li>
-              <li id="ruleLower">A lowercase letter</li>
-              <li id="ruleUpper">An uppercase letter</li>
-              <li id="ruleNumber">A number</li>
-              <li id="ruleSpecial">A special character</li>
-            </ul>
-          </div>
-        </div>
+          </form>
 
-        <div>
-          <label for="confirm_password">Confirm Password</label>
-          <div class="input-wrap password-wrap">
-            <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
-            <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required autocomplete="new-password" />
-            <button class="password-toggle" type="button" id="confirmPasswordToggle" aria-label="Show password">
-              <i class="fa-regular fa-eye" id="confirmPasswordToggleIcon" aria-hidden="true"></i>
-            </button>
+          <div id="mobileProgressContainer" class="mobile-progress-container" aria-hidden="true">
+            <div class="mobile-progress-label">
+              <span>Form completion</span>
+              <span id="mobileProgressPercent">0%</span>
+            </div>
+            <div class="mobile-progress-track">
+              <div id="mobileProgressFill" class="mobile-progress-fill"></div>
+            </div>
           </div>
-          <p class="field-note field-error" id="confirmPasswordError" style="display:none;">Passwords do not match.</p>
-        </div>
 
-        <div>
-          <label for="membership_category">Membership Type</label>
-          <div class="input-wrap">
-            <select id="membership_category" name="membership_category">
-              <option value="Permanent" selected>Permanent</option>
-              <option value="Temporary">Temporary</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label for="amount">Amount Paid (₱)</label>
-          <div class="input-wrap">
-            <i class="fa-solid fa-money-bill field-icon" aria-hidden="true"></i>
-            <input type="number" step="0.01" id="amount" name="amount" value="{{ membership_fee_amount|default:'500.00' }}" required />
-          </div>
-        </div>
-
-        <div>
-          <label for="payment_method">Payment Method</label>
-          <div class="input-wrap">
-            <i class="fa-solid fa-credit-card field-icon" aria-hidden="true"></i>
-            <select id="payment_method" name="payment_method" required>
-              <option value="">Select method</option>
-              <option value="OTC Cash">OTC Cash</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="GCash">GCash</option>
-              <option value="Maya">Maya</option>
-            </select>
-          </div>
-        </div>
-
-
-        <div>
-          <label for="payment_date">Payment Date</label>
-          <div class="input-wrap">
-            <i class="fa-solid fa-calendar-days field-icon" aria-hidden="true"></i>
-            <input type="date" id="payment_date" name="payment_date" />
-          </div>
-        </div>
-
-        <div>
-          <label for="proof_file">Upload Proof</label>
-          <div class="input-wrap">
-            <i class="fa-solid fa-paperclip field-icon" aria-hidden="true"></i>
-            <input type="file" id="proof_file" name="proof_file" accept="image/*,.pdf,.docx" />
-          </div>
-        </div>
-
-        <div>
-          <label for="notes">Additional Notes</label>
-          <div class="input-wrap textarea-wrap">
-            <i class="fa-regular fa-comments field-icon" aria-hidden="true"></i>
-            <textarea id="notes" name="notes" placeholder="Optional: additional details or notes"></textarea>
-          </div>
-        </div>
-
-        <button class="submit-btn" id="registrationSubmit" type="submit">
-          Submit Registration Request
-        </button>
-      </form>
-
-      <div id="mobileProgressContainer" class="mobile-progress-container" aria-hidden="true">
-        <div class="mobile-progress-label">
-          <span>Form completion</span>
-          <span id="mobileProgressPercent">0%</span>
-        </div>
-        <div class="mobile-progress-track">
-          <div id="mobileProgressFill" class="mobile-progress-fill"></div>
+          <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="Go to top">
+            <i class="fa-solid fa-arrow-up"></i>
+          </button>
         </div>
       </div>
-
-      <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="Go to top">
-        <i class="fa-solid fa-arrow-up"></i>
-      </button>
-    </section>
+    </div>
 
     <script>
       const registrationForm = document.getElementById("registrationForm");

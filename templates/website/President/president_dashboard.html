@@ -1127,6 +1127,18 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
+      .btn-toggle-bylaws-visibility,
+      .btn-delete-bylaws {
+        transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+      }
+      .btn-toggle-bylaws-visibility:hover {
+        background: #1565c0;
+        color: #fff !important;
+      }
+      .btn-delete-bylaws:hover {
+        background: #c62828;
+        color: #fff !important;
+      }
       .io-item {
         display: flex !important;
         flex-direction: row !important;
@@ -4688,6 +4700,7 @@
                         <option value="Secretary">Secretary</option>
                         <option value="Treasurer">Treasurer</option>
                         <option value="Auditor">Auditor</option>
+                        <option value="Public Information Officer">Public Information Officer</option>
                       </select>
                       <small style="display:block;margin-top:6px;color:#5f6f5f;">Choose the officer role for this enrollment.</small>
                     </div>
@@ -5052,6 +5065,40 @@
                   Upload New Bylaws File
                 </h3>
                 <form id="bylawsUploadForm" enctype="multipart/form-data">
+                  <div class="form-group">
+                    <label for="bylawsFileType"
+                      >Document Type</label
+                    >
+                    <select
+                      id="bylawsFileType"
+                      name="document_type"
+                      style="
+                        padding: 8px;
+                        border: 1px solid #ccc;
+                        border-radius: 6px;
+                        width: 100%;
+                      "
+                    >
+                      <option value="Constitution">Constitution</option>
+                      <option value="By-Laws" selected>By-Laws</option>
+                      <option value="Public Documents">Public Documents</option>
+                    </select>
+                  </div>
+                  <div class="form-group" id="bylawsVisibilityGroup" style="display: none">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer">
+                      <input
+                        type="checkbox"
+                        id="bylawsPublicVisible"
+                        name="is_public_visible"
+                        value="1"
+                        checked
+                      />
+                      <span>Visible to the public on the website</span>
+                    </label>
+                    <span class="field-hint" style="font-size: 12px; color: #757575"
+                      >Only applies to Public Documents. Public Documents hidden here will not appear on the site.</span
+                    >
+                  </div>
                   <div class="form-group">
                     <label for="bylawsFileInput"
                       >Select File (PDF, DOC, DOCX, TXT)</label
@@ -6261,10 +6308,11 @@
             <div class="form-group">
               <label for="officer_role">Role</label>
               <select id="officer_role">
+                <option value="">-- Select officer role --</option>
                 <option value="Secretary">Secretary</option>
                 <option value="Treasurer">Treasurer</option>
                 <option value="Auditor">Auditor</option>
-                <option value="President">President</option>
+                <option value="Public Information Officer">Public Information Officer</option>
               </select>
             </div>
           </div>
@@ -6273,8 +6321,15 @@
               <label for="officer_department">Department</label>
               <select id="officer_department">
                 <option value="">-- None --</option>
+                <option value="CED">CED</option>
+                <option value="CCSICT">CCSICT</option>
+                <option value="IAT">IAT</option>
+                <option value="CCJE">CCJE</option>
+                <option value="SAS">SAS</option>
+                <option value="CBM">CBM</option>
+                <option value="PS">PS</option>
                 {% for dept in departments %}
-                <option value="{{ dept.department_id_PK }}">{{ dept.name }}</option>
+                <option value="{{ dept.code }}">{{ dept.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -6370,7 +6425,6 @@
       window.VAPID_PUBLIC_KEY =
         "BH_OcUmir3ilJ-ysc_ZWUISngSKIWg2LqLbOQQFwFZPcMTY1iKLS-Kwm6hfAHOH9Tj6CvJ8IDYVMTaQmXQhTbEg";
     </script>
-    <script src="{% static 'js/shared/fund_display.js' %}"></script>
     <script src="{% static 'js/President/sidebarNav.js' %}"></script>
     <script src="{% static 'js/status-utils.js' %}"></script>
     <script src="{% static 'js/President/payments_verification.js' %}"></script>
@@ -6461,7 +6515,12 @@
             if (!data || !data.ok || !data.months || data.months.length === 0) return;
             var ctx = document.getElementById("monthlyFlowChart");
             if (!ctx) return;
-            if (chartInstance) chartInstance.destroy();
+            var existingChart = Chart.getChart(ctx);
+            if (existingChart) {
+              existingChart.destroy();
+            } else if (chartInstance) {
+              chartInstance.destroy();
+            }
             var config = {
               type: "bar",
               data: {
@@ -6789,7 +6848,7 @@
 
       async function savePolicyConstant(key) {
         var input = document.getElementById("const-" + key);
-        if (!input) return;
+        if (!input) return false;
         var value = input.value;
         try {
           var res = await fetch("/api/president/bylaws/constants/update/", {
@@ -6801,29 +6860,38 @@
             },
             body: JSON.stringify({ key: key, value: value }),
           });
-          var data = await res.json();
+          var data = null;
+          try {
+            data = await res.json();
+          } catch (e) {
+            throw new Error(
+              "Server returned HTTP " + res.status + " with a non-JSON response.",
+            );
+          }
           if (data.ok) {
             showBylawsMessage(
               "constantsMessage",
               data.message || "Saved.",
               false,
             );
-          } else {
-            showBylawsMessage(
-              "constantsMessage",
-              (data && data.error) || "Save failed.",
-              true,
-            );
+            return true;
           }
+          showBylawsMessage(
+            "constantsMessage",
+            (data && data.error) || "Save failed.",
+            true,
+          );
+          return false;
         } catch (e) {
           console.error("Failed to save constant", e);
           showBylawsMessage("constantsMessage", "Error saving constant.", true);
+          return false;
         }
       }
 
       document
         .getElementById("saveConstantsBtn")
-        .addEventListener("click", function () {
+        .addEventListener("click", async function () {
           var keys = [
             "membership_fee",
             "monthly_dues",
@@ -6834,16 +6902,20 @@
             "death_aid_parent_child",
             "death_aid_full_blood_sibling",
           ];
-          var promises = keys.map(function (k) {
-            return savePolicyConstant(k);
-          });
-          Promise.all(promises).then(function () {
+          var allSaved = true;
+          for (var i = 0; i < keys.length; i++) {
+            if (!(await savePolicyConstant(keys[i]))) {
+              allSaved = false;
+              break;
+            }
+          }
+          if (allSaved) {
             showBylawsMessage(
               "constantsMessage",
               "All policy constants saved.",
               false,
             );
-          });
+          }
         });
 
       document
@@ -6885,45 +6957,66 @@
             '<th style="padding: 8px; text-align: right;">Action</th>' +
             "</tr></thead><tbody>";
           files.forEach(function (f) {
+            var isPublic = f.document_type === "Public Documents";
+            var visible = !!f.is_public_visible;
+            var badge =
+              isPublic && visible
+                ? '<span style="font-size:10px; background:#e8f5e9; color:#1b5e20; padding:2px 6px; border-radius:4px; margin-left:6px;">Public</span>'
+                : isPublic
+                  ? '<span style="font-size:10px; background:#fff3e0; color:#e65100; padding:2px 6px; border-radius:4px; margin-left:6px;">Hidden</span>'
+                  : "";
+            var visibilityBtn = isPublic
+              ? '<button class="btn-toggle-bylaws-visibility" data-doc-id="' +
+                f.document_id +
+                '" style="padding:6px 12px; border-radius:6px; border:1px solid #1565c0; background:#fff; color:#1565c0; cursor:pointer; font-size:12px; font-weight:600; line-height:1; display:inline-flex; align-items:center; gap:5px; min-width:70px; justify-content:center;">' +
+                (visible
+                  ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Hide'
+                  : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Show') +
+                "</button>"
+              : "";
             html +=
               '<tr style="border-bottom: 1px solid #f0f0f0;">' +
               '<td style="padding: 10px 8px;">' +
               escapeHtml(f.file_name) +
+              badge +
               "</td>" +
               '<td style="padding: 10px 8px;">' +
-              escapeHtml(f.file_type) +
+              escapeHtml(f.document_type || f.file_type || "—") +
               "</td>" +
-              '<td style="padding: 10px 8px;">' +
+              '<td style="padding: 10px 8px; white-space: nowrap;">' +
               (f.uploaded_at || "—") +
               "</td>" +
-              '<td style="padding: 10px 8px;">' +
+              '<td style="padding: 10px 8px; white-space: nowrap;">' +
               escapeHtml(f.uploaded_by) +
               "</td>" +
-              '<td style="padding: 10px 8px; text-align: right;">' +
+              '<td style="padding: 10px 8px; text-align: right; white-space: nowrap;">' +
+              '<div style="display:flex; justify-content:flex-end; gap:6px; align-items:center;">' +
+              visibilityBtn +
               '<button class="btn-delete-bylaws" data-doc-id="' +
               f.document_id +
-              '" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #c62828; background: #fff; color: #c62828; cursor: pointer; font-size: 12px;">Delete</button>' +
+              '" style="padding:6px 14px; border-radius:6px; border:1px solid #c62828; background:#fff; color:#c62828; cursor:pointer; font-size:12px; font-weight:600; line-height:1; display:inline-flex; align-items:center; gap:5px; min-width:88px; justify-content:center;">' +
+              '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete</button>' +
+              "</div>" +
               "</td></tr>";
           });
           html += "</tbody></table>";
           container.innerHTML = html;
 
           document
-            .querySelectorAll(".btn-delete-bylaws")
+            .querySelectorAll(".btn-toggle-bylaws-visibility")
             .forEach(function (btn) {
               btn.addEventListener("click", function () {
                 var docId = this.getAttribute("data-doc-id");
-                if (
-                  !confirm(
-                    "Are you sure you want to delete this document? This action is logged in the audit trail.",
-                  )
+                fetch(
+                  "/api/president/bylaws/files/" +
+                    docId +
+                    "/visibility/",
+                  {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "X-CSRFToken": getCookie("csrftoken") },
+                  },
                 )
-                  return;
-                fetch("/api/president/bylaws/files/" + docId + "/delete/", {
-                  method: "POST",
-                  credentials: "same-origin",
-                  headers: { "X-CSRFToken": getCookie("csrftoken") },
-                })
                   .then(function (r) {
                     return r.json();
                   })
@@ -6931,13 +7024,54 @@
                     if (data.ok) {
                       loadBylawsFiles();
                     } else {
-                      alert(data.error || "Delete failed.");
+                      alert(data.error || "Update failed.");
                     }
                   })
                   .catch(function (e) {
-                    console.error("Delete failed", e);
-                    alert("Delete failed.");
+                    console.error("Visibility update failed", e);
+                    alert("Update failed.");
                   });
+              });
+            });
+
+          document
+            .querySelectorAll(".btn-delete-bylaws")
+            .forEach(function (btn) {
+              btn.addEventListener("click", function () {
+                var docId = this.getAttribute("data-doc-id");
+                Swal.fire({
+                  title: "Delete this document?",
+                  text: "This action is logged in the audit trail.",
+                  icon: "warning",
+                  showCancelButton: true,
+                  confirmButtonColor: "#c62828",
+                  confirmButtonText: "Yes, delete",
+                  cancelButtonText: "Cancel",
+                }).then(function (result) {
+                  if (!result.isConfirmed) return;
+                  fetch(
+                    "/api/president/bylaws/files/" + docId + "/delete/",
+                    {
+                      method: "POST",
+                      credentials: "same-origin",
+                      headers: { "X-CSRFToken": getCookie("csrftoken") },
+                    },
+                  )
+                    .then(function (r) {
+                      return r.json();
+                    })
+                    .then(function (data) {
+                      if (data.ok) {
+                        loadBylawsFiles();
+                      } else {
+                        alert(data.error || "Delete failed.");
+                      }
+                    })
+                    .catch(function (e) {
+                      console.error("Delete failed", e);
+                      alert("Delete failed.");
+                    });
+                });
               });
             });
         } catch (e) {
@@ -6960,7 +7094,13 @@
             );
             return;
           }
+          var docType = document.getElementById("bylawsFileType").value;
           formData.append("bylaws_file", file);
+          formData.append("document_type", docType);
+          var visBox = document.getElementById("bylawsPublicVisible");
+          if (docType === "Public Documents" && visBox && visBox.checked) {
+            formData.append("is_public_visible", "1");
+          }
           fetch("/api/president/bylaws/files/upload/", {
             method: "POST",
             credentials: "same-origin",
@@ -6992,6 +7132,17 @@
               showBylawsMessage("uploadMessage", "Upload failed.", true);
             });
         });
+
+      var bylawsTypeSelect = document.getElementById("bylawsFileType");
+      var bylawsVisibilityGroup = document.getElementById(
+        "bylawsVisibilityGroup",
+      );
+      function updateBylawsVisibilityGroup() {
+        bylawsVisibilityGroup.style.display =
+          bylawsTypeSelect.value === "Public Documents" ? "flex" : "none";
+      }
+      bylawsTypeSelect.addEventListener("change", updateBylawsVisibilityGroup);
+      updateBylawsVisibilityGroup();
 
       function getCookie(name) {
         var cookieValue = null;
@@ -7478,6 +7629,32 @@
         }
       }
 
+      function validateOfficerEmailUnique() {
+        var emailInput = document.getElementById("officer_email");
+        var msg = document.getElementById("officerFormMessage");
+        if (!emailInput || !msg) return true;
+        var email = emailInput.value.trim().toLowerCase();
+        if (!email) {
+          msg.style.display = "none";
+          return true;
+        }
+        var currentId = document.getElementById("officer_id").value;
+        var officers = window.__officersCache || [];
+        var conflict = officers.find(function (o) {
+          return o.email && o.email.toLowerCase() === email && String(o.id) !== String(currentId);
+        });
+        if (conflict) {
+          msg.textContent = "This email is already used by another officer.";
+          msg.style.display = "block";
+          msg.style.background = "#ffebee";
+          msg.style.color = "#c62828";
+          msg.style.border = "1px solid #ef9a9a";
+          return false;
+        }
+        msg.style.display = "none";
+        return true;
+      }
+
       function openOfficerModal(officerId) {
         var modal = document.getElementById("officerModal");
         var form = document.getElementById("officerForm");
@@ -7502,7 +7679,7 @@
             document.getElementById("officer_email").value = officer.email || "";
             document.getElementById("officer_password").value = "";
             document.getElementById("officer_role").value = officer.role || "Officer";
-            document.getElementById("officer_department").value = officer.department_id || "";
+            document.getElementById("officer_department").value = officer.department_code || "";
             document.getElementById("officer_status").value = officer.account_status === "Inactive" ? "Inactive" : "Active";
             var termRange = document.getElementById("officer_term_range");
             initOfficerTermRange();
@@ -7514,6 +7691,13 @@
           title.textContent = "New Officer";
           document.getElementById("officer_id").value = "";
         }
+
+        var emailInput = document.getElementById("officer_email");
+        if (emailInput) {
+          emailInput.removeEventListener("blur", validateOfficerEmailUnique);
+          emailInput.addEventListener("blur", validateOfficerEmailUnique);
+        }
+
         modal.style.display = "flex";
       }
 
@@ -7541,6 +7725,19 @@
         if (!payload.full_name || !payload.username) {
           showOfficerMessage("Full name and username are required.", true);
           return;
+        }
+        if (payload.email) {
+          var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailPattern.test(payload.email)) {
+            showOfficerMessage("Please enter a valid email address.", true);
+            return;
+          }
+          if (!validateOfficerEmailUnique()) {
+            return;
+          }
+        }
+        if (payload.department_id && !isNaN(Number(payload.department_id))) {
+          payload.department_id = Number(payload.department_id);
         }
 
         var url = id ? ("/api/president/officers/" + id + "/update/") : "/api/president/officers/create/";

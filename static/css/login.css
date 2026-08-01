@@ -45,12 +45,8 @@ body {
 }
 
 .brand img {
-  width: 132px;
-  height: 132px;
-  border-radius: 50%;
-  background: #fff;
-  border: 1px solid #d9e6d9;
-  padding: 6px;
+  width: 150px;
+  height: 150px;
 }
 
 .brand strong {
@@ -608,8 +604,8 @@ input:focus {
   }
 
   .brand img {
-    width: 110px;
-    height: 110px;
+    width: 130px;
+    height: 130px;
   }
 
   .brand strong {

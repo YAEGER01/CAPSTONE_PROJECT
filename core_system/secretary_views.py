@@ -7,6 +7,7 @@ import logging
 import os
 import threading
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db.models import Q, Count
@@ -27,6 +28,24 @@ from core_system.models import (
 logger = logging.getLogger(__name__)
 
 
+def _resolve_document_uploader_fallbacks(document_ids: list[int]) -> dict[int, str]:
+    """Return fallback uploader names from document activity when the uploader FK is missing."""
+    if not document_ids:
+        return {}
+
+    uploader_names: dict[int, str] = {}
+    activities = DocumentActivity.objects.filter(
+        document_id_FK__in=document_ids,
+    ).order_by('-timestamp').values('document_id_FK', 'officer_name')
+
+    for activity in activities:
+        doc_id = activity['document_id_FK']
+        if doc_id not in uploader_names and activity.get('officer_name'):
+            uploader_names[doc_id] = activity['officer_name']
+
+    return uploader_names
+
+
 @require_GET
 def secretary_dashboard(request: HttpRequest):
     """
@@ -45,6 +64,7 @@ def secretary_dashboard(request: HttpRequest):
             officer = None
     
     officer_name = officer.full_name if officer else "Officer"
+    officer_email = officer.email if officer else ""
     
     # Get dashboard statistics
     today = date.today()
@@ -77,6 +97,7 @@ def secretary_dashboard(request: HttpRequest):
 
     return render(request, 'website/Secretary/secretary_dashboard.html', {
         'officer_name': officer_name,
+        'officer_email': officer_email,
         'total_members': total_members,
         'present': present,
         'late': late,
@@ -576,15 +597,24 @@ def secretary_documents_list(request: HttpRequest):
     total = queryset.count()
     start = (page - 1) * page_size
     end = start + page_size
+    page_docs = list(queryset.order_by('-uploaded_at')[start:end])
+    missing_doc_ids = [doc.document_id_PK for doc in page_docs if not doc.uploaded_by_user_id_FK]
+    uploader_fallbacks = _resolve_document_uploader_fallbacks(missing_doc_ids)
+
     documents = []
-    for doc in queryset.order_by('-uploaded_at')[start:end]:
+    for doc in page_docs:
         status = 'Active'
         if doc.is_archived:
             status = 'Archived'
+
         try:
             uploaded_by_name = doc.uploaded_by_user_id_FK.full_name if doc.uploaded_by_user_id_FK else None
         except (OfficerUser.DoesNotExist, AttributeError):
             uploaded_by_name = None
+
+        if not uploaded_by_name:
+            uploaded_by_name = uploader_fallbacks.get(doc.document_id_PK)
+
         documents.append({
             'document_id': doc.document_id_PK,
             'title': doc.title,
@@ -603,6 +633,7 @@ def secretary_documents_list(request: HttpRequest):
             'is_archived': doc.is_archived,
             'status': status,
             'is_pinned': doc.document_id_PK in pinned_ids,
+            'is_public_visible': doc.is_public_visible,
         })
     
     return JsonResponse({
@@ -635,6 +666,7 @@ def secretary_document_upload(request: HttpRequest):
         category = (request.POST.get('category', '') or '')[:100]
         keywords = (request.POST.get('keywords', '') or '')[:500]
         tags = (request.POST.get('tags', '') or '')[:500]
+        is_public_visible = request.POST.get('is_public_visible') in ("1", "true", "True", "on")
         
         file = request.FILES.get('file')
         if not file:
@@ -666,6 +698,7 @@ def secretary_document_upload(request: HttpRequest):
             file_name=file.name,
             file_size=file.size,
             file_type=(file.content_type or 'application/octet-stream')[:50],
+            is_public_visible=is_public_visible,
             uploaded_by_user_id_FK=officer
         )
 
@@ -814,6 +847,7 @@ def secretary_announcements_list(request: HttpRequest):
             'published_by': announcement.published_by_user_id_FK.full_name if announcement.published_by_user_id_FK else 'Unknown',
             'published_at': timezone.localtime(announcement.published_at).strftime('%Y-%m-%d %H:%M'),
             'expiry_date': announcement.expiry_date.strftime('%Y-%m-%d') if announcement.expiry_date else None,
+            'image_url': announcement.image.url if announcement.image else None,
         })
     
     return JsonResponse({
@@ -837,12 +871,12 @@ def secretary_announcement_create(request: HttpRequest):
         officer_id = request.session.get("officer_id")
         officer = OfficerUser.objects.get(user_id_PK=officer_id) if officer_id else None
         
-        data = json.loads(request.body)
-        announcement_id = data.get('announcement_id')
-        title = data.get('title')
-        category = data.get('category')
-        description = data.get('description')
-        expiry_date = data.get('expiry_date')
+        announcement_id = request.POST.get('announcement_id')
+        title = request.POST.get('title')
+        category = request.POST.get('category')
+        description = request.POST.get('description')
+        expiry_date = request.POST.get('expiry_date')
+        image = request.FILES.get('image')
         
         if announcement_id:
             # Update existing
@@ -851,6 +885,8 @@ def secretary_announcement_create(request: HttpRequest):
             announcement.category = category
             announcement.description = description
             announcement.expiry_date = expiry_date
+            if image:
+                announcement.image = image
             announcement.save()
         else:
             # Create new
@@ -861,6 +897,9 @@ def secretary_announcement_create(request: HttpRequest):
                 expiry_date=expiry_date,
                 published_by_user_id_FK=officer
             )
+            if image:
+                announcement.image = image
+                announcement.save()
         
         return JsonResponse({
             'ok': True,
@@ -1453,7 +1492,20 @@ def secretary_certificate_history(request: HttpRequest):
         end = start + page_size
 
         certificates = []
+        ph_tz = ZoneInfo('Asia/Manila')
         for cert in queryset.order_by('-generated_at')[start:end]:
+            generated_at = cert.generated_at
+            email_sent_at = cert.email_sent_at
+            if generated_at is not None:
+                if timezone.is_aware(generated_at):
+                    generated_at = generated_at.astimezone(ph_tz)
+                else:
+                    generated_at = generated_at.replace(tzinfo=timezone.get_default_timezone()).astimezone(ph_tz)
+            if email_sent_at is not None:
+                if timezone.is_aware(email_sent_at):
+                    email_sent_at = email_sent_at.astimezone(ph_tz)
+                else:
+                    email_sent_at = email_sent_at.replace(tzinfo=timezone.get_default_timezone()).astimezone(ph_tz)
             certificates.append({
                 'certificate_id': cert.certificate_id_PK,
                 'certificate_number': cert.certificate_number,
@@ -1462,8 +1514,8 @@ def secretary_certificate_history(request: HttpRequest):
                 'event_title': cert.event.title,
                 'event_date': cert.event.event_date.strftime('%Y-%m-%d'),
                 'email_status': cert.email_status,
-                'email_sent_at': timezone.localtime(cert.email_sent_at).strftime('%Y-%m-%d %H:%M:%S') if cert.email_sent_at else None,
-                'generated_at': timezone.localtime(cert.generated_at).strftime('%Y-%m-%d %H:%M:%S'),
+                'email_sent_at': email_sent_at.strftime('%Y-%m-%d %I:%M:%S %p') if email_sent_at else None,
+                'generated_at': generated_at.strftime('%Y-%m-%d %I:%M:%S %p') if generated_at else None,
                 'pdf_file': cert.pdf_file.url if cert.pdf_file else None,
             })
         
@@ -1732,17 +1784,19 @@ def secretary_reports(request: HttpRequest, report_type: str = None):
                 for e in qs.order_by('-event_date')[:100]
             ]
         elif report_type == 'document':
-            qs = Document.objects.all()
+            qs = list(Document.objects.all())
             if date_from:
-                qs = qs.filter(uploaded_at__date__gte=date_from)
+                qs = [d for d in qs if d.uploaded_at.date() >= datetime.fromisoformat(date_from).date()]
             if date_to:
-                qs = qs.filter(uploaded_at__date__lte=date_to)
+                qs = [d for d in qs if d.uploaded_at.date() <= datetime.fromisoformat(date_to).date()]
             headers = ['Title', 'Type', 'Category', 'Uploaded By', 'Uploaded At', 'Version']
+            missing_doc_ids = [d.document_id_PK for d in qs if not d.uploaded_by_user_id_FK]
+            uploader_fallbacks = _resolve_document_uploader_fallbacks(missing_doc_ids)
             rows = [
                 [d.title, d.document_type, d.category,
-                 d.uploaded_by_user_id_FK.full_name if d.uploaded_by_user_id_FK else 'Unknown',
+                 d.uploaded_by_user_id_FK.full_name if d.uploaded_by_user_id_FK else uploader_fallbacks.get(d.document_id_PK, 'Unknown'),
                  timezone.localtime(d.uploaded_at).strftime('%Y-%m-%d'), d.version]
-                for d in qs.order_by('-uploaded_at')[:100]
+                for d in sorted(qs, key=lambda x: x.uploaded_at, reverse=True)[:100]
             ]
         elif report_type == 'minutes':
             qs = Minutes.objects.all()
@@ -1905,9 +1959,16 @@ def secretary_document_version_history(request: HttpRequest):
         title = request.GET.get('title')
         if not title:
             return JsonResponse({'ok': False, 'error': 'title required'}, status=400)
-        docs = Document.objects.filter(title=title).order_by('uploaded_at')
+        docs = list(Document.objects.filter(title=title).order_by('uploaded_at'))
+        missing_doc_ids = [d.document_id_PK for d in docs if not d.uploaded_by_user_id_FK]
+        uploader_fallbacks = _resolve_document_uploader_fallbacks(missing_doc_ids)
+
         versions = []
         for d in docs:
+            uploaded_by_name = d.uploaded_by_user_id_FK.full_name if d.uploaded_by_user_id_FK else None
+            if not uploaded_by_name:
+                uploaded_by_name = uploader_fallbacks.get(d.document_id_PK)
+
             versions.append({
                 'document_id': d.document_id_PK,
                 'version': d.version,
@@ -1915,7 +1976,7 @@ def secretary_document_version_history(request: HttpRequest):
                 'file_name': d.file_name,
                 'file_size': d.file_size,
                 'uploaded_at': timezone.localtime(d.uploaded_at).strftime('%Y-%m-%d %I:%M %p'),
-                'uploaded_by': d.uploaded_by_user_id_FK.full_name if d.uploaded_by_user_id_FK else 'Unknown',
+                'uploaded_by': uploaded_by_name or 'Unknown',
             })
         return JsonResponse({'ok': True, 'versions': versions})
     except Exception as e:
@@ -1943,6 +2004,30 @@ def secretary_document_toggle_favorite(request: HttpRequest):
         else:
             DocumentPin.objects.create(document_id_FK=doc, officer_id_FK=officer)
             return JsonResponse({'ok': True, 'pinned': True})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@require_POST
+def secretary_document_toggle_public(request: HttpRequest):
+    guard = require_role(request, role=["Secretary"])
+    if guard is not None:
+        return guard
+    try:
+        data = json.loads(request.body)
+        document_id = data.get('document_id')
+        if not document_id:
+            return JsonResponse({'ok': False, 'error': 'document_id required'}, status=400)
+        doc = Document.objects.get(document_id_PK=document_id)
+        doc.is_public_visible = not doc.is_public_visible
+        doc.save(update_fields=['is_public_visible'])
+        return JsonResponse({
+            'ok': True,
+            'is_public_visible': doc.is_public_visible,
+            'message': 'Visibility updated.',
+        })
+    except Document.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'Document not found'}, status=404)
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 

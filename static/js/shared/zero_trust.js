@@ -49,6 +49,8 @@
   }
 
   var ztModalId = "zt-modal-overlay";
+  var ztModalOpen = false;
+  var ztPendingResolvers = [];
 
   function removeModal() {
     var existing = document.getElementById(ztModalId);
@@ -56,8 +58,20 @@
     document.body.style.overflow = "";
   }
 
+  function finishZeroTrust(verified) {
+    ztModalOpen = false;
+    var resolvers = ztPendingResolvers.splice(0, ztPendingResolvers.length);
+    removeModal();
+    resolvers.forEach(function (r) {
+      r(verified);
+    });
+  }
+
   function triggerZeroTrustModal() {
     return new Promise(function (resolve) {
+      ztPendingResolvers.push(resolve);
+      if (ztModalOpen) return;
+      ztModalOpen = true;
       removeModal();
 
       var overlay = document.createElement("div");
@@ -163,8 +177,7 @@
             verifyBtn.disabled = false;
             verifyBtn.textContent = "Verify";
             if (data.ok) {
-              removeModal();
-              resolve(true);
+              finishZeroTrust(true);
             } else {
               errorDiv.textContent = data.error || "Verification failed.";
               errorDiv.style.display = "block";
@@ -179,8 +192,7 @@
       }
 
       function handleCancel() {
-        removeModal();
-        resolve(false);
+        finishZeroTrust(false);
       }
 
       sendChallenge();
