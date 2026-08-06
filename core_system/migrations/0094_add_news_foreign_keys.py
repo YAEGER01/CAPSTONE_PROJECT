@@ -11,19 +11,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='newsarticle',
-            name='author',
-            field=models.ForeignKey(blank=True, null=True, on_delete=models.deletion.SET_NULL, related_name='authored_news', to='core_system.officeruser'),
-        ),
-        migrations.AddField(
-            model_name='newsarticle',
-            name='category',
-            field=models.ForeignKey(blank=True, null=True, on_delete=models.deletion.SET_NULL, related_name='articles', to='core_system.newscategory'),
-        ),
-        migrations.AddField(
-            model_name='newsgallery',
-            name='article',
-            field=models.ForeignKey(on_delete=models.deletion.CASCADE, related_name='galleries', to='core_system.newsarticle'),
-        ),
+        migrations.RunPython(migrations.RunPython.noop, migrations.RunPython.noop),
     ]

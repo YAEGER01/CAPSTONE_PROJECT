@@ -55,12 +55,13 @@ from core_system.constants.policy_constants import (
     get_monthly_dues_amount,
     is_exempt_from_dues_and_aid,
 )
-from core_system.constants.status_constants import RegistrationStatus
+from core_system.constants.status_constants import RegistrationStatus, Status
 from core_system.services.email_service import (
     send_html_email,
     send_registration_status_update_email,
     send_registration_returned_email,
     send_registration_rejected_email,
+    send_member_deduction_email,
 )
 from core_system.shared_view_utils import (
     MODEL_MAP,
@@ -86,6 +87,7 @@ from core_system.shared_view_utils import (
     _record_audit_trail,
     _log_sensitive_read,
     _notify_release,
+    set_treasurer_rejected,
     archive_transaction,
     _broadcast_pending_counts,
     _broadcast_to_group,
@@ -191,22 +193,22 @@ def treasurer_dashboard(request):
 
     context["returned_entries_count"] = TransactionVerification.objects.filter(
         table_name="membership_fee",
-        verification_status="Returned for Revision",
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED],
     ).count()
 
     context["monthly_dues_returned_count"] = TransactionVerification.objects.filter(
         table_name="monthly_dues",
-        verification_status="Returned for Revision",
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED],
     ).count()
 
     context["medical_aid_returned_count"] = TransactionVerification.objects.filter(
         table_name="medical_aid",
-        verification_status="Returned for Revision",
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED],
     ).count()
 
     context["death_aid_returned_count"] = TransactionVerification.objects.filter(
         table_name="death_aid",
-        verification_status="Returned for Revision",
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED],
     ).count()
 
     context["active_aid_posts_count"] = AidTrackingPost.objects.filter(
@@ -293,8 +295,6 @@ def treasurer_add_member(request: HttpRequest):
     middle_initial = (request.POST.get("middle_initial") or "").strip()
     last_name = (request.POST.get("last_name") or "").strip()
     username = (request.POST.get("username") or "").strip()
-    password = (request.POST.get("password") or "").strip()
-    confirm_password = (request.POST.get("confirm_password") or "").strip()
     prof_id = username  # Use username as employee_id
     prof_contact = (request.POST.get("prof_contact") or "").strip() or None
     prof_email = (request.POST.get("email") or "").strip() or None
@@ -314,16 +314,8 @@ def treasurer_add_member(request: HttpRequest):
         return JsonResponse({"ok": False, "error": "First Name and Last Name are required."}, status=400)
     if not username:
         return JsonResponse({"ok": False, "error": "Username is required."}, status=400)
-    if not password:
-        return JsonResponse({"ok": False, "error": "Password is required."}, status=400)
-    if password != confirm_password:
-        return JsonResponse({"ok": False, "error": "Passwords do not match."}, status=400)
-    
-    # Password strength validation
-    import re
-    password_rules = [re.compile(r'.{8,}'), re.compile(r'[a-z]'), re.compile(r'[A-Z]'), re.compile(r'\d'), re.compile(r'[^A-Za-z0-9]')]
-    if not all(rule.search(password) for rule in password_rules):
-        return JsonResponse({"ok": False, "error": "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."}, status=400)
+    if not prof_email:
+        return JsonResponse({"ok": False, "error": "Email is required for password delivery."}, status=400)
 
     if prof_email and "@" not in prof_email:
         return JsonResponse({"ok": False, "error": "Email looks invalid."}, status=400)
@@ -342,6 +334,10 @@ def treasurer_add_member(request: HttpRequest):
 
     # Resolve Encoder User Identity context
     recorded_by = resolve_officer_from_session(request)
+    
+    # Auto-generate secure password before transaction
+    from core_system.services.email_service import generate_secure_password
+    generated_password = generate_secure_password()
 
     # Enforce transactional data integrity checks across models
     try:
@@ -359,14 +355,16 @@ def treasurer_add_member(request: HttpRequest):
                 )
 
             # 2. Create OfficerUser account for the member
-            from core_system.guards import sha256_hex
+            from core_system.auth_utils import hash_password
+            
             officer_user = OfficerUser.objects.create(
                 username=username,
                 full_name=prof_name,
-                password_hash=sha256_hex(password),
+                password_hash=hash_password(generated_password),
                 email=prof_email or "",
                 role="Member",
                 account_status="Active",
+                must_change_password=True,
             )
 
             # 3. Provision Member Record Block
@@ -481,10 +479,25 @@ def treasurer_add_member(request: HttpRequest):
                     "monthly_dues_amount": get_monthly_dues_amount(),
                     "membership_fee_amount": get_membership_fee_amount(),
                     "officer_contact": "",
+                    "generated_password": generated_password,
                 },
             )
     except Exception:
         pass
+
+    try:
+        Notification.objects.create(
+            recipient_type="member",
+            recipient_id=member.member_id_PK,
+            recipient_name=member.full_name,
+            recipient_contact=member.email or "",
+            notification_type="membership_approved",
+            message=f"Your ISU CAUFA membership has been registered. Welcome aboard, {member.full_name}!",
+            category="general",
+            delivery_status="sent",
+        )
+    except Exception:
+        logger.exception("Failed to create welcome notification for member %s", member.full_name)
 
     _broadcast_treasurer("members")
 
@@ -505,7 +518,8 @@ def treasurer_add_member(request: HttpRequest):
                 "member_type": member.member_type or member.employee_id,
                 "officer_user_id": member.officer_user_id_FK_id,
                 "date_joined": str(member.date_joined),
-            }
+            },
+            "message": "Member registered successfully. Password has been sent to the member's email address."
         }
     )
 
@@ -528,69 +542,147 @@ def treasurer_member_batch_add(request):
 
     results = []
     recorded_by = resolve_officer_from_session(request)
-    existing_ids = set(
-        Member.objects.filter(
-            employee_id__in=[(e.get("prof_id") or "").strip() for e in entries if e.get("prof_id")]
-        ).values_list("employee_id", flat=True)
+
+    requested_usernames = [
+        (e.get("username") or "").strip() for e in entries if e.get("username")
+    ]
+    requested_emails = [
+        (e.get("email") or "").strip() for e in entries if e.get("email")
+    ]
+
+    existing_usernames = set(
+        list(Member.objects.filter(employee_id__in=requested_usernames).values_list("employee_id", flat=True))
+        + list(OfficerUser.objects.filter(username__in=requested_usernames).values_list("username", flat=True))
     )
+    existing_emails = set(
+        list(Member.objects.filter(email__in=requested_emails).values_list("email", flat=True))
+        + list(OfficerUser.objects.filter(email__in=requested_emails).values_list("email", flat=True))
+    )
+    seen_usernames = set()
+    seen_emails = set()
 
     with transaction.atomic():
         for entry in entries:
-            name = (entry.get("prof_name") or "").strip()
-            emp_id = (entry.get("prof_id") or "").strip()
-            status_val = (entry.get("prof_status") or "Active").strip()
-            if not name or not emp_id:
-                results.append({"ok": False, "name": name, "error": "Name and Employee ID are required."})
+            first_name = (entry.get("first_name") or "").strip()
+            middle_initial = (entry.get("middle_initial") or "").strip()
+            last_name = (entry.get("last_name") or "").strip()
+            username = (entry.get("username") or "").strip()
+            email = (entry.get("email") or "").strip()
+            status_val = (entry.get("membership_category") or "Permanent").strip() or "Permanent"
+            prof_dept = (entry.get("prof_dept") or "").strip() or None
+            prof_pos = (entry.get("prof_pos") or "").strip() or None
+            prof_contact = (entry.get("prof_contact") or "").strip() or None
+            enrollment_amount = (entry.get("enrollment_amount") or "").strip()
+            payment_method = (entry.get("payment_method") or "").strip() or None
+            payment_date = (entry.get("payment_date") or "").strip() or None
+            notes = (entry.get("notes") or "").strip() or None
+            full_name = (
+                f"{first_name} {middle_initial} {last_name}".strip()
+                if middle_initial
+                else f"{first_name} {last_name}".strip()
+            )
+
+            if not first_name or not last_name:
+                results.append({"ok": False, "name": full_name, "error": "First Name and Last Name are required."})
                 continue
-            if emp_id in existing_ids:
-                results.append({"ok": False, "name": name, "error": f"Employee ID '{emp_id}' is already registered."})
+            if not username:
+                results.append({"ok": False, "name": full_name, "error": "Username is required."})
                 continue
+            if not email or "@" not in email:
+                results.append({"ok": False, "name": full_name, "error": "Valid email is required."})
+                continue
+            if username in existing_usernames or username in seen_usernames:
+                results.append({"ok": False, "name": full_name, "error": f"Username '{username}' is already registered."})
+                continue
+            if email in existing_emails or email in seen_emails:
+                results.append({"ok": False, "name": full_name, "error": f"Email '{email}' is already registered."})
+                continue
+
+            seen_usernames.add(username)
+            seen_emails.add(email)
+
             try:
+                from core_system.services.email_service import generate_secure_password
+                generated_password = generate_secure_password()
+
+                from core_system.auth_utils import hash_password
+                officer_user = OfficerUser.objects.create(
+                    username=username,
+                    full_name=full_name,
+                    password_hash=hash_password(generated_password),
+                    email=email,
+                    role="Member",
+                    account_status="Active",
+                    must_change_password=True,
+                )
+
                 member = Member.objects.create(
-                    full_name=name,
-                    employee_id=emp_id,
-                    department=(entry.get("prof_dept") or "").strip() or None,
-                    position=(entry.get("prof_pos") or "").strip() or None,
-                    contact_number=(entry.get("prof_contact") or "").strip() or None,
-                    email=(entry.get("prof_email") or "").strip() or None,
-                    employment_status=status_val,
+                    full_name=full_name,
+                    employee_id=username,
+                    officer_user_id_FK=officer_user,
+                    department=prof_dept,
+                    position=prof_pos,
+                    contact_number=prof_contact,
+                    email=email,
+                    employment_status="Active",
                     membership_status=status_val,
-                    member_type=status_val,
+                    member_type="Member",
                     date_joined=timezone.now().date(),
                 )
+
                 if member.membership_status in ("Permanent", "Temporary"):
-                    fee = MembershipFee.objects.create(
+                    from decimal import Decimal
+                    from datetime import datetime
+
+                    fee_amount = get_membership_fee_amount()
+                    if enrollment_amount:
+                        try:
+                            fee_amount = Decimal(enrollment_amount)
+                        except Exception:
+                            pass
+
+                    fee_date = timezone.now().date()
+                    if payment_date:
+                        try:
+                            fee_date = datetime.strptime(payment_date, "%Y-%m-%d").date()
+                        except Exception:
+                            pass
+
+                    MembershipFee.objects.create(
                         member_id_FK=member,
                         receipt_number=f"SYS-TEMP-{int(timezone.now().timestamp())}-{member.member_id_PK}",
-                        amount=str(get_membership_fee_amount()),
-                        payment_date=timezone.now().date(),
-                        payment_method="Pending",
+                        amount=str(fee_amount),
+                        payment_date=fee_date,
+                        payment_method=payment_method or "Pending",
                         payment_status="Pending",
+                        notes=notes,
                         recorded_by_user_id_FK=recorded_by,
                     )
                     TransactionVerification.objects.create(
                         table_name="membership_fee",
-                        record_id=fee.fee_id_PK,
+                        record_id=member.membershipfee_set.last().fee_id_PK,
                         verification_status="Pending",
                     )
-                if member.email:
+
+                if email:
                     send_html_email(
                         subject="Welcome to ISU CAUFA – Membership Registration Confirmed",
-                        recipient_list=[member.email],
+                        recipient_list=[email],
                         html_template="emails/member_added.html",
                         context={
-                            "full_name": member.full_name,
-                            "employee_id": member.employee_id or "N/A",
+                            "full_name": full_name,
+                            "employee_id": username or "N/A",
                             "date_joined": member.date_joined.strftime("%B %d, %Y") if member.date_joined else str(timezone.now().date()),
-                            "department": member.department or "",
+                            "department": prof_dept or "",
                             "monthly_dues_amount": get_monthly_dues_amount(),
                             "membership_fee_amount": get_membership_fee_amount(),
                             "officer_contact": "",
+                            "generated_password": generated_password,
                         },
                     )
-                results.append({"ok": True, "name": name, "id": member.member_id_PK})
+                results.append({"ok": True, "name": full_name, "id": member.member_id_PK})
             except Exception as ex:
-                results.append({"ok": False, "name": name, "error": str(ex)})
+                results.append({"ok": False, "name": full_name, "error": str(ex)})
 
 
     _broadcast_treasurer("members")
@@ -775,7 +867,7 @@ def treasurer_membership_fees_returned_list(request):
 
     returned_verifications = TransactionVerification.objects.filter(
         table_name="membership_fee",
-        verification_status="Returned for Revision"
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED]
     )
 
     rows = []
@@ -820,7 +912,7 @@ def treasurer_monthly_dues_returned_list(request):
 
     returned_verifications = TransactionVerification.objects.filter(
         table_name="monthly_dues",
-        verification_status="Returned for Revision"
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED]
     )
 
     rows = []
@@ -866,7 +958,7 @@ def treasurer_medical_aid_returned_list(request):
 
     returned_verifications = TransactionVerification.objects.filter(
         table_name="medical_aid",
-        verification_status="Returned for Revision"
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED]
     )
 
     rows = []
@@ -917,7 +1009,7 @@ def treasurer_death_aid_returned_list(request):
 
     returned_verifications = TransactionVerification.objects.filter(
         table_name="death_aid",
-        verification_status="Returned for Revision"
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED]
     )
 
     rows = []
@@ -1386,15 +1478,17 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
                     {"ok": False, "error": "Monthly dues already recorded for this member and month."},
                     status=409,
                 )
+            is_advance = month > timezone.now().strftime("%Y-%m")
             dues = MonthlyDues.objects.create(
                 member_id_FK=member,
                 month_covered=month,
                 amount=str(amount_decimal),
                 payment_method=method,
-                payment_status="Paid",
+                payment_status="Pending",
                 payment_date=date_raw,
                 receipt_number=ref,
                 recorded_by_user_id_FK=officer,
+                is_advance=is_advance,
             )
             TransactionVerification.objects.create(
                 table_name="monthly_dues",
@@ -1409,7 +1503,8 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
                 action="CREATED",
                 actor=officer,
                 new={"member": member, "month_covered": month, "amount": str(amount_decimal),
-                     "payment_method": method, "payment_date": date_raw, "receipt_number": ref},
+                     "payment_method": method, "payment_date": date_raw, "receipt_number": ref,
+                     "is_advance": is_advance},
                 ip=request.META.get("REMOTE_ADDR"),
             )
         _broadcast_treasurer("monthly_dues")
@@ -1446,16 +1541,18 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
                     {"ok": False, "error": "Monthly dues already recorded for this member and month."},
                     status=409,
                 )
+            is_advance = month > timezone.now().strftime("%Y-%m")
             dues = MonthlyDues.objects.create(
                 member_id_FK=member,
                 month_covered=month,
                 amount=str(amount_decimal),
                 payment_method="Salary Deduction",
-                payment_status="Paid",
+                payment_status="Pending",
                 payment_date=payment_date,
                 deduction_batch_reference=summary,
                 remittance_reference=sal_ref,
                 recorded_by_user_id_FK=officer,
+                is_advance=is_advance,
             )
             TransactionVerification.objects.create(
                 table_name="monthly_dues",
@@ -1464,6 +1561,11 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
             )
             if uploaded and getattr(uploaded, "size", 0) > 0:
                 _link_proof_to_record(uploaded, dues, officer)
+
+            # NOTE: MemberLedger is intentionally NOT written here. Monthly dues
+            # reach the ledger once — at President approval — so MemberLedger and
+            # FundTransaction always describe the same approved financial event.
+
             _record_audit_trail(
                 table="monthly_dues",
                 record_id=dues.dues_id_PK,
@@ -1737,99 +1839,79 @@ def treasurer_approve_monthly_dues(request: HttpRequest):
     if not dues_id or action not in ["approve", "reject"]:
         return JsonResponse({"ok": False, "error": "Missing required fields: dues_id, action"}, status=400)
 
-    dues = get_object_or_404(MonthlyDues, dues_id_PK=dues_id)
-    officer_id = request.session.get("officer_id")
-    officer = OfficerUser.objects.get(user_id_PK=officer_id)
+    with transaction.atomic():
+        dues = get_object_or_404(MonthlyDues.objects.select_for_update(), dues_id_PK=dues_id)
+        officer_id = request.session.get("officer_id")
+        officer = OfficerUser.objects.get(user_id_PK=officer_id)
 
-    if action == "approve":
-        dues.treasurer_status = "Treasurer Verified"
-        dues.treasurer_id_FK = officer
-        dues.treasurer_remarks = remarks
-        dues.treasurer_approved_at = timezone.now()
-        dues.auditor_status = "Pending Auditor Review"
-        dues.save()
-
-        # Update TransactionVerification
-        tv = TransactionVerification.objects.filter(
-            table_name="MONTHLY_DUES",
-            record_id=dues_id
-        ).first()
-        if tv:
-            tv.verification_status = "Pending Auditor Review"
-            tv.auditor_id_FK = None  # Clear any assigned auditor to allow any auditor to pick it up
-            tv.save()
-        else:
-            # Create TransactionVerification if it doesn't exist
-            TransactionVerification.objects.create(
-                table_name="MONTHLY_DUES",
-                record_id=dues_id,
-                target_category="payment",
-                verification_status="Pending Auditor Review",
+        # State check: only allow approval if the record is in a pending treasurer state (S8).
+        if action == "approve" and dues.treasurer_status not in ("Pending Treasurer Review", "Pending"):
+            return JsonResponse(
+                {"ok": False, "error": "This payment is not in a state that can be approved by the Treasurer."},
+                status=409,
             )
 
-        # Log audit trail
-        GlobalAuditTrail.objects.create(
-            table_name="MONTHLY_DUES",
-            record_id=dues_id,
-            action="Treasurer Approved",
-            actor_type="officer",
-            actor_id=officer.user_id_PK,
-            actor_name=officer.full_name,
-            notes=remarks,
-            ip_address=request.META.get("REMOTE_ADDR"),
-        )
+        if action == "approve":
+            dues.treasurer_status = "Treasurer Verified"
+            dues.treasurer_id_FK = officer
+            dues.treasurer_remarks = remarks
+            dues.treasurer_approved_at = timezone.now()
+            dues.auditor_status = "Pending Auditor Review"
+            dues.save()
 
-        return JsonResponse({
-            "ok": True,
-            "message": "Monthly dues payment approved and forwarded to Auditor.",
-        })
-    else:
-        dues.treasurer_status = "Returned for Revision"
-        dues.treasurer_id_FK = officer
-        dues.treasurer_remarks = remarks
-        dues.treasurer_approved_at = timezone.now()
-        dues.payment_status = "Returned"
-        dues.save()
+            # Update TransactionVerification for the latest existing row, or create one if missing
+            tv = TransactionVerification.objects.filter(
+                table_name="monthly_dues",
+                record_id=dues_id,
+            ).order_by("-verification_id").first()
+            if tv:
+                tv.verification_status = "Pending Auditor Review"
+                tv.auditor_id_FK = None  # Clear any assigned auditor to allow any auditor to pick it up
+                tv.save()
+            else:
+                TransactionVerification.objects.create(
+                    table_name="monthly_dues",
+                    record_id=dues_id,
+                    target_category="payment",
+                    verification_status="Pending Auditor Review",
+                )
 
-        # Update TransactionVerification
-        tv = TransactionVerification.objects.filter(
-            table_name="MONTHLY_DUES",
-            record_id=dues_id
-        ).first()
-        if tv:
-            tv.verification_status = "Returned for Revision"
-            tv.returned_by_auditor_id_FK = officer
-            tv.auditor_remarks = remarks
-            tv.save()
+            # Log audit trail
+            _record_audit_trail(
+                table="monthly_dues",
+                record_id=dues_id,
+                action="Treasurer Approved",
+                actor=officer,
+                new={"member": dues.member_id_FK, "month_covered": str(dues.month_covered), "amount": str(dues.amount)},
+                ip=request.META.get("REMOTE_ADDR"),
+                notes=remarks,
+            )
 
-        # Log audit trail
-        GlobalAuditTrail.objects.create(
-            table_name="MONTHLY_DUES",
-            record_id=dues_id,
-            action="Treasurer Returned",
-            actor_type="officer",
-            actor_id=officer.user_id_PK,
-            actor_name=officer.full_name,
-            notes=remarks,
-            ip_address=request.META.get("REMOTE_ADDR"),
-        )
+            return JsonResponse({
+                "ok": True,
+                "message": "Monthly dues payment approved and forwarded to Auditor.",
+            })
+        else:
+            set_treasurer_rejected(
+                "monthly_dues",
+                dues_id,
+                officer,
+                remarks,
+                request,
+                member=dues.member_id_FK,
+                is_rejected=False,
+                extra_updates={
+                    "treasurer_id_FK": officer,
+                    "treasurer_remarks": remarks,
+                    "treasurer_approved_at": timezone.now(),
+                },
+                details=f"Your monthly dues payment for {dues.month_covered} was returned for revision.",
+            )
 
-        # Notify member
-        Notification.objects.create(
-            recipient_type="member",
-            recipient_id=dues.member_id_FK.member_id_PK,
-            recipient_name=dues.member_id_FK.full_name,
-            recipient_contact=dues.member_id_FK.email,
-            notification_type="Payment Returned",
-            message=f"Your monthly dues payment for {dues.month_covered} was returned for revision. Reason: {remarks}",
-            category="payment",
-            delivery_status="sent",
-        )
-
-        return JsonResponse({
-            "ok": True,
-            "message": "Monthly dues payment returned for revision.",
-        })
+            return JsonResponse({
+                "ok": True,
+                "message": "Monthly dues payment returned for revision.",
+            })
 
 
 @require_POST
@@ -1990,7 +2072,7 @@ def treasurer_salary_bulk_process(request: HttpRequest):
                 month_covered=sal_month,
                 amount=str(expected_amount),
                 payment_method="Salary Deduction",
-                payment_status="Paid",
+                payment_status="Pending",
                 payment_date=payment_date,
                 deduction_batch_reference=summary,
                 remittance_reference=batch_ref,
@@ -2003,6 +2085,10 @@ def treasurer_salary_bulk_process(request: HttpRequest):
             )
             if uploaded and getattr(uploaded, "size", 0) > 0:
                 _link_proof_to_record(uploaded, dues, officer)
+
+            # NOTE: MemberLedger is intentionally NOT written here. Monthly dues
+            # reach the ledger once — at President approval — so MemberLedger and
+            # FundTransaction always describe the same approved financial event.
 
             _record_audit_trail(
                 table="monthly_dues",
@@ -2029,39 +2115,6 @@ def treasurer_salary_bulk_process(request: HttpRequest):
         "batch_ref": batch_ref,
         "month": sal_month,
     })
-
-
-@require_GET
-def treasurer_medical_aid_list(request: HttpRequest):
-    """Return MedicalAid records for the Treasurer dashboard table."""
-    guard = require_role(request, role=["Treasurer", "Auditor", "President"])
-    if guard is not None:
-        return guard
-
-    aids = (
-        MedicalAid.objects.select_related("member_id_FK")
-        .order_by("-medical_aid_id_PK")
-    )
-
-    rows = []
-    for aid in aids:
-        requested_amount = aid.requested_amount or aid.hospital_bill_amount
-        rows.append(
-            {
-                "id": f"MED-{aid.medical_aid_id_PK}",
-                "memberId": aid.member_id_FK.member_id_PK,
-                "name": aid.member_id_FK.full_name,
-                "date": aid.request_date.isoformat(),
-                "reason": aid.status or "Medical Aid Request",
-                "reqAmount": float(requested_amount),
-                "hospital": aid.hospital_name or aid.member_id_FK.full_name,
-                "bill": float(aid.hospital_bill_amount),
-                "validation": aid.status or "Pending",
-                "status": aid.status or "Pending",
-            }
-        )
-
-    return JsonResponse({"ok": True, "medical_aids": rows})
 
 
 @require_GET
@@ -2971,7 +3024,7 @@ def treasurer_records_requiring_revision(request):
         return guard
 
     revision_verifications = TransactionVerification.objects.filter(
-        verification_status="Returned for Revision"
+        verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED]
     )
 
     items = []
@@ -3715,6 +3768,46 @@ def treasurer_payroll_batch_create(request: HttpRequest):
             notes=d.get("notes", ""),
         )
         ded_records.append(ded)
+        
+        # Send deduction email to member if it's an aid contribution
+        if d["category"] == "aid_contribution" and ded.member_id_FK and ded.member_id_FK.email:
+            try:
+                # Get aid tracking post details
+                requesting_member_name = "A Fellow Member"
+                aid_type = "Aid"
+                if ded.aid_tracking_post_id_FK:
+                    post = ded.aid_tracking_post_id_FK
+                    # Try to get the requesting member from the post's source record
+                    if hasattr(post, 'source_id') and post.source_id:
+                        try:
+                            from core_system.models import MedicalAid, DeathAid
+                            if post.aid_type == "medical_aid":
+                                aid_record = MedicalAid.objects.filter(medical_aid_id=post.source_id).first()
+                            elif post.aid_type == "death_aid":
+                                aid_record = DeathAid.objects.filter(death_aid_id=post.source_id).first()
+                            else:
+                                aid_record = None
+                            
+                            if aid_record and aid_record.member_id_FK:
+                                requesting_member_name = aid_record.member_id_FK.full_name
+                        except Exception:
+                            pass
+                    
+                    aid_type_map = {
+                        "medical_aid": "Medical Aid",
+                        "death_aid": "Death Aid",
+                    }
+                    aid_type = aid_type_map.get(post.aid_type, "Aid")
+                
+                send_member_deduction_email(
+                    member=ded.member_id_FK,
+                    deduction_amount=float(d["amount"]),
+                    deduction_type="Aid Contribution",
+                    requesting_member_name=requesting_member_name,
+                    aid_type=aid_type,
+                )
+            except Exception as e:
+                logger.warning("Failed to send deduction email to member %s: %s", ded.member_id_FK.full_name if ded.member_id_FK else "Unknown", e)
 
     for f in request.FILES.getlist("files"):
         from core_system.shared_view_utils import _sha256_of_uploaded_file, _compute_row_signature
@@ -3866,7 +3959,7 @@ def treasurer_payroll_batch_edit(request: HttpRequest, batch_id: int):
     if deductions_data:
         batch.deductions.all().delete()
         for d in deductions_data:
-            PayrollDeduction.objects.create(
+            ded = PayrollDeduction.objects.create(
                 batch_id_FK=batch,
                 member_id_FK_id=d["member_id"],
                 amount=d["amount"],
@@ -3876,6 +3969,46 @@ def treasurer_payroll_batch_edit(request: HttpRequest, batch_id: int):
                 aid_tracking_post_id_FK_id=d.get("aid_tracking_post_id"),
                 notes=d.get("notes", ""),
             )
+            
+            # Send deduction email to member if it's an aid contribution
+            if d["category"] == "aid_contribution" and ded.member_id_FK and ded.member_id_FK.email:
+                try:
+                    # Get aid tracking post details
+                    requesting_member_name = "A Fellow Member"
+                    aid_type = "Aid"
+                    if ded.aid_tracking_post_id_FK:
+                        post = ded.aid_tracking_post_id_FK
+                        # Try to get the requesting member from the post's source record
+                        if hasattr(post, 'source_id') and post.source_id:
+                            try:
+                                from core_system.models import MedicalAid, DeathAid
+                                if post.aid_type == "medical_aid":
+                                    aid_record = MedicalAid.objects.filter(medical_aid_id=post.source_id).first()
+                                elif post.aid_type == "death_aid":
+                                    aid_record = DeathAid.objects.filter(death_aid_id=post.source_id).first()
+                                else:
+                                    aid_record = None
+                                
+                                if aid_record and aid_record.member_id_FK:
+                                    requesting_member_name = aid_record.member_id_FK.full_name
+                            except Exception:
+                                pass
+                        
+                        aid_type_map = {
+                            "medical_aid": "Medical Aid",
+                            "death_aid": "Death Aid",
+                        }
+                        aid_type = aid_type_map.get(post.aid_type, "Aid")
+                    
+                    send_member_deduction_email(
+                        member=ded.member_id_FK,
+                        deduction_amount=float(d["amount"]),
+                        deduction_type="Aid Contribution",
+                        requesting_member_name=requesting_member_name,
+                        aid_type=aid_type,
+                    )
+                except Exception as e:
+                    logger.warning("Failed to send deduction email to member %s: %s", ded.member_id_FK.full_name if ded.member_id_FK else "Unknown", e)
 
     _record_audit_trail(
         table="PAYROLL_BATCH",
@@ -4805,26 +4938,34 @@ def treasurer_claim_review(request: HttpRequest):
     if decision == "approve":
         claim.status = "Pending Auditor Verification"
         claim.treasurer_validated_by_user_id_FK = officer
+        claim.save()
+
         message = f"Your {claim_type.replace('_', ' ').title()} claim has been approved by the Treasurer and forwarded to the Auditor."
-    elif decision == "reject":
-        claim.status = "Rejected"
-        message = f"Your {claim_type.replace('_', ' ').title()} claim has been rejected."
+        Notification.objects.create(
+            recipient_type="member",
+            recipient_id=member.member_id_PK,
+            recipient_name=member.full_name,
+            notification_type="Claim Update",
+            message=message + (f" Remarks: {remarks}" if remarks else ""),
+            delivery_status="Sent",
+            channel="in_app",
+        )
     else:
-        claim.status = "Returned for Revision"
-        message = f"Your {claim_type.replace('_', ' ').title()} claim has been returned for revision."
-        claim.treasurer_validated_by_user_id_FK = officer
-
-    claim.save()
-
-    Notification.objects.create(
-        recipient_type="member",
-        recipient_id=member.member_id_PK,
-        recipient_name=member.full_name,
-        notification_type="Claim Update",
-        message=message + (f" Remarks: {remarks}" if remarks else ""),
-        delivery_status="Sent",
-        channel="in_app",
-    )
+        set_treasurer_rejected(
+            claim_type,
+            claim_id,
+            officer,
+            remarks,
+            request,
+            member=member,
+            is_rejected=(decision == "reject"),
+            extra_updates={"treasurer_validated_by_user_id_FK": officer},
+            details=(
+                f"Your {claim_type.replace('_', ' ').title()} claim was rejected by the Treasurer."
+                if decision == "reject"
+                else f"Your {claim_type.replace('_', ' ').title()} claim was returned for revision by the Treasurer."
+            ),
+        )
 
     _broadcast_treasurer("claims_queue")
 
@@ -4842,7 +4983,7 @@ def treasurer_financial_pending_counts(request: HttpRequest):
     if guard is not None:
         return guard
 
-    from core_system.constants.status_constants import RegistrationStatus
+    from core_system.constants.status_constants import RegistrationStatus, Status
     from core_system.models import MemberRegistrationRequest, MedicalAid, DeathAid
 
     registration = MemberRegistrationRequest.objects.filter(

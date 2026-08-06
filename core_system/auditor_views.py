@@ -13,7 +13,7 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Max
 from django.db.models import ForeignKey
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import render, get_object_or_404
@@ -69,6 +69,7 @@ from core_system.shared_view_utils import (
     _record_bulk_audit_trail,
     _serialize_for_audit,
     resolve_officer_from_session,
+    route_back_to_treasurer,
 )
 
 
@@ -356,9 +357,18 @@ def auditor_pending_payments(request: HttpRequest):
     if guard is not None:
         return guard
 
+    latest_verifications = TransactionVerification.objects.values(
+        "table_name",
+        "record_id",
+    ).annotate(latest_id=Max("verification_id"))
+
+    latest_ids = [item["latest_id"] for item in latest_verifications if item["latest_id"] is not None]
+
+    # Build a lookup of latest pending verifications for payments only.
     pending_verifications = TransactionVerification.objects.filter(
         verification_status__in=["Pending", "Pending Auditor Review"],
         auditor_id_FK__isnull=True,
+        verification_id__in=latest_ids,
     )
 
     pending_fee_ids = set()
@@ -577,16 +587,31 @@ def auditor_verify_payment(request: HttpRequest):
     entity = None
     related_module = None
 
+    table_hint = None
+    raw_id = target_id
+    if ":" in target_id:
+        parts = target_id.split(":", 1)
+        table_hint = parts[0]
+        raw_id = parts[1]
+
     try:
-        as_int = int(target_id)
+        as_int = int(raw_id)
     except ValueError:
         as_int = None
 
     fee = None
     dues = None
     if as_int is not None:
-        fee = MembershipFee.objects.filter(fee_id_PK=as_int).first()
-        dues = MonthlyDues.objects.filter(dues_id_PK=as_int).first()
+        if table_hint == "membership_fee":
+            fee = MembershipFee.objects.filter(fee_id_PK=as_int).first()
+        elif table_hint == "monthly_dues":
+            dues = MonthlyDues.objects.filter(dues_id_PK=as_int).first()
+        else:
+            fee = MembershipFee.objects.filter(fee_id_PK=as_int).first()
+            dues = MonthlyDues.objects.filter(dues_id_PK=as_int).first()
+
+    if fee is not None and dues is not None and table_hint is None:
+        return JsonResponse({"ok": False, "error": "Ambiguous payment identifier; please specify the source as membership_fee:<id> or monthly_dues:<id>."}, status=400)
 
     if fee is not None:
         entity_type = "MembershipFee"
@@ -603,11 +628,15 @@ def auditor_verify_payment(request: HttpRequest):
 
     canonical_status = Status.AUDITOR_VERIFIED if is_verify else Status.RETURNED_REVISION
 
-    tv_table = "membership_fee" if isinstance(entity, MembershipFee) else "monthly_dues"
+    if table_hint == "membership_fee" or isinstance(entity, MembershipFee):
+        tv_table = "membership_fee"
+    else:
+        tv_table = "monthly_dues"
+
     tv_qs = TransactionVerification.objects.select_for_update().filter(
         table_name=tv_table,
         record_id=related_record_id,
-    )
+    ).order_by("-verification_id")
     tv = tv_qs.first()
 
     if tv is not None and not is_pending(tv.verification_status):
@@ -1127,14 +1156,15 @@ def reject_transaction(request: HttpRequest):
     if not record_id:
         return JsonResponse({"ok": False, "error": "Missing record_id."}, status=400)
 
-    Model = MODEL_MAP[table_name]
+    canonical_table = str(table_name).lower()
+    Model = MODEL_MAP[canonical_table]
     try:
         record = Model.objects.get(pk=int(record_id))
     except (ValueError, Model.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Record not found."}, status=404)
 
     tv_qs = TransactionVerification.objects.select_for_update().filter(
-        table_name=table_name,
+        table_name=canonical_table,
         record_id=int(record_id),
     )
 
@@ -1142,39 +1172,19 @@ def reject_transaction(request: HttpRequest):
     if tv is not None and str(tv.verification_status) == "Returned for Revision":
         return JsonResponse({"ok": True}, status=200)
 
-    snapshot = _serialize_record(record)
-
-    if tv is None:
-        TransactionVerification.objects.create(
-            table_name=table_name,
-            record_id=int(record_id),
-            verification_status="Returned for Revision",
-            auditor_id_FK=officer,
-            auditor_remarks=rejection_reason or "",
-            returned_by_auditor_id_FK=officer,
-            returned_reason=rejection_reason or "",
-            return_count=1,
-        )
-    else:
-        tv.verification_status = "Returned for Revision"
-        tv.auditor_id_FK = officer
-        tv.auditor_remarks = rejection_reason or ""
-        tv.returned_by_auditor_id_FK = officer
-        tv.returned_reason = rejection_reason or ""
-        tv.return_count = (tv.return_count or 0) + 1
-        tv.save(update_fields=[
-            "verification_status", "auditor_id_FK", "auditor_remarks",
-            "returned_by_auditor_id_FK", "returned_reason", "return_count",
-        ])
-
-    _record_audit_trail(
-        table=table_name,
-        record_id=int(record_id),
-        action="RETURNED",
-        actor=officer,
-        new=snapshot,
-        ip=request.META.get("REMOTE_ADDR"),
-        notes=rejection_reason or None,
+    route_back_to_treasurer(
+        canonical_table,
+        int(record_id),
+        officer,
+        rejection_reason,
+        request,
+        member=getattr(record, "member_id_FK", None),
+        details="Your payment/claim was returned for revision by the Auditor.",
+        tv_updates={
+            "auditor_id_FK": officer,
+            "auditor_remarks": rejection_reason or "",
+            "returned_by_auditor_id_FK": officer,
+        },
     )
 
     _broadcast_pending_counts()

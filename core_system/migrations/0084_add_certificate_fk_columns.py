@@ -8,17 +8,6 @@ class Migration(migrations.Migration):
         ('core_system', '0083_certificate_certificatesettings_and_more'),
     ]
 
-    database_operations = [
-        migrations.RunSQL(
-            sql="ALTER TABLE certificate ADD COLUMN member_id_FK INT NOT NULL;",
-            reverse_sql="ALTER TABLE certificate DROP COLUMN member_id_FK;",
-        ),
-        migrations.RunSQL(
-            sql="ALTER TABLE certificate ADD COLUMN event_id_FK INT NOT NULL;",
-            reverse_sql="ALTER TABLE certificate DROP COLUMN event_id_FK;",
-        ),
-    ]
-
     state_operations = [
         migrations.CreateModel(
             name='Certificate',
@@ -55,7 +44,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.SeparateDatabaseAndState(
-            database_operations=database_operations,
+            database_operations=[],
             state_operations=state_operations,
         ),
     ]

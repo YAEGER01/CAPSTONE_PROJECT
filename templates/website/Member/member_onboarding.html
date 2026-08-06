@@ -302,7 +302,7 @@ body{font-family:'Inter',sans-serif;color:#1C1C1E;-webkit-font-smoothing:antiali
   <div class="actions">
     <div class="actions-row">
       <button class="btn btn-secondary" onclick="goToStep(1)">Back</button>
-      <button class="btn btn-primary" id="photoContinue" onclick="uploadPhoto()">Continue</button>
+      <button class="btn btn-primary" id="photoContinue" onclick="continuePhoto()">Continue</button>
     </div>
   </div>
 </div>
@@ -358,7 +358,7 @@ body{font-family:'Inter',sans-serif;color:#1C1C1E;-webkit-font-smoothing:antiali
   <div class="actions">
     <div class="actions-row">
       <button class="btn btn-secondary" onclick="goToStep(2)">Back</button>
-      <button class="btn btn-primary" onclick="uploadQrCode()">Continue</button>
+      <button class="btn btn-primary" onclick="continueQr()">Continue</button>
     </div>
   </div>
 </div>
@@ -416,7 +416,7 @@ body{font-family:'Inter',sans-serif;color:#1C1C1E;-webkit-font-smoothing:antiali
   <div class="actions">
     <div class="actions-row">
       <button class="btn btn-secondary" onclick="goToStep(3)">Back</button>
-      <button class="btn btn-primary" onclick="savePin()">Continue</button>
+      <button class="btn btn-primary" onclick="continuePin()">Continue</button>
     </div>
   </div>
 </div>
@@ -448,29 +448,6 @@ body{font-family:'Inter',sans-serif;color:#1C1C1E;-webkit-font-smoothing:antiali
       <div class="form-group">
         <label>Emergency Contact Number</label>
         <input type="tel" id="emergencyNumber" placeholder="09XX XXX XXXX" maxlength="11">
-      </div>
-    </div>
-    <div class="card">
-      <h2 style="font-size:16px;margin-bottom:12px">Notification Preferences</h2>
-      <div class="toggle-row">
-        <div class="toggle-row-info"><strong>Monthly Due Reminders</strong><span>Get notified before dues deadline</span></div>
-        <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-      </div>
-      <div class="toggle-row">
-        <div class="toggle-row-info"><strong>Attendance Notifications</strong><span>When attendance is recorded</span></div>
-        <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-      </div>
-      <div class="toggle-row">
-        <div class="toggle-row-info"><strong>Medical Aid Updates</strong><span>Claims and approvals</span></div>
-        <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-      </div>
-      <div class="toggle-row">
-        <div class="toggle-row-info"><strong>Death Aid Updates</strong><span>Benefits notifications</span></div>
-        <button class="toggle on" onclick="this.classList.toggle('on')"></button>
-      </div>
-      <div class="toggle-row">
-        <div class="toggle-row-info"><strong>Announcements</strong><span>General ISU CAUFA events</span></div>
-        <button class="toggle on" onclick="this.classList.toggle('on')"></button>
       </div>
     </div>
   </div>
@@ -509,6 +486,10 @@ var memberPosition = bodyDataset.memberPosition || '';
 var memberDepartment = bodyDataset.memberDepartment || '';
 var hasPin = bodyDataset.hasPin === 'true';
 var screenNames = ['screen-splash','screen-welcome','screen-photo','screen-qr','screen-pin','screen-contact','screen-complete'];
+var pendingPhotoFile = null;
+var pendingQrFile = null;
+var pendingPin = '';
+var pendingCurrentPin = '';
 
 function saveProgress() {
   if (currentStep < 6) {
@@ -576,6 +557,7 @@ function previewFile(e) {
     return;
   }
   document.getElementById('photoError').style.display = 'none';
+  pendingPhotoFile = file;
   var reader = new FileReader();
   reader.onload = function(ev) {
     var preview = document.getElementById('profilePreview');
@@ -587,36 +569,14 @@ function previewFile(e) {
   reader.readAsDataURL(file);
 }
 
-function uploadPhoto() {
-  var file = document.getElementById('fileInput').files[0];
-  if (!file) { 
+function continuePhoto() {
+  if (!pendingPhotoFile) {
     var err = document.getElementById('photoError');
-    err.textContent = 'Profile picture is required. Please upload a photo.'; 
+    err.textContent = 'Profile picture is required. Please upload a photo.';
     err.style.display = 'block';
-    return; 
+    return;
   }
-  var fd = new FormData();
-  fd.append('profile_picture', file);
-  fetch('/api/member/onboarding/photo/', { 
-    method:'POST', 
-    credentials:'same-origin', 
-    headers:{'X-CSRFToken':csrf}, 
-    body:fd 
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(d) { 
-      if (d.ok) goToStep(3); 
-      else { 
-        var err = document.getElementById('photoError');
-        err.textContent = d.error || 'Upload failed'; 
-        err.style.display = 'block'; 
-      } 
-    })
-    .catch(function(err) { 
-      var errEl = document.getElementById('photoError');
-      errEl.textContent = 'Upload failed'; 
-      errEl.style.display = 'block'; 
-    });
+  goToStep(3);
 }
 
 function skipPhoto() { goToStep(3); }
@@ -631,6 +591,7 @@ function previewQrFile(e) {
     return;
   }
   document.getElementById('qrError').style.display = 'none';
+  pendingQrFile = file;
   var reader = new FileReader();
   reader.onload = function(ev) {
     var preview = document.getElementById('qrPreview');
@@ -649,53 +610,99 @@ function resetQrUpload() {
   document.getElementById('qrError').style.display = 'none';
 }
 
-function uploadQrCode() {
-  var file = document.getElementById('qrFileInput').files[0];
-  if (!file) { 
+function continueQr() {
+  if (!pendingQrFile) {
     var err = document.getElementById('qrError');
     err.textContent = 'QR code is required. Please upload your QR code image.';
     err.style.display = 'block';
-    return; 
-  }
-  if (!document.getElementById('qrPreview').src) {
-    var err = document.getElementById('qrError');
-    err.textContent = 'Please select a valid QR code image.';
-    err.style.display = 'block';
     return;
   }
+  var btn = document.querySelector('#screen-qr .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
   var fd = new FormData();
-  fd.append('qr_code', file);
-  fetch('/api/member/onboarding/qr/', { 
-    method:'POST', 
-    credentials:'same-origin', 
-    headers:{'X-CSRFToken':csrf}, 
-    body:fd 
+  fd.append('qr_code', pendingQrFile);
+  fetch('/api/member/onboarding/qr/check/', {
+    method:'POST',
+    credentials:'same-origin',
+    headers:{'X-CSRFToken':csrf},
+    body:fd
   })
     .then(function(r) { return r.json(); })
-    .then(function(d) { 
-      if (d.ok) goToStep(4); 
-      else { 
+    .then(function(d) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
+      if (d && d.ok) {
+        goToStep(4);
+      } else {
         var err = document.getElementById('qrError');
-        err.textContent = d.error || 'Upload failed'; 
-        err.style.display = 'block'; 
-      } 
+        err.textContent = (d && d.error) ? d.error : 'QR code validation failed. Please try a different image.';
+        err.style.display = 'block';
+      }
     })
-    .catch(function(err) { 
-      var errEl = document.getElementById('qrError');
-      errEl.textContent = 'Upload failed'; 
-      errEl.style.display = 'block'; 
+    .catch(function() {
+      if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
+      var err = document.getElementById('qrError');
+      err.textContent = 'Could not validate the QR code. Please check your connection and try again.';
+      err.style.display = 'block';
     });
 }
 
 function pinInput(el, idx) {
-  el.value = el.value.replace(/[^0-9]/g,'');
+  el.value = el.value.replace(/[^0-9]/g, '');
+  document.getElementById('pinError').style.display = 'none';
   if (el.value && idx < 5) {
     const group = el.dataset.group || 'new';
-    const next = document.querySelector('.pin-box[data-group="'+group+'"][data-idx="'+(idx+1)+'"]');
+    const next = document.querySelector('.pin-box[data-group="' + group + '"][data-idx="' + (idx + 1) + '"]');
     if (next) next.focus();
   }
+}
+
+function handlePinKeydown(el, event) {
+  var group = el.dataset.group || 'new';
+  var idx = parseInt(el.dataset.idx, 10) || 0;
+  if (event.key === 'Backspace') {
+    if (!el.value && idx > 0) {
+      event.preventDefault();
+      var prev = document.querySelector('.pin-box[data-group="' + group + '"][data-idx="' + (idx - 1) + '"]');
+      if (prev) { prev.focus(); prev.value = ''; }
+    }
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    if (idx > 0) {
+      var prev = document.querySelector('.pin-box[data-group="' + group + '"][data-idx="' + (idx - 1) + '"]');
+      if (prev) { prev.focus(); prev.select && prev.select(); }
+    }
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    if (idx < 5) {
+      var next = document.querySelector('.pin-box[data-group="' + group + '"][data-idx="' + (idx + 1) + '"]');
+      if (next) { next.focus(); next.select && next.select(); }
+    }
+  }
+}
+
+function handlePinPaste(el, event) {
+  event.preventDefault();
+  var text = (event.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '');
+  if (!text) return;
+  var group = el.dataset.group || 'new';
+  var boxes = document.querySelectorAll('.pin-box[data-group="' + group + '"]');
+  var startIdx = parseInt(el.dataset.idx, 10) || 0;
+  for (var i = 0; i < boxes.length; i++) {
+    var c = (i >= startIdx) ? text[i - startIdx] : '';
+    boxes[i].value = (typeof c === 'string' && c) ? c : '';
+  }
+  var focusIdx = Math.min(startIdx + text.length, boxes.length) - 1;
+  if (focusIdx < 0) focusIdx = 0;
+  boxes[focusIdx].focus();
+  boxes[focusIdx].select && boxes[focusIdx].select();
   document.getElementById('pinError').style.display = 'none';
 }
+
+document.querySelectorAll('.pin-box').forEach(function(box) {
+  box.addEventListener('keydown', function(ev) { handlePinKeydown(box, ev); });
+  box.addEventListener('paste', function(ev) { handlePinPaste(box, ev); });
+  box.addEventListener('click', function() { box.select && box.select(); });
+});
 
 function collectPin(group) {
   var pins = [];
@@ -703,44 +710,52 @@ function collectPin(group) {
   return pins.join('');
 }
 
-function savePin() {
+function continuePin() {
   var newPin = collectPin('new');
-  var payload = { pin: newPin };
-  if (hasPin) {
-    var currentPin = collectPin('current');
-    if (currentPin.length !== 6) {
-      var err = document.getElementById('pinError');
-      err.textContent = 'Please enter your current 6-digit PIN.';
-      err.style.display = 'block';
-      return;
-    }
-    payload.current_pin = currentPin;
-  }
   if (newPin.length !== 6) {
     var err = document.getElementById('pinError');
     err.textContent = 'Please enter a complete new 6-digit PIN.';
     err.style.display = 'block';
     return;
   }
-  fetch('/api/member/onboarding/pin/', {
-    method:'POST', 
-    credentials:'same-origin', 
-    headers:{'Content-Type':'application/json','X-CSRFToken':csrf}, 
+  var currentPin = '';
+  if (hasPin) {
+    currentPin = collectPin('current');
+    if (currentPin.length !== 6) {
+      var err = document.getElementById('pinError');
+      err.textContent = 'Please enter your current 6-digit PIN.';
+      err.style.display = 'block';
+      return;
+    }
+  }
+  var btn = document.querySelector('#screen-pin .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
+  var payload = { pin: newPin };
+  if (currentPin) payload.current_pin = currentPin;
+  fetch('/api/member/onboarding/pin/check/', {
+    method:'POST',
+    credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-CSRFToken':csrf},
     body:JSON.stringify(payload)
   })
     .then(function(r) { return r.json(); })
-    .then(function(d) { 
-      if (d.ok) goToStep(5); 
-      else { 
+    .then(function(d) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
+      if (d && d.ok) {
+        pendingPin = newPin;
+        pendingCurrentPin = currentPin;
+        goToStep(5);
+      } else {
         var err = document.getElementById('pinError');
-        err.textContent = d.error || 'Failed to save PIN'; 
-        err.style.display = 'block'; 
-      } 
+        err.textContent = (d && d.error) ? d.error : 'PIN validation failed. Please try again.';
+        err.style.display = 'block';
+      }
     })
-    .catch(function() { 
+    .catch(function() {
+      if (btn) { btn.disabled = false; btn.textContent = 'Continue'; }
       var err = document.getElementById('pinError');
-      err.textContent = 'Failed to save PIN'; 
-      err.style.display = 'block'; 
+      err.textContent = 'Could not validate the PIN. Please check your connection and try again.';
+      err.style.display = 'block';
     });
 }
 
@@ -750,35 +765,67 @@ function finishSetup() {
     emergency_contact: document.getElementById('emergencyContact').value,
     emergency_number: document.getElementById('emergencyNumber').value
   };
-  fetch('/api/member/onboarding/complete/', { 
-    method:'POST', 
-    credentials:'same-origin', 
-    headers:{'Content-Type':'application/json','X-CSRFToken':csrf}, 
-    body:JSON.stringify(data) 
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      if (d.ok) { 
-        document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); }); 
-        document.getElementById('screen-complete').classList.add('active'); 
+  var submitBtn = document.querySelector('#screen-contact .actions .btn-success');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+
+  function showError(msg) {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Continue'; }
+    Swal.fire({ icon:'error', title:'Error', text:msg, confirmButtonColor:'#0F5A36' });
+  }
+
+  function postForm(url, formData) {
+    return fetch(url, { method:'POST', credentials:'same-origin', headers:{'X-CSRFToken':csrf}, body:formData })
+      .then(function(r) { return r.json(); });
+  }
+  function postJson(url, body) {
+    return fetch(url, { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':csrf}, body:JSON.stringify(body) })
+      .then(function(r) { return r.json(); });
+  }
+
+  var steps = [];
+  if (pendingPhotoFile) {
+    var fdP = new FormData();
+    fdP.append('profile_picture', pendingPhotoFile);
+    steps.push(function() { return postForm('/api/member/onboarding/photo/', fdP); });
+  }
+  if (pendingQrFile) {
+    var fdQ = new FormData();
+    fdQ.append('qr_code', pendingQrFile);
+    steps.push(function() { return postForm('/api/member/onboarding/qr/', fdQ); });
+  }
+  if (pendingPin) {
+    var pinPayload = { pin: pendingPin };
+    if (pendingCurrentPin) pinPayload.current_pin = pendingCurrentPin;
+    steps.push(function() { return postJson('/api/member/onboarding/pin/', pinPayload); });
+  }
+
+  var i = 0;
+  (function next() {
+    if (i < steps.length) {
+      var p = steps[i]();
+      i++;
+      p.then(function(d) {
+        if (!d || !d.ok) {
+          showError((d && d.error) ? d.error : 'Failed to save your details. Please check your inputs and try again.');
+          return;
+        }
+        next();
+      }).catch(function() {
+        showError('Failed to save your details. Please check your connection and try again.');
+      });
+      return;
+    }
+    postJson('/api/member/onboarding/complete/', data).then(function(d) {
+      if (d && d.ok) {
+        document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+        document.getElementById('screen-complete').classList.add('active');
+      } else {
+        showError((d && d.error) || 'Failed to complete setup');
       }
-      else { 
-        Swal.fire({
-          icon:'error',
-          title:'Error',
-          text:d.error || 'Failed to complete setup',
-          confirmButtonColor:'#0F5A36'
-        }); 
-      }
-    })
-    .catch(function() { 
-      Swal.fire({
-        icon:'error',
-        title:'Error',
-        text:'Failed to complete setup',
-        confirmButtonColor:'#0F5A36'
-      }); 
+    }).catch(function() {
+      showError('Failed to complete setup');
     });
+  })();
 }
 
 function goToDashboard() { window.location.href = '/member/'; }

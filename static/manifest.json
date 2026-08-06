@@ -1,7 +1,7 @@
 {
-  "name": "ISU CAUFA - Faculty Association",
+  "name": "ISU CAUFA",
   "short_name": "ISU CAUFA",
-  "description": "Isabela State University - Cauayan Faculty Association",
+  "description": "ISU CAUFA Progressive Web App",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -12,16 +12,16 @@
   "categories": ["education", "productivity"],
   "icons": [
     {
-      "src": "/static/img/isu_caufa_official.png",
+      "src": "/static/img/isu_caufa_official_192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/static/img/isu_caufa_official.png",
+      "src": "/static/img/isu_caufa_official_512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }

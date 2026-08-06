@@ -7,7 +7,7 @@
     <!-- Page Banner -->
     <section class="relative h-[400px] overflow-hidden">
         <div class="absolute inset-0">
-            <img src="{% static 'img/isugym.jpg' %}" alt="ISU CAUFA" class="w-full h-full object-cover" />
+            <img src="{% static 'img/isugym.jpg' %}" alt="ISU CAUFA" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/60 to-black/40"></div>
         </div>
         <div class="relative z-10 h-full flex flex-col items-center justify-center text-white text-center px-6">
@@ -35,7 +35,7 @@
                 <a href="{% url 'news_detail' article.slug %}" class="group bg-white border border-black/5 rounded-2xl overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_32px_-12px_rgba(16,24,40,0.12)] hover:shadow-[0_2px_4px_rgba(16,24,40,0.05),0_16px_40px_-12px_rgba(16,24,40,0.18)] hover:-translate-y-0.5 transition-all duration-300 block">
                     <div class="aspect-[4/5] bg-gradient-to-br from-brand-green to-green-700 flex items-center justify-center overflow-hidden">
                         {% if article.featured_image %}
-                        <img src="{{ article.featured_image.url }}" alt="{{ article.title }}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                        <img src="{{ article.featured_image.url }}" alt="{{ article.title }}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" onerror="this.style.display='none'" />
                         {% else %}
                         <i class="fa-solid fa-newspaper text-4xl text-white/50"></i>
                         {% endif %}

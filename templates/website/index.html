@@ -16,9 +16,13 @@
         <div class="hero-slide active absolute inset-0" data-index="0">
             <div class="absolute inset-0">
                 <!-- Desktop background (wide design, desktop layout) -->
-                <div class="absolute inset-0 hidden sm:block" style="background-image: url('{% static 'img/halfdesignISU.png' %}'); background-size: 100% auto; background-position: right center; background-color: #04120a;"></div>
+                <div class="absolute inset-0 hidden sm:block bg-[#04120a]">
+                    <img src="{% static 'img/halfdesignISU.png' %}" alt="" class="w-full h-full object-cover object-right-center" loading="lazy" decoding="async" onerror="this.style.display='none'" />
+                </div>
                 <!-- Mobile background (portrait-friendly photo) -->
-                <div class="absolute inset-0 sm:hidden" style="background-image: url('{% static 'img/isugym.jpg' %}'); background-size: cover; background-position: center;"></div>
+                <div class="absolute inset-0 sm:hidden">
+                    <img src="{% static 'img/isugym.jpg' %}" alt="" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'" />
+                </div>
                 <!-- Readability overlays -->
                 <div class="absolute inset-0 bg-black/40"></div>
                 <div class="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent"></div>
@@ -37,15 +41,15 @@
                         Learn More About Us
                         <i class="fa-solid fa-chevron-right text-[11px]"></i>
                     </a>
-                    <a href="#placeholder-card" class="sm:hidden inline-flex items-center justify-center gap-2 bg-brand-green text-white rounded-full px-6 py-3.5 text-[13px] font-black uppercase tracking-[0.12em] shadow-lg shadow-brand-dark/20">
+                    <button id="download-app-mobile" type="button" onclick="promptAppInstall()" class="hidden inline-flex items-center justify-center gap-2 bg-brand-green text-white rounded-full px-6 py-3.5 text-[13px] font-black uppercase tracking-[0.12em] shadow-lg shadow-brand-dark/20 app-install-trigger">
                         <i class="fa-solid fa-download text-xs"></i>
                         Download the ISU CAUFA App
-                    </a>
+                    </button>
                 </div>
             </div>
-            <a href="#placeholder-card" class="absolute right-4 sm:right-8 bottom-4 sm:bottom-8 z-20 hidden sm:inline-flex items-center rounded-full bg-brand-green px-5 sm:px-6 py-3 text-sm sm:text-base font-black uppercase tracking-[0.18em] text-white shadow-2xl shadow-brand-dark/30 hover:bg-brand-dark transition-all">
+            <button id="download-app-desktop" type="button" onclick="promptAppInstall()" class="hidden sm:inline-flex absolute right-4 sm:right-8 bottom-4 sm:bottom-8 z-20 items-center rounded-full bg-brand-green px-5 sm:px-6 py-3 text-sm sm:text-base font-black uppercase tracking-[0.18em] text-white shadow-2xl shadow-brand-dark/30 hover:bg-brand-dark transition-all app-install-trigger">
                 Download the ISU CAUFA App
-            </a>
+            </button>
         </div>
 
         <!-- Slide 2+: Hero slides managed by PIO -->

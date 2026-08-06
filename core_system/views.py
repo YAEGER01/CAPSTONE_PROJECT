@@ -14,13 +14,15 @@ from typing import Any
 
 from django.db.models import Q, Sum, Prefetch
 from django.http import HttpRequest, JsonResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from django.shortcuts import render
 from core_system.auth_utils import sha256_hex
+from core_system.auth_views import _workspace_redirect
 from core_system.constants.policy_constants import get_membership_fee_amount, get_monthly_dues_amount
+from core_system.constants.status_constants import Status
 from core_system.guards import require_officer_session, require_role
 from core_system.models import (
     Claimant,
@@ -305,7 +307,26 @@ def member_deductions_list(request: HttpRequest, member_id: int | None = None):
         if not member_id:
             return JsonResponse({"ok": False, "error": "member_id required."}, status=400)
 
-    member = get_object_or_404(Member, pk=int(member_id))
+    try:
+        member_id = int(member_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "member_id must be an integer."}, status=400)
+
+    officer_role = (request.session.get("role") or "").strip().lower()
+    is_member_role = officer_role in ("member", "member_user")
+    if is_member_role:
+        # Members may only read their own deduction history (IDOR guard).
+        officer_id = request.session.get("officer_id")
+        own_member = None
+        if officer_id:
+            own_member = Member.objects.filter(
+                officer_user_id_FK=officer_id,
+            ).first()
+        if not own_member or own_member.member_id_PK != member_id:
+            return JsonResponse({"ok": False, "error": "Forbidden: you can only view your own deductions."}, status=403)
+        member = own_member
+    else:
+        member = get_object_or_404(Member, pk=member_id)
 
     deductions = PayrollDeduction.objects.filter(
         member_id_FK=member,
@@ -350,6 +371,38 @@ def _build_member_deduction_desc(deduction: PayrollDeduction, batch: PayrollBatc
 
 
 @require_GET
+def member_onboarding(request: HttpRequest):
+    """Serve the member onboarding wizard directly (after first-login password change)."""
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
+
+    officer_id = request.session.get("officer_id")
+    if not officer_id:
+        return redirect("login")
+
+    officer = OfficerUser.objects.get(user_id_PK=officer_id)
+    if officer.role != "Member":
+        return redirect(_workspace_redirect(officer.role))
+
+    member = Member.objects.filter(officer_user_id_FK=officer).first()
+    if not member:
+        return redirect(_workspace_redirect(officer.role))
+
+    if member.setup_complete:
+        return redirect("/member/")
+
+    return render(request, "website/Member/member_onboarding.html", {
+        "member_id": member.member_id_PK,
+        "full_name": member.full_name,
+        "member_type": member.member_type or "Member",
+        "position": member.position or "Member",
+        "department": member.department or "",
+        "has_pin": bool(member.pin_code),
+    })
+
+
+@require_GET
 def member_dashboard(request: HttpRequest):
     """Member dashboard page - visible when Member role logs in."""
     guard = require_officer_session(request)
@@ -391,7 +444,7 @@ def member_dashboard(request: HttpRequest):
                     "member_type": member.member_type,
                     "date_joined": member.date_joined.isoformat() if member.date_joined else "",
                     "profile_picture": member.profile_picture.url if member.profile_picture else "",
-                    "pin_code": member.pin_code or "",
+                    "has_pin": bool(member.pin_code),
                     "qr_code": member.qr_code.url if member.qr_code else "",
                     "emergency_contact": member.emergency_contact or "",
                     "emergency_number": member.emergency_number or "",
@@ -432,10 +485,29 @@ def member_dashboard(request: HttpRequest):
     dues_records = []
     if member:
         all_dues = MonthlyDues.objects.filter(member_id_FK=member).order_by("-month_covered")
-        total_dues_paid = float(all_dues.filter(payment_status="Paid").aggregate(t=Sum("amount"))["t"] or 0)
+        total_dues_paid = float(all_dues.filter(payment_status__in=Status.ALL_AUDITOR_VERIFIED).aggregate(t=Sum("amount"))["t"] or 0)
         total_dues_pending = float(all_dues.filter(payment_status="Pending").aggregate(t=Sum("amount"))["t"] or 0)
         total_dues_unpaid = float(all_dues.filter(payment_status="Unpaid").aggregate(t=Sum("amount"))["t"] or 0)
-        outstanding_balance = total_dues_unpaid
+        covered = set(
+            all_dues.filter(
+                payment_status__in=["Pending", "Paid", "Full Payment"],
+            ).values_list("month_covered", flat=True)
+        )
+        joined = member.date_joined or (timezone.now().date() - timedelta(days=365))
+        unpaid_count = 0
+        year, month = joined.year, joined.month + 1
+        if month > 12:
+            year += 1
+            month = 1
+        today = timezone.now().date()
+        while (year < today.year) or (year == today.year and month <= today.month):
+            if f"{year}-{month:02d}" not in covered:
+                unpaid_count += 1
+            month += 1
+            if month > 12:
+                month = 1
+                year += 1
+        outstanding_balance = round(float(get_monthly_dues_amount()) * unpaid_count, 2)
         for d in all_dues:
             dues_records.append({
                 "dues_id": d.dues_id_PK,

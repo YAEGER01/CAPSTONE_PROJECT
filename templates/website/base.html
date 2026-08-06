@@ -18,10 +18,17 @@
     <meta name="application-name" content="ISU CAUFA">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Isabela State University - Cauayan Faculty Association. United for Progress, Inspired by Service.">
-    <link rel="manifest" href="{% static 'manifest.json' %}">
-    <link rel="apple-touch-icon" href="{% static 'img/isu_caufa_official.png' %}">
-    <link rel="icon" href="{% static 'img/isu_caufa_official.png' %}" type="image/png">
+    <link rel="manifest" href="{% static 'manifest.json' %}?v=7">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/isu_caufa_official_180.png' %}?v=7">
+    <link rel="icon" sizes="192x192" href="{% static 'img/isu_caufa_official_192.png' %}?v=7" type="image/png">
+    <link rel="icon" sizes="512x512" href="{% static 'img/isu_caufa_official_512.png' %}?v=7" type="image/png">
+    <link rel="mask-icon" href="{% static 'img/isu_caufa_official_512.png' %}?v=7" color="#004d26">
+    <link rel="shortcut icon" href="{% static 'img/isu_caufa_official_512.png' %}?v=7" type="image/png">
     <title>{% block title %}ISU CAUFA{% endblock %} | ISU CAUFA</title>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -278,6 +285,7 @@
                     <i class="fa-solid fa-bars text-xl"></i>
                 </button>
                 <div class="hidden xl:flex items-center gap-2">
+                    <button id="install-app-btn" type="button" class="hidden border border-brand-green text-brand-green rounded-full px-4 py-1.5 text-[11px] uppercase font-bold tracking-wider hover:bg-brand-green hover:text-white transition-all">Install App</button>
                     <a href="{% url 'login' %}" class="border border-brand-green text-brand-green rounded-full px-4 py-1.5 text-[11px] uppercase font-bold tracking-wider hover:bg-brand-green hover:text-white transition-all">Login</a>
                     <a href="{% url 'public_register' %}" class="bg-brand-green text-white rounded-full px-4 py-1.5 text-[11px] uppercase font-bold tracking-wider hover:bg-brand-dark transition-all">Register</a>
                 </div>
@@ -616,13 +624,6 @@
     </script>
 
     <script>
-        // ======= Service Worker (PWA / installable app shell) =======
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/js/service-worker.js').catch(function () {});
-        }
-    </script>
-
-    <script>
         // ======= Sticky header: hide on scroll down, reveal on scroll up (mobile only) =======
         (function () {
             var header = document.getElementById('app-header');
@@ -649,5 +650,78 @@
         })();
     </script>
     {% block extra_js %}{% endblock %}
+
+    <script>
+        // Register the PWA service worker at root so the app can be installed on desktop and mobile.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                    console.log('ServiceWorker registered:', reg.scope);
+                }).catch(function(err) {
+                    console.log('ServiceWorker registration failed:', err);
+                });
+            });
+        }
+
+        // Show install button when the app becomes installable.
+        var deferredInstallPrompt;
+        var installButton = document.getElementById('install-app-btn');
+
+        window.addEventListener('beforeinstallprompt', function(event) {
+            console.log('beforeinstallprompt fired');
+            event.preventDefault();
+            deferredInstallPrompt = event;
+            if (installButton) {
+                installButton.classList.remove('hidden');
+            }
+            // Show only one install button depending on viewport width
+            var isDesktop = window.matchMedia('(min-width: 640px)').matches; // tailwind 'sm' breakpoint
+            var mobileBtn = document.getElementById('download-app-mobile');
+            var desktopBtn = document.getElementById('download-app-desktop');
+            if (isDesktop) {
+                if (desktopBtn) desktopBtn.classList.remove('hidden');
+                if (mobileBtn) mobileBtn.classList.add('hidden');
+            } else {
+                if (mobileBtn) mobileBtn.classList.remove('hidden');
+                if (desktopBtn) desktopBtn.classList.add('hidden');
+            }
+        });
+
+        function promptAppInstall() {
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                deferredInstallPrompt.userChoice.then(function(choiceResult) {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    deferredInstallPrompt = null;
+                    if (installButton) {
+                        installButton.classList.add('hidden');
+                    }
+                });
+                return;
+            }
+
+            if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+                alert('The app is already installed.');
+                return;
+            }
+
+            console.log('Install prompt is not available yet.');
+        }
+
+        if (installButton) {
+            installButton.addEventListener('click', promptAppInstall);
+        }
+
+        window.addEventListener('appinstalled', function() {
+            if (installButton) {
+                installButton.classList.add('hidden');
+            }
+            console.log('PWA was installed');
+        });
+    </script>
 </body>
 </html>

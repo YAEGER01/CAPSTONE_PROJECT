@@ -3,8 +3,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.http import FileResponse
 from django.contrib.auth import views as auth_views
-from core_system.auth_views import forgot_password, officer_login, reset_password
+from core_system.auth_views import change_password, forgot_password, officer_login, reset_password
 
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
@@ -15,8 +16,13 @@ from core_system.public_views import (
 )
 from django.views.generic import RedirectView
 
+def sw_js(request):
+    sw_path = settings.BASE_DIR / "static" / "sw.js"
+    return FileResponse(open(sw_path, 'rb'), content_type="application/javascript")
+
 urlpatterns = [
     path("favicon.ico", RedirectView.as_view(url="/static/img/isu_caufa_official.png", permanent=True)),
+    path("sw.js", sw_js),
     path("admin/", admin.site.urls),
     # 1. Main Landing: Dynamic homepage that queries existing backend data
     path("", homepage, name="home"),
@@ -38,6 +44,7 @@ urlpatterns = [
     ),
     path("forgot-password/", forgot_password, name="forgot_password"),
     path("reset-password/", reset_password, name="reset_password"),
+    path("change-password/", change_password, name="change_password"),
     # Treasurer workspace + internal module fragments
     path("", include("core_system.urls")),
     path("__reload__/", include("django_browser_reload.urls")),

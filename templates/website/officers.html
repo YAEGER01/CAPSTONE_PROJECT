@@ -14,7 +14,7 @@
     <!-- Page Banner -->
     <section class="relative h-[400px] overflow-hidden">
         <div class="absolute inset-0">
-            <img src="{% static 'img/isugym.jpg' %}" alt="ISU CAUFA" class="w-full h-full object-cover" />
+            <img src="{% static 'img/isugym.jpg' %}" alt="ISU CAUFA" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/60 to-black/40"></div>
         </div>
         <div class="relative z-10 h-full flex flex-col items-center justify-center text-white text-center px-6">
@@ -39,7 +39,7 @@
                     {% for o in executive_officers %}
                     <div class="bg-[#f7f6f2] border border-black/5 p-8 rounded-2xl text-center marquee-card shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_-12px_rgba(16,24,40,0.10)]">
                         {% if o.photo %}
-                        <div class="w-52 h-52 mx-auto rounded-2xl overflow-hidden border-2 border-brand-green/20 mb-4"><img src="{{ o.photo.url }}" alt="{{ o.full_name }}" class="w-full h-full object-cover"></div>
+                        <div class="w-52 h-52 mx-auto rounded-2xl overflow-hidden border-2 border-brand-green/20 mb-4"><img src="{{ o.photo.url }}" alt="{{ o.full_name }}" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'" /></div>
                         {% else %}
                         <div class="w-52 h-52 mx-auto bg-gradient-to-br from-brand-green to-green-700 rounded-2xl flex items-center justify-center text-white text-5xl font-black mb-4 shadow-md shadow-brand-green/20">{{ o.full_name|slice:":1" }}</div>
                         {% endif %}
@@ -79,7 +79,7 @@
                     {% for o in board_members %}
                     <div class="bg-white border border-black/5 p-8 rounded-2xl text-center marquee-card shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_32px_-12px_rgba(16,24,40,0.12)]">
                         {% if o.photo %}
-                        <div class="w-52 h-52 mx-auto rounded-2xl overflow-hidden border-2 border-brand-dark/10 mb-4"><img src="{{ o.photo.url }}" alt="{{ o.full_name }}" class="w-full h-full object-cover"></div>
+                        <div class="w-52 h-52 mx-auto rounded-2xl overflow-hidden border-2 border-brand-dark/10 mb-4"><img src="{{ o.photo.url }}" alt="{{ o.full_name }}" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'" /></div>
                         {% else %}
                         <div class="w-52 h-52 mx-auto bg-brand-dark rounded-2xl flex items-center justify-center text-white text-5xl font-black mb-4">{{ o.full_name|slice:":1" }}</div>
                         {% endif %}

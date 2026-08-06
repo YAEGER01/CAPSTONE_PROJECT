@@ -481,7 +481,7 @@
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            margin-top: 8px;
+            margin-top: 60px;
             gap: 80px;
             flex-wrap: wrap;
         }
@@ -489,7 +489,7 @@
         .sig-label {
             font-size: 11px;
             color: #666;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             font-style: italic;
             text-align: center;
         }
@@ -498,13 +498,25 @@
             text-align: center;
             flex: 0 1 auto;
             min-width: 230px;
+            padding-top: 2px;
+        }
+
+        .sig-image-wrapper {
+            margin: 0 auto 2px;
+            text-align: center;
+        }
+
+        .sig-image-wrapper img {
+            max-height: 100px;
+            max-width: 220px;
+            display: inline-block;
         }
 
         .sig-line {
             width: 180px;
             height: 2px;
             background: #333;
-            margin: 20px auto 6px;
+            margin: 4px auto 4px;
         }
 
         .sig-name {
@@ -924,10 +936,9 @@
                 <!-- Signatures -->
                 <div class="signature-area">
                     <div class="signature-block">
-                        <div class="sig-label">[OFFICIAL SIGNATURE]</div>
                         {% if president_signature_url %}
-                            <div style="text-align: center; margin: 20px 0 6px;">
-                                <img src="{{ president_signature_url }}" alt="President Signature" style="max-height: 60px; max-width: 180px;">
+                            <div class="sig-image-wrapper">
+                                <img src="{{ president_signature_url }}" alt="President Signature">
                             </div>
                         {% else %}
                             <div class="sig-line"></div>
@@ -943,10 +954,9 @@
                     </div>
 
                     <div class="signature-block">
-                        <div class="sig-label">[OFFICIAL SIGNATURE]</div>
                         {% if secretary_signature_url %}
-                            <div style="text-align: center; margin: 20px 0 6px;">
-                                <img src="{{ secretary_signature_url }}" alt="Secretary Signature" style="max-height: 60px; max-width: 180px;">
+                            <div class="sig-image-wrapper">
+                                <img src="{{ secretary_signature_url }}" alt="Secretary Signature">
                             </div>
                         {% else %}
                             <div class="sig-line"></div>
@@ -963,10 +973,9 @@
 
                     {% if faculty_regent_name %}
                     <div class="signature-block">
-                        <div class="sig-label">[OFFICIAL SIGNATURE]</div>
                         {% if faculty_regent_signature_url %}
-                            <div style="text-align: center; margin: 20px 0 6px;">
-                                <img src="{{ faculty_regent_signature_url }}" alt="Faculty Regent Signature" style="max-height: 60px; max-width: 180px;">
+                            <div class="sig-image-wrapper">
+                                <img src="{{ faculty_regent_signature_url }}" alt="Faculty Regent Signature">
                             </div>
                         {% else %}
                             <div class="sig-line"></div>

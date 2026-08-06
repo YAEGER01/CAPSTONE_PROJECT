@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cooperative Executive Management Console</title>
+    <title>TREASURER</title>
     <script type="module" src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8/dist/turbo.es2017-esm.js"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4" crossorigin="anonymous"></script>
 
@@ -2599,54 +2599,11 @@
                   </div>
                 </div>
 
-                <div class="form-grid-2">
-                  <div class="form-group">
-                    <label for="password">Password</label>
-                    <div style="position:relative;">
-                      <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        placeholder="Choose a strong password"
-                        required
-                        style="padding-right:40px;"
-                      />
-                      <button type="button" onclick="togglePasswordVisibility('password', 'passwordToggleIcon')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;">
-                        <i id="passwordToggleIcon" class="fa-regular fa-eye" style="color:#666;"></i>
-                      </button>
-                    </div>
-                    <div class="strength-meter" style="height:4px;background:#e0e0e0;border-radius:2px;margin-top:8px;overflow:hidden;">
-                      <div class="strength-bar" id="passwordStrengthBar" style="height:100%;width:0%;transition:width 0.3s;"></div>
-                    </div>
-                    <p style="font-size:11px;color:#666;margin-top:4px;">Password strength: <span id="passwordStrengthLabel">Weak</span></p>
-                    <div style="font-size:10px;color:#888;margin-top:4px;">
-                      <p style="margin:0 0 4px;">Password must include:</p>
-                      <ul style="margin:0;padding-left:16px;">
-                        <li id="ruleLength">At least 8 characters</li>
-                        <li id="ruleLower">A lowercase letter</li>
-                        <li id="ruleUpper">An uppercase letter</li>
-                        <li id="ruleNumber">A number</li>
-                        <li id="ruleSpecial">A special character</li>
-                      </ul>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label for="confirm_password">Confirm Password</label>
-                    <div style="position:relative;">
-                      <input
-                        type="password"
-                        id="confirm_password"
-                        name="confirm_password"
-                        placeholder="Confirm your password"
-                        required
-                        style="padding-right:40px;"
-                      />
-                      <button type="button" onclick="togglePasswordVisibility('confirm_password', 'confirmPasswordToggleIcon')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;">
-                        <i id="confirmPasswordToggleIcon" class="fa-regular fa-eye" style="color:#666;"></i>
-                      </button>
-                    </div>
-                    <p id="confirmPasswordError" style="font-size:11px;color:#d32f2f;margin-top:4px;display:none;">Passwords do not match.</p>
-                  </div>
+                <div class="form-group">
+                  <p style="font-size:12px;color:#666;margin-top:8px;padding:12px;background:#e8f5e9;border-radius:6px;border-left:4px solid #00e676;">
+                    <i class="fa-solid fa-lock" style="margin-right:6px;"></i>
+                    A secure password will be automatically generated and sent to the member's email address upon registration.
+                  </p>
                 </div>
 
                 <div class="form-grid-2">
@@ -7014,13 +6971,13 @@
 
               <div class="form-group" style="margin:0;">
                 <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Full Legal Name</label>
-                <input id="edit_prof_name" type="text" autocomplete="off" value="${member.name || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
+                <input id="edit_prof_name" type="text" autocomplete="off" readonly value="${member.name || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
               </div>
 
               <div class="form-grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
                 <div class="form-group" style="margin:0;">
                   <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Department / College</label>
-                  <input id="edit_prof_dept" type="text" value="${member.department || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
+                  <input id="edit_prof_dept" type="text" readonly value="${member.department || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
                 </div>
 
                 <div class="form-group" style="margin:0;">
@@ -7032,12 +6989,12 @@
               <div class="form-grid-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
                 <div class="form-group" style="margin:0;">
                   <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Contact Number</label>
-                  <input id="edit_prof_contact" type="tel" autocomplete="off" value="${member.contact || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
+                  <input id="edit_prof_contact" type="tel" autocomplete="off" readonly value="${member.contact || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
                 </div>
 
                 <div class="form-group" style="margin:0;">
                   <label style="display:block;font-size:13px;font-weight:600;color:#1b5e20;margin-bottom:6px;">Institutional Email Address</label>
-                  <input id="edit_prof_email" type="email" autocomplete="off" value="${member.email || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
+                  <input id="edit_prof_email" type="email" autocomplete="off" readonly value="${member.email || ""}" style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cfdccc;background:#fbfdfb;" />
                 </div>
               </div>
 
@@ -7070,16 +7027,7 @@
               console.log("[EditMember] preConfirm fired");
               const payload = {
                 member_id: memberId,
-                full_name: (document.getElementById("edit_prof_name") || {})
-                  .value,
-                department: (document.getElementById("edit_prof_dept") || {})
-                  .value,
-                position: (document.getElementById("edit_prof_pos") || {})
-                  .value,
-                contact_number: (
-                  document.getElementById("edit_prof_contact") || {}
-                ).value,
-                email: (document.getElementById("edit_prof_email") || {}).value,
+                position: (document.getElementById("edit_prof_pos") || {}).value,
                 membership_status: (
                   document.getElementById("edit_prof_status") || {}
                 ).value,
@@ -9281,59 +9229,10 @@
     <script>
       // Member Enrollment Form Validation
       (function() {
-        var passwordInput = document.getElementById('password');
-        var confirmPasswordInput = document.getElementById('confirm_password');
         var usernameInput = document.getElementById('username');
         var emailInput = document.getElementById('email');
-        var passwordStrengthBar = document.getElementById('passwordStrengthBar');
-        var passwordStrengthLabel = document.getElementById('passwordStrengthLabel');
-        var confirmPasswordError = document.getElementById('confirmPasswordError');
         var usernameAvailability = document.getElementById('usernameAvailability');
         var emailAvailability = document.getElementById('emailAvailability');
-
-        // Password visibility toggle
-        window.togglePasswordVisibility = function(inputId, iconId) {
-          var input = document.getElementById(inputId);
-          var icon = document.getElementById(iconId);
-          if (!input || !icon) return;
-          var isVisible = input.type === 'text';
-          input.type = isVisible ? 'password' : 'text';
-          icon.className = isVisible ? 'fa-regular fa-eye' : 'fa-regular fa-eye-slash';
-        };
-
-        // Password strength validation
-        function updatePasswordStrength() {
-          var value = passwordInput.value;
-          var rules = [/.{8,}/, /[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/];
-          var passed = rules.reduce(function(count, rule) { return count + (rule.test(value) ? 1 : 0); }, 0);
-          var percent = (passed / rules.length) * 100;
-          var labels = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong'];
-          var labelIndex = Math.min(passed, labels.length - 1);
-          var colors = ['#d32f2f', '#f57c00', '#fbc02d', '#689f38', '#388e3c'];
-          
-          passwordStrengthBar.style.width = percent + '%';
-          passwordStrengthBar.style.backgroundColor = colors[labelIndex];
-          var labelSpan = passwordStrengthLabel.querySelector('span') || passwordStrengthLabel;
-          labelSpan.textContent = labels[labelIndex];
-
-          // Update rule indicators
-          document.getElementById('ruleLength').style.color = rules[0].test(value) ? '#388e3c' : '#888';
-          document.getElementById('ruleLower').style.color = rules[1].test(value) ? '#388e3c' : '#888';
-          document.getElementById('ruleUpper').style.color = rules[2].test(value) ? '#388e3c' : '#888';
-          document.getElementById('ruleNumber').style.color = rules[3].test(value) ? '#388e3c' : '#888';
-          document.getElementById('ruleSpecial').style.color = rules[4].test(value) ? '#388e3c' : '#888';
-        }
-
-        // Confirm password validation
-        function validateConfirmPassword() {
-          var matched = passwordInput.value === confirmPasswordInput.value;
-          if (!confirmPasswordInput.value) {
-            confirmPasswordError.style.display = 'none';
-            return true;
-          }
-          confirmPasswordError.style.display = matched ? 'none' : 'block';
-          return matched;
-        }
 
         // Field status display
         function setFieldStatus(element, available, message) {
@@ -9384,7 +9283,11 @@
             var response = await fetch(url, {
               method: 'POST',
               body: formData,
-              headers: { 'X-Requested-With': 'XMLHttpRequest' }
+              headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCSRFToken && getCSRFToken()
+              },
+              credentials: 'same-origin'
             });
             var data = await response.json();
             
@@ -9413,13 +9316,6 @@
         }, 400);
 
         // Event listeners
-        if (passwordInput) passwordInput.addEventListener('input', function() { 
-          updatePasswordStrength(); 
-          validateConfirmPassword(); 
-        });
-        
-        if (confirmPasswordInput) confirmPasswordInput.addEventListener('input', validateConfirmPassword);
-        
         if (usernameInput) usernameInput.addEventListener('input', debouncedUsernameCheck);
         
         if (emailInput) emailInput.addEventListener('input', function() {

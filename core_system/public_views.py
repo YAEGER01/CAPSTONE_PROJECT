@@ -17,7 +17,7 @@ from django.views.decorators.http import require_GET, require_POST
 logger = logging.getLogger(__name__)
 
 from core_system.auth_utils import sha256_hex
-from core_system.services.email_service import send_registration_received_email
+from core_system.services.email_service import send_registration_received_email, generate_secure_password
 from core_system.constants.policy_constants import POLICY, _get_setting_override
 from core_system.constants.status_constants import RegistrationStatus
 from core_system.models import BylawsFile, MemberRegistrationRequest, Member, OfficerProfile, Album, NewsArticle, NewsCategory, NewsGallery
@@ -192,8 +192,6 @@ def public_submit_registration_request(request: HttpRequest):
         "department": "Department",
         "payment_method": "Payment Method",
         "amount": "Amount Paid",
-        "password": "Password",
-        "confirm_password": "Confirm Password",
     }
 
     for field, label in field_labels.items():
@@ -202,6 +200,8 @@ def public_submit_registration_request(request: HttpRequest):
 
     first_name = request.POST.get("first_name", "").strip()
     middle_initial = request.POST.get("middle_initial", "").strip()
+    if middle_initial and len(middle_initial) > 1:
+        return JsonResponse({"ok": False, "error": "Middle Initial must be only 1 character."}, status=400)
     last_name = request.POST.get("last_name", "").strip()
     username = request.POST.get("username", "").strip()
     email = request.POST.get("email", "").strip()
@@ -211,27 +211,14 @@ def public_submit_registration_request(request: HttpRequest):
     payment_method = request.POST.get("payment_method", "").strip()
     payment_date_raw = request.POST.get("payment_date", "").strip()
     amount_raw = request.POST.get("amount", "").strip()
-    password = request.POST.get("password", "")
-    confirm_password = request.POST.get("confirm_password", "")
 
     full_name = f"{first_name}{' ' + middle_initial if middle_initial else ''} {last_name}".strip()
 
-    if password != confirm_password:
-        return JsonResponse({"ok": False, "error": "Passwords do not match."}, status=400)
-
     if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email):
         return JsonResponse({"ok": False, "error": "Please enter a valid email address, e.g. user@gmail.com."}, status=400)
-
-    if len(password) < 8:
-        return JsonResponse({"ok": False, "error": "Password must be at least 8 characters."}, status=400)
-    if not re.search(r"[a-z]", password):
-        return JsonResponse({"ok": False, "error": "Password must include a lowercase letter."}, status=400)
-    if not re.search(r"[A-Z]", password):
-        return JsonResponse({"ok": False, "error": "Password must include an uppercase letter."}, status=400)
-    if not re.search(r"\d", password):
-        return JsonResponse({"ok": False, "error": "Password must include a number."}, status=400)
-    if not re.search(r"[^A-Za-z0-9]", password):
-        return JsonResponse({"ok": False, "error": "Password must include a special character."}, status=400)
+    
+    # Auto-generate secure password
+    generated_password = generate_secure_password()
 
     # Prevent duplicate member username/email or pending requests for same username/email
     try:
@@ -273,7 +260,7 @@ def public_submit_registration_request(request: HttpRequest):
             amount=amount_value,
             receipt_number=receipt_number_value,
             payment_date=payment_date,
-            password_hash=sha256_hex(password),
+            password_hash=sha256_hex(generated_password),
             status=RegistrationStatus.PENDING_TREASURER_REVIEW,
             submitted_by_ip=request.META.get("REMOTE_ADDR"),
             submitted_by_user_agent=request.META.get("HTTP_USER_AGENT", "")[:255],

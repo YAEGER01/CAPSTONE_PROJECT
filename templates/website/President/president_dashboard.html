@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Presidential Executive Approval Console</title>
+    <title>PRESIDENT</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script
@@ -8234,7 +8234,19 @@
           .catch(function(e) { console.error("Failed to load request details", e); });
       }
 
+      function _setPresidentActionButtonsDisabled(disabled) {
+        ["pres-reg-approve-btn", "pres-reg-reject-btn"].forEach(function(id) {
+          var btn = document.getElementById(id);
+          if (btn) {
+            btn.disabled = disabled;
+            btn.style.pointerEvents = disabled ? "none" : "auto";
+            btn.style.opacity = disabled ? 0.6 : 1;
+          }
+        });
+      }
+
       function presidentHandleAction(requestId, action, reason) {
+        _setPresidentActionButtonsDisabled(true);
         var fd = new FormData();
         fd.append("action", action);
         if (reason) fd.append("reason", reason);
@@ -8252,10 +8264,15 @@
             Swal.fire({ icon: "success", title: label + "!", timer: 2000, showConfirmButton: false });
             fetchPresidentRegistrationRequests();
           } else {
+            _setPresidentActionButtonsDisabled(false);
             Swal.fire({ icon: "error", title: "Error", text: data.error || "Action failed" });
           }
         })
-        .catch(function(e) { Swal.close(); Swal.fire({ icon: "error", title: "Error", text: "Request failed" }); });
+        .catch(function(e) {
+          _setPresidentActionButtonsDisabled(false);
+          Swal.close();
+          Swal.fire({ icon: "error", title: "Error", text: "Request failed" });
+        });
       }
 
       document.addEventListener("turbo:load", function() {

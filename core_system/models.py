@@ -27,6 +27,7 @@ class OfficerUser(models.Model):
     mfa_secret = models.CharField(max_length=255, null=True, blank=True)
     last_mfa_email_sent_at = models.DateTimeField(null=True, blank=True)
     email = models.CharField(max_length=255, null=True, blank=True)
+    must_change_password = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -220,6 +221,7 @@ class AccessSession(models.Model):
     expires_at = models.DateTimeField()
     revoked_at = models.DateTimeField(null=True, blank=True)
     session_status = models.CharField(max_length=50)
+    last_activity_at = models.DateTimeField(null=True, blank=True)
 
     trusted_device = models.BooleanField(default=False)
     last_verified_location = models.JSONField(null=True, blank=True)
@@ -345,6 +347,12 @@ class MonthlyDues(models.Model):
     receipt_number = models.CharField(max_length=100, null=True, blank=True)
     deduction_batch_reference = models.CharField(max_length=100, null=True, blank=True)
     remittance_reference = models.CharField(max_length=100, null=True, blank=True)
+
+    is_advance = models.BooleanField(
+        default=False,
+        db_column="is_advance",
+        help_text="True when the covered month is in the future (early/advance payment).",
+    )
 
     recorded_by_user_id_FK = models.ForeignKey(
         OfficerUser,

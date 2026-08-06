@@ -568,7 +568,11 @@
       var raw = p.source_label
         ? (p.source_label === "Membership Fee" ? "membership_fee" : "monthly_dues")
         : (p.type === "OTC Fee Payment" ? "membership_fee" : "monthly_dues");
+
       if (checked.length && checked.indexOf(raw) === -1) continue;
+      if (p.payment_status === "Approved" || p.auditor_status === "Auditor Verified" || p.auditor_status === "President Approved") {
+        continue;
+      }
       flt.push(p);
     }
 
@@ -773,6 +777,11 @@
     const item = state.pendingPayments.find((p) => String(p.id) === String(id));
     if (!item) return;
 
+    if (item.payment_status === "Approved" || item.auditor_status === "Auditor Verified" || item.auditor_status === "President Approved") {
+      showToast("This payment has already been authorized and cannot be selected for audit.", true);
+      return;
+    }
+
     const header = getEl("selectedPaymentHeader");
     if (header)
       header.innerText = `Reviewing Entry: ${item.id} (${getPaymentSourceLabel(item)} · ${getPaymentTypeLabel(item)})`;
@@ -803,7 +812,12 @@
       getEl("pReadEncoder").innerText = item.encoded_by || "—";
 
     const auditId = getEl("pAuditID");
-    if (auditId) auditId.value = item.entity_id || item.id;
+    if (auditId) {
+      const identifier = (item.source && item.entity_id != null)
+        ? `${item.source}:${item.entity_id}`
+        : item.entity_id || item.id;
+      auditId.value = identifier;
+    }
     const auditDate = getEl("pAuditDate");
     if (auditDate) auditDate.value = new Date().toLocaleString();
 
@@ -1005,6 +1019,7 @@
     renderAidsTable();
     renderMembershipFeesTable();
     loadAuditedLogs();
+    loadReportTable();
 
     if (typeof fetchAuditorRegistrationRequests === "function") {
       try { fetchAuditorRegistrationRequests(); } catch (e) {}
@@ -1125,6 +1140,7 @@
 
     const auditTargetId = (getEl("pAuditID") || {}).value;
     if (!auditTargetId) {
+      console.error("submitPaymentVerification: missing pAuditID");
       showToast(
         "Please select an active transaction log from the inbox first.",
         true,
@@ -1133,6 +1149,15 @@
     }
 
     const result = (getEl("pAuditResult") || {}).value || "";
+    if (!result || !["Verified", "Returned"].includes(result)) {
+      console.error("submitPaymentVerification: invalid pAuditResult", result);
+      showToast(
+        "Please select a valid verification result.",
+        true,
+      );
+      return;
+    }
+
     let fieldRemarks = "";
     if (result === "Returned") {
       const json = buildRejectionDetailsJSON("pAuditFieldCheckboxes");
@@ -1766,12 +1791,116 @@
 
   window.toggleFolder = toggleFolder;
 
-  window.handleReportCompilerSubmit = function (e) {
+  async function loadReportTable() {
+    const table = getEl("reportTable");
+    if (!table) return;
+    const tbody = table.querySelector("tbody");
+    if (!tbody) return;
+    tbody.innerHTML =
+      '<tr><td colspan="5" style="text-align:center;color:#888;">Loading ...</td></tr>';
+    try {
+      const resp = await fetch("/api/auditor/reports/", {
+        credentials: "same-origin",
+      });
+      const data = await resp.json().catch(() => []);
+      if (!resp.ok) {
+        throw new Error(
+          (data && data.error) || `Request failed: ${resp.status}`,
+        );
+      }
+      if (!Array.isArray(data) || !data.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" style="text-align:center;color:#888;">No generated compliance certifications yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = "";
+      data.forEach((r) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          `<td>${r.prepared_date ? new Date(r.prepared_date).toLocaleString() : "-"}</td>` +
+          `<td>${r.report_title || r.title || r.report_type || "-"}</td>` +
+          `<td>${r.report_period || r.period || "-"} ` +
+          `<span style="color:#888;">(${r.certification_status || r.status || "-"})</span></td>` +
+          `<td>${(r.prepared_by_user_id_FK && r.prepared_by_user_id_FK.full_name) || r.prepared_by || "-"}</td>` +
+          `<td class="action-cell"><button class="btn-icon btn-view" onclick="viewAuditorReport(${r.report_id})">` +
+          `<i class="fa-solid fa-eye"></i> View</button></td>`;
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      tbody.innerHTML =
+        '<tr><td colspan="5" style="text-align:center;color:#c00;">Failed to load certifications.</td></tr>';
+      showToast(e.message || "Failed loading compliance certifications.", true);
+    }
+  }
+
+  window.viewAuditorReport = async function (reportId) {
+    const titleEl = getEl("modalAlertTitle");
+    const textEl = getEl("modalAlertMessage");
+    const modal = getEl("customAlertModal");
+    if (titleEl) titleEl.innerText = "Loading ...";
+    if (textEl) textEl.innerText = "";
+    if (modal) modal.style.display = "flex";
+    try {
+      const resp = await fetch(`/api/auditor/reports/${reportId}/`, {
+        credentials: "same-origin",
+      });
+      const r = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(r.error || `Request failed: ${resp.status}`);
+      }
+      if (titleEl) titleEl.innerText = r.report_title || r.title || "Compliance Certification";
+      if (textEl)
+        textEl.innerText =
+          `Period: ${r.report_period || r.period || "-"}\n` +
+          `Status: ${r.report_status || r.status || "-"}\n` +
+          `Presentation: ${r.presentation_status || "-"}\n` +
+          `Certification: ${r.certification_status || "-"}\n\n` +
+          `Findings:\n${r.findings_summary || "N/A"}`;
+    } catch (e) {
+      if (titleEl) titleEl.innerText = "Error";
+      if (textEl) textEl.innerText = e.message || "Failed to load report detail.";
+      showToast(e.message || "Failed to load report detail.", true);
+    }
+  };
+
+  window.handleReportCompilerSubmit = async function (e) {
     e.preventDefault();
-    showToast(
-      "Report compilation functionality requires backend implementation.",
-      false,
-    );
+    e.stopPropagation();
+    const start = getEl("rep_start")?.value;
+    const end = getEl("rep_end")?.value;
+    if (!start) {
+      showToast("Please select a Start Window Date.", true);
+      return;
+    }
+    // Backend requires {year, month}; derive from the selected start date (YYYY-MM-DD).
+    const parts = start.split("-");
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    if (!year || !month) {
+      showToast("Invalid start date; could not derive year/month.", true);
+      return;
+    }
+    const csrf = getCSRFToken();
+    try {
+      const resp = await fetch("/api/auditor/reports/create/", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          ...(csrf ? { [CSRF_HEADER_NAME]: csrf } : {}),
+        },
+        body: JSON.stringify({ year, month }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || `Server error ${resp.status}`);
+      }
+      showToast("Compliance certification compiled successfully.", false);
+      await loadReportTable();
+    } catch (err) {
+      showToast(err.message || "Failed to compile compliance certification.", true);
+    }
   };
 
   // Allow external callers (websocket helper) to request a dashboard refresh even if refreshAll

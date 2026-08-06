@@ -98,6 +98,23 @@ def require_officer_session(request: HttpRequest) -> HttpResponse | None:
         threading.Thread(target=_send_session_expired_push, args=(officer,), daemon=True).start()
         return redirect("/?session_expired=1")
 
+    if (sess.user_id_FK.account_status or "").lower() != "active":
+        officer = sess.user_id_FK
+        logger.warning(
+            "require_officer_session: account inactive: token=%s status=%s",
+            token,
+            sess.user_id_FK.account_status,
+        )
+        request.session.pop("access_token", None)
+        return redirect("/?session_expired=1")
+
+    now = timezone.now()
+    if sess.last_activity_at is not None and now - sess.last_activity_at > timedelta(minutes=30):
+        officer = sess.user_id_FK
+        request.session.pop("access_token", None)
+        threading.Thread(target=_send_session_expired_push, args=(officer,), daemon=True).start()
+        return redirect("/?session_expired=1")
+
     logger.debug("require_officer_session passed for token=%s", token)
     return None
 
@@ -140,13 +157,6 @@ def require_role(request: HttpRequest, *, role: str | list[str] | None) -> HttpR
     return None
 
 
-_ZT_TIMEOUTS = {
-    "read": None,
-    "verify": timedelta(minutes=15),
-    "approve": timedelta(minutes=5),
-}
-
-
 def _zt_challenge_response(level: str) -> JsonResponse:
     response = JsonResponse({
         "ok": False,
@@ -159,6 +169,11 @@ def _zt_challenge_response(level: str) -> JsonResponse:
 
 def check_zero_trust(request: HttpRequest, level: str = "verify") -> HttpResponse | None:
     """Inline guard: returns None if allowed, or an error response if ZT challenge needed.
+
+    Adaptive step-up model: a session established via login OTP (MFA) is trusted for
+    the whole session lifetime. Continuous verification (device/IP continuity, account
+    active, idle/absolute expiry) is handled by ZeroTrustMiddleware and
+    require_officer_session, so no per-action OTP re-challenge is required here.
 
     Use inside view functions alongside require_role():
         guard = check_zero_trust(request, level="approve")
@@ -180,22 +195,6 @@ def check_zero_trust(request: HttpRequest, level: str = "verify") -> HttpRespons
 
     if not sess.trusted_device:
         return _zt_challenge_response(level)
-
-    timeout = _ZT_TIMEOUTS.get(level)
-    if timeout is not None:
-        policy = sess.session_policy or {}
-        verified_at_str = policy.get("zt_verified_at")
-        if verified_at_str:
-            try:
-                verified_at = timezone.datetime.fromisoformat(verified_at_str)
-                if timezone.is_naive(verified_at):
-                    verified_at = timezone.make_aware(verified_at)
-                if timezone.now() - verified_at > timeout:
-                    return _zt_challenge_response(level)
-            except (ValueError, TypeError):
-                return _zt_challenge_response(level)
-        else:
-            return _zt_challenge_response(level)
 
     return None
 

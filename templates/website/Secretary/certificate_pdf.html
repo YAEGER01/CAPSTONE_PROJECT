@@ -27,10 +27,12 @@ html,body{width:297mm;height:210mm;font-family:Georgia,'Palatino Linotype',serif
 .rname{font-size:20pt;font-weight:700;color:#2d5016;border-top:2px solid #333;border-bottom:2px solid #333;padding:2mm 0;width:80%;text-align:center;margin:1mm auto}
 .ctext{font-size:11pt;color:#333;text-align:center;line-height:1.6;margin:1mm 0;max-width:85%}
 .dline{font-size:11pt;font-style:italic;color:#333;margin:1mm 0}
-.sigs{display:flex;justify-content:center;gap:50mm;margin:2mm 0 0;width:100%}
-.sb{text-align:center;min-width:50mm}
-.sl{font-size:9pt;color:#666;font-style:italic;margin-bottom:1mm}
-.sline{width:40mm;height:1.5px;background:#333;margin:5mm auto 2mm}
+.sigs{display:flex;justify-content:center;gap:50mm;margin:10mm 0 0;width:100%}
+.sb{text-align:center;min-width:50mm;padding-top:2mm}
+.sl{font-size:9pt;color:#666;font-style:italic;margin-bottom:0.5mm}
+.sig-img{margin:2.5mm auto 0.5mm;text-align:center}
+.sig-img img{max-height:18mm;max-width:60mm;display:inline-block}
+.sline{width:40mm;height:1.5px;background:#333;margin:3mm auto 2mm}
 .sn{font-size:11pt;font-weight:700;color:#2d5016;text-transform:uppercase;letter-spacing:.5px}
 .st{font-size:9pt;color:#444;font-weight:600}
 .bot{font-size:10pt;font-weight:700;color:#2d5016;margin-top:auto;padding-bottom:2mm}
@@ -68,9 +70,9 @@ html,body{width:297mm;height:210mm;font-family:Georgia,'Palatino Linotype',serif
 <div class="ctext">for attending the <strong>{{ event_title }}</strong> organized by the Isabela State University Faculty Association (ISU-CAUFA), held on <strong>{{ event_date }}</strong> at <strong>{{ event_venue }}</strong>.</div>
 <div class="dline">Given this {{ day }} of {{ month_year }} at {{ place }}.</div>
 <div class="sigs">
-<div class="sb"><div class="sl">[OFFICIAL SIGNATURE]</div>{% if president_signature_url %}<div style="text-align:center;margin:4mm 0 1mm"><img src="{{ president_signature_url }}" style="max-height:12mm;max-width:40mm"></div>{% else %}<div class="sline"></div>{% endif %}<div class="sn">{{ president_name }}</div><div class="st">{{ president_position|default:"ISU-CAUFA President" }}</div></div>
-<div class="sb"><div class="sl">[OFFICIAL SIGNATURE]</div>{% if secretary_signature_url %}<div style="text-align:center;margin:4mm 0 1mm"><img src="{{ secretary_signature_url }}" style="max-height:12mm;max-width:40mm"></div>{% else %}<div class="sline"></div>{% endif %}<div class="sn">{{ secretary_name }}</div><div class="st">{{ secretary_position|default:"ISU CAUFA Secretary" }}</div></div>
-{% if faculty_regent_name %}<div class="sb"><div class="sl">[OFFICIAL SIGNATURE]</div>{% if faculty_regent_signature_url %}<div style="text-align:center;margin:4mm 0 1mm"><img src="{{ faculty_regent_signature_url }}" style="max-height:12mm;max-width:40mm"></div>{% else %}<div class="sline"></div>{% endif %}<div class="sn">{{ faculty_regent_name }}</div><div class="st">{{ faculty_regent_position|default:"Faculty Regent" }}</div></div>{% endif %}
+<div class="sb">{% if president_signature_url %}<div class="sig-img"><img src="{{ president_signature_url }}"></div>{% else %}<div class="sline"></div>{% endif %}<div class="sn">{{ president_name }}</div><div class="st">{{ president_position|default:"ISU-CAUFA President" }}</div></div>
+<div class="sb">{% if secretary_signature_url %}<div class="sig-img"><img src="{{ secretary_signature_url }}"></div>{% else %}<div class="sline"></div>{% endif %}<div class="sn">{{ secretary_name }}</div><div class="st">{{ secretary_position|default:"ISU CAUFA Secretary" }}</div></div>
+{% if faculty_regent_name %}<div class="sb">{% if faculty_regent_signature_url %}<div class="sig-img"><img src="{{ faculty_regent_signature_url }}"></div>{% else %}<div class="sline"></div>{% endif %}<div class="sn">{{ faculty_regent_name }}</div><div class="st">{{ faculty_regent_position|default:"Faculty Regent" }}</div></div>{% endif %}
 </div>
 <div class="bot">Certificate No.: <strong>{{ certificate_number }}</strong></div>
 </div></div></body></html>

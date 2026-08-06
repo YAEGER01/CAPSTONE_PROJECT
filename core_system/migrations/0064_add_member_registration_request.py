@@ -38,16 +38,6 @@ class Migration(migrations.Migration):
                 'ordering': ['-submitted_at'],
             },
         ),
-        migrations.RenameIndex(
-            model_name='sensitivereadlog',
-            new_name='SENSITIVE_R_table_n_c95688_idx',
-            old_name='sensitive_read_log_table_record_idx',
-        ),
-        migrations.RenameIndex(
-            model_name='sensitivereadlog',
-            new_name='SENSITIVE_R_read_at_121b97_idx',
-            old_name='sensitive_read_log_read_at_idx',
-        ),
         migrations.AddField(
             model_name='memberregistrationrequest',
             name='processed_by_user_id_FK',

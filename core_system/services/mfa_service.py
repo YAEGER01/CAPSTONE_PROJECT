@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import secrets
 import time
 
 from core_system.models import OfficerUser
@@ -9,7 +10,7 @@ MFA_EMAIL_RATE_LIMIT_SECONDS = 300  # 5 minutes exactly
 
 
 def generate_mfa_secret() -> str:
-    return hashlib.sha256(str(time.time()).encode()).hexdigest()[:32]
+    return secrets.token_hex(16)
 
 
 def generate_otp(secret: str) -> str:

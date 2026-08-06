@@ -19,6 +19,7 @@ from . import pio_views
 urlpatterns = [
     # --- Member Workspace Endpoints ---
     path("member/", views.member_dashboard, name="member_dashboard"),
+    path("member/onboarding/", views.member_onboarding, name="member_onboarding"),
     path("api/member/notifications/", member_views.member_notifications, name="member_notifications"),
     path("api/member/notifications/mark-read/", member_views.member_mark_notifications_read, name="member_mark_notifications_read"),
     path("api/member/ledger/", member_views.member_ledger, name="member_ledger"),
@@ -39,7 +40,9 @@ urlpatterns = [
     # --- Member Onboarding API ---
     path("api/member/onboarding/photo/", member_views.onboarding_upload_photo, name="onboarding_upload_photo"),
     path("api/member/onboarding/qr/", member_views.onboarding_save_qr, name="onboarding_save_qr"),
+    path("api/member/onboarding/qr/check/", member_views.onboarding_check_qr, name="onboarding_check_qr"),
     path("api/member/onboarding/pin/", member_views.onboarding_save_pin, name="onboarding_save_pin"),
+    path("api/member/onboarding/pin/check/", member_views.onboarding_check_pin, name="onboarding_check_pin"),
     path("api/member/onboarding/complete/", member_views.onboarding_complete, name="onboarding_complete"),
     path("api/member/certificates/", member_views.member_certificates, name="member_certificates"),
     path("api/member/certificate/<int:certificate_id>/view/", member_views.member_certificate_view, name="member_certificate_view"),

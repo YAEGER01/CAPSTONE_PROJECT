@@ -2,19 +2,14 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 
-from core_system.guards import require_officer_session, require_role
+from core_system.guards import require_role
 from core_system.models import OfficerUser, OrganizationFundReport
-from core_system.services.reporting import generate_unified_report
+from core_system.services.reporting import generate_department_report, generate_contribution_report, generate_unified_report
 
 
 def _report_role_guard(request):
-    guard = require_officer_session(request)
-    if guard is not None:
-        return guard
-    officer_role = (request.session.get("role") or "").strip().lower()
-    if officer_role in ("treasurer", "auditor", "president"):
-        return None
-    return None
+    """Officer reports are restricted to financial officers; members cannot download the roster workbook."""
+    return require_role(request, role=["Treasurer", "Auditor", "President"])
 
 
 def _download_response(wb, filename):
@@ -57,9 +52,11 @@ def download_department_report(request: HttpRequest, dept_id: int):
     if month:
         month = int(month)
 
-    wb = generate_unified_report(year, month)
+    wb = generate_department_report(dept_id=dept_id, year=year, month=month)
+    if wb is None:
+        return JsonResponse({"error": "Department not found."}, status=404)
     period = f"{year or 'current'}-{month or 'current'}"
-    return _download_response(wb, f"unified_report_{period}.xlsx")
+    return _download_response(wb, f"department_report_{dept_id}_{period}.xlsx")
 
 
 @require_GET
@@ -75,9 +72,9 @@ def download_contribution_report(request: HttpRequest):
     if month:
         month = int(month)
 
-    wb = generate_unified_report(year, month)
+    wb = generate_contribution_report()
     period = f"{year or 'current'}-{month or 'current'}"
-    return _download_response(wb, f"unified_report_{period}.xlsx")
+    return _download_response(wb, f"contribution_report_{period}.xlsx")
 
 
 @require_POST

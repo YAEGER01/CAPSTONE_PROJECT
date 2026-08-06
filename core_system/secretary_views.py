@@ -17,7 +17,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.csrf import csrf_exempt
 
-from core_system.auth_utils import sha256_hex
+from core_system.auth_utils import hash_password, verify_pin
 from core_system.guards import require_role
 from core_system.models import (
     Member, OfficerUser, Attendance, Event, Document,
@@ -172,15 +172,16 @@ def secretary_attendance_checkin(request: HttpRequest):
         member = None
         
         if pin and len(pin) == 6:
-            hashed = sha256_hex(pin)
-            member = Member.objects.filter(pin_code=hashed).first()
+            # PIN hashes are now salted PBKDF2 (not directly indexable), so iterate
+            # candidate members with a PIN set and verify in constant-time.
+            member = None
+            for candidate in Member.objects.exclude(pin_code__isnull=True).exclude(pin_code__exact="").only("pin_code"):
+                if verify_pin(pin, candidate.pin_code):
+                    member = candidate
+                    break
         elif qr_code:
+            # QR lookup only — raw member PK is not accepted as a credential (S17).
             member = Member.objects.filter(qr_data=qr_code).first()
-            if not member:
-                try:
-                    member = Member.objects.get(member_id_PK=int(qr_code))
-                except (ValueError, Member.DoesNotExist):
-                    pass
         
         if not member:
             return JsonResponse({
@@ -955,7 +956,7 @@ def secretary_member_directory(request: HttpRequest):
             'contact_number': member.contact_number,
             'email': member.email,
             'profile_picture': member.profile_picture.url if member.profile_picture else None,
-            'pin_code': member.pin_code,  # Include PIN for QR/PIN verification
+            'has_pin': bool(member.pin_code),
         })
     
     return JsonResponse({
@@ -1434,7 +1435,10 @@ def secretary_certificate_settings_save(request: HttpRequest):
         if not settings:
             settings = CertificateSettings()
         
-        data = json.loads(request.body)
+        if request.content_type and request.content_type.startswith('multipart/form-data'):
+            data = request.POST
+        else:
+            data = json.loads(request.body)
         
         settings.president_name = data.get('president_name', '')
         settings.president_position = data.get('president_position', 'ISU-CAUFA President')
@@ -1445,8 +1449,10 @@ def secretary_certificate_settings_save(request: HttpRequest):
         settings.header_text = data.get('header_text', 'Republic of the Philippines')
         settings.footer_text = data.get('footer_text', '')
         
-        # Handle file uploads separately (these would need to be multipart/form-data)
-        # For now, we'll just update text fields
+        if request.FILES.get('president_signature'):
+            settings.president_signature = request.FILES['president_signature']
+        if request.FILES.get('secretary_signature'):
+            settings.secretary_signature = request.FILES['secretary_signature']
         
         settings.save()
         
@@ -1621,7 +1627,7 @@ def secretary_profile_update(request: HttpRequest):
         if 'email' in data and data['email']:
             officer.email = data['email']
         if 'password' in data and data['password']:
-            officer.password_hash = sha256_hex(data['password'])
+            officer.password_hash = hash_password(data['password'])
 
         officer.save()
         return JsonResponse({'ok': True, 'message': 'Profile updated successfully'})

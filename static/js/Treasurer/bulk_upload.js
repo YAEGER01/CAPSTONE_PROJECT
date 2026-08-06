@@ -68,14 +68,49 @@
     return `
       <fieldset class="bulk-member-card" style="border-left: 6px solid ${color};">
         <legend style="color: ${color};">Member ${n}</legend>
-        <div class="form-group">
-          <label for="bulk_name_${i}">Full Legal Name</label>
-          <input type="text" id="bulk_name_${i}" name="member_${i}_name" autocomplete="off" placeholder="Enter Full Legal Name" />
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label for="bulk_first_name_${i}">First Name</label>
+            <input type="text" id="bulk_first_name_${i}" name="member_${i}_first_name" autocomplete="off" placeholder="First name" />
+          </div>
+          <div class="form-group">
+            <label for="bulk_middle_initial_${i}">Middle Initial</label>
+            <input type="text" id="bulk_middle_initial_${i}" name="member_${i}_middle_initial" autocomplete="off" placeholder="M" maxlength="1" />
+          </div>
+          <div class="form-group">
+            <label for="bulk_last_name_${i}">Last Name</label>
+            <input type="text" id="bulk_last_name_${i}" name="member_${i}_last_name" autocomplete="off" placeholder="Last name" />
+          </div>
         </div>
         <div class="form-grid-2">
           <div class="form-group">
-            <label for="bulk_pos_${i}">Academic Rank</label>
-            <select id="bulk_pos_${i}" name="member_${i}_pos" autocomplete="off">${RANK_OPTIONS}</select>
+            <label for="bulk_username_${i}">Username</label>
+            <input type="text" id="bulk_username_${i}" name="member_${i}_username" autocomplete="off" placeholder="Employee/Faculty ID" />
+            <p id="bulk_username_status_${i}" class="field-status" style="display:none;font-size:11px;margin-top:4px;"></p>
+          </div>
+          <div class="form-group">
+            <label for="bulk_email_${i}">Email Address</label>
+            <input type="email" id="bulk_email_${i}" name="member_${i}_email" autocomplete="off" placeholder="name@example.com" />
+            <p id="bulk_email_status_${i}" class="field-status" style="display:none;font-size:11px;margin-top:4px;"></p>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="bulk_dept_${i}">Department</label>
+            <select id="bulk_dept_${i}" name="member_${i}_dept" autocomplete="off">${DEPT_OPTIONS}</select>
+          </div>
+          <div class="form-group">
+            <label for="bulk_pos_${i}">Position / Rank</label>
+            <input type="text" id="bulk_pos_${i}" name="member_${i}_pos" autocomplete="off" placeholder="e.g. Assistant Professor" />
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="bulk_status_${i}">Membership Type</label>
+            <select id="bulk_status_${i}" name="member_${i}_status" autocomplete="off">
+              <option value="Permanent" selected>Permanent</option>
+              <option value="Temporary">Temporary</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="bulk_contact_${i}">Contact Number</label>
@@ -84,29 +119,98 @@
         </div>
         <div class="form-grid-2">
           <div class="form-group">
-            <label for="bulk_id_${i}">System Ref ID</label>
-            <input type="text" id="bulk_id_${i}" name="member_${i}_id" autocomplete="off" readonly placeholder="Auto Populated" />
+            <label for="bulk_amount_${i}">Amount Paid (₱)</label>
+            <input type="number" step="0.01" id="bulk_amount_${i}" name="member_${i}_amount" autocomplete="off" placeholder="e.g. 500.00" />
           </div>
           <div class="form-group">
-            <label for="bulk_dept_${i}">Department</label>
-            <select id="bulk_dept_${i}" name="member_${i}_dept" autocomplete="off">${DEPT_OPTIONS}</select>
+            <label for="bulk_method_${i}">Payment Method</label>
+            <select id="bulk_method_${i}" name="member_${i}_method" autocomplete="off">
+              <option value="">Select method</option>
+              <option value="OTC Cash">OTC Cash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+            </select>
           </div>
         </div>
         <div class="form-grid-2">
           <div class="form-group">
-            <label for="bulk_email_${i}">Institutional Email Address</label>
-            <input type="email" id="bulk_email_${i}" name="member_${i}_email" autocomplete="off" placeholder="Institutional Email Address" />
+            <label for="bulk_date_${i}">Payment Date</label>
+            <input type="date" id="bulk_date_${i}" name="member_${i}_date" autocomplete="off" />
           </div>
           <div class="form-group">
-            <label for="bulk_status_${i}">Membership Status</label>
-            <select id="bulk_status_${i}" name="member_${i}_status" autocomplete="off">
-              <option value="Permanent" selected>Permanent</option>
-              <option value="Temporary">Temporary</option>
-            </select>
+            <label for="bulk_notes_${i}">Notes</label>
+            <textarea id="bulk_notes_${i}" name="member_${i}_notes" autocomplete="off" placeholder="Optional notes" rows="2"></textarea>
           </div>
         </div>
       </fieldset>
     `;
+  }
+
+  function setFieldStatus(element, available, message) {
+    if (!element) return;
+    element.style.display = "block";
+    element.style.color = available ? "#388e3c" : "#d32f2f";
+    element.textContent = message;
+  }
+
+  function isValidEmail(value) {
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailPattern.test(value);
+  }
+
+  async function checkAvailability(field, value, statusElement) {
+    if (!value) {
+      if (statusElement) statusElement.style.display = "none";
+      return false;
+    }
+    if (value.length < 3) {
+      if (statusElement) {
+        setFieldStatus(
+          statusElement,
+          false,
+          field === "email"
+            ? "Please enter a valid email address."
+            : "Username must be at least 3 characters.",
+        );
+      }
+      return false;
+    }
+    if (field === "email" && !isValidEmail(value)) {
+      if (statusElement) {
+        setFieldStatus(statusElement, false, "Please enter a valid email address.");
+      }
+      return false;
+    }
+
+    try {
+      const url = "/api/treasurer/members/add/";
+      const formData = new FormData();
+      formData.append("check_" + field, value);
+
+      const response = await fetch(url, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": getCSRFToken && getCSRFToken(),
+        },
+        credentials: "same-origin",
+      });
+      const data = await response.json();
+
+      if (data.error && data.error.includes("already taken")) {
+        setFieldStatus(statusElement, false, `${field.charAt(0).toUpperCase() + field.slice(1)} is already taken.`);
+        return false;
+      }
+      setFieldStatus(statusElement, true, `${field.charAt(0).toUpperCase() + field.slice(1)} is available.`);
+      return true;
+    } catch (err) {
+      if (statusElement) {
+        setFieldStatus(statusElement, false, "Unable to verify availability.");
+      }
+      return false;
+    }
   }
 
   function renderBulkBlocks() {
@@ -117,13 +221,56 @@
     container.innerHTML = html;
 
     for (let i = 0; i < BULK_COUNT; i++) {
-      const nameInput = document.getElementById(`bulk_name_${i}`);
-      const idInput = document.getElementById(`bulk_id_${i}`);
-      if (!nameInput || !idInput) continue;
-      nameInput.addEventListener("input", function () {
-        idInput.value = generateEmployeeId(nameInput.value);
-      });
+      const firstNameInput = document.getElementById(`bulk_first_name_${i}`);
+      const middleInitialInput = document.getElementById(`bulk_middle_initial_${i}`);
+      const lastNameInput = document.getElementById(`bulk_last_name_${i}`);
+      const usernameInput = document.getElementById(`bulk_username_${i}`);
+      const usernameStatus = document.getElementById(`bulk_username_status_${i}`);
+      const emailInput = document.getElementById(`bulk_email_${i}`);
+      const emailStatus = document.getElementById(`bulk_email_status_${i}`);
       const contactInput = document.getElementById(`bulk_contact_${i}`);
+
+      const syncUsername = function () {
+        if (!usernameInput) return;
+        const firstName = (firstNameInput && firstNameInput.value || "").trim();
+        const middle = (middleInitialInput && middleInitialInput.value || "").trim();
+        const lastName = (lastNameInput && lastNameInput.value || "").trim();
+        const fullName = [firstName, middle, lastName].filter(Boolean).join(" ");
+        if (!fullName) return;
+        const generated = generateEmployeeId(fullName);
+        if (!usernameInput.value || usernameInput.value === usernameInput.dataset.generatedValue) {
+          usernameInput.value = generated;
+          usernameInput.dataset.generatedValue = generated;
+        }
+      };
+
+      const debouncedUsernameCheck = debounce(function () {
+        if (usernameInput) checkAvailability("username", usernameInput.value.trim(), usernameStatus);
+      }, 400);
+
+      const debouncedEmailCheck = debounce(function () {
+        if (emailInput) {
+          if (!isValidEmail(emailInput.value)) {
+            setFieldStatus(emailStatus, false, "Please enter a valid email address.");
+          } else {
+            checkAvailability("email", emailInput.value.trim(), emailStatus);
+          }
+        }
+      }, 400);
+
+      [firstNameInput, middleInitialInput, lastNameInput].forEach((input) => {
+        if (input) input.addEventListener("input", syncUsername);
+      });
+
+      if (usernameInput) usernameInput.addEventListener("input", debouncedUsernameCheck);
+      if (emailInput) emailInput.addEventListener("input", function () {
+        if (emailInput.value && !isValidEmail(emailInput.value)) {
+          setFieldStatus(emailStatus, false, "Please enter a valid email address.");
+        } else {
+          debouncedEmailCheck();
+        }
+      });
+
       if (contactInput && typeof window.formatPhoneInput === "function")
         window.formatPhoneInput(contactInput);
     }
@@ -154,39 +301,114 @@
 
     const entries = [];
     for (let i = 0; i < BULK_COUNT; i++) {
-      const name = (
-        document.getElementById(`bulk_name_${i}`).value || ""
+      const firstName = (
+        document.getElementById(`bulk_first_name_${i}`).value || ""
       ).trim();
-      if (!name) continue;
+      const middleInitial = (
+        document.getElementById(`bulk_middle_initial_${i}`).value || ""
+      ).trim();
+      const lastName = (
+        document.getElementById(`bulk_last_name_${i}`).value || ""
+      ).trim();
+      const username = (
+        document.getElementById(`bulk_username_${i}`).value || ""
+      ).trim();
       const email = (
         document.getElementById(`bulk_email_${i}`).value || ""
       ).trim();
-      if (email && !email.includes("@")) {
+      const dept = (
+        document.getElementById(`bulk_dept_${i}`).value || ""
+      ).trim();
+      const pos = (
+        document.getElementById(`bulk_pos_${i}`).value || ""
+      ).trim();
+      const status = (
+        document.getElementById(`bulk_status_${i}`).value || "Permanent"
+      ).trim();
+      const contact = (
+        document.getElementById(`bulk_contact_${i}`).value || ""
+      ).trim();
+      const amount = (
+        document.getElementById(`bulk_amount_${i}`).value || ""
+      ).trim();
+      const method = (
+        document.getElementById(`bulk_method_${i}`).value || ""
+      ).trim();
+      const date = (
+        document.getElementById(`bulk_date_${i}`).value || ""
+      ).trim();
+      const notes = (
+        document.getElementById(`bulk_notes_${i}`).value || ""
+      ).trim();
+
+      const hasData = [
+        firstName,
+        middleInitial,
+        lastName,
+        username,
+        email,
+        dept,
+        pos,
+        status,
+        contact,
+        amount,
+        method,
+        date,
+        notes,
+      ].some(Boolean);
+      if (!hasData) continue;
+
+      if (!firstName || !lastName) {
         return showToast(
-          `Member ${i + 1}: Institutional Email looks invalid.`,
+          `Member ${i + 1}: First Name and Last Name are required.`,
           true,
         );
       }
+      if (!username) {
+        return showToast(
+          `Member ${i + 1}: Username is required.`,
+          true,
+        );
+      }
+      if (!email) {
+        return showToast(
+          `Member ${i + 1}: Email is required.`,
+          true,
+        );
+      }
+      if (email && !email.includes("@")) {
+        return showToast(
+          `Member ${i + 1}: Email looks invalid.`,
+          true,
+        );
+      }
+      if (amount && Number(amount) < 0) {
+        return showToast(
+          `Member ${i + 1}: Amount Paid must be a positive number.`,
+          true,
+        );
+      }
+
       entries.push({
-        prof_name: name,
-        prof_id: (document.getElementById(`bulk_id_${i}`).value || "").trim(),
-        prof_pos: (document.getElementById(`bulk_pos_${i}`).value || "").trim(),
-        prof_contact: (
-          document.getElementById(`bulk_contact_${i}`).value || ""
-        ).trim(),
-        prof_dept: (
-          document.getElementById(`bulk_dept_${i}`).value || ""
-        ).trim(),
-        prof_email: email,
-        prof_status: (
-          document.getElementById(`bulk_status_${i}`).value || "Permanent"
-        ).trim(),
+        first_name: firstName,
+        middle_initial: middleInitial,
+        last_name: lastName,
+        username: username,
+        prof_dept: dept,
+        prof_pos: pos,
+        prof_contact: contact,
+        email: email,
+        membership_category: status,
+        enrollment_amount: amount,
+        payment_method: method,
+        payment_date: date,
+        notes: notes,
       });
     }
 
     if (entries.length === 0) {
       return showToast(
-        "Please fill in at least one member's Full Legal Name.",
+        "Please fill in at least one batch member before submitting.",
         true,
       );
     }
@@ -216,7 +438,7 @@
         window.renderMembersTable();
       }
 
-      form.reset();
+      // Preserve entered values after successful batch enrollment
       btn.disabled = false;
       btn.innerHTML = originalBtnText;
 
@@ -253,6 +475,14 @@
         confirmButtonColor: "#e53935",
       });
     }
+  }
+
+  function debounce(fn, delay) {
+    let timer;
+    return function () {
+      clearTimeout(timer);
+      timer = setTimeout(fn, delay);
+    };
   }
 
   function init() {

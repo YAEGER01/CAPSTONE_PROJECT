@@ -38,9 +38,10 @@
   --md-elevation-2:0px 2px 4px rgba(0,0,0,0.06), 0px 4px 6px rgba(0,0,0,0.04);
   --md-elevation-3:0px 4px 8px rgba(0,0,0,0.08), 0px 8px 16px rgba(0,0,0,0.06);
 
-  --amber:#B8760B; --amber-bg:#FCF0DC;
-  --red:#C6362F; --red-bg:#FBE7E5;
-  --blue:#2B5FB0; --blue-bg:#E8F0FC;
+  --accent:#0F5C2E; --accent-bg:#DCF3E3;
+  --amber:var(--accent); --amber-bg:var(--accent-bg);
+  --red:var(--accent); --red-bg:var(--accent-bg);
+  --blue:var(--accent); --blue-bg:var(--accent-bg);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;background:var(--md-surface);overflow:hidden;}
@@ -110,15 +111,16 @@ body{
 .notif-btn{width:clamp(34px,9.5vw,40px);height:clamp(34px,9.5vw,40px);border-radius:10px;position:relative;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,transform .12s;-webkit-tap-highlight-color:transparent;}
 .notif-btn:active{transform:scale(.92);background:rgba(255,255,255,.08);}
 .notif-btn svg{width:18px;height:18px;stroke:#fff;}
-.notif-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#FF6B57;border:2px solid var(--md-primary);}
+.notif-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--accent);border:2px solid var(--md-surface);}
 .surface-greeting{display:flex;align-items:center;gap:clamp(8px,3vw,14px);}
 .surface-greeting > div:not(.surface-avatar):not(.surface-badge){flex:1;min-width:0;}
 .surface-avatar{width:clamp(38px,11vw,48px);height:clamp(38px,11vw,48px);border-radius:12px;overflow:hidden;flex-shrink:0;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:clamp(14px,4vw,18px);}
 .surface-avatar img{width:100%;height:100%;object-fit:cover;}
-.surface-greeting-text{color:rgba(255,255,255,.78);font-size:clamp(10px,2.75vw,12px);font-weight:500;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.surface-greeting-text{color:rgba(255,255,255,.78);font-size:clamp(10px,2.75vw,12px);font-weight:500;margin-bottom:2px;white-space:nowrap;overflow:visible;text-overflow:clip;display:inline-flex;gap:4px;align-items:center;}
 .surface-greeting-name{color:#fff;font-family:'Manrope',sans-serif;font-weight:800;font-size:clamp(14px,4vw,17px);letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.surface-badge{margin-left:auto;flex-shrink:0;}
-.surface-badge .badge{background:rgba(255,255,255,.15);color:#fff;font-size:10px;}
+.surface-badge{margin-left:auto;flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;}
+.surface-badge .badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:transparent;color:#fff;font-size:11px;font-weight:700;line-height:1;letter-spacing:0.01em;box-shadow:none;transition:transform .2s;}
+.surface-badge .badge svg{width:12px;height:12px;}
 
 .sub-surface{background:var(--md-primary);padding:clamp(10px,3vw,14px) clamp(12px,4vw,18px) clamp(10px,3vw,14px);flex-shrink:0;}
 .sub-surface-row{display:flex;align-items:center;gap:clamp(8px,2.5vw,12px);}
@@ -166,7 +168,7 @@ body{
 .status-other-svg{stroke:var(--red);}
 .item-body{flex:1;min-width:0;}
 .item-body strong{display:block;font-size:clamp(11px,3.25vw,14px);font-weight:700;color:var(--md-on-surface);margin-bottom:2px;}
-.item-body span{font-size:clamp(10px,2.75vw,12px);color:var(--md-on-surface-variant);font-weight:500;}
+.item-body span{display:block;white-space:normal;font-size:clamp(10px,2.75vw,12px);color:var(--md-on-surface-variant);font-weight:500;}
 .item-right{text-align:right;flex-shrink:0;}
 .item-right strong{display:block;font-size:clamp(11px,3.25vw,14px);font-weight:800;color:var(--md-on-surface);margin-bottom:2px;}
 
@@ -311,9 +313,10 @@ body{
   --md-elevation-2:0px 2px 4px rgba(0,0,0,.26), 0px 4px 6px rgba(0,0,0,.12);
   --md-elevation-3:0px 4px 8px rgba(0,0,0,.30), 0px 8px 16px rgba(0,0,0,.16);
 
-  --amber:#D4A043; --amber-bg:#231D0F;
-  --red:#E55A5A; --red-bg:#281414;
-  --blue:#5AA3E0; --blue-bg:#142438;
+  --accent:#7BC08A; --accent-bg:rgba(15,92,46,0.18);
+  --amber:var(--accent); --amber-bg:var(--accent-bg);
+  --red:var(--accent); --red-bg:var(--accent-bg);
+  --blue:var(--accent); --blue-bg:var(--accent-bg);
 }
 [data-theme="dark"] body{background:var(--md-surface);}
 [data-theme="dark"] .surface{background:#0C1F14;}
@@ -323,7 +326,7 @@ body{
 [data-theme="dark"] .surface-logo{opacity:.9;}
 [data-theme="dark"] .notif-btn{background:rgba(255,255,255,.08);}
 [data-theme="dark"] .notif-btn svg{stroke:#c8d4cc;}
-[data-theme="dark"] .notif-dot{border-color:#0C1F14;}
+[data-theme="dark"] .notif-dot{border-color:var(--md-surface);}
 [data-theme="dark"] .sub-back::before{background:rgba(255,255,255,.08);}
 [data-theme="dark"] .sub-back:hover::before{background:rgba(255,255,255,.14);}
 [data-theme="dark"] .sub-back:active::before{background:rgba(255,255,255,.05);}
@@ -413,7 +416,7 @@ body{
 .field-txt{flex:1;min-width:0;}
 .field-txt span{display:block;font-size:10px;color:var(--md-on-surface-variant);font-weight:600;margin-bottom:2px;}
 .field-txt strong,.field-txt b{font-size:clamp(12px,3.5vw,15px);font-weight:700;color:var(--md-on-surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;}
-.avatar-lg{width:clamp(64px,18vw,84px);height:clamp(64px,18vw,84px);border-radius:clamp(20px,5vw,28px);overflow:hidden;background:var(--md-primary);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Manrope',sans-serif;font-weight:800;font-size:clamp(22px,7vw,30px);flex-shrink:0;border:3px solid var(--md-surface);box-shadow:var(--md-elevation-2);}
+.avatar-lg{width:clamp(64px,18vw,84px);height:clamp(64px,18vw,84px);border-radius:clamp(20px,5vw,28px);overflow:hidden;background:var(--md-primary);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Manrope',sans-serif;font-weight:800;font-size:clamp(22px,7vw,30px);flex-shrink:0;border:3px solid var(--md-surface);box-shadow:var(--md-elevation-2);margin:0 auto;}
 .upload-area{border:2px dashed var(--md-outline-variant);border-radius:clamp(13px,4vw,18px);padding:clamp(20px,7vw,32px) clamp(14px,5vw,24px);cursor:pointer;text-align:center;transition:border-color .25s,background .25s,transform .2s;}
 .upload-area:active{transform:scale(.98);}
 .upload-icon{width:clamp(40px,11vw,52px);height:clamp(40px,11vw,52px);border-radius:clamp(11px,3.5vw,16px);background:var(--md-primary-container);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;}
@@ -424,7 +427,7 @@ body{
 .step-line{width:clamp(24px,9vw,40px);height:3px;border-radius:2px;margin:0 clamp(4px,2vw,10px);transition:background .25s;}
 .step-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;transition:color .25s;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
 </head>
 <body class="member-app-hidden">
 <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -471,13 +474,13 @@ body{
   <div class="surface">
     <div class="surface-top">
       <div class="surface-brand">
-        <div class="surface-logo"><img src="/static/img/isu_caufa_official.png" alt="ISU CAUFA"></div>
+        <div class="surface-logo"><img src="/static/img/isu_caufa_official.png" alt="ISU CAUFA" loading="lazy" decoding="async" fetchpriority="high"></div>
         <div class="surface-text"><strong>ISU CAUFA</strong><span>Member</span></div>
       </div>
       <div class="notif-btn" onclick="switchScreen('screen-notifications')" role="button" tabindex="0" aria-label="Notifications"><svg><use href="#i-bell"/></svg><span class="notif-dot" id="notif-dot"></span></div>
     </div>
     <div class="surface-greeting">
-      <div class="surface-avatar">{% if member_data.profile_picture %}<img src="{{ member_data.profile_picture }}" alt="">{% else %}{{ member_data.full_name|default:officer_full_name|make_list|first|add:""|default:"M" }}{% endif %}</div>
+      <div class="surface-avatar">{% if member_data.profile_picture %}<img src="{{ member_data.profile_picture }}" alt="" loading="lazy" decoding="async" fetchpriority="high">{% else %}{{ member_data.full_name|default:officer_full_name|make_list|first|add:""|default:"M" }}{% endif %}</div>
       <div>
         <p class="surface-greeting-text"><span id="greeting-text">Good Morning</span>, <span id="greeting-date" style="font-weight:400;opacity:.7;"></span></p>
         <p class="surface-greeting-name">{{ member_data.full_name|default:officer_full_name|default:"Member" }}</p>
@@ -509,13 +512,13 @@ body{
           <span style="font-size:9px;font-weight:600;color:var(--md-on-surface-variant);display:block;">Status</span>
           <strong id="ov-fee" style="display:block;font-size:13px;color:var(--md-on-primary-container);margin-top:4px;">{{ membership_fee_status|default:"Unpaid" }}</strong>
         </div>
-        <div style="flex:1;padding:10px;background:var(--amber-bg);border-radius:10px;text-align:center;">
-          <span style="font-size:9px;font-weight:600;color:var(--amber);display:block;">Dues</span>
-          <strong id="ov-dues" style="display:block;font-size:13px;color:var(--amber);margin-top:4px;">₱{{ outstanding_balance|floatformat:0|default:"0" }}</strong>
+        <div style="flex:1;padding:10px;background:var(--accent-bg);border-radius:10px;text-align:center;">
+          <span style="font-size:9px;font-weight:600;color:var(--accent);display:block;">Dues</span>
+          <strong id="ov-dues" style="display:block;font-size:13px;color:var(--accent);margin-top:4px;">₱{{ outstanding_balance|floatformat:0|default:"0" }}</strong>
         </div>
-        <div style="flex:1;padding:10px;background:var(--blue-bg);border-radius:10px;text-align:center;">
-          <span style="font-size:9px;font-weight:600;color:var(--blue);display:block;">Claims</span>
-          <strong id="ov-claims" style="display:block;font-size:13px;color:var(--blue);margin-top:4px;">{{ total_claims|default:"0" }}</strong>
+        <div style="flex:1;padding:10px;background:var(--accent-bg);border-radius:10px;text-align:center;">
+          <span style="font-size:9px;font-weight:600;color:var(--accent);display:block;">Claims</span>
+          <strong id="ov-claims" style="display:block;font-size:13px;color:var(--accent);margin-top:4px;">{{ total_claims|default:"0" }}</strong>
         </div>
       </div>
     </div>
@@ -550,13 +553,13 @@ body{
     <div id="attend-qr">
       <div class="card" style="text-align:center;">
         {% if member_data.qr_code %}
-          <div class="qr-wrap"><div class="qr-frame" id="qrbox"><img src="{{ member_data.qr_code }}" alt="QR Code" style="width:100%;height:100%;object-fit:contain;"></div></div>
+          <div class="qr-wrap"><div class="qr-frame" id="qrbox"><img src="{{ member_data.qr_code }}" alt="QR Code" loading="lazy" decoding="async" style="display:inline-block;margin:0 auto;width:100%;height:100%;object-fit:contain;border-radius:12px;"></div></div>
           <p class="text-num" style="font-size:15px;margin-top:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">{{ member_data.full_name|default:"Member" }}</p>
           <p class="text-muted" style="font-size:11px;font-weight:600;">{{ member_data.department|default:"N/A" }}</p>
           <div class="divider" style="margin:12px 0;"></div>
           <p class="text-muted" style="font-size:11px;line-height:1.5;">Present this QR code to the Secretary for check-in.</p>
           <div style="display:flex;gap:10px;margin-top:14px;">
-            <button class="btn btn-ghost" style="flex:1;padding:10px;" onclick="alert('QR code download coming soon.')"><svg width="14" height="14"><use href="#i-download"/></svg>Download</button>
+            <button class="btn btn-ghost" style="flex:1;padding:10px;" onclick="downloadQrCode()"><svg width="14" height="14"><use href="#i-download"/></svg>Download</button>
           </div>
         {% else %}
           <div class="qr-wrap"><div class="qr-frame" style="display:flex;align-items:center;justify-content:center;background:var(--md-primary-container);"><svg width="40" height="40" style="stroke:var(--md-primary)"><use href="#i-qr"/></svg></div></div>
@@ -682,7 +685,7 @@ body{
   </div>
   <div class="content">
     <div class="card" style="text-align:center;padding:clamp(16px,5vw,24px);">
-      <div class="avatar-lg" id="profile-avatar" style="overflow:hidden;">{% if member_data.profile_picture %}<img src="{{ member_data.profile_picture }}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:21px;">{% else %}{% filter upper %}{{ member_data.full_name|default:"M"|make_list|first }}{% endfilter %}{% endif %}</div>
+      <div class="avatar-lg" id="profile-avatar" style="overflow:hidden;">{% if member_data.profile_picture %}<img src="{{ member_data.profile_picture }}" alt="" loading="lazy" decoding="async" fetchpriority="high" style="width:100%;height:100%;object-fit:cover;border-radius:21px;">{% else %}{% filter upper %}{{ member_data.full_name|default:"M"|make_list|first }}{% endfilter %}{% endif %}</div>
       <p class="text-num" style="font-size:17px;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">{{ member_data.full_name|default:"Member" }}</p>
       <p class="text-muted" style="font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">{{ member_data.department|default:"N/A" }}</p>
       <span class="badge {% if member_data.membership_status == 'Active' %}badge-green{% else %}badge-amber{% endif %}" style="margin-top:8px;"><svg><use href="#i-check"/></svg>{{ member_data.membership_status|default:"Active" }} Member</span>
@@ -690,7 +693,7 @@ body{
 
     <div><span class="card-label" style="margin-bottom:10px;display:block;">Informations</span>
       <div class="list">
-        <div class="list-item" role="button" tabindex="0" onclick="switchScreen('screen-profile-personal')"><div class="item-icon" style="background:var(--md-primary-container)"><svg style="stroke:var(--md-primary)"><use href="#i-user"/></svg></div><div class="item-body"><b>Personal Information</b><span>Name, Employee ID, Member since</span></div><svg width="14" height="14" style="stroke:var(--md-outline)"><use href="#i-chev-r"/></svg></div>
+        <div class="list-item" role="button" tabindex="0" onclick="switchScreen('screen-profile-personal')"><div class="item-icon" style="background:var(--md-primary-container)"><svg style="stroke:var(--md-primary)"><use href="#i-user"/></svg></div><div class="item-body"><b>Personal Information</b><span style="display:block; white-space:normal; margin-top:4px;">Name, Employee ID, Member since</span></div><svg width="14" height="14" style="stroke:var(--md-outline)"><use href="#i-chev-r"/></svg></div>
         <div class="list-item" role="button" tabindex="0" onclick="switchScreen('screen-profile-contact')"><div class="item-icon" style="background:var(--blue-bg)"><svg style="stroke:var(--blue)"><use href="#i-mail"/></svg></div><div class="item-body"><b>Contact Information</b><span>Email & phone number</span></div><svg width="14" height="14" style="stroke:var(--md-outline)"><use href="#i-chev-r"/></svg></div>
         <div class="list-item" role="button" tabindex="0" onclick="switchScreen('screen-profile-association')"><div class="item-icon" style="background:var(--amber-bg)"><svg style="stroke:var(--amber)"><use href="#i-building"/></svg></div><div class="item-body"><b>Association Info</b><span>Department, Position, Membership type</span></div><svg width="14" height="14" style="stroke:var(--md-outline)"><use href="#i-chev-r"/></svg></div>
       </div>
@@ -1172,7 +1175,7 @@ body{
   </div>
   <div class="content">
     <div class="card" style="text-align:center;">
-      <div class="avatar-lg" style="margin:0 auto;background:linear-gradient(150deg,var(--md-primary),var(--md-on-surface));">{% if member_data.profile_picture %}<img id="edit-pic-preview" src="{{ member_data.profile_picture }}" alt="" style="width:100%;height:100%;object-fit:cover;">{% else %}<span id="edit-pic-preview" style="display:none;"></span>{% filter upper %}{{ member_data.full_name|default:"M"|make_list|first }}{% endfilter %}{% endif %}</div>
+      <div class="avatar-lg" style="margin:0 auto;background:linear-gradient(150deg,var(--md-primary),var(--md-on-surface));">{% if member_data.profile_picture %}<img id="edit-pic-preview" src="{{ member_data.profile_picture }}" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;">{% else %}<span id="edit-pic-preview" style="display:none;"></span>{% filter upper %}{{ member_data.full_name|default:"M"|make_list|first }}{% endfilter %}{% endif %}</div>
       <button class="btn btn-ghost btn-sm" style="margin-top:12px;" onclick="document.getElementById('pic-input').click()"><svg width="14" height="14"><use href="#i-camera"/></svg>Change Photo</button>
       <input type="file" id="pic-input" accept="image/*" style="display:none;" onchange="uploadProfilePic(this)">
     </div>
@@ -1197,7 +1200,7 @@ body{
   </div>
   <div class="content">
     <div class="card" style="text-align:center;">
-      {% if member_data.qr_code %}<img id="qr-display" src="{{ member_data.qr_code }}" alt="QR Code" style="width:min(160px,38vw);height:min(160px,38vw);border-radius:12px;object-fit:cover;border:2px solid var(--md-outline-variant);">{% else %}<div class="qr-wrap"><div class="qr-frame" id="qrbox2"></div></div>{% endif %}
+      {% if member_data.qr_code %}<img id="qr-display" src="{{ member_data.qr_code }}" alt="QR Code" loading="lazy" decoding="async" style="display:inline-block;margin:0 auto;width:min(160px,38vw);height:min(160px,38vw);border-radius:12px;object-fit:cover;border:2px solid var(--md-outline-variant);">{% else %}<div class="qr-wrap"><div class="qr-frame" id="qrbox2"></div></div>{% endif %}
       <p class="text-num" style="font-size:15px;margin-top:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">{{ member_data.full_name|default:"Member" }}</p>
       <p class="text-muted" style="font-size:11px;font-weight:600;">{{ member_data.employee_id|default:"N/A" }}</p>
       <div style="display:flex;gap:10px;margin-top:16px;">
@@ -1205,7 +1208,7 @@ body{
         <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="showQrReplacement()"><svg width="12" height="12"><use href="#i-camera"/></svg>Replace</button>
       </div>
       <div id="qr-replace-form" style="display:none;margin-top:18px;text-align:left;">
-        <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:12px;margin-bottom:12px;">
+        <div style="background:var(--accent-bg);border:1px solid var(--accent-bg);border-radius:12px;padding:12px;margin-bottom:12px;">
           <p style="font-size:11px;font-weight:700;color:#9A3412;margin:0 0 4px;">Important</p>
           <p style="font-size:11px;color:#C2410C;margin:0;line-height:1.5">Upload a softcopy of your own QR code. Using another member's QR code will cause attendance conflicts.</p>
         </div>
@@ -1235,7 +1238,7 @@ body{
   <div class="sub-surface">
     <div class="sub-surface-row"><div class="sub-back" role="button" tabindex="0" aria-label="Go back" onclick="switchScreen('screen-profile')"><svg><use href="#i-chev-l"/></svg></div><div class="sub-header-text"><span class="sub-title" role="heading" aria-level="2">Authorized Rep</span><span class="sub-subtitle">Emergency contact information</span></div></div>
     <div style="display:flex;align-items:center;gap:14px;margin-top:10px;">
-      <div class="brand-mark" style="overflow:hidden;padding:0;background:transparent;width:40px;height:40px;border-radius:12px;"><img src="/static/img/isu_caufa_official.png" alt="ISU CAUFA" style="width:100%;height:100%;object-fit:contain;"></div>
+      <div class="brand-mark" style="overflow:hidden;padding:0;background:transparent;width:40px;height:40px;border-radius:12px;"><img src="/static/img/isu_caufa_official.png" alt="ISU CAUFA" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;"></div>
       <div><p style="color:rgba(255,255,255,.8);font-size:11px;font-weight:600;">Emergency Contact</p><p class="text-num" style="color:#fff;font-size:15px;">ISU CAUFA</p></div>
     </div>
   </div>
@@ -1259,7 +1262,7 @@ body{
     <div class="card">
       <div class="card-row" style="justify-content:space-between;align-items:center;">
         <span class="card-label">PIN Protection</span>
-        <span class="badge" id="pin-status-badge">{% if member_data.pin_code %}Set{% else %}Not Set{% endif %}</span>
+        <span class="badge" id="pin-status-badge">{% if member_data.has_pin %}Set{% else %}Not Set{% endif %}</span>
       </div>
       <p class="text-muted" style="font-size:10px;margin-top:8px;" id="pin-action-note">Set a 6-digit PIN to protect your profile and for manual attendance entry when QR is lost.</p>
       <button class="btn btn-primary" id="pin-action-button" onclick="showPinSetupInline()" style="margin-top:10px;width:100%;">Setup PIN</button>
@@ -1284,9 +1287,7 @@ body{
         </div>
       </div>
     </div>
-    <div class="card"><div class="card-row"><span class="card-label">Two-Factor Authentication</span><span class="badge badge-muted">Off</span></div></div>
-    <div class="card"><div class="card-row"><span class="card-label">Email Verified</span><span class="badge badge-green"><svg><use href="#i-check"/></svg>Verified</span></div></div>
-    <div class="card"><div class="card-row"><span class="card-label">Registered Device</span><span class="text-muted" style="font-size:11px;font-weight:600;">{{ request.META.HTTP_USER_AGENT|truncatechars:30|default:"-" }}</span></div></div>
+    <!-- Removed: Two-Factor Authentication, Email Verified, Registered Device (not implemented) -->
   </div>
   
 </div>
@@ -1298,8 +1299,7 @@ body{
   </div>
   <div class="content">
     <div class="card"><div class="card-row"><span class="card-label">Dark Mode</span><label class="toggle"><input type="checkbox" id="dark-toggle" onchange="toggleDark(this.checked)"><div class="toggle-track"></div></label></div></div>
-    <div class="card"><div class="card-row"><span class="card-label">Push Notifications</span><span class="badge badge-green"><svg><use href="#i-check"/></svg>On</span></div></div>
-    <div class="card"><div class="card-row"><span class="card-label">SMS Alerts</span><span class="badge badge-green"><svg><use href="#i-check"/></svg>On</span></div></div>
+    <!-- Removed: Push Notifications, SMS Alerts (not implemented) -->
     <div class="card"><div class="card-row"><span class="card-label">App Version</span><span class="text-muted" style="font-size:11px;font-weight:600;">v1.0.0 (Build 1)</span></div></div>
   </div>
   
@@ -1311,7 +1311,7 @@ body{
 
 <script>
 const CSRF_TOKEN = '{{ csrf_token }}';
-let ORIGINAL_EMAIL = '{{ member_data.email|default:officer_email|default:"" }}';
+let ORIGINAL_EMAIL = '{{ member_data.email|default:officer_email|default:"" | escapejs }}';
 
 // === Dark Mode ===
 (function initTheme() {
@@ -1319,6 +1319,27 @@ let ORIGINAL_EMAIL = '{{ member_data.email|default:officer_email|default:"" }}';
   if (dark) document.documentElement.setAttribute('data-theme', 'dark');
   const cb = document.getElementById('dark-toggle');
   if (cb) cb.checked = dark;
+})();
+// === Greeting ===
+(function initGreeting() {
+  try {
+    const now = new Date();
+    const hour = now.getHours();
+    let greeting = 'Good Morning';
+    if (hour >= 18) greeting = 'Good Evening';
+    else if (hour >= 12) greeting = 'Good Afternoon';
+    else if (hour < 4) greeting = 'Good Night';
+
+    const month = now.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+    const day = now.getDate();
+    const dateStr = `${month} ${day}`;
+    const gText = document.getElementById('greeting-text');
+    const gDate = document.getElementById('greeting-date');
+    if (gText) gText.textContent = greeting;
+    if (gDate) gDate.textContent = dateStr;
+  } catch (e) {
+    console.warn('Greeting init failed', e);
+  }
 })();
 function toggleDark(on) {
   document.documentElement.setAttribute('data-theme', on ? 'dark' : '');
@@ -1347,7 +1368,7 @@ function logoutUser() {
 
 // === PIN Setup ===
 function showPinSetupInline() {
-  const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.pin_code);
+  const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.has_pin);
   document.getElementById('pin-setup-form').style.display = 'block';
   const currentGroup = document.getElementById('pin-current-group');
   const currentPinInput = document.getElementById('current-pin-input');
@@ -1372,7 +1393,7 @@ async function savePIN() {
   const currentPin = document.getElementById('current-pin-input')?.value || '';
   const newPin = document.getElementById('new-pin-input')?.value || '';
   const confirmPin = document.getElementById('confirm-pin-input')?.value || '';
-  const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.pin_code);
+  const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.has_pin);
   if (!newPin || newPin.length !== 6 || !/^\d+$/.test(newPin)) {
     if (btn) { btn.disabled = false; btn.textContent = hasPin ? 'Change PIN' : 'Setup PIN'; }
     Swal.fire({ icon:'warning', title:'Invalid PIN', text:'Please enter exactly 6 digits for the new PIN.', customClass:{ popup:'swal-rounded' } });
@@ -1404,7 +1425,7 @@ async function savePIN() {
 }
 
 function updatePINStatus() {
-  const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.pin_code);
+  const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.has_pin);
   const badge = document.getElementById('pin-status-badge');
   if (badge) {
     if (hasPin) {
@@ -1457,7 +1478,7 @@ async function replaceQr() {
     return;
   }
   const file = fileInput.files[0];
-  const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.pin_code);
+  const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.has_pin);
   const currentPin = pinInput?.value || '';
   if (hasPin) {
     if (!currentPin || currentPin.length !== 6 || !/^\d+$/.test(currentPin)) {
@@ -1470,13 +1491,27 @@ async function replaceQr() {
   fd.append('qr_code', file);
   if (hasPin) fd.append('current_pin', currentPin);
   let result;
-  try {
+    try {
     const resp = await fetch('/api/member/onboarding/qr/', {
       method: 'POST',
-      headers: { 'X-CSRFToken': CSRF_TOKEN },
+      headers: { 'X-CSRFToken': CSRF_TOKEN, 'Accept': 'application/json' },
       body: fd,
+      credentials: 'include'
     });
-    if (!resp.ok) { showToast('Server error. Please try again.', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Upload & Replace'; } return; }
+    // Try to parse JSON error body when status is not OK
+    if (!resp.ok) {
+      let errText = 'Server error. Please try again.';
+      try {
+        const errJson = await resp.json();
+        if (errJson && errJson.error) errText = errJson.error;
+      } catch (parseErr) {
+        try { errText = await resp.text(); } catch (_) {}
+      }
+      showToast(errText || 'Server error. Please try again.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Upload & Replace'; }
+      console.error('QR upload failed', resp.status, resp.statusText);
+      return;
+    }
     result = await resp.json();
   } catch (e) {
     showToast('Network error. Check your connection.', 'error');
@@ -1673,10 +1708,17 @@ async function apiPost(url, data) {
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': CSRF_TOKEN,
+        'Accept': 'application/json'
       },
       body: JSON.stringify(data),
+      credentials: 'include',
     });
-    if (!resp.ok) { showToast('Server error. Please try again.', 'error'); return { ok: false }; }
+    if (!resp.ok) {
+      let errText = 'Server error. Please try again.';
+      try { const errJson = await resp.json(); if (errJson && errJson.error) errText = errJson.error; } catch (_) { try { errText = await resp.text(); } catch (_) {} }
+      showToast(errText, 'error');
+      return { ok: false };
+    }
     return resp.json();
   } catch (e) {
     showToast('Network error. Check your connection.', 'error');
@@ -1821,11 +1863,11 @@ function updateProfileScreens(d) {
   set('p-emerg-num', m.emergency_number || '-');
   // PIN status
   const pinBadge = document.getElementById('pin-status-badge');
-  if (pinBadge) pinBadge.textContent = m.pin_code ? 'Set' : 'Not Set';
+  if (pinBadge) pinBadge.textContent = m.has_pin ? 'Set' : 'Not Set';
   const pinAction = document.getElementById('pin-action-button');
-  if (pinAction) pinAction.textContent = m.pin_code ? 'Change PIN' : 'Setup PIN';
+  if (pinAction) pinAction.textContent = m.has_pin ? 'Change PIN' : 'Setup PIN';
   const pinActionNote = document.getElementById('pin-action-note');
-  if (pinActionNote) pinActionNote.textContent = m.pin_code ? 'Change your existing 6-digit PIN to keep your profile secure.' : 'Set a 6-digit PIN to protect your profile and for manual attendance entry when QR is lost.';
+  if (pinActionNote) pinActionNote.textContent = m.has_pin ? 'Change your existing 6-digit PIN to keep your profile secure.' : 'Set a 6-digit PIN to protect your profile and for manual attendance entry when QR is lost.';
   updatePINStatus();
   // QR code
   const qrUrl = m.qr_code || '';
@@ -1887,7 +1929,7 @@ function updateLedgerScreen(d) {
     const label = r.month_covered || '';
     const amt = '₱' + (r.amount ?? 0).toLocaleString();
     const cls = r.payment_status === 'Paid' ? 'badge-green' : r.payment_status === 'Pending' ? 'badge-amber' : 'badge-red';
-    return `<div class="list-item"><div class="item-icon" style="background:var(--md-primary-container)"><svg style="stroke:var(--md-primary)"><use href="#i-file"/></svg></div><div class="item-body"><strong>${escHtml(label)}</strong><span>${amt}</span></div><span class="badge ${cls}">${escHtml(r.payment_status)}</span></div>`;
+    return `<div class="list-item"><div class="item-icon" style="background:var(--md-primary-container)"><svg style="stroke:var(--md-primary)"><use href="#i-file"/></svg></div><div class="item-body"><strong>${escHtml(label)}</strong><span>${amt}</span></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;"><span class="badge ${cls}">${escHtml(r.payment_status)}</span>${r.is_advance ? '<span class="badge badge-blue" style="font-size:9px;">Advance</span>' : ''}</div></div>`;
   }).join('');
 }
 
@@ -2092,8 +2134,8 @@ function updateAttendanceScreen(d) {
   card.style.cssText = 'text-align:center;padding-top:20px;';
   
   if (qrUrl) {
-    card.innerHTML = `
-      <div class="qr-wrap"><div class="qr-frame" style="width:160px;height:160px;margin:0 auto;"><img src="${qrUrl}" alt="QR Code" style="width:100%;height:100%;object-fit:contain;border-radius:12px;"></div></div>
+      card.innerHTML = `
+        <div class="qr-wrap"><div class="qr-frame" style="width:160px;height:160px;margin:0 auto;"><img src="${qrUrl}" alt="QR Code" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;border-radius:12px;"></div></div>
       <p class="text-num" style="font-size:15px;margin-top:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">${m.full_name || 'Member'}</p>
       <p class="text-muted" style="font-size:11px;font-weight:600;">${m.department || 'N/A'}</p>
       <div class="divider" style="margin:12px 0;"></div>
@@ -2215,7 +2257,7 @@ async function loadMemberEvents() {
     if (!data.ongoing_events || data.ongoing_events.length === 0) {
       ongoingList.innerHTML = '<div class="list-item"><div class="item-icon" style="background:var(--md-primary-container)"><svg style="stroke:var(--md-primary)"><use href="#i-calendar"/></svg></div><div class="item-body"><strong>No ongoing events</strong><span>Check back later for active events</span></div></div>';
     } else {
-      ongoingList.innerHTML = data.ongoing_events.map(e => renderEventItem(e, '#e65100', '#fff3e0', '<span class="badge badge-success">ON-GOING</span>')).join('');
+      ongoingList.innerHTML = data.ongoing_events.map(e => renderEventItem(e, 'var(--accent)', 'var(--accent-bg)', '<span class="badge badge-success">ON-GOING</span>')).join('');
     }
     
     // Render upcoming events
@@ -2223,9 +2265,9 @@ async function loadMemberEvents() {
     if (!data.upcoming_events || data.upcoming_events.length === 0) {
       upcomingList.innerHTML = '<div class="list-item"><div class="item-icon" style="background:var(--md-primary-container)"><svg style="stroke:var(--md-primary)"><use href="#i-calendar"/></svg></div><div class="item-body"><strong>No upcoming events</strong><span>New events will appear here</span></div></div>';
     } else {
-      upcomingList.innerHTML = data.upcoming_events.map(e => renderEventItem(e, '#1565c0', '#e3f2fd', '<span class="badge ' + (e.attendance_open ? 'badge-success' : 'badge-muted') + '">' + (e.attendance_open ? 'Open' : 'Closed') + '</span>')).join('');
+      upcomingList.innerHTML = data.upcoming_events.map(e => renderEventItem(e, 'var(--accent)', 'var(--accent-bg)', '<span class="badge ' + (e.attendance_open ? 'badge-success' : 'badge-muted') + '">' + (e.attendance_open ? 'Open' : 'Closed') + '</span>')).join('');
     }
-    
+
     renderCompletedEvents(data);
     renderAttendedEvents(data);
   } catch (error) {
@@ -2634,7 +2676,7 @@ async function loadUnpaidMonths() {
 
     if (data.unpaid_months && data.unpaid_months.length > 0) {
       select.innerHTML = data.unpaid_months.map(m => 
-        `<option value="${m.month}" ${m.is_overdue ? 'style="color:var(--red);"' : ''}>${m.display_name}${m.is_overdue ? ' (Overdue)' : ''}</option>`
+        `<option value="${m.month}" ${m.is_overdue ? 'style="color:var(--red);"' : ''}>${m.display_name}${m.is_overdue ? ' (Overdue)' : ''}${m.is_advance ? ' (Advance)' : ''}</option>`
       ).join('');
 
       // Show note if there are overdue months
@@ -3091,7 +3133,7 @@ async function saveProfile() {
   const newContact = document.getElementById('edit-contact').value;
 
   if (newEmail !== ORIGINAL_EMAIL) {
-    const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.pin_code);
+    const hasPin = Boolean(dashData && dashData.member_data && dashData.member_data.has_pin);
     let currentPin = '';
 
     if (hasPin) {
@@ -3266,7 +3308,7 @@ let pmtPage = 1;
 const PMT_PAGE_SIZE = 6;
 
 async function loadPaymentHistory() {
-  const data = await cachedApiGet('/api/member/dashboard/');
+  const data = await cachedApiGet('/api/member/dashboard/data/');
   if (!data.ok) {
     document.getElementById('payment-list').innerHTML = '<div class="list-item"><div class="item-body"><strong>Failed to load payment history</strong></div></div>';
     return;
@@ -3368,6 +3410,74 @@ document.addEventListener('DOMContentLoaded', () => {
   setTimeout(animateBars, 250);
   setTimeout(() => { ledgerMonth(0); refreshDashboard(); }, 300);
 });
+
+// === Pull-To-Refresh (mobile) ===
+function setupPullToRefresh() {
+  try {
+    const indicator = document.createElement('div');
+    indicator.id = 'ptr-indicator';
+    indicator.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%) translateY(-50px);transition:transform .18s ease,opacity .18s ease;opacity:0;z-index:120000;pointer-events:none;';
+    indicator.innerHTML = '<div class="spinner" style="width:26px;height:26px;border-width:3px;"></div>';
+    document.body.appendChild(indicator);
+
+    let startY = 0; let dist = 0; let pulling = false; let refreshing = false; const THRESH = 70; const MAX = 140;
+
+    function reset() {
+      indicator.style.transform = 'translateX(-50%) translateY(-50px)';
+      indicator.style.opacity = 0;
+      const c = document.querySelector('.screen.active .content'); if (c) c.style.transform = '';
+      dist = 0; pulling = false;
+    }
+
+    document.addEventListener('touchstart', function (e) {
+      if (refreshing) return;
+      const c = document.querySelector('.screen.active .content');
+      if (!c) return;
+      if (c.scrollTop <= 0) {
+        startY = e.touches[0].clientY;
+        dist = 0; pulling = true;
+      }
+    }, {passive: true});
+
+    document.addEventListener('touchmove', function (e) {
+      if (!pulling || refreshing) return;
+      const y = e.touches[0].clientY;
+      dist = Math.max(0, Math.min(MAX, y - startY));
+      if (dist > 0) {
+        const c = document.querySelector('.screen.active .content');
+        if (c) {
+          e.preventDefault();
+          indicator.style.transform = `translateX(-50%) translateY(${dist - 50}px)`;
+          indicator.style.opacity = Math.min(1, dist / THRESH);
+          c.style.transform = `translateY(${dist}px)`;
+        }
+      }
+    }, {passive: false});
+
+    document.addEventListener('touchend', async function () {
+      if (!pulling || refreshing) { reset(); return; }
+      pulling = false;
+      const c = document.querySelector('.screen.active .content');
+      if (dist >= THRESH) {
+        // trigger refresh
+        refreshing = true;
+        indicator.style.transform = 'translateX(-50%) translateY(28px)';
+        indicator.style.opacity = 1;
+        if (c) c.style.transform = 'translateY(48px)';
+        try {
+          await refreshDashboard();
+        } catch (e) { console.error('Pull-to-refresh failed', e); }
+        // brief success state then reset
+        setTimeout(() => { refreshing = false; reset(); }, 450);
+      } else {
+        reset();
+      }
+    }, {passive: true});
+  } catch (e) { console.error('PTR init failed', e); }
+}
+
+// initialize pull-to-refresh on load
+document.addEventListener('DOMContentLoaded', setupPullToRefresh);
 </script>
 </body>
 </html>

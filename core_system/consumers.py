@@ -149,6 +149,18 @@ class AuditorDashboardConsumer(AsyncWebsocketConsumer):
             "message": event.get("message", ""),
         }))
 
+    async def data_changed(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "data_changed",
+            "section": event.get("section", "all"),
+        }))
+
+    async def data_changed(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "data_changed",
+            "section": event.get("section", "all"),
+        }))
+
 
 class TreasurerDashboardConsumer(AsyncWebsocketConsumer):
     GROUP_NAME = "treasurer_dashboard"

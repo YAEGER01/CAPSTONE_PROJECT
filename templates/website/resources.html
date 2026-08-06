@@ -392,7 +392,7 @@
                     content.innerHTML = '<iframe src="' + dlUrl + '" title="' + name.replace(/"/g, '&quot;') + '"></iframe>';
                     content.querySelector('iframe').onload = finish;
                 } else if (IMG_EXT.indexOf(ext) !== -1) {
-                    content.innerHTML = '<div class="flex justify-center"><img src="' + dlUrl + '" alt="' + name.replace(/"/g, '&quot;') + '"></div>';
+                    content.innerHTML = '<div class="flex justify-center"><img src="' + dlUrl + '" alt="' + name.replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" onerror="this.style.display=\'none\'" /></div>';
                     content.querySelector('img').onload = finish;
                 } else if (renderUrl) {
                     fetch(renderUrl)

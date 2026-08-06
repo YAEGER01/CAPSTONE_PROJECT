@@ -24,13 +24,15 @@
     // ==========================================
     // MODULE 1: EXTRACT CORE MEMBER VALUES
     // ==========================================
-    const fullName = getFormValue("prof_name").trim();
-    const empId = getFormValue("prof_id").trim();
+    const firstName = getFormValue("first_name").trim();
+    const middleInitial = getFormValue("middle_initial").trim();
+    const lastName = getFormValue("last_name").trim();
+    const empId = getFormValue("username").trim();
     const dept = getFormValue("prof_dept").trim();
     const pos = getFormValue("prof_pos").trim();
     const contact = getFormValue("prof_contact").trim();
-    const email = getFormValue("prof_email").trim();
-    const status = getFormValue("prof_status").trim();
+    const email = getFormValue("email").trim();
+    const status = getFormValue("membership_category").trim();
 
     // Client-side duplicate check
     const dupKey = empId;
@@ -48,21 +50,24 @@
     }
 
     // Profile Validations
-    if (!fullName) return showToast("Full Legal Name is required.", true);
+    if (!firstName || !lastName)
+      return showToast("First Name and Last Name are required.", true);
     if (!empId) return showToast("Employee/Faculty ID is required.", true);
     if (!status) return showToast("Membership Status is required.", true);
     if (email && !email.includes("@"))
-      return showToast("Institutional Email looks invalid.", true);
+      return showToast("Email looks invalid.", true);
 
     // Instantiate Unified Payload
     const fd = new FormData();
-    fd.append("prof_name", fullName);
-    fd.append("prof_id", empId);
+    fd.append("first_name", firstName);
+    fd.append("middle_initial", middleInitial);
+    fd.append("last_name", lastName);
+    fd.append("username", empId);
     fd.append("prof_dept", dept);
     fd.append("prof_pos", pos);
     fd.append("prof_contact", contact);
-    fd.append("prof_email", email);
-    fd.append("prof_status", status);
+    fd.append("email", email);
+    fd.append("membership_category", status);
     var linkedOfficer = getFormValue("linked_officer_id");
     if (linkedOfficer) fd.append("officer_user_id", linkedOfficer);
     var profFiles = FileQueue.getFiles("prof");
@@ -152,13 +157,7 @@
           }
         }
 
-        // Clean up interactive template flags post successfully completing save execution
-        form.reset();
-        FileQueue.clear("prof");
-
-        const profPreview = document.getElementById("prof_preview");
-        if (profPreview) profPreview.style.display = "none";
-
+        // Preserve entered values after successful enrollment
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.innerHTML = originalBtnHTML;

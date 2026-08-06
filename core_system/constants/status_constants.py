@@ -29,6 +29,8 @@ class Status:
 
     ALL_AUDITOR_VERIFIED: Set[str] = {
         AUDITOR_VERIFIED, APPROVED, PRESIDENT_APPROVED, RELEASED,
+        # Writer statuses used by treasurer/president flows (C1):
+        "Paid", "Full Payment", "Partial",
     }
 
     ALL_AUDITOR_ACTED: Set[str] = {AUDITOR_VERIFIED, RETURNED_REVISION}

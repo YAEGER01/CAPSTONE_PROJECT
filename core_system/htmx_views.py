@@ -17,6 +17,7 @@ from core_system.models import (
     SystemSetting,
 )
 from core_system.constants.policy_constants import get_expected_dues_amount
+from core_system.constants.status_constants import Status
 
 import logging
 logger = logging.getLogger(__name__)
@@ -99,19 +100,19 @@ def hx_treasurer_module(request: HttpRequest, module_name: str):
         "access_token": request.session.get("access_token", ""),
         "returned_entries_count": TransactionVerification.objects.filter(
             table_name="membership_fee",
-            verification_status="Returned for Revision",
+            verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED],
         ).count(),
         "monthly_dues_returned_count": TransactionVerification.objects.filter(
             table_name="monthly_dues",
-            verification_status="Returned for Revision",
+            verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED],
         ).count(),
         "medical_aid_returned_count": TransactionVerification.objects.filter(
             table_name="medical_aid",
-            verification_status="Returned for Revision",
+            verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED],
         ).count(),
         "death_aid_returned_count": TransactionVerification.objects.filter(
             table_name="death_aid",
-            verification_status="Returned for Revision",
+            verification_status__in=[Status.RETURNED_REVISION, Status.REJECTED],
         ).count(),
         "active_aid_posts_count": AidTrackingPost.objects.filter(
             is_active=True,

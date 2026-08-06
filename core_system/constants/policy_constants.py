@@ -91,6 +91,24 @@ def get_death_aid_amount(relationship: str) -> float:
     return amount_map.get(normalized, 0.0)
 
 
+DEATH_AID_RELATIONSHIP_MAP = {
+    "member": "immediate",
+    "spouse": "immediate",
+    "husband": "immediate",
+    "wife": "immediate",
+    "parent": "immediate",
+    "child": "immediate",
+    "father": "immediate",
+    "mother": "immediate",
+    "son": "immediate",
+    "daughter": "immediate",
+    "full-blood brother": "extended",
+    "full-blood sister": "extended",
+    "brother": "extended",
+    "sister": "extended",
+}
+
+
 def is_retired_member(member) -> bool:
     status = (getattr(member, "membership_status", None) or "").strip()
     return status.casefold() == "retired"

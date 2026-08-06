@@ -88,34 +88,6 @@
         background: #fafafa;
       }
 
-      /* Password field */
-      .password-wrap input {
-        padding-right: 54px;
-      }
-
-      .password-toggle {
-        position: absolute;
-        right: 8px;
-        top: 50%;
-        transform: translateY(-50%);
-        border: none;
-        background: transparent;
-        color: #666;
-        width: 38px;
-        height: 38px;
-        border-radius: 8px;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-      }
-
-      .password-toggle:hover {
-        background: #eef4ee;
-        color: #1b5e3f;
-      }
-
       /* Select chevron */
       .input-wrap select {
         padding-right: 44px;
@@ -180,28 +152,6 @@
         }
       }
 
-      /* Strength meter */
-      .strength-meter {
-        background: #e6e6e6;
-        border-radius: 999px;
-        height: 8px;
-        overflow: hidden;
-        margin-top: 10px;
-      }
-
-      .strength-bar {
-        height: 100%;
-        width: 0;
-        background: #d32f2f;
-        transition: width 0.2s ease;
-      }
-
-      .strength-bar.strength-1 { background: #d32f2f; }
-      .strength-bar.strength-2 { background: #f57c00; }
-      .strength-bar.strength-3 { background: #fbc02d; }
-      .strength-bar.strength-4 { background: #7cb342; }
-      .strength-bar.strength-5 { background: #2e7d32; }
-
       .field-note {
         margin-top: 6px;
         font-size: 13px;
@@ -213,33 +163,6 @@
 
       .field-note.field-success {
         color: #1b5e3f;
-      }
-
-      /* Password rules */
-      .password-rules {
-        margin-top: 10px;
-        padding: 12px 14px;
-        background: #f7faf7;
-        border: 1px solid #e2ece2;
-        border-radius: 8px;
-        color: #4a4a4a;
-      }
-
-      .password-rules p {
-        margin: 0 0 6px;
-        font-size: 13px;
-        font-weight: 600;
-        color: #1b5e3f;
-      }
-
-      .password-rules ul {
-        margin: 0;
-        padding-left: 18px;
-      }
-
-      .password-rules li {
-        margin-bottom: 4px;
-        font-size: 13px;
       }
 
       /* Status notes */
@@ -424,7 +347,7 @@
         <div class="login-form-wrapper register-wrapper">
           <!-- ISU CAUFA Logo -->
           <div class="security-badge">
-            <img src="{% static 'img/isu_caufa_official.png' %}" alt="ISU CAUFA logo" class="badge-logo" />
+            <img src="{% static 'img/isu_caufa_official.png' %}" alt="ISU CAUFA logo" class="badge-logo" loading="lazy" decoding="async" onerror="this.style.display='none'" />
           </div>
 
           <!-- Form Header -->
@@ -451,7 +374,7 @@
                 <label for="middle_initial">Middle Initial</label>
                 <div class="input-wrap">
                   <i class="fa-regular fa-id-badge field-icon" aria-hidden="true"></i>
-                  <input type="text" id="middle_initial" name="middle_initial" placeholder="M" maxlength="1" />
+                  <input type="text" id="middle_initial" name="middle_initial" placeholder="M" maxlength="1" pattern=".{0,1}" inputmode="text" />
                 </div>
               </div>
               <div>
@@ -507,40 +430,15 @@
             </div>
 
             <div>
-              <label for="password">Password</label>
-              <div class="input-wrap password-wrap">
-                <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
-                <input type="password" id="password" name="password" placeholder="Choose a strong password" required autocomplete="new-password" />
-                <button class="password-toggle" type="button" id="passwordToggle" aria-label="Show password">
-                  <i class="fa-regular fa-eye" id="passwordToggleIcon" aria-hidden="true"></i>
-                </button>
+              <div style="padding: 16px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 8px; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                  <i class="fa-solid fa-lock" style="color: #1b5e3f; font-size: 18px;"></i>
+                  <p style="margin: 0; font-weight: 600; color: #1b5e3f; font-size: 14px;">Password Auto-Generation</p>
+                </div>
+                <p style="margin: 0; font-size: 13px; color: #4a4a4a; line-height: 1.5;">
+                  A secure password will be automatically generated and sent to your email address upon successful registration. For your security, you will be required to change this password after your first login.
+                </p>
               </div>
-              <div class="strength-meter" aria-hidden="true">
-                <div class="strength-bar" id="passwordStrengthBar"></div>
-              </div>
-              <p class="field-note" id="passwordStrengthLabel">Password strength: <span>Weak</span></p>
-              <div class="password-rules">
-                <p>Password must include:</p>
-                <ul>
-                  <li id="ruleLength">At least 8 characters</li>
-                  <li id="ruleLower">A lowercase letter</li>
-                  <li id="ruleUpper">An uppercase letter</li>
-                  <li id="ruleNumber">A number</li>
-                  <li id="ruleSpecial">A special character</li>
-                </ul>
-              </div>
-            </div>
-
-            <div>
-              <label for="confirm_password">Confirm Password</label>
-              <div class="input-wrap password-wrap">
-                <i class="fa-solid fa-lock field-icon" aria-hidden="true"></i>
-                <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required autocomplete="new-password" />
-                <button class="password-toggle" type="button" id="confirmPasswordToggle" aria-label="Show password">
-                  <i class="fa-regular fa-eye" id="confirmPasswordToggleIcon" aria-hidden="true"></i>
-                </button>
-              </div>
-              <p class="field-note field-error" id="confirmPasswordError" style="display:none;">Passwords do not match.</p>
             </div>
 
             <div>
@@ -623,17 +521,9 @@
 
     <script>
       const registrationForm = document.getElementById("registrationForm");
+      const middleInitialInput = document.getElementById("middle_initial");
       const usernameInput = document.getElementById("username");
       const emailInput = document.getElementById("email");
-      const passwordInput = document.getElementById("password");
-      const confirmPasswordInput = document.getElementById("confirm_password");
-      const passwordToggle = document.getElementById("passwordToggle");
-      const passwordToggleIcon = document.getElementById("passwordToggleIcon");
-      const confirmPasswordToggle = document.getElementById("confirmPasswordToggle");
-      const confirmPasswordToggleIcon = document.getElementById("confirmPasswordToggleIcon");
-      const passwordStrengthBar = document.getElementById("passwordStrengthBar");
-      const passwordStrengthLabel = document.getElementById("passwordStrengthLabel");
-      const confirmPasswordError = document.getElementById("confirmPasswordError");
       const usernameAvailability = document.getElementById("usernameAvailability");
       const emailAvailability = document.getElementById("emailAvailability");
       const formStatus = document.getElementById("formStatus");
@@ -647,8 +537,6 @@
         "username",
         "email",
         "department",
-        "password",
-        "confirm_password",
         "amount",
         "payment_method",
         "payment_date",
@@ -669,26 +557,6 @@
           clearTimeout(timer);
           timer = setTimeout(() => fn.apply(this, args), delay);
         };
-      }
-
-      function togglePasswordVisibility(input, icon, button) {
-        if (!input || !icon || !button) return;
-        const isVisible = input.type === "text";
-        input.type = isVisible ? "password" : "text";
-        icon.className = isVisible ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
-        button.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
-      }
-
-      if (passwordToggle) {
-        passwordToggle.addEventListener("click", function () {
-          togglePasswordVisibility(passwordInput, passwordToggleIcon, passwordToggle);
-        });
-      }
-
-      if (confirmPasswordToggle) {
-        confirmPasswordToggle.addEventListener("click", function () {
-          togglePasswordVisibility(confirmPasswordInput, confirmPasswordToggleIcon, confirmPasswordToggle);
-        });
       }
 
       function setFieldStatus(element, available, message) {
@@ -756,31 +624,6 @@
       const debouncedUsernameCheck = debounce(() => checkAvailability("username", usernameInput.value.trim(), usernameAvailability), 400);
       const debouncedEmailCheck = debounce(() => checkAvailability("email", emailInput.value.trim(), emailAvailability), 400);
 
-      function updatePasswordStrength() {
-        const value = passwordInput.value;
-        const rules = [/.{8,}/, /[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/];
-        const passed = rules.reduce((count, rule) => count + (rule.test(value) ? 1 : 0), 0);
-        const percent = (passed / rules.length) * 100;
-        const labels = ["Very weak", "Weak", "Fair", "Good", "Strong"];
-        const labelIndex = Math.min(passed, labels.length - 1);
-        passwordStrengthBar.style.width = `${percent}%`;
-        passwordStrengthBar.className = `strength-bar strength-${passed}`;
-        const labelSpan = passwordStrengthLabel.querySelector("span");
-        if (labelSpan) {
-          labelSpan.textContent = labels[labelIndex];
-        }
-      }
-
-      function validateConfirmPassword() {
-        const matched = passwordInput.value === confirmPasswordInput.value;
-        if (!confirmPasswordInput.value) {
-          confirmPasswordError.style.display = "none";
-          return true;
-        }
-        confirmPasswordError.style.display = matched ? "none" : "block";
-        return matched;
-      }
-
       function showFormMessage(message, isError = true) {
         if (!formStatus) return;
         formStatus.style.display = "block";
@@ -814,6 +657,13 @@
         scrollTopButton.classList.toggle("visible", shouldShow);
       }
 
+      if (middleInitialInput) {
+        middleInitialInput.addEventListener("input", () => {
+          middleInitialInput.value = middleInitialInput.value.slice(0, 1);
+          updateFormProgress();
+        });
+      }
+
       if (usernameInput) usernameInput.addEventListener("input", () => { debouncedUsernameCheck(); updateFormProgress(); });
       if (emailInput) emailInput.addEventListener("input", () => {
         if (!isValidEmail(emailInput.value)) {
@@ -823,8 +673,6 @@
         }
         updateFormProgress();
       });
-      if (passwordInput) passwordInput.addEventListener("input", () => { updatePasswordStrength(); validateConfirmPassword(); updateFormProgress(); });
-      if (confirmPasswordInput) confirmPasswordInput.addEventListener("input", () => { validateConfirmPassword(); updateFormProgress(); });
 
       progressFields.forEach((fieldId) => {
         const field = document.getElementById(fieldId);
@@ -868,8 +716,6 @@
           { id: "username", label: "Username" },
           { id: "email", label: "Email Address" },
           { id: "department", label: "Department" },
-          { id: "password", label: "Password" },
-          { id: "confirm_password", label: "Confirm Password" },
           { id: "amount", label: "Amount Paid" },
           { id: "payment_method", label: "Payment Method" },
         ];
@@ -882,22 +728,15 @@
           }
         }
 
+        if (middleInitialInput && middleInitialInput.value.trim().length > 1) {
+          showFormMessage("Middle Initial must be only 1 character.");
+          return;
+        }
+
         const usernameValid = await checkAvailability("username", usernameInput.value.trim(), usernameAvailability);
         const emailValid = await checkAvailability("email", emailInput.value.trim(), emailAvailability);
         if (!usernameValid || !emailValid) {
           showFormMessage("Please choose a unique username and valid email before submitting.");
-          return;
-        }
-
-        if (!validateConfirmPassword()) {
-          showFormMessage("Passwords do not match.");
-          return;
-        }
-
-        const passwordRules = [/.{8,}/, /[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/];
-        const passwordOkay = passwordRules.every((rule) => rule.test(passwordInput.value));
-        if (!passwordOkay) {
-          showFormMessage("Password does not meet the required complexity rules.");
           return;
         }
 
@@ -939,8 +778,6 @@
             confirmButtonText: "OK",
           });
           registrationForm.reset();
-          passwordStrengthBar.style.width = "0%";
-          passwordStrengthLabel.querySelector("span").textContent = "Weak";
           usernameAvailability.style.display = "none";
           emailAvailability.style.display = "none";
         } catch (err) {

@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import hashlib
 import hmac
@@ -17,9 +18,11 @@ from core_system.models import (
     Contribution,
     DeathAid,
     Claimant,
+    FundTransaction,
     GlobalAuditTrail,
     MedicalAid,
     Member,
+    MemberLedger,
     MembershipFee,
     MonthlyDues,
     Notification,
@@ -28,6 +31,21 @@ from core_system.models import (
     TransactionArchive,
     TransactionVerification,
 )
+
+
+def _create_zt_verified_session(officer, ip_address="127.0.0.1", device_info="tests"):
+    session, token = create_access_session(
+        officer=officer,
+        ip_address=ip_address,
+        device_info=device_info,
+    )
+    session.trusted_device = True
+    session.device_info = ""
+    policy = session.session_policy or {}
+    policy["zt_verified_at"] = timezone.now().isoformat()
+    session.session_policy = policy
+    session.save()
+    return session, token
 
 
 class TreasurerApiClientMixin:
@@ -39,17 +57,39 @@ class TreasurerApiClientMixin:
             role="Treasurer",
             account_status="Active",
         )
-        session, token = create_access_session(
-            officer=officer,
-            ip_address="127.0.0.1",
-            device_info="tests",
-        )
+        session, token = _create_zt_verified_session(officer)
         test_session = self.client.session
         test_session["access_token"] = token
         test_session["officer_id"] = officer.user_id_PK
         test_session["role"] = officer.role
         test_session.save()
         return officer
+
+
+class PublicRegistrationValidationTests(TestCase):
+    def test_middle_initial_longer_than_one_character_is_rejected(self):
+        response = self.client.post(
+            "/api/public/membership-registration/",
+            {
+                "first_name": "John",
+                "middle_initial": "AB",
+                "last_name": "Doe",
+                "username": "johndoe",
+                "email": "john@example.com",
+                "department": "Engineering",
+                "position": "Software Engineer",
+                "membership_category": "Permanent",
+                "payment_method": "Bank Transfer",
+                "amount": "100.00",
+                "payment_date": "2026-07-23",
+                "password": "TestPass123!",
+                "confirm_password": "TestPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["ok"])
+        self.assertIn("Middle Initial", response.json()["error"])
 
 
 class MembershipFeeUploadTests(TreasurerApiClientMixin, TestCase):
@@ -197,11 +237,7 @@ class AuditorLoginMixin:
             role="Auditor",
             account_status="Active",
         )
-        session, token = create_access_session(
-            officer=officer,
-            ip_address="127.0.0.1",
-            device_info="tests",
-        )
+        session, token = _create_zt_verified_session(officer)
         test_session = self.client.session
         test_session["access_token"] = token
         test_session["officer_id"] = officer.user_id_PK
@@ -219,11 +255,7 @@ class PresidentLoginMixin:
             role="President",
             account_status="Active",
         )
-        session, token = create_access_session(
-            officer=officer,
-            ip_address="127.0.0.1",
-            device_info="tests",
-        )
+        session, token = _create_zt_verified_session(officer)
         test_session = self.client.session
         test_session["access_token"] = token
         test_session["officer_id"] = officer.user_id_PK
@@ -241,11 +273,7 @@ class SelfEnrollmentTests(TestCase):
             role="President",
             account_status="Active",
         )
-        session, token = create_access_session(
-            officer=officer,
-            ip_address="127.0.0.1",
-            device_info="tests",
-        )
+        session, token = _create_zt_verified_session(officer)
         test_session = self.client.session
         test_session["access_token"] = token
         test_session["officer_id"] = officer.user_id_PK
@@ -318,11 +346,7 @@ class AidTrackingPostCreationTests(TestCase):
             role="President",
             account_status="Active",
         )
-        session, token = create_access_session(
-            officer=officer,
-            ip_address="127.0.0.1",
-            device_info="tests",
-        )
+        session, token = _create_zt_verified_session(officer)
         test_session = self.client.session
         test_session["access_token"] = token
         test_session["officer_id"] = officer.user_id_PK
@@ -470,11 +494,7 @@ class AidTrackingReadTests(TestCase):
             role="Auditor",
             account_status="Active",
         )
-        session, token = create_access_session(
-            officer=officer,
-            ip_address="127.0.0.1",
-            device_info="tests",
-        )
+        session, token = _create_zt_verified_session(officer)
         test_session = self.client.session
         test_session["access_token"] = token
         test_session["officer_id"] = officer.user_id_PK
@@ -558,11 +578,7 @@ class AidTrackingActionTests(TestCase):
             role="Auditor",
             account_status="Active",
         )
-        session, token = create_access_session(
-            officer=officer,
-            ip_address="127.0.0.1",
-            device_info="tests",
-        )
+        session, token = _create_zt_verified_session(officer)
         test_session = self.client.session
         test_session["access_token"] = token
         test_session["officer_id"] = officer.user_id_PK
@@ -623,11 +639,7 @@ class FullWorkflowSmokeTests(TestCase):
         )
 
     def _login(self, officer):
-        session, token = create_access_session(
-            officer=officer,
-            ip_address="127.0.0.1",
-            device_info="smoke_test",
-        )
+        session, token = _create_zt_verified_session(officer, device_info="smoke_test")
         s = self.client.session
         s["access_token"] = token
         s["officer_id"] = officer.user_id_PK
@@ -718,6 +730,15 @@ class FullWorkflowSmokeTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.json())
         self.assertTrue(resp.json()["ok"])
         dues = MonthlyDues.objects.get(receipt_number="SMK-MD1")
+
+        # Treasurer approves (forwards to Auditor) before Auditor can verify
+        resp = self.client.post("/api/treasurer/monthly-dues/approve/",
+            {"dues_id": dues.dues_id_PK, "action": "approve", "remarks": "OK"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
+        self.assertEqual(tv.verification_status, "Pending Auditor Review")
 
         aud = self._create_officer("Auditor", "MD1")
         self._login(aud)
@@ -992,15 +1013,15 @@ class FullWorkflowSmokeTests(TestCase):
         self.assertTrue(data["ok"])
         self.assertEqual(data["processed"], 2)
         self.assertEqual(data["skipped"], 0)
-        self.assertEqual(data["batch_ref"], "TXN-BP2-0726")
+        self.assertEqual(data["batch_ref"], "ISU-CAUFA-26-1")
 
         for m in [m1, m2]:
             dues = MonthlyDues.objects.get(member_id_FK=m, month_covered="2026-07")
             self.assertEqual(dues.payment_method, "Salary Deduction")
-            self.assertEqual(dues.remittance_reference, "TXN-BP2-0726")
+            self.assertEqual(dues.remittance_reference, "ISU-CAUFA-26-1")
             self.assertEqual(dues.deduction_batch_reference, "Payroll batch test")
             tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
-            self.assertEqual(tv.verification_status, "Pending")
+            self.assertEqual(tv.verification_status, "Pending Treasurer Review")
 
     def test_salary_bulk_skips_duplicates(self):
         trez = self._create_officer("Treasurer", "BP3")
@@ -1017,18 +1038,100 @@ class FullWorkflowSmokeTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.json())
         self.assertEqual(resp.json()["processed"], 2)
 
-        # Process same month again
+        # Process same month again — app now rejects duplicate months with 409
         resp = self.client.post("/api/treasurer/monthly-dues/salary/bulk-process/", {
             "sal_month": "2026-07",
             "batch_ref": "TXN-BP3B",
             "member_ids": json.dumps([m1.member_id_PK, m2.member_id_PK]),
         })
-        self.assertEqual(resp.status_code, 200, resp.json())
-        self.assertEqual(resp.json()["processed"], 0)
-        self.assertEqual(resp.json()["skipped"], 2)
+        self.assertEqual(resp.status_code, 409, resp.json())
+        self.assertFalse(resp.json()["ok"])
 
         # Still only 2 records total
         self.assertEqual(MonthlyDues.objects.filter(month_covered="2026-07", payment_method="Salary Deduction").count(), 2)
+
+    def test_salary_bulk_creates_member_facing_records(self):
+        trez = self._create_officer("Treasurer", "BP9")
+        self._login(trez)
+        member = self._create_member("BP9")
+
+        resp = self.client.post("/api/treasurer/monthly-dues/salary/bulk-process/", {
+            "sal_month": "2026-09",
+            "summary": "Member-facing notice test",
+            "member_ids": json.dumps([member.member_id_PK]),
+        })
+        self.assertEqual(resp.status_code, 200, resp.json())
+        self.assertTrue(resp.json()["ok"])
+
+        dues = MonthlyDues.objects.get(member_id_FK=member, month_covered="2026-09")
+
+        # The member-facing payment notification should not be created until the
+        # payment is fully approved by the President.
+        self.assertFalse(
+            Notification.objects.filter(
+                recipient_type="member",
+                recipient_id=member.member_id_PK,
+                category="payment",
+            ).exists()
+        )
+
+        # Regression (C3): the MemberLedger entry is NOT written at the Treasurer
+        # record stage. Money was withheld, but the ledger entry is written once —
+        # at President approval — so MemberLedger and FundTransaction always agree.
+        self.assertFalse(
+            MemberLedger.objects.filter(
+                member_id_FK=member,
+                reference_id=dues.dues_id_PK,
+                reference_type="MonthlyDues",
+            ).exists()
+        )
+        self.assertFalse(
+            FundTransaction.objects.filter(
+                source_type="monthly_dues",
+                source_id=dues.dues_id_PK,
+            ).exists()
+        )
+
+        # Drive the record through the rest of the chain: Treasurer → Auditor → President.
+        resp = self.client.post("/api/treasurer/monthly-dues/approve/",
+            {"dues_id": dues.dues_id_PK, "action": "approve", "remarks": "OK"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+
+        aud = self._create_officer("Auditor", "BP9")
+        self._login(aud)
+        resp = self.client.post("/api/auditor/verify-payment/", {
+            "pAuditID": str(dues.dues_id_PK),
+            "pAuditResult": "Verified",
+            "pAuditRemarks": "OK",
+        })
+        self.assertEqual(resp.status_code, 200, resp.content.decode())
+
+        prez = self._create_officer("President", "BP9")
+        self._login(prez)
+        tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
+        resp = self.client.post("/api/payments/presidential-decision/",
+            {"target_id": str(tv.verification_id), "decision": "Approved", "remarks": "OK"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+
+        # At President approval both the FundTransaction and the MemberLedger are
+        # created together and exactly once (idempotent (C3)).
+        self.assertTrue(
+            FundTransaction.objects.filter(
+                source_type="monthly_dues",
+                source_id=dues.dues_id_PK,
+            ).exists()
+        )
+        self.assertTrue(
+            MemberLedger.objects.filter(
+                member_id_FK=member,
+                reference_id=dues.dues_id_PK,
+                reference_type="MonthlyDues",
+            ).exists()
+        )
 
     def test_salary_bulk_full_workflow(self):
         """Complete lifecycle: bulk create → auditor verify → president approve."""
@@ -1044,9 +1147,19 @@ class FullWorkflowSmokeTests(TestCase):
         })
         self.assertEqual(resp.status_code, 200, resp.json())
         self.assertEqual(resp.json()["processed"], 1)
+        self.assertEqual(resp.json()["batch_ref"], "ISU-CAUFA-26-1")
 
         dues = MonthlyDues.objects.get(member_id_FK=m1, month_covered="2026-08")
-        self.assertEqual(dues.remittance_reference, "TXN-BP8-0826")
+        self.assertEqual(dues.remittance_reference, "ISU-CAUFA-26-1")
+
+        # Treasurer approves (forwards to Auditor) before Auditor can verify
+        resp = self.client.post("/api/treasurer/monthly-dues/approve/",
+            {"dues_id": dues.dues_id_PK, "action": "approve", "remarks": "OK"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
+        self.assertEqual(tv.verification_status, "Pending Auditor Review")
 
         # Auditor verifies
         aud = self._create_officer("Auditor", "BP8")
@@ -1057,7 +1170,7 @@ class FullWorkflowSmokeTests(TestCase):
             "pAuditRemarks": "Bulk OK",
         })
         self.assertEqual(resp.status_code, 200, resp.content.decode())
-        tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
+        tv.refresh_from_db()
         self.assertEqual(tv.verification_status, "Auditor Verified")
 
         # President approves

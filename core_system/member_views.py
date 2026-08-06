@@ -12,8 +12,12 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST, require_GET
 from django.views.decorators.csrf import csrf_exempt
 
-from core_system.auth_utils import sha256_hex
-from core_system.constants.policy_constants import check_medical_aid_once_per_year
+from core_system.auth_utils import hash_pin, verify_pin
+from core_system.constants.policy_constants import (
+    check_medical_aid_once_per_year,
+    get_membership_fee_amount,
+    get_monthly_dues_amount,
+)
 from core_system.constants.status_constants import Status
 from core_system.guards import require_officer_session
 from core_system.models import (
@@ -52,6 +56,53 @@ def _get_member_from_session(request: HttpRequest) -> tuple[Member | None, str]:
         return None, "Officer not found"
 
 
+def _compute_dues_summary(member: Member) -> dict:
+    """Paid/pending totals plus outstanding balance for a member's monthly dues.
+
+    Uses the canonical Status.ALL_AUDITOR_VERIFIED set for "paid" so records
+    written by the president ("Full Payment") and treasurer ("Paid") are both
+    counted. Outstanding balance is the monthly-dues value of months the member
+    has not yet covered (neither paid nor pending), starting the month after
+    joining — the same obligation window used by member_unpaid_months.
+    """
+    all_dues = MonthlyDues.objects.filter(member_id_FK=member).order_by("-month_covered")
+    total_dues_paid = float(
+        all_dues.filter(payment_status__in=Status.ALL_AUDITOR_VERIFIED).aggregate(t=Sum("amount"))["t"] or 0
+    )
+    total_dues_pending = float(
+        all_dues.filter(payment_status=Status.PENDING).aggregate(t=Sum("amount"))["t"] or 0
+    )
+
+    joined = member.date_joined or (timezone.now().date() - timedelta(days=365))
+    covered = set(
+        all_dues.filter(
+            payment_status__in=["Pending", "Paid", "Full Payment"],
+        ).values_list("month_covered", flat=True)
+    )
+    unpaid_count = 0
+    year, month = joined.year, joined.month + 1
+    if month > 12:
+        year += 1
+        month = 1
+    today = timezone.now().date()
+    while (year < today.year) or (year == today.year and month <= today.month):
+        if f"{year}-{month:02d}" not in covered:
+            unpaid_count += 1
+        month += 1
+        if month > 12:
+            month = 1
+            year += 1
+
+    outstanding_balance = round(float(get_monthly_dues_amount()) * unpaid_count, 2)
+    return {
+        "all_dues": all_dues,
+        "total_dues_paid": total_dues_paid,
+        "total_dues_pending": total_dues_pending,
+        "outstanding_balance": outstanding_balance,
+        "total_dues_unpaid": outstanding_balance,
+    }
+
+
 @require_GET
 def member_notifications(request: HttpRequest):
     guard = require_officer_session(request)
@@ -82,6 +133,9 @@ def member_notifications(request: HttpRequest):
 
 @require_GET
 def member_ledger(request: HttpRequest):
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
     member, err = _get_member_from_session(request)
     if not member:
         return JsonResponse({"ok": False, "error": err}, status=400)
@@ -98,7 +152,7 @@ def member_ledger(request: HttpRequest):
         dues = MonthlyDues.objects.filter(
             member_id_FK=member,
             payment_date__isnull=False,
-            payment_status="Full Payment"
+            payment_status__in=["Paid", "Full Payment"]
         ).order_by("-payment_date")
 
         for d in dues:
@@ -169,6 +223,9 @@ def member_ledger(request: HttpRequest):
 @require_GET
 def member_unpaid_months(request: HttpRequest):
     """Return list of unpaid months for monthly dues."""
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
     member, err = _get_member_from_session(request)
     if not member:
         return JsonResponse({"ok": False, "error": err}, status=400)
@@ -184,7 +241,7 @@ def member_unpaid_months(request: HttpRequest):
     paid_months = set()
     paid_dues = MonthlyDues.objects.filter(
         member_id_FK=member,
-        payment_status="Full Payment"
+        payment_status__in=["Paid", "Full Payment"]
     ).values_list('month_covered', flat=True)
 
     for month_str in paid_dues:
@@ -226,6 +283,23 @@ def member_unpaid_months(request: HttpRequest):
             month = 1
             year += 1
 
+    # Advance payment option: include the upcoming month so members can pay early
+    adv_year = current_date.year
+    adv_month = current_date.month + 1
+    if adv_month > 12:
+        adv_year += 1
+        adv_month = 1
+    advance_month_str = f"{adv_year}-{adv_month:02d}"
+
+    if advance_month_str not in paid_months:
+        advance_month_name = timezone.datetime(adv_year, adv_month, 1).strftime("%B %Y")
+        unpaid_months.append({
+            "month": advance_month_str,
+            "display_name": advance_month_name,
+            "is_overdue": False,
+            "is_advance": True,
+        })
+
     return JsonResponse({
         "ok": True,
         "unpaid_months": unpaid_months,
@@ -234,8 +308,10 @@ def member_unpaid_months(request: HttpRequest):
 
 
 @require_POST
-@csrf_exempt
 def member_mark_notifications_read(request: HttpRequest):
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
     member, err = _get_member_from_session(request)
     if not member:
         return JsonResponse({"ok": False, "error": err}, status=400)
@@ -433,12 +509,32 @@ def member_update_profile(request: HttpRequest):
 
     allowed_fields = {"contact_number", "email"}
     changed = False
-    for field in allowed_fields:
-        if field in data:
-            setattr(member, field, str(data[field]).strip())
-            changed = True
+
+    # B17: Email changes must verify the PIN (same security as member_change_email).
+    if "email" in data:
+        new_email = str(data.get("email", "")).strip()
+        if not new_email:
+            return JsonResponse({"ok": False, "error": "Email cannot be empty."}, status=400)
+        if member.pin_code:
+            current_pin = str(data.get("current_pin", "")).strip()
+            if len(current_pin) != 6 or not current_pin.isdigit():
+                return JsonResponse({"ok": False, "error": "Current PIN is required and must be 6 digits to change email."}, status=400)
+            if not verify_pin(current_pin, member.pin_code):
+                return JsonResponse({"ok": False, "error": "Current PIN is incorrect."}, status=403)
+        if Member.objects.filter(email__iexact=new_email).exclude(member_id_PK=member.member_id_PK).exists():
+            return JsonResponse({"ok": False, "error": "This email is already in use by another member."}, status=409)
+        if OfficerUser.objects.filter(email__iexact=new_email).exists():
+            return JsonResponse({"ok": False, "error": "This email is already in use by another user."}, status=409)
+        member.email = new_email
+        changed = True
+
+    if "contact_number" in data:
+        member.contact_number = str(data.get("contact_number", "")).strip()
+        changed = True
+
     if changed:
-        member.save(update_fields=list(allowed_fields & set(data.keys())))
+        update_fields = [f for f in ("email", "contact_number") if f in data]
+        member.save(update_fields=update_fields)
 
     return JsonResponse({
         "ok": True,
@@ -470,7 +566,7 @@ def member_change_email(request: HttpRequest):
     if member.pin_code:
         if not current_pin or len(current_pin) != 6 or not current_pin.isdigit():
             return JsonResponse({"ok": False, "error": "Current PIN is required and must be 6 digits."}, status=400)
-        if sha256_hex(current_pin) != member.pin_code:
+        if not verify_pin(current_pin, member.pin_code):
             return JsonResponse({"ok": False, "error": "Current PIN is incorrect."}, status=403)
 
     if Member.objects.filter(email__iexact=new_email).exclude(member_id_PK=member.member_id_PK).exists():
@@ -521,6 +617,22 @@ def member_submit_payment(request: HttpRequest):
     if not payment_type or amount <= 0 or not payment_method:
         return JsonResponse({"ok": False, "error": "Missing required fields: payment_type, amount, payment_method"}, status=400)
 
+    # Server-side amount enforcement (S20): members cannot submit arbitrary amounts.
+    if payment_type == "Membership Fee":
+        expected_fee = Decimal(str(get_membership_fee_amount()))
+        if abs(amount - expected_fee) > Decimal("0.01"):
+            return JsonResponse(
+                {"ok": False, "error": f"Membership fee amount must be exactly ₱{expected_fee:.2f}."},
+                status=400,
+            )
+    elif payment_type == "Monthly Dues":
+        expected_dues = Decimal(str(get_monthly_dues_amount()))
+        if abs(amount - expected_dues) > Decimal("0.01"):
+            return JsonResponse(
+                {"ok": False, "error": f"Monthly dues amount must be exactly ₱{expected_dues:.2f} per ARTICLE XI Section 1.c."},
+                status=400,
+            )
+
     # Find the treasurer user (or use the member's linked officer as recorded_by)
     officer_id = request.session.get("officer_id")
     officer = OfficerUser.objects.get(user_id_PK=officer_id)
@@ -547,6 +659,14 @@ def member_submit_payment(request: HttpRequest):
         # Link proof files if uploaded
         for uploaded_file in uploaded_files:
             _link_proof_to_record(uploaded_file, fee, officer)
+        # Create TransactionVerification record for the approval workflow so the
+        # fee appears in the Auditor's pending membership-fee queue (mirrors the
+        # monthly-dues branch below and the treasurer walk-in flow).
+        TransactionVerification.objects.create(
+            table_name="membership_fee",
+            record_id=fee.fee_id_PK,
+            verification_status="Pending",
+        )
     elif payment_type == "Monthly Dues":
         if "multipart/form-data" in content_type:
             month_covered = str(request.POST.get("month_covered", "")).strip()
@@ -556,7 +676,18 @@ def member_submit_payment(request: HttpRequest):
         # Use current month if not provided
         if not month_covered:
             month_covered = timezone.now().strftime("%Y-%m")
-        
+
+        # Guard against duplicate monthly dues records for the same covered month
+        if MonthlyDues.objects.filter(
+            member_id_FK=member,
+            month_covered=month_covered,
+            payment_status__in=["Pending", "Paid", "Full Payment"],
+        ).exists():
+            return JsonResponse({"ok": False, "error": "Monthly dues for this month have already been submitted."}, status=409)
+
+        current_month = timezone.now().strftime("%Y-%m")
+        is_advance = month_covered > current_month
+
         dues = MonthlyDues.objects.create(
             member_id_FK=member,
             month_covered=month_covered,
@@ -567,13 +698,14 @@ def member_submit_payment(request: HttpRequest):
             receipt_number=reference_number,
             recorded_by_user_id_FK=officer,
             treasurer_status="Pending Treasurer Review",
+            is_advance=is_advance,
         )
         # Link proof files if uploaded
         for uploaded_file in uploaded_files:
             _link_proof_to_record(uploaded_file, dues, officer)
         # Create TransactionVerification record for the approval workflow
         TransactionVerification.objects.create(
-            table_name="MONTHLY_DUES",
+            table_name="monthly_dues",
             record_id=dues.dues_id_PK,
             target_category="payment",
             verification_status="Pending Treasurer Review",
@@ -783,6 +915,29 @@ def member_claim_upload_proof(request: HttpRequest):
     else:
         return JsonResponse({"ok": False, "error": "claim_type must be 'medical_aid' or 'death_aid'."}, status=400)
 
+    # Status gate (S13): only allow proof upload for pending claims.
+    if claim.status not in ("Pending", "Pending Review", "Pending Treasurer Review", "Pending Auditor Verification", "Pending President Approval", "Returned for Revision"):
+        return JsonResponse(
+            {"ok": False, "error": "Proof can only be uploaded for pending or returned claims."},
+            status=400,
+        )
+
+    # MIME and size validation (S13).
+    allowed_mime = {
+        "image/jpeg", "image/png", "image/webp", "image/gif",
+        "application/pdf",
+    }
+    if uploaded_file.content_type not in allowed_mime:
+        return JsonResponse(
+            {"ok": False, "error": "Only JPG, PNG, WebP, GIF, and PDF files are allowed."},
+            status=400,
+        )
+    if uploaded_file.size > 10 * 1024 * 1024:
+        return JsonResponse(
+            {"ok": False, "error": "File size must not exceed 10MB."},
+            status=400,
+        )
+
     proof = SupportingProof(
         content_object=claim,
         file=uploaded_file,
@@ -973,12 +1128,15 @@ def member_save_pin(request: HttpRequest):
     if member.pin_code:
         if len(current_pin) != 6 or not current_pin.isdigit():
             return JsonResponse({"ok": False, "error": "Current PIN is required and must be 6 digits."}, status=400)
-        if sha256_hex(current_pin) != member.pin_code:
+        if not verify_pin(current_pin, member.pin_code):
             return JsonResponse({"ok": False, "error": "Current PIN is incorrect."}, status=400)
-    hashed = sha256_hex(pin)
-    if Member.objects.filter(pin_code=hashed).exclude(member_id_PK=member.member_id_PK).exists():
-        return JsonResponse({"ok": False, "error": "This PIN is already in use by another member."}, status=400)
-    member.pin_code = hashed
+
+    # Uniqueness check: iterate stored hashes and verify (salted hashes cannot be indexed).
+    for other in Member.objects.exclude(member_id_PK=member.member_id_PK).only("pin_code"):
+        if other.pin_code and verify_pin(pin, other.pin_code):
+            return JsonResponse({"ok": False, "error": "This PIN is already in use by another member."}, status=400)
+
+    member.pin_code = hash_pin(pin)
     member.save(update_fields=["pin_code"])
     return JsonResponse({"ok": True, "message": "Attendance PIN saved successfully."})
 
@@ -1042,7 +1200,7 @@ def member_dashboard_data(request: HttpRequest):
         "member_type": member.member_type,
         "date_joined": member.date_joined.isoformat() if member.date_joined else "",
         "profile_picture": member.profile_picture.url if member.profile_picture else "",
-        "pin_code": member.pin_code or "",
+        "has_pin": bool(member.pin_code),
         "qr_code": member.qr_code.url if member.qr_code else "",
         "emergency_contact": member.emergency_contact or "",
         "emergency_number": member.emergency_number or "",
@@ -1054,10 +1212,12 @@ def member_dashboard_data(request: HttpRequest):
     membership_fee_paid = fee.payment_status in ("Paid", "Full Payment") if fee else False
     membership_fee_submitted = fee.payment_status in MEMBERSHIP_FEE_SUBMITTED_STATUSES if fee else False
 
-    all_dues = MonthlyDues.objects.filter(member_id_FK=member).order_by("-month_covered")
-    total_dues_paid = float(all_dues.filter(payment_status="Paid").aggregate(t=Sum("amount"))["t"] or 0)
-    total_dues_pending = float(all_dues.filter(payment_status="Pending").aggregate(t=Sum("amount"))["t"] or 0)
-    total_dues_unpaid = float(all_dues.filter(payment_status="Unpaid").aggregate(t=Sum("amount"))["t"] or 0)
+    dues_summary = _compute_dues_summary(member)
+    all_dues = dues_summary["all_dues"]
+    total_dues_paid = dues_summary["total_dues_paid"]
+    total_dues_pending = dues_summary["total_dues_pending"]
+    total_dues_unpaid = dues_summary["total_dues_unpaid"]
+    outstanding_balance = dues_summary["outstanding_balance"]
     dues_records = []
     for d in all_dues:
         dues_records.append({
@@ -1067,6 +1227,7 @@ def member_dashboard_data(request: HttpRequest):
             "payment_status": d.payment_status,
             "payment_method": d.payment_method,
             "payment_date": d.payment_date.isoformat() if d.payment_date else "",
+            "is_advance": d.is_advance,
         })
 
     medical_claim_ids = MedicalAid.objects.filter(member_id_FK=member).values_list("medical_aid_id_PK", flat=True)
@@ -1205,6 +1366,7 @@ def member_dashboard_data(request: HttpRequest):
             "message": n.message,
             "category": n.category or "",
             "sent_at": n.sent_at.isoformat() if n.sent_at else "",
+            "is_read": n.is_read,
         })
 
     payment_history = []
@@ -1273,11 +1435,22 @@ def member_dashboard_data(request: HttpRequest):
     if last_dues:
         latest_payment_date = last_dues.payment_date.isoformat() if last_dues.payment_date else ""
     today = date.today()
-    next_m = today.replace(day=1) + timedelta(days=32)
-    next_m = next_m.replace(day=1)
-    next_month_str = next_m.strftime("%Y-%m")
-    has_next = MonthlyDues.objects.filter(member_id_FK=member, month_covered=next_month_str).exists()
-    next_due_date = next_m.strftime("%b %d") if not has_next else ""
+    probe = today.replace(day=1)
+    covered_months = set(
+        MonthlyDues.objects.filter(
+            member_id_FK=member,
+            payment_status__in=["Pending", "Paid", "Full Payment"],
+        ).values_list("month_covered", flat=True)
+    )
+    next_m = None
+    for _ in range(24):
+        probe = probe + timedelta(days=32)
+        probe = probe.replace(day=1)
+        if probe.strftime("%Y-%m") not in covered_months:
+            next_m = probe
+            break
+    next_due_date = next_m.strftime("%b %d") if next_m else ""
+    advance_count = sum(1 for mc in covered_months if mc > today.strftime("%Y-%m"))
 
     total_claims = len(medical_aid_records) + len(death_aid_records)
     total_financial_contributions = membership_fee_amount + total_dues_paid + total_contributions
@@ -1296,12 +1469,13 @@ def member_dashboard_data(request: HttpRequest):
         "total_dues_paid": total_dues_paid,
         "total_dues_pending": total_dues_pending,
         "total_dues_unpaid": total_dues_unpaid,
-        "outstanding_balance": total_dues_unpaid,
+        "outstanding_balance": outstanding_balance,
         "total_contributions": total_contributions,
         "total_financial_contributions": total_financial_contributions,
         "total_paid": total_paid,
         "pending_amount": pending_amount,
         "next_due_date": next_due_date,
+        "advance_count": advance_count,
         "latest_payment_date": latest_payment_date,
         "first_payment_method": first_payment_method,
         "total_claims": total_claims,
@@ -1383,7 +1557,7 @@ def onboarding_save_qr(request: HttpRequest):
     if member.pin_code:
         if len(current_pin) != 6 or not current_pin.isdigit():
             return JsonResponse({"ok": False, "error": "Current PIN is required and must be 6 digits."}, status=400)
-        if sha256_hex(current_pin) != member.pin_code:
+        if not verify_pin(current_pin, member.pin_code):
             return JsonResponse({"ok": False, "error": "Current PIN is incorrect."}, status=400)
     file = request.FILES.get("qr_code")
     if not file:
@@ -1432,13 +1606,79 @@ def onboarding_save_pin(request: HttpRequest):
     if member.pin_code:
         if len(current_pin) != 6 or not current_pin.isdigit():
             return JsonResponse({"ok": False, "error": "Current PIN is required and must be 6 digits."}, status=400)
-        if sha256_hex(current_pin) != member.pin_code:
+        if not verify_pin(current_pin, member.pin_code):
             return JsonResponse({"ok": False, "error": "Current PIN is incorrect."}, status=400)
-    hashed = sha256_hex(pin)
-    if Member.objects.filter(pin_code=hashed).exclude(member_id_PK=member.member_id_PK).exists():
-        return JsonResponse({"ok": False, "error": "This PIN is already in use by another member."}, status=400)
-    member.pin_code = hashed
+
+    # Uniqueness check: iterate stored hashes and verify (salted hashes cannot be indexed).
+    for other in Member.objects.exclude(member_id_PK=member.member_id_PK).only("pin_code"):
+        if other.pin_code and verify_pin(pin, other.pin_code):
+            return JsonResponse({"ok": False, "error": "This PIN is already in use by another member."}, status=400)
+
+    member.pin_code = hash_pin(pin)
     member.save(update_fields=["pin_code"])
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def onboarding_check_qr(request: HttpRequest):
+    """Validate an uploaded QR image for uniqueness WITHOUT saving it."""
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
+    member, err = _get_member_from_session(request)
+    if not member:
+        return JsonResponse({"ok": False, "error": err}, status=400)
+    file = request.FILES.get("qr_code")
+    if not file:
+        return JsonResponse({"ok": False, "error": "No QR code file provided."}, status=400)
+    try:
+        import cv2
+        import numpy as np
+        from io import BytesIO
+        file_bytes = np.frombuffer(file.read(), np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_GRAYSCALE)
+        detector = cv2.QRCodeDetector()
+        qr_text, _, _ = detector.detectAndDecode(img)
+        if not qr_text:
+            return JsonResponse({"ok": False, "error": "No QR code detected in the image. Upload a valid QR code image."}, status=400)
+        file.seek(0)
+        duplicate = Member.objects.filter(qr_data=qr_text).exclude(member_id_PK=member.member_id_PK).first()
+        if duplicate:
+            return JsonResponse({"ok": False, "error": f"This QR code is already used by member {duplicate.full_name}. Please use another QR code."}, status=400)
+    except Member.DoesNotExist:
+        raise
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Could not read QR code from the image. Upload a clearer QR code image."}, status=400)
+    return JsonResponse({"ok": True})
+
+
+@require_POST
+def onboarding_check_pin(request: HttpRequest):
+    """Validate a PIN for correctness and uniqueness WITHOUT saving it."""
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
+    member, err = _get_member_from_session(request)
+    if not member:
+        return JsonResponse({"ok": False, "error": err}, status=400)
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+    pin = str(data.get("pin", "")).strip()
+    current_pin = str(data.get("current_pin", "")).strip()
+    if len(pin) != 6 or not pin.isdigit():
+        return JsonResponse({"ok": False, "error": "PIN must be exactly 6 digits."}, status=400)
+    if member.pin_code:
+        if len(current_pin) != 6 or not current_pin.isdigit():
+            return JsonResponse({"ok": False, "error": "Current PIN is required and must be 6 digits."}, status=400)
+        if not verify_pin(current_pin, member.pin_code):
+            return JsonResponse({"ok": False, "error": "Current PIN is incorrect."}, status=400)
+
+    # Uniqueness check: iterate stored hashes and verify (salted hashes cannot be indexed).
+    for other in Member.objects.exclude(member_id_PK=member.member_id_PK).only("pin_code"):
+        if other.pin_code and verify_pin(pin, other.pin_code):
+            return JsonResponse({"ok": False, "error": "This PIN is already in use by another member. Please choose another PIN."}, status=400)
     return JsonResponse({"ok": True})
 
 
@@ -1458,8 +1698,8 @@ def onboarding_complete(request: HttpRequest):
     member.emergency_contact = str(data.get("emergency_contact", "")).strip()
     member.emergency_number = str(data.get("emergency_number", "")).strip()
     member.setup_complete = True
-    member.membership_status = "Active"
-    member.save(update_fields=["contact_number", "emergency_contact", "emergency_number", "setup_complete", "membership_status"])
+    # B16: Do NOT overwrite membership_status — preserve the membership category ("Permanent", etc.).
+    member.save(update_fields=["contact_number", "emergency_contact", "emergency_number", "setup_complete"])
     return JsonResponse({"ok": True, "message": "Onboarding complete!"})
 
 

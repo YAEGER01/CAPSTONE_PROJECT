@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import logging
 import re
 from typing import Any, Dict, Optional
 
@@ -460,6 +461,193 @@ def _payment_item_to_json(kind: str, obj: Any) -> Dict[str, Any]:
         "encoded_by": getattr(getattr(obj, "recorded_by_user_id_FK", None), "full_name", "") or "",
         "payment_status": getattr(obj, "payment_status", None) or "",
     }
+
+
+def _finance_item_label(table_name: str, record=None) -> str:
+    """Human-readable label used in member notifications/emails."""
+    labels = {
+        "membership_fee": "Membership Fee",
+        "monthly_dues": "Monthly Dues",
+        "medical_aid": "Medical Aid Claim",
+        "death_aid": "Death Aid Claim",
+    }
+    label = labels.get(str(table_name).lower(), str(table_name).replace("_", " ").title())
+    if str(table_name).lower() == "monthly_dues" and record is not None:
+        month = getattr(record, "month_covered", "") or ""
+        if month:
+            label = f"Monthly Dues ({month})"
+    return label
+
+
+def _status_field_updates(table_name: str, is_rejected: bool = False) -> Dict[str, str]:
+    """Map a finance table to the model status fields to update when returned/rejected."""
+    tn = str(table_name).lower()
+    returned = "Rejected" if is_rejected else Status.RETURNED_REVISION
+    if tn == "membership_fee":
+        return {"payment_status": "Returned" if not is_rejected else "Rejected"}
+    if tn == "monthly_dues":
+        return {
+            "treasurer_status": Status.RETURNED_REVISION,
+            "payment_status": "Returned" if not is_rejected else "Rejected",
+        }
+    if tn in ("medical_aid", "death_aid"):
+        return {"status": returned}
+    return {}
+
+
+def _apply_status_updates(record, table_name: str, extra_updates: Optional[Dict[str, Any]] = None) -> None:
+    updates = _status_field_updates(table_name)
+    if extra_updates:
+        updates.update(extra_updates)
+    if not updates or record is None:
+        return
+    applied = []
+    for field, value in updates.items():
+        if hasattr(record, field):
+            setattr(record, field, value)
+            applied.append(field)
+    if applied:
+        record.save(update_fields=applied)
+
+
+def _upsert_returned_tv(table_name: str, record_id: int, remarks: str = "", tv_status: str = Status.RETURNED_REVISION) -> TransactionVerification:
+    """Canonical get_or_create upsert of the returned/rejected TransactionVerification row.
+
+    Always writes the row (fixes the bug where an absent TV row silently skipped the
+    reject) and uses the lowercase canonical table name.
+    """
+    table_name = str(table_name).lower()
+    tv, created = TransactionVerification.objects.get_or_create(
+        table_name=table_name,
+        record_id=int(record_id),
+        defaults={
+            "verification_status": tv_status,
+            "returned_reason": remarks or "",
+            "return_count": 1,
+        },
+    )
+    if not created:
+        tv.verification_status = tv_status
+        tv.returned_reason = remarks or tv.returned_reason
+        tv.return_count = (tv.return_count or 0) + 1
+        tv.save(update_fields=["verification_status", "returned_reason", "return_count"])
+    return tv
+
+
+def _notify_finance_status(member, table_name: str, record, remarks: str = "", is_rejected: bool = False, details: str = "") -> None:
+    """Single entry point: create the member Notification and send the returned/rejected email."""
+    from core_system.services.email_service import send_member_finance_status_email
+
+    if not member:
+        return
+    try:
+        send_member_finance_status_email(
+            member,
+            item_label=_finance_item_label(table_name, record),
+            details=details,
+            remarks=remarks,
+            is_rejected=is_rejected,
+        )
+    except Exception:
+        logging.getLogger(__name__).exception("Failed to notify member for returned finance item")
+
+
+def set_treasurer_rejected(
+    table_name: str,
+    record_id: int,
+    officer,
+    remarks: str = "",
+    request=None,
+    *,
+    member=None,
+    details: str = "",
+    is_rejected: bool = False,
+    extra_updates: Optional[Dict[str, Any]] = None,
+    tv_updates: Optional[Dict[str, Any]] = None,
+) -> Optional[TransactionVerification]:
+    """Treasurer rejects/returns a finance item.
+
+    Always writes the TransactionVerification row (get_or_create) with the lowercase
+    canonical table name, updates the model status fields, records the audit trail,
+    and notifies the member (in-app notification + email).
+    """
+    table_name = str(table_name).lower()
+    model = MODEL_MAP.get(table_name)
+    record = model.objects.filter(pk=int(record_id)).first() if model else None
+    member = member or (getattr(record, "member_id_FK", None) if record else None)
+
+    tv_status = Status.REJECTED if is_rejected else Status.RETURNED_REVISION
+    if record is not None:
+        _apply_status_updates(record, table_name, extra_updates)
+
+    tv = _upsert_returned_tv(table_name, int(record_id), remarks, tv_status)
+    if tv_updates:
+        for field, value in tv_updates.items():
+            if hasattr(tv, field):
+                setattr(tv, field, value)
+        tv.save()
+
+    _record_audit_trail(
+        table=table_name,
+        record_id=int(record_id),
+        action="REJECTED" if is_rejected else "RETURNED",
+        actor=officer,
+        new={"verification_status": tv_status, "returned_reason": remarks or ""},
+        ip=request.META.get("REMOTE_ADDR") if request else None,
+        notes=remarks or None,
+    )
+
+    _notify_finance_status(member, table_name, record, remarks, is_rejected=is_rejected, details=details)
+    return tv
+
+
+def route_back_to_treasurer(
+    table_name: str,
+    record_id: int,
+    officer,
+    remarks: str = "",
+    request=None,
+    *,
+    member=None,
+    details: str = "",
+    force_returned: bool = True,
+    extra_updates: Optional[Dict[str, Any]] = None,
+    tv_updates: Optional[Dict[str, Any]] = None,
+) -> Optional[TransactionVerification]:
+    """Route a rejected/returned finance item back into the Treasurer queue.
+
+    Used by downstream officers (President/Auditor) so their rejection cascades back
+    to the Treasurer instead of stranding the record. Force-sets the model status to
+    'Returned for Revision' by default (non-terminal), upserts the canonical lowercase
+    TransactionVerification row, records the audit trail, and notifies the member.
+    """
+    table_name = str(table_name).lower()
+    model = MODEL_MAP.get(table_name)
+    record = model.objects.filter(pk=int(record_id)).first() if model else None
+    member = member or (getattr(record, "member_id_FK", None) if record else None)
+
+    if force_returned and record is not None:
+        _apply_status_updates(record, table_name, extra_updates)
+
+    tv = _upsert_returned_tv(table_name, int(record_id), remarks, Status.RETURNED_REVISION)
+    if tv_updates:
+        for field, value in tv_updates.items():
+            if hasattr(tv, field):
+                setattr(tv, field, value)
+        tv.save()
+
+    _record_audit_trail(
+        table=table_name,
+        record_id=int(record_id),
+        action="RETURNED",
+        actor=officer,
+        new={"verification_status": Status.RETURNED_REVISION, "returned_reason": remarks or ""},
+        ip=request.META.get("REMOTE_ADDR") if request else None,
+        notes=remarks or None,
+    )
+
+    _notify_finance_status(member, table_name, record, remarks, is_rejected=False, details=details)
+    return tv
 
 
 def _officer_to_json(officer):

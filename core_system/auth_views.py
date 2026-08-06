@@ -15,11 +15,13 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core_system.auth_utils import (
     create_access_session,
+    hash_password,
     log_login_attempt,
-    sha256_hex,
+    verify_password,
 )
 from core_system.constants.status_constants import RegistrationStatus
 from core_system.models import AccessSession, OfficerUser, MemberRegistrationRequest
+from core_system.shared_view_utils import _record_audit_trail
 from core_system.services.mfa_service import (
     generate_mfa_secret,
     generate_otp,
@@ -39,8 +41,8 @@ MFA_USERNAME_KEY = "mfa_username"
 
 
 def _queue_mfa_email(officer, otp):
-    from core_system.services.email_service import queue_email, process_email_queue
-    queue_email(
+    from core_system.services.email_service import queue_and_process_email
+    queue_and_process_email(
         subject="CAUFA MFA Verification Code",
         recipient_list=[officer.email],
         html_template="emails/mfa_challenge.html",
@@ -50,7 +52,6 @@ def _queue_mfa_email(officer, otp):
             "expiry_minutes": 5,
         },
     )
-    threading.Thread(target=process_email_queue, kwargs={"batch_size": 5}, daemon=True).start()
 
 
 def _check_term_validity(officer: OfficerUser) -> tuple[bool, str]:
@@ -102,6 +103,12 @@ def _workspace_redirect(role: str) -> str:
     if role_norm == "public information officer":
         return "/pio/"
     return "/"
+
+
+def _login_success_redirect(officer: OfficerUser) -> str:
+    if getattr(officer, "must_change_password", False):
+        return "/change-password/"
+    return _workspace_redirect(officer.role)
 
 
 def _resolve_login_state_code(officer: OfficerUser) -> str | None:
@@ -190,6 +197,14 @@ def officer_login(request: HttpRequest) -> HttpResponse:
     if request.method == "GET":
         force_login = (request.GET.get("force") or "").strip().lower() in {"1", "true", "yes", "on"}
         if "access_token" in request.session and not force_login:
+            officer_id = request.session.get("officer_id")
+            if officer_id:
+                try:
+                    existing = OfficerUser.objects.get(user_id_PK=officer_id)
+                    if getattr(existing, "must_change_password", False):
+                        return redirect("/change-password/")
+                except OfficerUser.DoesNotExist:
+                    pass
             return redirect(_workspace_redirect(request.session.get("role", "")))
 
         if force_login:
@@ -257,7 +272,7 @@ def officer_login(request: HttpRequest) -> HttpResponse:
 
     password_hash_ok = False
     if officer is not None:
-        password_hash_ok = sha256_hex(password_input) == officer.password_hash
+        password_hash_ok = verify_password(password_input, officer.password_hash)
 
     # Check if user is on mobile device for Member role
     # NOTE: User agent detection has limitations - it can be spoofed via DevTools
@@ -361,8 +376,8 @@ def officer_login(request: HttpRequest) -> HttpResponse:
             user_id=officer.user_id_PK,
         )
         if is_ajax:
-            return JsonResponse({"ok": True, "redirect_url": _workspace_redirect(officer.role)})
-        return redirect(_workspace_redirect(officer.role))
+            return JsonResponse({"ok": True, "redirect_url": _login_success_redirect(officer)})
+        return redirect(_login_success_redirect(officer))
 
     if officer is None:
         # Check if there's a member registration with this username at any stage
@@ -483,7 +498,15 @@ def mfa_verify(request: HttpRequest) -> JsonResponse:
         ip_address=ip_address,
         device_info=user_agent,
     )
-    
+
+    session.trusted_device = True
+    session.last_verified_location = {"ip": ip_address, "ua": user_agent}
+    session.session_policy = {
+        "zt_verified_at": timezone.now().isoformat(),
+        "auth_method": "mfa_email",
+    }
+    session.save(update_fields=["trusted_device", "last_verified_location", "session_policy"])
+
     request.session["access_token"] = token
     request.session["officer_id"] = officer.user_id_PK
     request.session["role"] = officer.role
@@ -499,7 +522,7 @@ def mfa_verify(request: HttpRequest) -> JsonResponse:
 
     return JsonResponse({
         "ok": True,
-        "redirect_url": _workspace_redirect(officer.role),
+        "redirect_url": _login_success_redirect(officer),
     })
 
 
@@ -706,6 +729,7 @@ def zero_trust_verify(request: HttpRequest) -> HttpResponse:
     session.ip_address = request.META.get("REMOTE_ADDR") or "0.0.0.0"
     session.device_info = request.META.get("HTTP_USER_AGENT")
     session.last_verified_location = {"ip": session.ip_address}
+    session.last_activity_at = timezone.now()
     policy = session.session_policy or {}
     policy["zt_verified_at"] = timezone.now().isoformat()
     session.session_policy = policy
@@ -799,8 +823,9 @@ def reset_password(request: HttpRequest) -> HttpResponse:
         messages.error(request, "Account not found.")
         return render(request, "website/reset_password.html", {"email": reset_email})
 
-    officer.password_hash = sha256_hex(new_password)
-    officer.save(update_fields=["password_hash"])
+    officer.password_hash = hash_password(new_password)
+    officer.must_change_password = False
+    officer.save(update_fields=["password_hash", "must_change_password"])
 
     request.session.pop("reset_email", None)
     request.session.pop("reset_officer_id", None)
@@ -809,6 +834,75 @@ def reset_password(request: HttpRequest) -> HttpResponse:
 
     messages.success(request, "Your password has been reset successfully. You can now log in with your new password.")
     return redirect("login")
+
+
+@csrf_protect
+def change_password(request: HttpRequest) -> HttpResponse:
+    """Self-service password change. Forced on first login when must_change_password is set.
+
+    Requires an active session. Validates the current password, then updates the hash
+    and clears the must_change_password flag.
+    """
+    from core_system.guards import require_officer_session
+
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
+
+    officer_id = request.session.get("officer_id")
+    try:
+        officer = OfficerUser.objects.get(user_id_PK=officer_id)
+    except OfficerUser.DoesNotExist:
+        request.session.flush()
+        return redirect("login")
+
+    context = {"forced": bool(officer.must_change_password)}
+
+    if request.method == "GET":
+        return render(request, "website/change_password.html", context)
+
+    current_password = request.POST.get("current_password") or ""
+    new_password = request.POST.get("new_password") or ""
+    confirm_password = request.POST.get("confirm_password") or ""
+
+    if not verify_password(current_password, officer.password_hash):
+        messages.error(request, "Your current password is incorrect.")
+        return render(request, "website/change_password.html", context)
+
+    if new_password != confirm_password:
+        messages.error(request, "Passwords do not match.")
+        return render(request, "website/change_password.html", context)
+
+    if len(new_password) < 8:
+        messages.error(request, "Password must be at least 8 characters.")
+        return render(request, "website/change_password.html", context)
+
+    if new_password == current_password:
+        messages.error(request, "New password must be different from your current password.")
+        return render(request, "website/change_password.html", context)
+
+    officer.password_hash = hash_password(new_password)
+    officer.must_change_password = False
+    officer.save(update_fields=["password_hash", "must_change_password"])
+
+    _record_audit_trail(
+        table="officer_user",
+        record_id=officer.user_id_PK,
+        action="PASSWORD_CHANGED",
+        actor=officer,
+        ip=request.META.get("REMOTE_ADDR"),
+        notes="Password changed via change-password flow.",
+    )
+
+    messages.success(request, "Your password has been updated successfully.")
+
+    if (officer.role or "").strip().lower() == "member":
+        from core_system.models import Member
+        linked = Member.objects.filter(officer_user_id_FK=officer).first()
+        if linked and not linked.setup_complete:
+            return redirect("/member/onboarding/")
+
+    return redirect(_workspace_redirect(officer.role))
 
 
 @require_GET

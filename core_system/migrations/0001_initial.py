@@ -251,18 +251,23 @@ class Migration(migrations.Migration):
                 'db_table': 'ACCESS_SESSION',
             },
         ),
-        migrations.CreateModel(
-            name='SensitiveReadLog',
-            fields=[
-                ('read_id_PK', models.AutoField(primary_key=True, serialize=False)),
-                ('module', models.CharField(max_length=100)),
-                ('record_id', models.IntegerField()),
-                ('purpose', models.CharField(max_length=255)),
-                ('timestamp', models.DateTimeField(auto_now_add=True)),
-                ('user_id_FK', models.ForeignKey(db_column='user_id_FK', on_delete=django.db.models.deletion.CASCADE, to='core_system.officeruser')),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.CreateModel(
+                    name='SensitiveReadLog',
+                    fields=[
+                        ('read_id_PK', models.AutoField(primary_key=True, serialize=False)),
+                        ('module', models.CharField(max_length=100)),
+                        ('record_id', models.IntegerField()),
+                        ('purpose', models.CharField(max_length=255)),
+                        ('timestamp', models.DateTimeField(auto_now_add=True)),
+                        ('user_id_FK', models.ForeignKey(db_column='user_id_FK', on_delete=django.db.models.deletion.CASCADE, to='core_system.officeruser')),
+                    ],
+                    options={
+                        'db_table': 'SENSITIVE_READ_LOG',
+                    },
+                ),
             ],
-            options={
-                'db_table': 'SENSITIVE_READ_LOG',
-            },
         ),
     ]

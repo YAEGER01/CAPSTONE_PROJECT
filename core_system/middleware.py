@@ -1,10 +1,13 @@
 from django.conf import settings
 import logging
+from datetime import timedelta
 from django.http import JsonResponse, HttpResponseRedirect
 from django.utils import timezone
 from core_system.models import AccessSession
 
 logger = logging.getLogger(__name__)
+
+SESSION_IDLE_TIMEOUT = timedelta(minutes=30)
 
 
 class NoCacheMiddleware:
@@ -45,12 +48,35 @@ class ZeroTrustMiddleware:
         if token:
             try:
                 session = AccessSession.objects.select_related("user_id_FK").get(token_id=token)
+                
+                # Check if session is revoked or expired
                 if (
-                    session.session_status != "active"
-                    or session.revoked_at is not None
+                    session.session_status != "Active"
                     or session.expires_at <= timezone.now()
                 ):
-                    return self.get_response(request)
+                    # Session is no longer valid - clear it and redirect to login
+                    request.session.flush()
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            "ok": False,
+                            "session_expired": True,
+                            "error": "Your session has been revoked due to a new login on another device. Please login again."
+                        }, status=401)
+                    return HttpResponseRedirect("/login/?session=revoked")
+
+                now = timezone.now()
+
+                # Idle timeout: no activity for SESSION_IDLE_TIMEOUT -> expire session
+                if session.last_activity_at is not None:
+                    if now - session.last_activity_at > SESSION_IDLE_TIMEOUT:
+                        request.session.flush()
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            return JsonResponse({
+                                "ok": False,
+                                "session_expired": True,
+                                "error": "Your session has expired due to inactivity. Please login again."
+                            }, status=401)
+                        return HttpResponseRedirect("/login/?session=idle")
 
                 current_ua = request.META.get("HTTP_USER_AGENT") or ""
                 current_ip = request.META.get("REMOTE_ADDR") or "0.0.0.0"
@@ -71,8 +97,21 @@ class ZeroTrustMiddleware:
                     response["X-Zero-Trust-Challenge"] = "true"
                     return response
 
+                # Continuous activity tracking (throttled to once per minute)
+                if session.last_activity_at is None or now - session.last_activity_at > timedelta(minutes=1):
+                    session.last_activity_at = now
+                    session.save(update_fields=["last_activity_at"])
+
             except AccessSession.DoesNotExist:
-                pass
+                # Session doesn't exist - clear session data
+                request.session.flush()
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        "ok": False,
+                        "session_expired": True,
+                        "error": "Your session has been revoked. Please login again."
+                    }, status=401)
+                return HttpResponseRedirect("/login/?session=invalid")
 
         return self.get_response(request)
 

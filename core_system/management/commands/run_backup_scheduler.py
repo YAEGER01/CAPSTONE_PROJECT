@@ -8,6 +8,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from core_system.services.backup_service import create_backup_bundle, create_config_backup, create_db_backup, create_media_backup
+from core_system.services.dues_reminder import run_dues_reminders
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,17 @@ class Command(BaseCommand):
             lambda: create_config_backup(retention_count=config_retention),
             trigger=CronTrigger(day_of_week="sun", hour=2, minute=0),
             id="backup_config_weekly_sun_0200",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+            misfire_grace_time=60 * 60,
+        )
+
+        # Monthly dues reminders: daily 08:00
+        scheduler.add_job(
+            lambda: run_dues_reminders(dry_run=False),
+            trigger=CronTrigger(hour=8, minute=0),
+            id="dues_reminders_daily_0800",
             replace_existing=True,
             max_instances=1,
             coalesce=True,

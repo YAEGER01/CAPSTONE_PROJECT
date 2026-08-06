@@ -2,13 +2,14 @@ import hashlib
 import json
 import logging
 import secrets
+import threading
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import render, get_object_or_404
@@ -77,6 +78,7 @@ from core_system.shared_view_utils import (
     _log_sensitive_read,
     _payment_item_to_json,
     archive_transaction,
+    route_back_to_treasurer,
     _broadcast_pending_counts,
     _broadcast_to_group,
     resolve_officer_from_session,
@@ -86,11 +88,12 @@ from core_system.services.compliance import (
     active_members_qs,
 )
 from core_system.services.email_service import (
+    process_email_queue,
+    queue_email,
     send_aid_emails,
-    send_html_email,
     send_registration_rejected_email,
 )
-from core_system.auth_utils import sha256_hex
+from core_system.auth_utils import hash_password
 
 
 def permission_denied_view(request, exception=None):
@@ -343,6 +346,9 @@ def _build_auditor_info(v):
 
 @require_GET
 def get_pending_presidential_payments(request):
+    guard = require_role(request, role="President")
+    if guard is not None:
+        return guard
     verifications = TransactionVerification.objects.filter(
         table_name__in=["membership_fee", "monthly_dues"],
         verification_status="Auditor Verified",
@@ -543,9 +549,16 @@ def president_approve_monthly_dues(request: HttpRequest):
     if not dues_id or action not in ["approve", "reject"]:
         return JsonResponse({"ok": False, "error": "Missing required fields: dues_id, action"}, status=400)
 
-    dues = get_object_or_404(MonthlyDues, dues_id_PK=dues_id)
+    dues = get_object_or_404(MonthlyDues.objects.select_for_update(), dues_id_PK=dues_id)
     officer_id = request.session.get("officer_id")
     officer = OfficerUser.objects.get(user_id_PK=officer_id)
+
+    # State check: only allow approval if the record is in a pending president state (S6).
+    if action == "approve" and dues.president_status not in ("Pending President Approval", "Pending"):
+        return JsonResponse(
+            {"ok": False, "error": "This payment is not in a state that can be approved by the President."},
+            status=409,
+        )
 
     if action == "approve":
         # Update MonthlyDues approval fields
@@ -556,35 +569,45 @@ def president_approve_monthly_dues(request: HttpRequest):
         dues.payment_status = "Full Payment"
         dues.save()
 
-        # Create FundTransaction (inflow)
-        FundTransaction.objects.create(
-            direction="inflow",
-            amount=dues.amount,
+        # Create FundTransaction (inflow) — idempotent per dues record.
+        if not FundTransaction.objects.filter(
             source_type="monthly_dues",
             source_id=dues.dues_id_PK,
-            description=f"Monthly Dues - {dues.member_id_FK.full_name} ({dues.month_covered})",
-            reference_number=dues.receipt_number,
-            recorded_by_user_id_FK=officer,
-        )
+        ).exists():
+            FundTransaction.objects.create(
+                direction="inflow",
+                amount=dues.amount,
+                source_type="monthly_dues",
+                source_id=dues.dues_id_PK,
+                description=f"Monthly Dues - {dues.member_id_FK.full_name} ({dues.month_covered})",
+                reference_number=dues.receipt_number,
+                recorded_by_user_id_FK=officer,
+            )
 
-        # Calculate and update MemberLedger
-        last_ledger = MemberLedger.objects.filter(
-            member_id_FK=dues.member_id_FK
-        ).order_by("-recorded_at").first()
-        balance_after = last_ledger.balance_after if last_ledger else Decimal("0.00")
-        balance_after += dues.amount
-
-        MemberLedger.objects.create(
-            member_id_FK=dues.member_id_FK,
-            transaction_type="monthly_dues",
-            amount=dues.amount,
-            direction="credit",
-            balance_after=balance_after,
-            reference_id=dues.dues_id_PK,
+        # Calculate and update MemberLedger — idempotent per dues record so the
+        # ledger entry is written exactly once (at final approval), never doubled
+        # when a president re-approves or when two approval endpoints race (C3).
+        if not MemberLedger.objects.filter(
             reference_type="MonthlyDues",
-            description=f"Monthly Dues Payment - {dues.month_covered}",
-            recorded_by_user_id_FK=officer,
-        )
+            reference_id=dues.dues_id_PK,
+        ).exists():
+            last_ledger = MemberLedger.objects.filter(
+                member_id_FK=dues.member_id_FK
+            ).order_by("-recorded_at").first()
+            balance_after = last_ledger.balance_after if last_ledger else Decimal("0.00")
+            balance_after += dues.amount
+
+            MemberLedger.objects.create(
+                member_id_FK=dues.member_id_FK,
+                transaction_type="monthly_dues",
+                amount=dues.amount,
+                direction="credit",
+                balance_after=balance_after,
+                reference_id=dues.dues_id_PK,
+                reference_type="MonthlyDues",
+                description=f"Monthly Dues Payment - {dues.month_covered}",
+                recorded_by_user_id_FK=officer,
+            )
 
         # Update TransactionVerification
         tv = TransactionVerification.objects.filter(
@@ -597,15 +620,14 @@ def president_approve_monthly_dues(request: HttpRequest):
             tv.save()
 
         # Log audit trail
-        GlobalAuditTrail.objects.create(
-            table_name="MONTHLY_DUES",
+        _record_audit_trail(
+            table="monthly_dues",
             record_id=dues_id,
             action="President Approved",
-            actor_type="officer",
-            actor_id=officer.user_id_PK,
-            actor_name=officer.full_name,
+            actor=officer,
+            new={"member": dues.member_id_FK, "month_covered": str(dues.month_covered), "amount": str(dues.amount)},
+            ip=request.META.get("REMOTE_ADDR"),
             notes=remarks,
-            ip_address=request.META.get("REMOTE_ADDR"),
         )
 
         # Notify member
@@ -625,51 +647,26 @@ def president_approve_monthly_dues(request: HttpRequest):
             "message": "Monthly dues payment approved successfully.",
         })
     else:
-        # Reject
-        dues.president_status = "President Rejected"
-        dues.president_id_FK = officer
-        dues.president_remarks = remarks
-        dues.president_approved_at = timezone.now()
-        dues.payment_status = "Rejected"
-        dues.save()
-
-        # Update TransactionVerification
-        tv = TransactionVerification.objects.filter(
-            table_name="monthly_dues",
-            record_id=dues_id
-        ).first()
-        if tv:
-            tv.verification_status = "President Rejected"
-            tv.president_id_FK = officer
-            tv.save()
-
-        # Log audit trail
-        GlobalAuditTrail.objects.create(
-            table_name="MONTHLY_DUES",
-            record_id=dues_id,
-            action="President Rejected",
-            actor_type="officer",
-            actor_id=officer.user_id_PK,
-            actor_name=officer.full_name,
-            notes=remarks,
-            ip_address=request.META.get("REMOTE_ADDR"),
-        )
-
-        # Notify member
-        Notification.objects.create(
-            recipient_type="member",
-            recipient_id=dues.member_id_FK.member_id_PK,
-            recipient_name=dues.member_id_FK.full_name,
-            recipient_contact=dues.member_id_FK.email,
-            notification_type="Payment Rejected",
-            message=f"Your monthly dues payment for {dues.month_covered} was rejected. Reason: {remarks}",
-            category="payment",
-            delivery_status="sent",
+        # Reject: route the payment back to the Treasurer queue (non-terminal).
+        route_back_to_treasurer(
+            "monthly_dues",
+            dues_id,
+            officer,
+            remarks,
+            request,
+            member=dues.member_id_FK,
+            extra_updates={
+                "president_status": "President Rejected",
+                "president_id_FK": officer,
+                "president_remarks": remarks,
+                "president_approved_at": timezone.now(),
+            },
+            details=f"Your monthly dues payment for {dues.month_covered} was returned for revision by the President.",
         )
 
         return JsonResponse({
             "ok": True,
-            "message": "Monthly dues payment rejected.",
+            "message": "Monthly dues payment returned to the Treasurer for revision.",
         })
 
 
@@ -1053,7 +1050,6 @@ def submit_presidential_decision(request):
             verification.approved_at = timezone.now()
             action_str = "Presidential Executive Approval Completed"
         elif decision == "Rejected":
-            verification.verification_status = "Rejected"
             if not remarks:
                 return JsonResponse(
                     {
@@ -1062,7 +1058,21 @@ def submit_presidential_decision(request):
                     },
                     status=400,
                 )
-            action_str = "Flagged Deficient by Executive Order"
+            route_back_to_treasurer(
+                verification.table_name,
+                verification.record_id,
+                officer,
+                remarks,
+                request,
+                details="Your payment/claim was returned for revision by the President.",
+            )
+            _broadcast_pending_counts()
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": "Transaction returned to the Treasurer for revision.",
+                }
+            )
         else:
             return JsonResponse(
                 {"success": False, "message": "Invalid decision route."}, status=400
@@ -1078,14 +1088,19 @@ def submit_presidential_decision(request):
                 officer,
             )
             if archive and verification.table_name in ("membership_fee", "monthly_dues"):
-                FundTransaction.objects.create(
-                    direction="inflow",
-                    amount=archive.amount,
+                # Create FundTransaction (inflow) — idempotent per finance record (C3).
+                if not FundTransaction.objects.filter(
                     source_type=verification.table_name,
                     source_id=verification.record_id,
-                    description=f"{archive.member_name} ({dict(FundTransaction.SOURCE_TYPES).get(verification.table_name, verification.table_name)})",
-                    recorded_by_user_id_FK=officer,
-                )
+                ).exists():
+                    FundTransaction.objects.create(
+                        direction="inflow",
+                        amount=archive.amount,
+                        source_type=verification.table_name,
+                        source_id=verification.record_id,
+                        description=f"{archive.member_name} ({dict(FundTransaction.SOURCE_TYPES).get(verification.table_name, verification.table_name)})",
+                        recorded_by_user_id_FK=officer,
+                    )
 
                 # Update MonthlyDues approval fields if applicable
                 if verification.table_name == "monthly_dues":
@@ -1097,24 +1112,28 @@ def submit_presidential_decision(request):
                         dues.payment_status = "Full Payment"
                         dues.save()
 
-                        # Create MemberLedger entry
-                        last_ledger = MemberLedger.objects.filter(
-                            member_id_FK=dues.member_id_FK
-                        ).order_by("-recorded_at").first()
-                        balance_after = last_ledger.balance_after if last_ledger else Decimal("0.00")
-                        balance_after += dues.amount
-
-                        MemberLedger.objects.create(
-                            member_id_FK=dues.member_id_FK,
-                            transaction_type="monthly_dues",
-                            amount=dues.amount,
-                            direction="credit",
-                            balance_after=balance_after,
-                            reference_id=dues.dues_id_PK,
+                        # Create MemberLedger entry — idempotent per dues record (C3)
+                        if not MemberLedger.objects.filter(
                             reference_type="MonthlyDues",
-                            description=f"Monthly Dues Payment - {dues.month_covered}",
-                            recorded_by_user_id_FK=officer,
-                        )
+                            reference_id=dues.dues_id_PK,
+                        ).exists():
+                            last_ledger = MemberLedger.objects.filter(
+                                member_id_FK=dues.member_id_FK
+                            ).order_by("-recorded_at").first()
+                            balance_after = last_ledger.balance_after if last_ledger else Decimal("0.00")
+                            balance_after += dues.amount
+
+                            MemberLedger.objects.create(
+                                member_id_FK=dues.member_id_FK,
+                                transaction_type="monthly_dues",
+                                amount=dues.amount,
+                                direction="credit",
+                                balance_after=balance_after,
+                                reference_id=dues.dues_id_PK,
+                                reference_type="MonthlyDues",
+                                description=f"Monthly Dues Payment - {dues.month_covered}",
+                                recorded_by_user_id_FK=officer,
+                            )
 
                         # Notify member
                         Notification.objects.create(
@@ -1137,7 +1156,7 @@ def submit_presidential_decision(request):
                             username=member.employee_id or f"member-{member.member_id_PK}",
                             defaults={
                                 "full_name": member.full_name,
-                                "password_hash": sha256_hex(member.employee_id or str(member.member_id_PK)),
+                                "password_hash": hash_password(member.employee_id or str(member.member_id_PK)),
                                 "role": "Member",
                                 "email": member.email or "",
                                 "account_status": "Active",
@@ -1148,7 +1167,9 @@ def submit_presidential_decision(request):
                             member.save(update_fields=["officer_user_id_FK"])
                             try:
                                 if member.email:
-                                    send_html_email(
+                                    from core_system.services.email_service import queue_and_process_email
+
+                                    queue_and_process_email(
                                         subject="Welcome to ISU CAUFA – Membership Approved!",
                                         recipient_list=[member.email],
                                         html_template="emails/member_added.html",
@@ -1163,27 +1184,32 @@ def submit_presidential_decision(request):
                                         },
                                     )
                             except Exception:
-                                logger.exception("Failed to send welcome email for walk-in member %s", member.full_name)
+                                logger.exception("Failed to enqueue welcome email for walk-in member %s", member.full_name)
 
-                    # Create MemberLedger entry for Membership Fee
+                    # Create MemberLedger entry for Membership Fee — idempotent
+                    # per fee record so re-approving a walk-in fee cannot double-credit.
                     if fee and fee.member_id_FK:
-                        last_ledger = MemberLedger.objects.filter(
-                            member_id_FK=fee.member_id_FK
-                        ).order_by("-recorded_at").first()
-                        balance_after = last_ledger.balance_after if last_ledger else Decimal("0.00")
-                        balance_after += fee.amount
-
-                        MemberLedger.objects.create(
-                            member_id_FK=fee.member_id_FK,
-                            transaction_type="membership_fee",
-                            amount=fee.amount,
-                            direction="credit",
-                            balance_after=balance_after,
-                            reference_id=fee.fee_id_PK,
+                        if not MemberLedger.objects.filter(
                             reference_type="MembershipFee",
-                            description=f"Membership Fee Payment",
-                            recorded_by_user_id_FK=officer,
-                        )
+                            reference_id=fee.fee_id_PK,
+                        ).exists():
+                            last_ledger = MemberLedger.objects.filter(
+                                member_id_FK=fee.member_id_FK
+                            ).order_by("-recorded_at").first()
+                            balance_after = last_ledger.balance_after if last_ledger else Decimal("0.00")
+                            balance_after += fee.amount
+
+                            MemberLedger.objects.create(
+                                member_id_FK=fee.member_id_FK,
+                                transaction_type="membership_fee",
+                                amount=fee.amount,
+                                direction="credit",
+                                balance_after=balance_after,
+                                reference_id=fee.fee_id_PK,
+                                reference_type="MembershipFee",
+                                description=f"Membership Fee Payment",
+                                recorded_by_user_id_FK=officer,
+                            )
 
         _record_audit_trail(
             table=verification.table_name,
@@ -1288,6 +1314,16 @@ def submit_presidential_aid_decision(request):
                 status=400,
             )
 
+        # Status gate: only allow acting on records in an auditor-verified state (S7).
+        if record.status not in ("Auditor Verified", "Pending Auditor Verification", "Pending"):
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "Aid request is not in a state that can be acted upon by the President.",
+                },
+                status=409,
+            )
+
         if table_name == "medical_aid" and decision == "Approved":
             requested = float(record.requested_amount or 0)
             hospital_bill = float(record.hospital_bill_amount or 0)
@@ -1368,6 +1404,22 @@ def submit_presidential_aid_decision(request):
 
             transaction.on_commit(
                 lambda r=record, tn=table_name, pm=per_member_amount: send_aid_emails(r, tn, pm)
+            )
+
+        else:
+            route_back_to_treasurer(
+                table_name,
+                record.pk,
+                officer,
+                remarks,
+                request,
+                member=getattr(record, "member_id_FK", None),
+                details=f"Your {table_name.replace('_', ' ')} request was returned for revision by the President.",
+            )
+            _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "aids"})
+            _broadcast_pending_counts()
+            return JsonResponse(
+                {"success": True, "message": "Aid request returned to the Treasurer for revision."}
             )
 
         TransactionVerification.objects.filter(
@@ -1472,25 +1524,110 @@ def submit_presidential_decision_batch(request):
                 v.approved_at = timezone.now()
                 action_str = "APPROVED"
             else:
-                v.verification_status = "Rejected"
-                action_str = "REJECTED"
+                route_back_to_treasurer(
+                    v.table_name,
+                    v.record_id,
+                    officer,
+                    remarks,
+                    request,
+                )
+                v.verification_status = Status.RETURNED_REVISION
+                v.returned_reason = remarks
+                action_str = "RETURNED"
 
             v.president_id_FK = officer
-            v.save()
+            if decision == Status.APPROVED:
+                v.save()
+            else:
+                v.save(update_fields=["verification_status", "returned_reason", "president_id_FK"])
 
             if decision == "Approved":
                 archive = archive_transaction(v.table_name, v.record_id, officer)
                 if archive and v.table_name in ("membership_fee", "monthly_dues"):
-                    fund_transactions.append(
-                        FundTransaction(
-                            direction="inflow",
-                            amount=archive.amount,
-                            source_type=v.table_name,
-                            source_id=v.record_id,
-                            description=f"{archive.member_name} ({dict(FundTransaction.SOURCE_TYPES).get(v.table_name, v.table_name)})",
+                    # Idempotent: skip if a FundTransaction already exists for this record (C3).
+                    if not FundTransaction.objects.filter(
+                        source_type=v.table_name,
+                        source_id=v.record_id,
+                    ).exists():
+                        fund_transactions.append(
+                            FundTransaction(
+                                direction="inflow",
+                                amount=archive.amount,
+                                source_type=v.table_name,
+                                source_id=v.record_id,
+                                description=f"{archive.member_name} ({dict(FundTransaction.SOURCE_TYPES).get(v.table_name, v.table_name)})",
+                                recorded_by_user_id_FK=officer,
+                            )
+                        )
+
+                # B4: Also update the MonthlyDues record and create ledger entry for batch approval.
+                if v.table_name == "monthly_dues":
+                    dues = MonthlyDues.objects.filter(dues_id_PK=v.record_id).first()
+                    if dues:
+                        dues.president_status = "President Approved"
+                        dues.president_id_FK = officer
+                        dues.president_approved_at = timezone.now()
+                        dues.payment_status = "Full Payment"
+                        dues.save()
+
+                        # Idempotent MemberLedger write — one entry per dues record.
+                        if not MemberLedger.objects.filter(
+                            reference_type="MonthlyDues",
+                            reference_id=dues.dues_id_PK,
+                        ).exists():
+                            last_ledger = MemberLedger.objects.filter(
+                                member_id_FK=dues.member_id_FK
+                            ).order_by("-recorded_at").first()
+                            balance_after = last_ledger.balance_after if last_ledger else Decimal("0.00")
+                            balance_after += dues.amount
+
+                        MemberLedger.objects.create(
+                            member_id_FK=dues.member_id_FK,
+                            transaction_type="monthly_dues",
+                            amount=dues.amount,
+                            direction="credit",
+                            balance_after=balance_after,
+                            reference_id=dues.dues_id_PK,
+                            reference_type="MonthlyDues",
+                            description=f"Monthly Dues Payment - {dues.month_covered}",
                             recorded_by_user_id_FK=officer,
                         )
-                    )
+
+                        Notification.objects.create(
+                            recipient_type="member",
+                            recipient_id=dues.member_id_FK.member_id_PK,
+                            recipient_name=dues.member_id_FK.full_name,
+                            recipient_contact=dues.member_id_FK.email,
+                            notification_type="Payment Approved",
+                            message=f"Your monthly dues payment for {dues.month_covered} (₱{dues.amount}) has been approved. Thank you for your contribution.",
+                            category="payment",
+                            delivery_status="sent",
+                        )
+                elif v.table_name == "membership_fee":
+                    fee = MembershipFee.objects.filter(fee_id_PK=v.record_id).first()
+                    if fee and fee.member_id_FK:
+                        # Idempotent MemberLedger write — one entry per fee record (C3).
+                        if not MemberLedger.objects.filter(
+                            reference_type="MembershipFee",
+                            reference_id=fee.fee_id_PK,
+                        ).exists():
+                            last_ledger = MemberLedger.objects.filter(
+                                member_id_FK=fee.member_id_FK
+                            ).order_by("-recorded_at").first()
+                            balance_after = last_ledger.balance_after if last_ledger else Decimal("0.00")
+                            balance_after += fee.amount
+
+                            MemberLedger.objects.create(
+                                member_id_FK=fee.member_id_FK,
+                                transaction_type="membership_fee",
+                                amount=fee.amount,
+                                direction="credit",
+                                balance_after=balance_after,
+                                reference_id=fee.fee_id_PK,
+                                reference_type="MembershipFee",
+                                description=f"Membership Fee Payment",
+                                recorded_by_user_id_FK=officer,
+                            )
 
             audit_entries.append({
                 "table": v.table_name,
@@ -1595,7 +1732,7 @@ def submit_presidential_aid_decision_batch(request):
                 skipped += 1
                 continue
 
-            canonical_decision = Status.APPROVED if is_approved(decision) else Status.REJECTED
+            canonical_decision = Status.APPROVED if is_approved(decision) else Status.RETURNED_REVISION
 
             record = None
             if v.table_name == "medical_aid":
@@ -1616,9 +1753,20 @@ def submit_presidential_aid_decision_batch(request):
             v.verification_status = canonical_decision
             if is_approved(decision):
                 v.approved_at = timezone.now()
+            else:
+                route_back_to_treasurer(
+                    v.table_name,
+                    v.record_id,
+                    officer,
+                    remarks,
+                    request,
+                    member=getattr(record, "member_id_FK", None) if record is not None else None,
+                    details=f"Your {v.table_name.replace('_', ' ')} request was returned for revision by the President.",
+                )
+                v.returned_reason = remarks
 
             v.president_id_FK = officer
-            v.save()
+            v.save(update_fields=["verification_status", "approved_at", "president_id_FK", "returned_reason"])
 
             if is_approved(decision):
                 archive = archive_transaction(v.table_name, v.record_id, officer)
@@ -2492,13 +2640,14 @@ def president_officers_create(request: HttpRequest):
     officer = OfficerUser.objects.create(
         full_name=full_name,
         username=username,
-        password_hash=sha256_hex(password),
+        password_hash=hash_password(password),
         role=role,
         email=email,
         department_id_FK=department,
         account_status=account_status,
         term_start=term_start,
         term_end=term_end,
+        must_change_password=True,
     )
 
     president = _resolve_president(request)
@@ -2562,7 +2711,7 @@ def president_officers_update(request: HttpRequest, officer_id: int):
     officer.term_end = term_end
     officer.department_id_FK = department
     if password:
-        officer.password_hash = sha256_hex(password)
+        officer.password_hash = hash_password(password)
 
     update_fields = [
         "full_name",
@@ -2602,8 +2751,9 @@ def president_officers_reset_password(request: HttpRequest, officer_id: int):
 
     officer = get_object_or_404(OfficerUser, pk=officer_id)
     temp_password = secrets.token_urlsafe(10)
-    officer.password_hash = sha256_hex(temp_password)
-    officer.save(update_fields=["password_hash", "updated_at"])
+    officer.password_hash = hash_password(temp_password)
+    officer.must_change_password = True
+    officer.save(update_fields=["password_hash", "must_change_password", "updated_at"])
 
     president = _resolve_president(request)
     _record_audit_trail(
@@ -2687,7 +2837,7 @@ def president_profile_update(request: HttpRequest):
     officer.full_name = full_name
     officer.username = username
     if password:
-        officer.password_hash = sha256_hex(password)
+        officer.password_hash = hash_password(password)
 
     update_fields = ["full_name", "username", "updated_at"]
     if password:
@@ -2745,7 +2895,7 @@ def president_officer_self_enroll(request: HttpRequest):
 
     officer_update_fields = ["role", "email", "department_id_FK", "account_status", "updated_at"]
     if not president.password_hash or president.password_hash == "unused":
-        president.password_hash = sha256_hex(president.username)
+        president.password_hash = hash_password(president.username)
         officer_update_fields.append("password_hash")
 
     president.role = role_value
@@ -3284,7 +3434,7 @@ def president_approve_registration_request(request: HttpRequest, request_id: int
     if officer is None:
         return JsonResponse({"ok": False, "error": "Unable to resolve officer session."}, status=401)
 
-    request_row = get_object_or_404(MemberRegistrationRequest, request_id_PK=request_id)
+    request_row = get_object_or_404(MemberRegistrationRequest.objects.select_for_update(), request_id_PK=request_id)
     action = (request.POST.get("action") or "").strip().lower()
     reason = (request.POST.get("reason") or "").strip()
 
@@ -3353,13 +3503,18 @@ def president_approve_registration_request(request: HttpRequest, request_id: int
                 date_joined=now.date(),
             )
 
+            # Generate a new secure password for the approved member
+            from core_system.services.email_service import generate_secure_password
+            generated_password = generate_secure_password()
+            
             officer_user = OfficerUser.objects.create(
                 full_name=request_row.full_name,
                 username=request_row.employee_id,
-                password_hash=request_row.password_hash or sha256_hex(request_row.employee_id),
+                password_hash=hash_password(generated_password),
                 role="Member",
                 email=request_row.email,
                 account_status="Active",
+                must_change_password=True,
             )
 
             member_obj.officer_user_id_FK = officer_user
@@ -3392,10 +3547,28 @@ def president_approve_registration_request(request: HttpRequest, request_id: int
                 amount=fee_amount,
                 source_type="membership_fee",
                 source_id=fee.fee_id_PK,
-                description=f"{request_row.full_name} — Membership Fee (registration)",
+                description=f"{request_row.full_name} - Membership Fee (registration)",
                 reference_number=request_row.receipt_number,
                 recorded_by_user_id_FK=officer,
             )
+
+            # Mirror the FundTransaction above into MemberLedger so every
+            # financial event is recorded in both ledgers in sync (C3).
+            if not MemberLedger.objects.filter(
+                reference_type="MembershipFee",
+                reference_id=fee.fee_id_PK,
+            ).exists():
+                MemberLedger.objects.create(
+                    member_id_FK=member_obj,
+                    transaction_type="membership_fee",
+                    amount=fee.amount,
+                    direction="credit",
+                    balance_after=(fee.amount),
+                    reference_id=fee.fee_id_PK,
+                    reference_type="MembershipFee",
+                    description="Membership Fee Payment",
+                    recorded_by_user_id_FK=officer,
+                )
 
             proof = SupportingProof.objects.filter(
                 content_type=ContentType.objects.get_for_model(MemberRegistrationRequest),
@@ -3435,7 +3608,9 @@ def president_approve_registration_request(request: HttpRequest, request_id: int
 
         recipient_email = request_row.email or member_obj.email
         if recipient_email:
-            sent = send_html_email(
+            from core_system.services.email_service import queue_and_process_email
+
+            queue_and_process_email(
                 subject="Welcome to ISU CAUFA – Membership Approved!",
                 recipient_list=[recipient_email],
                 html_template="emails/member_added.html",
@@ -3447,12 +3622,23 @@ def president_approve_registration_request(request: HttpRequest, request_id: int
                     "monthly_dues_amount": get_monthly_dues_amount(),
                     "membership_fee_amount": get_membership_fee_amount(),
                     "officer_contact": "",
+                    "generated_password": generated_password,
                 },
             )
-            if not sent:
-                logger.warning("Welcome email delivery reported failure for %s <%s>", request_row.full_name, recipient_email)
+            logger.info("Welcome email enqueued for %s <%s>", request_row.full_name, recipient_email)
         else:
-            logger.warning("No email address for %s — welcome email not sent", request_row.full_name)
+            logger.warning("No email address for %s — welcome email not queued", request_row.full_name)
+
+        Notification.objects.create(
+            recipient_type="member",
+            recipient_id=member_obj.member_id_PK,
+            recipient_name=member_obj.full_name,
+            recipient_contact=recipient_email or member_obj.email or "",
+            notification_type="membership_approved",
+            message=f"Your ISU CAUFA membership registration has been approved. Welcome aboard, {member_obj.full_name}!",
+            category="general",
+            delivery_status="sent",
+        )
 
         _broadcast_pending_counts()
         _broadcast_to_group("treasurer_dashboard", {"type": "data_changed", "section": "members"})
@@ -3464,6 +3650,9 @@ def president_approve_registration_request(request: HttpRequest, request_id: int
             "status": request_row.status,
         })
 
+    except IntegrityError as ex:
+        logger.exception("Integrity error while approving registration request %s", request_id)
+        return JsonResponse({"ok": False, "error": "This registration request has already been processed or the account already exists."}, status=409)
     except Exception as ex:
         return JsonResponse({"ok": False, "error": f"Failed to create member account: {str(ex)}"}, status=500)
 

@@ -8,7 +8,7 @@
     <section class="relative h-[320px] overflow-hidden">
         {% if article.featured_image %}
         <div class="absolute inset-0">
-            <img src="{{ article.featured_image.url }}" alt="{{ article.title }}" class="w-full h-full object-cover" />
+            <img src="{{ article.featured_image.url }}" alt="{{ article.title }}" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent"></div>
         </div>
         {% else %}
@@ -90,7 +90,7 @@
                     <div class="flex transition-transform duration-500 ease-out" id="gallery-track">
                         {% for photo in gallery %}
                         <div class="w-full shrink-0 aspect-[16/9] flex items-center justify-center bg-brand-dark overflow-hidden">
-                            <img src="{{ photo.image.url }}" alt="{{ photo.caption }}" class="w-full h-full object-cover" />
+                            <img src="{{ photo.image.url }}" alt="{{ photo.caption }}" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none'" />
                         </div>
                         {% endfor %}
                     </div>

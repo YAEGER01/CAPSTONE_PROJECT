@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import base64
 import logging
+import secrets
+import string
+import threading
 from email.mime.image import MIMEImage
 from io import BytesIO
 from pathlib import Path
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.db import connection
+from django.db import connection, transaction
 from django.template.loader import render_to_string
 from django.utils import timezone
 
@@ -25,6 +28,29 @@ except ImportError:
     HAS_PIL = False
 
 logger = logging.getLogger(__name__)
+
+
+def generate_secure_password(length: int = 12) -> str:
+    """Generate a secure random password with mixed case, numbers, and special characters."""
+    if length < 8:
+        length = 8
+    
+    # Ensure at least one of each required character type
+    chars = []
+    chars.append(secrets.choice(string.ascii_lowercase))
+    chars.append(secrets.choice(string.ascii_uppercase))
+    chars.append(secrets.choice(string.digits))
+    chars.append(secrets.choice("!@#$%^&*()_+-=[]{}|;:,.<>?"))
+    
+    # Fill the rest with random characters from all sets
+    all_chars = string.ascii_letters + string.digits + "!@#$%^&*()_+-=[]{}|;:,.<>?"
+    chars.extend(secrets.choice(all_chars) for _ in range(length - 4))
+    
+    # Shuffle to avoid predictable patterns (secrets-based Fisher-Yates)
+    for i in range(len(chars) - 1, 0, -1):
+        j = secrets.randbelow(i + 1)
+        chars[i], chars[j] = chars[j], chars[i]
+    return ''.join(chars)
 
 
 def _get_logo_data_uri(max_width: int = 120) -> str | None:
@@ -203,7 +229,7 @@ def send_aid_processing_notice(member, aid_type: str) -> bool:
     )
 
 
-def send_aid_bulk_contribution_notice(contribution_amount: float, aid_type: str, exclude_member=None) -> bool:
+def send_aid_bulk_contribution_notice(contribution_amount: float, aid_type: str, requesting_member_name: str = "A Fellow Member", exclude_member=None) -> bool:
     members = Member.objects.exclude(membership_status__iexact="Retired")
     if exclude_member:
         members = members.exclude(member_id_PK=exclude_member.member_id_PK)
@@ -216,12 +242,99 @@ def send_aid_bulk_contribution_notice(contribution_amount: float, aid_type: str,
 
     context = {
         "contribution_amount": f"{contribution_amount:,.2f}",
+        "aid_type": aid_type,
+        "requesting_member_name": requesting_member_name,
     }
 
     return send_html_email(
         subject="Notice of Active Member Contribution",
         recipient_list=recipient_emails,
         html_template="emails/aid_bulk_contribution_notice.html",
+        context=context,
+    )
+
+
+def send_finance_item_returned_email(member, item_label: str = "", details: str = "", remarks: str = "", is_rejected: bool = False) -> bool:
+    """Send a member an email when a finance item is returned for revision or rejected."""
+    if not member or not member.email:
+        return False
+
+    context = {
+        "full_name": member.full_name,
+        "item_label": item_label or "Payment Item",
+        "details": details or "",
+        "remarks": remarks or "",
+        "is_rejected": is_rejected,
+    }
+
+    subject = (
+        "Payment Item Rejected – ISU CAUFA"
+        if is_rejected
+        else "Payment Item Returned for Revision – ISU CAUFA"
+    )
+
+    return send_html_email(
+        subject=subject,
+        recipient_list=[member.email],
+        html_template="emails/finance_item_returned.html",
+        context=context,
+    )
+
+
+def send_member_finance_status_email(member, item_label: str = "", details: str = "", remarks: str = "", is_rejected: bool = False) -> bool:
+    """Create an in-dashboard notification and send the finance item returned/rejected email.
+
+    This is the single entry point used by every finance reject/return path
+    (president, treasurer, auditor) so members receive both channels.
+    """
+    if member:
+        from core_system.models import Notification
+
+        Notification.objects.create(
+            recipient_type="member",
+            recipient_id=member.member_id_PK,
+            recipient_name=member.full_name,
+            recipient_contact=member.email,
+            notification_type="Payment Rejected" if is_rejected else "Payment Returned",
+            message=(
+                f"Your {item_label or 'payment item'} was rejected."
+                + (f" Reason: {remarks}" if remarks else "")
+            )
+            if is_rejected
+            else (
+                f"Your {item_label or 'payment item'} was returned for revision."
+                + (f" Remarks: {remarks}" if remarks else "")
+            ),
+            category="payment",
+            delivery_status="sent",
+        )
+
+    return send_finance_item_returned_email(
+        member,
+        item_label=item_label,
+        details=details,
+        remarks=remarks,
+        is_rejected=is_rejected,
+    )
+
+
+def send_member_deduction_email(member, deduction_amount: float, deduction_type: str, requesting_member_name: str = "A Fellow Member", aid_type: str = "Aid") -> bool:
+    """Send email to a specific member about a deduction from their account."""
+    if not member or not member.email:
+        return False
+
+    context = {
+        "member_name": member.full_name,
+        "deduction_amount": f"{deduction_amount:,.2f}",
+        "deduction_type": deduction_type,
+        "requesting_member_name": requesting_member_name,
+        "aid_type": aid_type,
+    }
+
+    return send_html_email(
+        subject=f"Account Deduction Notice - {deduction_type}",
+        recipient_list=[member.email],
+        html_template="emails/member_deduction_notice.html",
         context=context,
     )
 
@@ -242,9 +355,43 @@ def queue_email(subject, recipient_list, html_template, context=None):
     )
 
 
+def queue_and_process_email(subject, recipient_list, html_template, context=None, batch_size=5):
+    """Queue an email and flush the queue after the current transaction commits."""
+    from core_system.models import OutgoingEmail
+
+    email_record = OutgoingEmail.objects.create(
+        recipient_list=recipient_list,
+        subject=subject,
+        html_template=html_template,
+        context=context or {},
+    )
+
+    def _start_queue_processor():
+        threading.Thread(
+            target=process_email_queue,
+            kwargs={"batch_size": batch_size},
+            daemon=True,
+        ).start()
+
+    transaction.on_commit(_start_queue_processor)
+    return email_record
+
+
 def send_aid_emails(record, table_name, per_member_amount):
     """Send both aid emails synchronously (private + bulk)."""
-    from core_system.models import Member
+    from core_system.models import Member, Notification
+
+    # Determine requesting member name and aid type
+    requesting_member_name = "A Fellow Member"
+    if record.member_id_FK:
+        requesting_member_name = record.member_id_FK.full_name
+    
+    # Map table name to human-readable aid type
+    aid_type_map = {
+        "medical_aid": "Medical Aid",
+        "death_aid": "Death Aid",
+    }
+    aid_type = aid_type_map.get(table_name, "Aid")
 
     if record.member_id_FK and record.member_id_FK.email:
         send_html_email(
@@ -254,18 +401,30 @@ def send_aid_emails(record, table_name, per_member_amount):
             context={"member_name": record.member_id_FK.full_name},
         )
 
-    members = Member.objects.exclude(membership_status__iexact="Retired")
-    recipient_emails = list(
-        members.exclude(email__isnull=True).exclude(email__exact="").values_list("email", flat=True)
+    send_aid_bulk_contribution_notice(
+        contribution_amount=per_member_amount,
+        aid_type=aid_type,
+        requesting_member_name=requesting_member_name,
+        exclude_member=record.member_id_FK if record.member_id_FK else None,
     )
-    if recipient_emails:
-        send_html_email(
-            subject="Notice of Active Member Contribution",
-            recipient_list=recipient_emails,
-            html_template="emails/aid_bulk_contribution_notice.html",
-            context={
-                "contribution_amount": f"{per_member_amount:,.2f}",
-            },
+
+    # Dashboard notifications for each contributing member
+    members = Member.objects.exclude(membership_status__iexact="Retired")
+    if record.member_id_FK:
+        members = members.exclude(member_id_PK=record.member_id_FK.member_id_PK)
+    for m in members:
+        Notification.objects.create(
+            recipient_type="member",
+            recipient_id=m.member_id_PK,
+            recipient_name=m.full_name,
+            recipient_contact=m.email or "",
+            notification_type="Aid Contribution Required",
+            message=(
+                f"A {aid_type} request by {requesting_member_name} has been approved. "
+                f"Your contribution of ₱{per_member_amount:,.2f} is requested."
+            ),
+            category="contribution",
+            delivery_status="sent",
         )
 
 
