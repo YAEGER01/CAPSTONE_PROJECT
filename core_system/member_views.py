@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+import calendar
+import logging
+from datetime import date, timedelta, datetime as dt
 from decimal import Decimal
 
 from django.contrib.contenttypes.models import ContentType
@@ -22,6 +24,7 @@ from core_system.constants.status_constants import Status
 from core_system.guards import require_officer_session
 from core_system.models import (
     AccessSession,
+    AidTrackingPost,
     Claimant,
     Contribution,
     DeathAid,
@@ -36,6 +39,7 @@ from core_system.models import (
     TransactionVerification,
     Certificate,
     Event,
+    SalaryDeductionExemption,
 )
 from core_system.shared_view_utils import _link_proof_to_record
 
@@ -77,6 +81,14 @@ def _compute_dues_summary(member: Member) -> dict:
     covered = set(
         all_dues.filter(
             payment_status__in=["Pending", "Paid", "Full Payment"],
+        ).values_list("month_covered", flat=True)
+    )
+    # Months with an approved salary-deduction exemption are not owed, so they
+    # should not count toward the outstanding balance either.
+    covered.update(
+        SalaryDeductionExemption.objects.filter(
+            member_id_FK=member,
+            status__in=["Pending", "Approved"],
         ).values_list("month_covered", flat=True)
     )
     unpaid_count = 0
@@ -249,6 +261,46 @@ def member_unpaid_months(request: HttpRequest):
             paid_months.add(month_str)
         except:
             pass
+    
+    # Months that already have a monthly-dues record (paid, pending, or fully approved)
+    # so the member cannot be offered them again in the exemption request dropdown.
+    covered_months = set(
+        MonthlyDues.objects.filter(
+            member_id_FK=member,
+        ).values_list("month_covered", flat=True)
+    )
+    covered_months.update(paid_months)
+
+    # Months covered by a salary-deduction exemption (pending or approved).
+    # These months are not owed, so they must not appear as unpaid/selectable
+    # and should not be offered again for another exemption request.
+    exempted_months = set(
+        SalaryDeductionExemption.objects.filter(
+            member_id_FK=member,
+            status__in=["Pending", "Approved"],
+        ).values_list("month_covered", flat=True)
+    )
+
+    # Get approved contribution months (AidTrackingPost with status closed/tracking)
+    # Note: AidTrackingPost doesn't have direct member link, so we check for active posts
+    approved_contribution_months = set()
+    try:
+        contribution_posts = AidTrackingPost.objects.filter(
+            aid_type__icontains='contribution',
+            is_active=True
+        ).values_list('target_month', flat=True)
+        
+        for month_str in contribution_posts:
+            if month_str:
+                try:
+                    # target_month is in YYYY-MM format
+                    approved_contribution_months.add(month_str)
+                except:
+                    pass
+    except Exception as e:
+        # If there's an error with AidTrackingPost query, log it but continue
+        logging.warning(f"Error querying AidTrackingPost: {e}")
+        pass
 
     # Calculate unpaid months from join date to current month
     unpaid_months = []
@@ -269,9 +321,9 @@ def member_unpaid_months(request: HttpRequest):
     while (year < current_year) or (year == current_year and month <= current_month):
         month_str = f"{year}-{month:02d}"
 
-        if month_str not in paid_months:
+        if month_str not in paid_months and month_str not in approved_contribution_months and month_str not in exempted_months:
             # Format month for display
-            month_name = timezone.datetime(year, month, 1).strftime("%B %Y")
+            month_name = dt(year, month, 1).strftime("%B %Y")
             unpaid_months.append({
                 "month": month_str,
                 "display_name": month_name,
@@ -283,27 +335,30 @@ def member_unpaid_months(request: HttpRequest):
             month = 1
             year += 1
 
-    # Advance payment option: include the upcoming month so members can pay early
-    adv_year = current_date.year
-    adv_month = current_date.month + 1
-    if adv_month > 12:
-        adv_year += 1
-        adv_month = 1
-    advance_month_str = f"{adv_year}-{adv_month:02d}"
+    # Advance payment option: include upcoming months so members can pay early (next 12 months)
+    for i in range(1, 13):  # Next 12 months
+        adv_year = current_date.year
+        adv_month = current_date.month + i
+        if adv_month > 12:
+            adv_year += (adv_month - 1) // 12
+            adv_month = ((adv_month - 1) % 12) + 1
+        advance_month_str = f"{adv_year}-{adv_month:02d}"
 
-    if advance_month_str not in paid_months:
-        advance_month_name = timezone.datetime(adv_year, adv_month, 1).strftime("%B %Y")
-        unpaid_months.append({
-            "month": advance_month_str,
-            "display_name": advance_month_name,
-            "is_overdue": False,
-            "is_advance": True,
-        })
+        if advance_month_str not in paid_months and advance_month_str not in approved_contribution_months and advance_month_str not in exempted_months:
+            advance_month_name = dt(adv_year, adv_month, 1).strftime("%B %Y")
+            unpaid_months.append({
+                "month": advance_month_str,
+                "display_name": advance_month_name,
+                "is_overdue": False,
+                "is_advance": True,
+            })
 
     return JsonResponse({
         "ok": True,
         "unpaid_months": unpaid_months,
         "total_unpaid": len(unpaid_months),
+        "covered_months": sorted(covered_months),
+        "exempted_months": sorted(exempted_months),
     })
 
 
@@ -626,10 +681,22 @@ def member_submit_payment(request: HttpRequest):
                 status=400,
             )
     elif payment_type == "Monthly Dues":
-        expected_dues = Decimal(str(get_monthly_dues_amount()))
-        if abs(amount - expected_dues) > Decimal("0.01"):
+        # Get number of months being paid (from month_covered field)
+        if "multipart/form-data" in content_type:
+            month_covered_raw = request.POST.get("month_covered", "")
+        else:
+            month_covered_raw = data.get("month_covered", "")
+        
+        num_months = 1
+        if month_covered_raw:
+            month_covered_list = [str(m).strip() for m in month_covered_raw.split(",")]
+            num_months = len(month_covered_list)
+        
+        expected_dues_per_month = Decimal(str(get_monthly_dues_amount()))
+        expected_total = expected_dues_per_month * Decimal(num_months)
+        if abs(amount - expected_total) > Decimal("0.01"):
             return JsonResponse(
-                {"ok": False, "error": f"Monthly dues amount must be exactly ₱{expected_dues:.2f} per ARTICLE XI Section 1.c."},
+                {"ok": False, "error": f"Monthly dues amount must be exactly ₱{expected_total:.2f} for {num_months} month(s) at ₱{expected_dues_per_month:.2f} per month."},
                 status=400,
             )
 
@@ -669,53 +736,130 @@ def member_submit_payment(request: HttpRequest):
         )
     elif payment_type == "Monthly Dues":
         if "multipart/form-data" in content_type:
-            month_covered = str(request.POST.get("month_covered", "")).strip()
+            month_covered_raw = request.POST.get("month_covered", "")
+            if month_covered_raw:
+                month_covered_list = [str(m).strip() for m in month_covered_raw.split(",")]
+            else:
+                month_covered_list = []
         else:
-            month_covered = str(data.get("month_covered", "")).strip()
+            month_covered_raw = data.get("month_covered", "")
+            if month_covered_raw:
+                month_covered_list = [str(m).strip() for m in month_covered_raw.split(",")]
+            else:
+                month_covered_list = []
         
         # Use current month if not provided
-        if not month_covered:
-            month_covered = timezone.now().strftime("%Y-%m")
+        if not month_covered_list:
+            month_covered_list = [timezone.now().strftime("%Y-%m")]
 
-        # Guard against duplicate monthly dues records for the same covered month
-        if MonthlyDues.objects.filter(
-            member_id_FK=member,
-            month_covered=month_covered,
-            payment_status__in=["Pending", "Paid", "Full Payment"],
-        ).exists():
-            return JsonResponse({"ok": False, "error": "Monthly dues for this month have already been submitted."}, status=409)
+        # Calculate expected amount per month
+        expected_dues_per_month = Decimal(str(get_monthly_dues_amount()))
+        expected_total = expected_dues_per_month * Decimal(len(month_covered_list))
+        
+        # Validate total amount matches expected
+        if abs(amount - expected_total) > Decimal("0.01"):
+            return JsonResponse(
+                {"ok": False, "error": f"Total amount must be exactly ₱{expected_total:.2f} for {len(month_covered_list)} month(s) at ₱{expected_dues_per_month:.2f} per month."},
+                status=400,
+            )
 
         current_month = timezone.now().strftime("%Y-%m")
-        is_advance = month_covered > current_month
+        created_dues = []
+        
+        for month_covered in month_covered_list:
+            # Guard against duplicate monthly dues records for the same covered month
+            if MonthlyDues.objects.filter(
+                member_id_FK=member,
+                month_covered=month_covered,
+                payment_status__in=["Pending", "Paid", "Full Payment"],
+            ).exists():
+                return JsonResponse({"ok": False, "error": f"Monthly dues for {month_covered} have already been submitted."}, status=409)
 
-        dues = MonthlyDues.objects.create(
-            member_id_FK=member,
-            month_covered=month_covered,
-            amount=amount,
-            payment_method=payment_method,
-            payment_status="Pending",
-            payment_date=timezone.now().date(),
-            receipt_number=reference_number,
-            recorded_by_user_id_FK=officer,
-            treasurer_status="Pending Treasurer Review",
-            is_advance=is_advance,
-        )
-        # Link proof files if uploaded
-        for uploaded_file in uploaded_files:
-            _link_proof_to_record(uploaded_file, dues, officer)
-        # Create TransactionVerification record for the approval workflow
-        TransactionVerification.objects.create(
-            table_name="monthly_dues",
-            record_id=dues.dues_id_PK,
-            target_category="payment",
-            verification_status="Pending Treasurer Review",
-        )
+            is_advance = month_covered > current_month
+
+            dues = MonthlyDues.objects.create(
+                member_id_FK=member,
+                month_covered=month_covered,
+                amount=expected_dues_per_month,
+                payment_method=payment_method,
+                payment_status="Pending",
+                payment_date=timezone.now().date(),
+                receipt_number=reference_number,
+                recorded_by_user_id_FK=officer,
+                treasurer_status="Pending Treasurer Review",
+                is_advance=is_advance,
+            )
+            created_dues.append(dues)
+
+            SalaryDeductionExemption.objects.filter(
+                member_id_FK=member,
+                month_covered=month_covered,
+            ).delete()
+            
+            # Link proof files if uploaded (only link to first record to avoid duplicates)
+            if created_dues.index(dues) == 0:
+                for uploaded_file in uploaded_files:
+                    _link_proof_to_record(uploaded_file, dues, officer)
+            
+            # Create TransactionVerification record for the approval workflow
+            TransactionVerification.objects.create(
+                table_name="monthly_dues",
+                record_id=dues.dues_id_PK,
+                target_category="payment",
+                verification_status="Pending Treasurer Review",
+            )
     else:
         return JsonResponse({"ok": False, "error": f"Unknown payment type: {payment_type}"}, status=400)
 
     return JsonResponse({
         "ok": True,
         "message": f"{payment_type} payment submitted for verification.",
+    })
+
+
+@require_POST
+def member_request_exemption(request: HttpRequest):
+    """Handle member salary deduction exemption requests."""
+    guard = require_officer_session(request)
+    if guard is not None:
+        return guard
+    member, err = _get_member_from_session(request)
+    if not member:
+        return JsonResponse({"ok": False, "error": err}, status=400)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    month_covered = str(data.get("month_covered", "")).strip()
+    reason = str(data.get("reason", "")).strip()
+
+    if not month_covered:
+        return JsonResponse({"ok": False, "error": "Month is required for exemption request."}, status=400)
+
+    # Check if exemption already exists for this month
+    if SalaryDeductionExemption.objects.filter(
+        member_id_FK=member,
+        month_covered=month_covered,
+    ).exists():
+        return JsonResponse(
+            {"ok": False, "error": "You already have an exemption request for this month."},
+            status=409,
+        )
+
+    # Create exemption request
+    exemption = SalaryDeductionExemption.objects.create(
+        member_id_FK=member,
+        month_covered=month_covered,
+        reason=reason if reason else None,
+        status="Pending",
+        requested_by_member=True,
+    )
+
+    return JsonResponse({
+        "ok": True,
+        "message": "Your salary deduction exemption request has been submitted for review.",
     })
 
 
@@ -1383,8 +1527,19 @@ def member_dashboard_data(request: HttpRequest):
             "president_status": getattr(f, 'president_status', ''),
         })
     for d in MonthlyDues.objects.filter(member_id_FK=member, payment_date__isnull=False).order_by("-payment_date")[:10]:
+        # Format month as word (e.g., "September 2024")
+        month_name = ""
+        if d.month_covered:
+            try:
+                year, month = d.month_covered.split('-')
+                month_name = f"{calendar.month_name[int(month)]} {year}"
+            except:
+                month_name = d.month_covered
+        
         payment_history.append({
-            "type": f"Dues ({d.month_covered})",
+            "type": "Monthly Dues",
+            "month_covered": d.month_covered,  # Keep original for filtering
+            "month_covered_display": month_name,  # Display name
             "amount": float(d.amount),
             "method": d.payment_method,
             "status": d.payment_status,
@@ -1422,18 +1577,50 @@ def member_dashboard_data(request: HttpRequest):
             "relationship": rep.relationship_to_member,
         }
 
-    latest_payment_date = ""
+    latest_payment_date = None
     first_payment_method = ""
-    last_pmt = MonthlyDues.objects.filter(member_id_FK=member).order_by("-payment_date").first()
-    if last_pmt:
-        first_payment_method = last_pmt.payment_method or ""
+    
+    # Get latest payment from MonthlyDues - use treasurer_approved_at when available (when treasurer encoded it)
+    last_dues = MonthlyDues.objects.filter(
+        member_id_FK=member,
+        treasurer_approved_at__isnull=False
+    ).order_by("-treasurer_approved_at").first()
+    if last_dues and last_dues.treasurer_approved_at:
+        latest_payment_date = last_dues.treasurer_approved_at.date()
+        first_payment_method = last_dues.payment_method or ""
+    
+    # If no treasurer approval date, try payment_date
+    if not latest_payment_date:
+        last_dues = MonthlyDues.objects.filter(
+            member_id_FK=member,
+            payment_date__isnull=False
+        ).order_by("-payment_date").first()
+        if last_dues and last_dues.payment_date:
+            latest_payment_date = last_dues.payment_date
+            if not first_payment_method:
+                first_payment_method = last_dues.payment_method or ""
+    
+    # If no monthly dues, check MembershipFee
+    if not latest_payment_date:
+        last_fee = MembershipFee.objects.filter(
+            member_id_FK=member,
+            payment_date__isnull=False
+        ).order_by("-payment_date").first()
+        if last_fee and last_fee.payment_date:
+            latest_payment_date = last_fee.payment_date
+            if not first_payment_method:
+                first_payment_method = last_fee.payment_method or ""
+    
+    # If still no payment date, try to get method from any record
     if not first_payment_method:
-        last_fee = MembershipFee.objects.filter(member_id_FK=member).order_by("-payment_date").first()
-        if last_fee:
-            first_payment_method = last_fee.payment_method or ""
-    last_dues = MonthlyDues.objects.filter(member_id_FK=member, payment_date__isnull=False).order_by("-payment_date").first()
-    if last_dues:
-        latest_payment_date = last_dues.payment_date.isoformat() if last_dues.payment_date else ""
+        last_pmt = MonthlyDues.objects.filter(member_id_FK=member).order_by("-payment_date").first()
+        if last_pmt:
+            first_payment_method = last_pmt.payment_method or ""
+        if not first_payment_method:
+            last_fee = MembershipFee.objects.filter(member_id_FK=member).order_by("-payment_date").first()
+            if last_fee:
+                first_payment_method = last_fee.payment_method or ""
+    
     today = date.today()
     probe = today.replace(day=1)
     covered_months = set(
@@ -1449,7 +1636,7 @@ def member_dashboard_data(request: HttpRequest):
         if probe.strftime("%Y-%m") not in covered_months:
             next_m = probe
             break
-    next_due_date = next_m.strftime("%b %d") if next_m else ""
+    next_due_date = next_m if next_m else None
     advance_count = sum(1 for mc in covered_months if mc > today.strftime("%Y-%m"))
 
     total_claims = len(medical_aid_records) + len(death_aid_records)

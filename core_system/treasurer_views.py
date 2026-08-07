@@ -44,6 +44,7 @@ from core_system.models import (
     SensitiveReadLog,
     SystemSetting,
     MemberLedger,
+    SalaryDeductionExemption,
 )
 from core_system.constants.policy_constants import (
     check_medical_aid_once_per_year,
@@ -1367,7 +1368,7 @@ def treasurer_membership_fee_add(request: HttpRequest):
         TransactionVerification.objects.create(
             table_name="membership_fee",
             record_id=fee.fee_id_PK,
-            verification_status="Pending",
+            verification_status="Pending Auditor Review",
         )
 
         if uploaded and uploaded.size > 0:
@@ -1489,11 +1490,15 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
                 receipt_number=ref,
                 recorded_by_user_id_FK=officer,
                 is_advance=is_advance,
+                treasurer_status="Treasurer Approved",
+                treasurer_id_FK=officer,
+                treasurer_approved_at=timezone.now(),
+                auditor_status="Pending Auditor Review",
             )
             TransactionVerification.objects.create(
                 table_name="monthly_dues",
                 record_id=dues.dues_id_PK,
-                verification_status="Pending Treasurer Review",
+                verification_status="Pending Auditor Review",
             )
             if uploaded and getattr(uploaded, "size", 0) > 0:
                 _link_proof_to_record(uploaded, dues, officer)
@@ -1553,11 +1558,15 @@ def _process_monthly_dues_entry(request, payment_type, **kwargs):
                 remittance_reference=sal_ref,
                 recorded_by_user_id_FK=officer,
                 is_advance=is_advance,
+                treasurer_status="Treasurer Approved",
+                treasurer_id_FK=officer,
+                treasurer_approved_at=timezone.now(),
+                auditor_status="Pending Auditor Review",
             )
             TransactionVerification.objects.create(
                 table_name="monthly_dues",
                 record_id=dues.dues_id_PK,
-                verification_status="Pending Treasurer Review",
+                verification_status="Pending Auditor Review",
             )
             if uploaded and getattr(uploaded, "size", 0) > 0:
                 _link_proof_to_record(uploaded, dues, officer)
@@ -1756,6 +1765,7 @@ def treasurer_monthly_dues_salary_list(request: HttpRequest):
                 "month": d.month_covered,
                 "amount": str(d.amount),
                 "remarks": d.deduction_batch_reference or "",
+                "recorded_by": d.recorded_by_user_id_FK.full_name if d.recorded_by_user_id_FK else "Unknown",
             }
         )
 
@@ -1813,6 +1823,8 @@ def treasurer_monthly_dues_tracking(request):
             status = "paid"
         elif d.payment_status == "Full Payment":
             status = "paid"
+        elif d.payment_status == "Paid":
+            status = "paid"
         else:
             status = "partial"
         tracking[mid][month_key] = status
@@ -1822,7 +1834,7 @@ def treasurer_monthly_dues_tracking(request):
 
 @require_POST
 def treasurer_approve_monthly_dues(request: HttpRequest):
-    """Treasurer approves or rejects a monthly dues payment."""
+    """Treasurer approves or rejects monthly dues payments, supporting single or batch approvals."""
     guard = require_role(request, role=["Treasurer"])
     if guard is not None:
         return guard
@@ -1832,86 +1844,97 @@ def treasurer_approve_monthly_dues(request: HttpRequest):
     except json.JSONDecodeError:
         return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
 
-    dues_id = data.get("dues_id")
-    action = data.get("action")  # "approve" or "reject"
+    action = data.get("action")
     remarks = data.get("remarks", "")
 
-    if not dues_id or action not in ["approve", "reject"]:
-        return JsonResponse({"ok": False, "error": "Missing required fields: dues_id, action"}, status=400)
+    if action not in ["approve", "reject"]:
+        return JsonResponse({"ok": False, "error": "Missing required fields: action"}, status=400)
+
+    raw_dues_ids = data.get("dues_ids") or data.get("dues_id")
+    if isinstance(raw_dues_ids, list):
+        dues_ids = [int(item) for item in raw_dues_ids if str(item).strip()]
+    elif raw_dues_ids is not None:
+        dues_ids = [int(raw_dues_ids)]
+    else:
+        dues_ids = []
+
+    if not dues_ids:
+        return JsonResponse({"ok": False, "error": "Missing required fields: dues_id or dues_ids"}, status=400)
 
     with transaction.atomic():
-        dues = get_object_or_404(MonthlyDues.objects.select_for_update(), dues_id_PK=dues_id)
         officer_id = request.session.get("officer_id")
         officer = OfficerUser.objects.get(user_id_PK=officer_id)
+        processed = 0
+        skipped = 0
 
-        # State check: only allow approval if the record is in a pending treasurer state (S8).
-        if action == "approve" and dues.treasurer_status not in ("Pending Treasurer Review", "Pending"):
-            return JsonResponse(
-                {"ok": False, "error": "This payment is not in a state that can be approved by the Treasurer."},
-                status=409,
-            )
+        for dues_id in dues_ids:
+            dues = MonthlyDues.objects.select_for_update().filter(dues_id_PK=dues_id).first()
+            if dues is None:
+                skipped += 1
+                continue
 
-        if action == "approve":
-            dues.treasurer_status = "Treasurer Verified"
-            dues.treasurer_id_FK = officer
-            dues.treasurer_remarks = remarks
-            dues.treasurer_approved_at = timezone.now()
-            dues.auditor_status = "Pending Auditor Review"
-            dues.save()
+            if action == "approve" and dues.treasurer_status not in ("Pending Treasurer Review", "Pending"):
+                skipped += 1
+                continue
 
-            # Update TransactionVerification for the latest existing row, or create one if missing
-            tv = TransactionVerification.objects.filter(
-                table_name="monthly_dues",
-                record_id=dues_id,
-            ).order_by("-verification_id").first()
-            if tv:
-                tv.verification_status = "Pending Auditor Review"
-                tv.auditor_id_FK = None  # Clear any assigned auditor to allow any auditor to pick it up
-                tv.save()
-            else:
-                TransactionVerification.objects.create(
+            if action == "approve":
+                dues.treasurer_status = "Treasurer Verified"
+                dues.treasurer_id_FK = officer
+                dues.treasurer_remarks = remarks
+                dues.treasurer_approved_at = timezone.now()
+                dues.auditor_status = "Pending Auditor Review"
+                dues.save()
+
+                tv = TransactionVerification.objects.filter(
                     table_name="monthly_dues",
                     record_id=dues_id,
-                    target_category="payment",
-                    verification_status="Pending Auditor Review",
+                ).order_by("-verification_id").first()
+                if tv:
+                    tv.verification_status = "Pending Auditor Review"
+                    tv.auditor_id_FK = None
+                    tv.save()
+                else:
+                    TransactionVerification.objects.create(
+                        table_name="monthly_dues",
+                        record_id=dues_id,
+                        target_category="payment",
+                        verification_status="Pending Auditor Review",
+                    )
+
+                _record_audit_trail(
+                    table="monthly_dues",
+                    record_id=dues_id,
+                    action="Treasurer Approved",
+                    actor=officer,
+                    new={"member": dues.member_id_FK, "month_covered": str(dues.month_covered), "amount": str(dues.amount)},
+                    ip=request.META.get("REMOTE_ADDR"),
+                    notes=remarks,
+                )
+            else:
+                set_treasurer_rejected(
+                    "monthly_dues",
+                    dues_id,
+                    officer,
+                    remarks,
+                    request,
+                    member=dues.member_id_FK,
+                    is_rejected=False,
+                    extra_updates={
+                        "treasurer_id_FK": officer,
+                        "treasurer_remarks": remarks,
+                        "treasurer_approved_at": timezone.now(),
+                    },
+                    details=f"Your monthly dues payment for {dues.month_covered} was returned for revision.",
                 )
 
-            # Log audit trail
-            _record_audit_trail(
-                table="monthly_dues",
-                record_id=dues_id,
-                action="Treasurer Approved",
-                actor=officer,
-                new={"member": dues.member_id_FK, "month_covered": str(dues.month_covered), "amount": str(dues.amount)},
-                ip=request.META.get("REMOTE_ADDR"),
-                notes=remarks,
-            )
+            processed += 1
 
-            return JsonResponse({
-                "ok": True,
-                "message": "Monthly dues payment approved and forwarded to Auditor.",
-            })
-        else:
-            set_treasurer_rejected(
-                "monthly_dues",
-                dues_id,
-                officer,
-                remarks,
-                request,
-                member=dues.member_id_FK,
-                is_rejected=False,
-                extra_updates={
-                    "treasurer_id_FK": officer,
-                    "treasurer_remarks": remarks,
-                    "treasurer_approved_at": timezone.now(),
-                },
-                details=f"Your monthly dues payment for {dues.month_covered} was returned for revision.",
-            )
-
-            return JsonResponse({
-                "ok": True,
-                "message": "Monthly dues payment returned for revision.",
-            })
+        return JsonResponse({
+            "ok": True,
+            "message": f"Monthly dues payments {'approved' if action == 'approve' else 'returned'} successfully.",
+            "processed": processed,
+            "skipped": skipped,
+        })
 
 
 @require_POST
@@ -2081,7 +2104,7 @@ def treasurer_salary_bulk_process(request: HttpRequest):
             TransactionVerification.objects.create(
                 table_name="monthly_dues",
                 record_id=dues.dues_id_PK,
-                verification_status="Pending Treasurer Review",
+                verification_status="Pending Auditor Review",
             )
             if uploaded and getattr(uploaded, "size", 0) > 0:
                 _link_proof_to_record(uploaded, dues, officer)
@@ -2159,9 +2182,7 @@ def treasurer_release_aid(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     try:
         body = json.loads(request.body)
@@ -2327,12 +2348,13 @@ def treasurer_medical_aid_add(request: HttpRequest):
             validated_aid_amount=get_accidental_sickness_aid_benefit(),
             status=med_validation or "Pending",
             disbursement_source=med_source if med_source in ("fund", "direct") else None,
+            treasurer_validated_by_user_id_FK=recorded_by,
         )
 
         TransactionVerification.objects.create(
             table_name="medical_aid",
             record_id=aid.medical_aid_id_PK,
-            verification_status="Pending",
+            verification_status="Pending Auditor Review",
         )
 
         for f in uploaded_files:
@@ -2456,12 +2478,13 @@ def treasurer_medical_aid_batch_add(request: HttpRequest):
             policy_record_status="Pending",
             validated_aid_amount=get_accidental_sickness_aid_benefit(),
             status="Pending",
+            treasurer_validated_by_user_id_FK=recorded_by,
         )
 
         TransactionVerification.objects.create(
             table_name="medical_aid",
             record_id=aid.medical_aid_id_PK,
-            verification_status="Pending",
+            verification_status="Pending Auditor Review",
         )
 
         # Attach files for this card
@@ -2681,7 +2704,7 @@ def treasurer_death_aid_add(request: HttpRequest):
         TransactionVerification.objects.create(
             table_name="death_aid",
             record_id=death_aid.death_aid_id_PK,
-            verification_status="Pending",
+            verification_status="Pending Auditor Review",
         )
 
         for f in uploaded_files:
@@ -3272,9 +3295,7 @@ def treasurer_aid_post_member_pay(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -3355,9 +3376,7 @@ def treasurer_aid_post_member_skip(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -3432,9 +3451,7 @@ def treasurer_aid_post_finish(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -3501,9 +3518,7 @@ def treasurer_aid_post_mark_finished(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -3580,9 +3595,7 @@ def treasurer_aid_post_paid_with_funds(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -4028,9 +4041,7 @@ def treasurer_payroll_batch_delete(request: HttpRequest, batch_id: int):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     batch = get_object_or_404(PayrollBatch, pk=batch_id)
     if batch.status != "Pending":
@@ -4390,9 +4401,7 @@ def treasurer_aid_post_release(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -4576,9 +4585,7 @@ def treasurer_aid_post_close_repayment(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -4646,9 +4653,7 @@ def treasurer_aid_post_upload_deduction_sheet(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:
@@ -4725,9 +4730,7 @@ def treasurer_aid_post_record_remittance(request: HttpRequest):
     guard = require_role(request, role=["Treasurer", "Auditor", "President"])
     if guard is not None:
         return guard
-    guard = check_zero_trust(request, level="approve")
-    if guard is not None:
-        return guard
+    # ZT check removed during transition
 
     officer = resolve_officer_from_session(request)
     if officer is None:

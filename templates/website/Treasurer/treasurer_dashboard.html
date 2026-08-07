@@ -2446,6 +2446,7 @@
                   <table class="custom-table" id="monthlyDuesApprovalTable">
                     <thead>
                       <tr>
+                        <th style="width:36px;padding:4px 8px;"><input type="checkbox" id="md-select-all" title="Select all" /></th>
                         <th style="padding:4px 8px;"><i class="fa-solid fa-user" title="Member"></i></th>
                         <th style="padding:4px 8px;"><i class="fa-solid fa-calendar" title="Month"></i></th>
                         <th style="padding:4px 8px;"><i class="fa-solid fa-coins" title="Amount"></i></th>
@@ -2457,6 +2458,11 @@
                     </thead>
                     <tbody></tbody>
                   </table>
+                  <div id="md-batch-bar" style="display:none;margin-top:12px;padding:10px 16px;background:#f5f5f5;border-radius:8px;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <span id="md-selected-count" style="font-weight:600;color:#333">0 selected</span>
+                    <button type="button" class="btn-brand btn-brand-primary" id="md-batch-verify" style="padding:6px 18px;font-size:0.85rem;">Verify Selected</button>
+                    <button type="button" class="btn-outline" id="md-batch-clear" style="padding:6px 18px;font-size:0.85rem;">Clear</button>
+                  </div>
                   <div id="noMonthlyDuesApprovalMessage" style="display:none;padding:24px;text-align:center;color:#757575;">
                     No pending monthly dues approvals at this time.
                   </div>
@@ -3315,7 +3321,7 @@
                 gap: 20px;
               "
             >
-              <div class="dashboard-panel salary-tab-panel" id="salary-individual-panel" style="display: none;">
+              <div class="dashboard-panel salary-tab-panel" id="salary-individual-panel" style="display: block;">
                 <div class="panel-header-row">
                   <h3 class="panel-title">Record Salary Deduction</h3>
                 </div>
@@ -6242,6 +6248,96 @@
 
       /* ── Monthly Dues Approval Queue ─────────────────────────────── */
 
+      let monthlyDuesSelectionState = { selectedIds: new Set() };
+
+      function updateMonthlyDuesBatchBar() {
+        const bar = document.getElementById("md-batch-bar");
+        const countEl = document.getElementById("md-selected-count");
+        const count = monthlyDuesSelectionState.selectedIds.size;
+        if (!bar || !countEl) return;
+        countEl.textContent = count + " selected";
+        bar.style.display = count > 0 ? "flex" : "none";
+      }
+
+      function clearMonthlyDuesSelection() {
+        monthlyDuesSelectionState.selectedIds.clear();
+        document.querySelectorAll("#monthlyDuesApprovalTable .md-row-check").forEach((cb) => {
+          cb.checked = false;
+        });
+        const selectAll = document.getElementById("md-select-all");
+        if (selectAll) selectAll.checked = false;
+        updateMonthlyDuesBatchBar();
+      }
+
+      function toggleMonthlyDuesRowCheck(id, checked) {
+        const value = String(id);
+        if (checked) monthlyDuesSelectionState.selectedIds.add(value);
+        else monthlyDuesSelectionState.selectedIds.delete(value);
+        const row = document.querySelector(`#monthlyDuesApprovalTable .md-row-check[value="${value}"]`)?.closest("tr");
+        if (row) row.classList.toggle("selected-row", checked);
+        updateMonthlyDuesBatchBar();
+      }
+
+      function bindMonthlyDuesSelectionUI() {
+        const table = document.getElementById("monthlyDuesApprovalTable");
+        if (!table || table.dataset.mdBound === "true") return;
+        table.addEventListener("change", (event) => {
+          if (event.target.id === "md-select-all") {
+            const checked = event.target.checked;
+            document.querySelectorAll("#monthlyDuesApprovalTable .md-row-check").forEach((cb) => {
+              cb.checked = checked;
+              toggleMonthlyDuesRowCheck(cb.value, checked);
+            });
+            return;
+          }
+          if (event.target.classList.contains("md-row-check")) {
+            toggleMonthlyDuesRowCheck(event.target.value, event.target.checked);
+          }
+        });
+        table.dataset.mdBound = "true";
+
+        const verifyBtn = document.getElementById("md-batch-verify");
+        const clearBtn = document.getElementById("md-batch-clear");
+        verifyBtn?.addEventListener("click", submitMonthlyDuesBatchApprove);
+        clearBtn?.addEventListener("click", clearMonthlyDuesSelection);
+      }
+
+      async function submitMonthlyDuesBatchApprove() {
+        const ids = Array.from(monthlyDuesSelectionState.selectedIds);
+        if (ids.length === 0) return;
+
+        const confirmed = await Swal.fire({
+          title: `Verify ${ids.length} selected entr${ids.length === 1 ? 'y' : 'ies'}?`,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Verify Selected',
+        });
+        if (!confirmed.isConfirmed) return;
+
+        try {
+          const res = await fetch("/api/treasurer/monthly-dues/approve/", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": getCSRFToken(),
+            },
+            body: JSON.stringify({ dues_ids: ids, action: "approve", remarks: "" }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            Swal.fire({ icon: 'success', title: 'Verified', text: data.message, timer: 2000, showConfirmButton: false });
+            clearMonthlyDuesSelection();
+            await loadMonthlyDuesApprovalQueue();
+          } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Verification failed' });
+          }
+        } catch (e) {
+          console.error("submitMonthlyDuesBatchApprove failed", e);
+          Swal.fire({ icon: 'error', title: 'Error', text: 'Verification failed' });
+        }
+      }
+
       async function loadMonthlyDuesApprovalQueue() {
         try {
           const res = await fetch("/api/treasurer/monthly-dues/otc/list/", {
@@ -6267,6 +6363,7 @@
             emptyMessage.style.display = "block";
             const dot = document.getElementById("monthly-dues-approval-dot");
             if (dot) dot.style.display = "none";
+            updateMonthlyDuesBatchBar();
             return;
           }
           emptyMessage.style.display = "none";
@@ -6275,12 +6372,16 @@
           dot.innerText = pendingDues.length;
           dot.style.display = "inline-flex";
 
+          bindMonthlyDuesSelectionUI();
+          const currentSelections = new Set(monthlyDuesSelectionState.selectedIds);
           pendingDues.forEach((d) => {
             const row = document.createElement("tr");
             const amount = "₱" + parseFloat(d.amount).toLocaleString(undefined, {minimumFractionDigits: 2});
             const statusBadge = `<span class="status-badge status-pending">${d.treasurer_status}</span>`;
+            const selected = currentSelections.has(String(d.dues_id_PK));
 
             row.innerHTML = `
+              <td><input type="checkbox" class="md-row-check" value="${d.dues_id_PK}" ${selected ? "checked" : ""}></td>
               <td><strong>${d.member_name}</strong><br><small style="color:#757575;">${d.member_employee_id || ""}</small></td>
               <td>${d.month_covered}</td>
               <td>${amount}</td>
@@ -6291,8 +6392,17 @@
                 <button type="button" class="btn-brand btn-brand-primary" style="padding:4px 10px;font-size:0.78rem;" onclick="reviewMonthlyDues(${d.dues_id_PK})">Review</button>
               </td>
             `;
+            if (selected) row.classList.add("selected-row");
             tbody.appendChild(row);
           });
+          const selectedIds = new Set(Array.from(currentSelections).filter(id => pendingDues.some(d => String(d.dues_id_PK) === id)));
+          monthlyDuesSelectionState.selectedIds = selectedIds;
+          updateMonthlyDuesBatchBar();
+          const selectAll = document.getElementById("md-select-all");
+          if (selectAll) {
+            const allBoxes = document.querySelectorAll("#monthlyDuesApprovalTable .md-row-check");
+            selectAll.checked = allBoxes.length > 0 && Array.from(allBoxes).every((cb) => cb.checked);
+          }
         } catch (e) {
           console.error("loadMonthlyDuesApprovalQueue failed", e);
         }
@@ -8777,7 +8887,8 @@
     <script>
       // --- Dues Tracking (isolated script block) ---
       (function() {
-        var dtData = {};
+        var dtData = {}; // Table data
+        var dtModalData = {}; // Modal-specific data
         var dtMembers = [];
 
         function dtEsc(s) {
@@ -8975,9 +9086,14 @@
           document.getElementById("dtModalMemberName").textContent = m.name || "";
           document.getElementById("dtModalMemberInfo").textContent = (m.department || "\u2014") + " \u00B7 " + (m.position || "\u2014") + " \u00B7 ID: " + (m.facultyId || mid);
           var ys = document.getElementById("dtYearFilter");
+          var ty = document.getElementById("dtTableYear");
+          var selectedYear = ty ? ty.value : new Date().getFullYear();
           if (ys && ys.options.length === 0) {
             var cy = new Date().getFullYear();
-            for (var y = cy - 5; y <= cy + 5; y++) { var o = document.createElement("option"); o.value = y; o.textContent = y; if (y === cy) o.selected = true; ys.appendChild(o); }
+            for (var y = cy - 5; y <= cy + 5; y++) { var o = document.createElement("option"); o.value = y; o.textContent = y; if (y == selectedYear) o.selected = true; ys.appendChild(o); }
+          } else if (ys) {
+            // Sync modal year with table year
+            ys.value = selectedYear;
           }
           document.getElementById("duesTrackingModal").dataset.memberId = mid;
           document.getElementById("duesTrackingModal").style.display = "flex";
@@ -8987,7 +9103,7 @@
         function dtLoadCal() {
           var ys = document.getElementById("dtYearFilter");
           if (!ys) {
-            dtData = {};
+            dtModalData = {};
             return;
           }
           var yr = ys.value || new Date().getFullYear();
@@ -8995,8 +9111,8 @@
           var x = new XMLHttpRequest();
           x.open("GET","/api/treasurer/monthly-dues/tracking/?year=" + yr, true);
           x.withCredentials = true;
-          x.onload = function() { try { var d = JSON.parse(x.responseText); dtData = (d.ok && d.tracking) ? d.tracking : {}; } catch(e) { dtData = {}; } dtDrawCal(mid); };
-          x.onerror = function() { dtData = {}; dtDrawCal(mid); };
+          x.onload = function() { try { var d = JSON.parse(x.responseText); dtModalData = (d.ok && d.tracking) ? d.tracking : {}; } catch(e) { dtModalData = {}; } dtDrawCal(mid); };
+          x.onerror = function() { dtModalData = {}; dtDrawCal(mid); };
           x.send();
         }
 
@@ -9006,7 +9122,7 @@
           g.innerHTML = "";
           var ms = ["January","February","March","April","May","June","July","August","September","October","November","December"];
           var ys = document.getElementById("dtYearFilter"), yr = parseInt(ys ? ys.value : new Date().getFullYear());
-          var mm = dtData[mid] || {};
+          var mm = dtModalData[mid] || {};
           var now = new Date(), curYear = now.getFullYear(), curMonth = now.getMonth() + 1;
           for (var i = 0; i < 12; i++) {
             var mk = yr + "-" + (i < 9 ? "0" : "") + (i + 1);
@@ -9043,6 +9159,134 @@
         }
 
         document.addEventListener("turbo:load", function() { setTimeout(dtInit, 100); });
+      })();
+    </script>
+    <script>
+      // Salary Deduction Tab Handling
+      (function() {
+        var salaryView = 'batch'; // Default view
+        var salaryData = [];
+
+        function initSalaryTabs() {
+          var tabBtns = document.querySelectorAll('.salary-tab-btn');
+          var viewBtns = document.querySelectorAll('.history-view-toggle');
+          
+          tabBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              var tab = this.dataset.tab;
+              // Update active state
+              tabBtns.forEach(function(b) {
+                b.classList.remove('btn-brand-primary');
+                b.classList.add('btn-brand');
+                b.style.opacity = '0.7';
+              });
+              this.classList.remove('btn-brand');
+              this.classList.add('btn-brand-primary');
+              this.style.opacity = '1';
+              
+              // Show/hide panels
+              document.getElementById('salary-individual-panel').style.display = tab === 'individual' ? 'block' : 'none';
+              document.getElementById('salary-bulk-panel').style.display = tab === 'bulk' ? 'block' : 'none';
+            });
+          });
+
+          viewBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+              var view = this.dataset.view;
+              salaryView = view;
+              viewBtns.forEach(function(b) {
+                b.classList.remove('btn-brand-primary');
+                b.classList.add('btn-brand');
+                b.style.opacity = '0.7';
+              });
+              this.classList.remove('btn-brand');
+              this.classList.add('btn-brand-primary');
+              this.style.opacity = '1';
+              loadSalaryHistory();
+            });
+          });
+
+          // Load salary history on init
+          loadSalaryHistory();
+        }
+
+        async function loadSalaryHistory() {
+          try {
+            var resp = await fetch('/api/treasurer/monthly-dues/salary/list/', {
+              method: 'GET',
+              credentials: 'same-origin'
+            });
+            var data = await resp.json();
+            if (!resp.ok || !data.ok) {
+              console.error('Failed to load salary history');
+              return;
+            }
+            salaryData = data.salary_dues || [];
+            renderSalaryHistory();
+          } catch(e) {
+            console.error('Error loading salary history:', e);
+          }
+        }
+
+        function renderSalaryHistory() {
+          var table = document.getElementById('salaryTable');
+          var thead = document.getElementById('salaryTableHead');
+          var tbody = table.querySelector('tbody');
+          if (!tbody) return;
+          
+          tbody.innerHTML = '';
+          
+          if (salaryView === 'batch') {
+            // Batch view
+            thead.innerHTML = '<tr><th style="padding:4px 8px;">Batch Ref</th><th style="padding:4px 8px;">Month</th><th style="padding:4px 8px;">Members</th><th style="padding:4px 8px;">Total</th><th style="padding:4px 8px;">Recorded By</th></tr>';
+            
+            var batches = {};
+            salaryData.forEach(function(row) {
+              var batchRef = row.ref || 'No Batch';
+              if (!batches[batchRef]) {
+                batches[batchRef] = {
+                  ref: batchRef,
+                  month: row.month,
+                  members: [],
+                  total: 0,
+                  recorded_by: row.recorded_by || 'Unknown'
+                };
+              }
+              batches[batchRef].members.push(row.member_name);
+              batches[batchRef].total += parseFloat(row.amount);
+            });
+            
+            Object.values(batches).forEach(function(batch) {
+              tbody.innerHTML += '<tr class="salary-batch-row">' +
+                '<td style="padding:8px;">' + escapeHtml(batch.ref) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(batch.month) + '</td>' +
+                '<td style="padding:8px;">' + batch.members.length + ' members</td>' +
+                '<td style="padding:8px;">₱' + parseFloat(batch.total).toFixed(2) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(batch.recorded_by) + '</td>' +
+                '</tr>';
+            });
+          } else {
+            // List view
+            thead.innerHTML = '<tr><th style="padding:4px 8px;">Ref</th><th style="padding:4px 8px;">Member</th><th style="padding:4px 8px;">Month</th><th style="padding:4px 8px;">Amount</th><th style="padding:4px 8px;">Remarks</th></tr>';
+            
+            salaryData.forEach(function(row) {
+              tbody.innerHTML += '<tr>' +
+                '<td style="padding:8px;">' + escapeHtml(row.ref) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(row.member_name) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(row.month) + '</td>' +
+                '<td style="padding:8px;">₱' + parseFloat(row.amount).toFixed(2) + '</td>' +
+                '<td style="padding:8px;">' + escapeHtml(row.remarks) + '</td>' +
+                '</tr>';
+            });
+          }
+        }
+
+        function escapeHtml(s) {
+          if (s == null) return "";
+          return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+        }
+
+        document.addEventListener("turbo:load", function() { setTimeout(initSalaryTabs, 100); });
       })();
     </script>
     <script>
@@ -9328,6 +9572,7 @@
       })();
     </script>
     <script src="{% static 'js/shared/zero_trust.js' %}"></script>
+    {% include "website/shared/zt_badge.html" %}
   </body>
 </html>
 

@@ -61,7 +61,7 @@ function ppToggleAll(containerId, checked) {
   if (!container) return;
   var cbs = container.querySelectorAll('input[type="checkbox"]');
   for (var i = 0; i < cbs.length; i++) { if (cbs[i].value !== "") cbs[i].checked = checked; }
-  renderPendingPaymentsTable();
+  ppApplyFilter();
 }
 function ppSyncAll(containerId) {
   var container = document.getElementById(containerId);
@@ -72,6 +72,7 @@ function ppSyncAll(containerId) {
   var allChecked = true;
   for (var i = 1; i < cbs.length; i++) { if (!cbs[i].checked) { allChecked = false; break; } }
   allBox.checked = allChecked;
+  ppApplyFilter();
 }
 function ppToggleFilter() {
   var card = document.getElementById("ppFilterCard");
@@ -85,165 +86,25 @@ function ppToggleFilter() {
       if (card.contains(e.target) || (btn && btn.contains(e.target))) return;
       document.removeEventListener("click", handler);
       card.style.display = "none";
-      renderPendingPaymentsTable();
+      ppApplyFilter();
     };
     setTimeout(function() { document.addEventListener("click", handler); }, 0);
   }
 }
 function ppFillFilters() {
-  var types = {}, i, p, arr = db.pendingPayments || [];
+  var types = {}, i, p, arr = (db && db.pendingPayments) ? db.pendingPayments : [];
   for (i = 0; i < arr.length; i++) { p = arr[i]; if (p.type) types[p.type] = 1; }
   var tk = Object.keys(types).sort();
   var tc = document.getElementById("ppTypeCheckboxes");
   if (tc) {
     tc.innerHTML = '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="" checked onchange="ppToggleAll(\'ppTypeCheckboxes\', this.checked)"> <span style="font-weight:600;">All</span></label>';
-    for (i = 0; i < tk.length; i++) tc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + tk[i] + '" checked onchange="ppSyncAll(\'ppTypeCheckboxes\');renderPendingPaymentsTable()"> <span>' + tk[i] + '</span></label>';
+    for (i = 0; i < tk.length; i++) tc.innerHTML += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;padding:3px 0;cursor:pointer;"><input type="checkbox" value="' + tk[i] + '" checked onchange="ppSyncAll(\'ppTypeCheckboxes\');ppApplyFilter()"> <span>' + tk[i] + '</span></label>';
   }
 }
-function ppApplyFilter() { renderPendingPaymentsTable(); }
-
-function renderPendingPaymentsTable() {
-  const tbody = document.querySelector("#pendingPaymentsTable tbody");
-  tbody.innerHTML = "";
+function ppApplyFilter() {
   var types = ppGetChecked("ppTypeCheckboxes");
   if (types.length === 0) { types = ppGetAllValues("ppTypeCheckboxes"); ppSyncAll("ppTypeCheckboxes"); }
-  var arr = db.pendingPayments || [], flt = [], i, p;
-  for (i = 0; i < arr.length; i++) {
-    p = arr[i];
-    if (types.length && types.indexOf(p.type) === -1) continue;
-    flt.push(p);
-  }
-  if (flt.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#757580;padding:30px;">No records match current filters.</td></tr>`;
-    return;
-  }
-  flt.forEach((p) => {
-    const tr = document.createElement("tr");
-    tr.id = `row-${p.id}`;
-    tr.innerHTML = `
-      <td><input type="checkbox" class="pp-row-check" value="${p.id}"></td>
-      <td style="font-weight:600;color:#1b5e20;">${p.ref}</td>
-      <td>${p.memberName}</td>
-      <td style="font-weight:600;">₱${p.amount.toFixed(2)}</td>
-      <td><span class="badge-zero badge-green" style="font-size:0.75rem;">${p.type}</span></td>
-      <td><button class="btn-select-glow">Select</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function selectPaymentToAudit(id) {
-  document
-    .querySelectorAll("#pendingPaymentsTable tr")
-    .forEach((tr) => tr.classList.remove("selected-row"));
-  const selectedTr = document.getElementById(`row-${id}`);
-  if (selectedTr) selectedTr.classList.add("selected-row");
-
-  const item = db.pendingPayments.find((p) => p.id === id);
-  if (!item) return;
-
-  document.getElementById("selectedPaymentHeader").innerText =
-    `Ruling Request: ${item.id} (${item.type})`;
-
-  document.getElementById("pReadName").innerText = item.memberName;
-  document.getElementById("pReadEmpId").innerText = item.facultyId;
-  document.getElementById("pReadDept").innerText = item.department;
-  document.getElementById("pReadStatus").innerText = item.memberStatus;
-  document.getElementById("pReadContact").innerText = item.contact;
-
-  document.getElementById("pReadCovered").innerText = item.month;
-  document.getElementById("pReadExpected").innerText =
-    `₱${item.expected.toFixed(2)}`;
-  document.getElementById("pReadMethod").innerText = item.method;
-  document.getElementById("pReadRef").innerText = item.ref;
-  document.getElementById("pReadEncoder").innerText = item.encoder;
-
-  const approvedResets = [
-    "pApprovedMembershipTypeText",
-    "pApprovedMembershipRefText",
-    "pApprovedMembershipMonthText",
-    "pApprovedMembershipAmountText",
-  ];
-  approvedResets.forEach((domId) => {
-    const el = document.getElementById(domId);
-    if (el) el.innerText = "—";
-  });
-
-  const djMembers = safeGetDjangoData("django-members-data");
-  const djFees = safeGetDjangoData("django-fees-data");
-
-  const memberName = item.memberName;
-  const receiptRef = item.ref;
-
-  function setText(id, value) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerText = value == null || value === "" ? "—" : String(value);
-  }
-
-  const feesList = Array.isArray(djFees?.fees)
-    ? djFees.fees
-    : Array.isArray(djFees)
-      ? djFees
-      : [];
-
-  const matchingFee = feesList.find((f) => {
-    const ref =
-      f?.ref || f?.receipt_number || f?.receiptNumber || f?.receipt || "";
-    const member =
-      f?.member_name || f?.memberName || f?.member?.member_name || "";
-    return ref === receiptRef || (member === memberName && ref === receiptRef);
-  });
-
-  if (matchingFee) {
-    setText(
-      "pApprovedMembershipTypeText",
-      matchingFee?.type ||
-        matchingFee?.entity ||
-        matchingFee?.payment_type ||
-        "OTC Membership Fee",
-    );
-    setText(
-      "pApprovedMembershipRefText",
-      matchingFee?.ref || matchingFee?.receipt_number || receiptRef,
-    );
-    setText(
-      "pApprovedMembershipMonthText",
-      "—",
-    );
-    const amt =
-      matchingFee?.amount ?? matchingFee?.fee_amount ?? matchingFee?.amountPaid;
-    setText(
-      "pApprovedMembershipAmountText",
-      amt == null ? "—" : `₱${Number(amt).toFixed(2)}`,
-    );
-  }
-
-  document.getElementById("pAuditByText").innerText = item.auditorName;
-  document.getElementById("pAuditDateText").innerText = item.auditorDate;
-  document.getElementById("pAuditEvidenceText").innerText = formatAuditEvidence(
-    item.auditorEvidence,
-  );
-  document.getElementById("pAuditRemarksText").innerText = formatAuditRemarks(
-    item.auditorRemarks,
-  );
-
-  const timelineBody = document.querySelector("#pTimelineTable tbody");
-  timelineBody.innerHTML = "";
-  item.timeline.forEach((log) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><strong>${log.time}</strong></td>
-      <td><span class="badge-zero badge-green" style="font-size: 0.72rem;">${log.role}</span></td>
-      <td>${log.name}</td>
-      <td><strong>${log.action}</strong></td>
-      <td>${log.note}</td>
-    `;
-    timelineBody.appendChild(tr);
-  });
-
-  document.getElementById("p_target_id").value = item.id;
-  document.getElementById("p_approved_amount").value = item.amount;
+  renderPendingTable(presidentialQueueCache, types);
 }
 
 let presidentialQueueCache = [];
@@ -286,14 +147,18 @@ async function loadPresidentialQueue() {
 
     if (result.success) {
       presidentialQueueCache = result.payments || [];
+      if (typeof db !== "undefined") db.pendingPayments = presidentialQueueCache;
       renderPendingTable(presidentialQueueCache);
+      ppFillFilters();
     } else {
       console.error("Queue Retrieval Error:", result.message);
       presidentialQueueCache = [];
+      if (typeof db !== "undefined") db.pendingPayments = [];
     }
   } catch (error) {
     console.error("Failed to fetch executive data:", error);
     presidentialQueueCache = [];
+    if (typeof db !== "undefined") db.pendingPayments = [];
   } finally {
     updatePresidentNotifDots();
   }
@@ -301,17 +166,24 @@ async function loadPresidentialQueue() {
 
 let ppState = { selectedIds: new Set() };
 
-function renderPendingTable(payments) {
+function renderPendingTable(payments, filterTypes) {
   const tbody = document.querySelector("#pendingPaymentsTable tbody");
+  if (!tbody) return;
   tbody.innerHTML = "";
 
-  if (payments.length === 0) {
+  // Apply filter if provided
+  let filteredPayments = payments;
+  if (filterTypes && filterTypes.length > 0) {
+    filteredPayments = payments.filter(item => filterTypes.includes(item.type));
+  }
+
+  if (!filteredPayments || filteredPayments.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#757575;">No active entries found inside verification workspace.</td></tr>`;
     updatePpBatchBar();
     return;
   }
 
-  payments.forEach((item) => {
+  filteredPayments.forEach((item) => {
     const row = document.createElement("tr");
     row.style.cursor = "pointer";
     const ref = item.reference_code || "—";
@@ -364,6 +236,13 @@ function renderPendingTable(payments) {
     tbody.appendChild(row);
   });
   updatePpBatchBar();
+  
+  // Update select-all checkbox state
+  const selectAll = document.getElementById("pp-select-all");
+  if (selectAll) {
+    const allBoxes = document.querySelectorAll("#pendingPaymentsTable .pp-row-check");
+    selectAll.checked = allBoxes.length > 0 && Array.from(allBoxes).every((cb) => cb.checked);
+  }
 }
 
 function togglePpRowCheck(id, checked) {

@@ -46,7 +46,7 @@
       if (typeof showToast === "function") {
         showToast(msg.queue_type + " pending: " + msg.count + " item(s).", false);
       }
-      refreshPresidentSection(msg.queue_type);
+      refreshPresidentSection(msg.queue_type || "payments");
     }
     if (msg.type === "notification_summary") {
       if (msg.pending_count > 0 && typeof showToast === "function") {
@@ -120,7 +120,7 @@
   }
 
   function refreshPresidentSection(section) {
-    if (section === "all" || section === "payments") {
+    if (section === "all" || section === "payments" || section === "monthly_dues" || section === "membership_fee") {
       if (typeof loadPresidentialQueue === "function") {
         loadPresidentialQueue();
       }

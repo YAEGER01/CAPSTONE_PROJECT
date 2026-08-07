@@ -309,6 +309,109 @@ class SelfEnrollmentTests(TestCase):
         self.assertEqual(member.officer_user_id_FK.user_id_PK, president.user_id_PK)
 
 
+class MonthlyDuesWorkflowTests(TestCase):
+    def setUp(self):
+        self.member = Member.objects.create(
+            full_name="Workflow Member",
+            employee_id="EMP-WF-001",
+            department="Finance",
+            position="Staff",
+            membership_status="Active",
+            employment_status="Active",
+            member_type="REG",
+            date_joined=timezone.now().date(),
+        )
+
+    def _login_president(self):
+        officer = OfficerUser.objects.create(
+            full_name="President Test",
+            username="pres_workflow_" + str(timezone.now().timestamp()),
+            password_hash="unused",
+            role="President",
+            account_status="Active",
+        )
+        session, token = _create_zt_verified_session(officer)
+        test_session = self.client.session
+        test_session["access_token"] = token
+        test_session["officer_id"] = officer.user_id_PK
+        test_session["role"] = officer.role
+        test_session.save()
+        return officer
+
+    def test_president_approval_marks_monthly_dues_terminal(self):
+        officer = self._login_president()
+        dues = MonthlyDues.objects.create(
+            member_id_FK=self.member,
+            month_covered="2026-07",
+            amount=50,
+            payment_method="OTC",
+            payment_status="Pending",
+            treasurer_status="Treasurer Verified",
+            auditor_status="Auditor Verified",
+            president_status="Pending President Approval",
+            recorded_by_user_id_FK=officer,
+        )
+        TransactionVerification.objects.create(
+            table_name="monthly_dues",
+            record_id=dues.dues_id_PK,
+            verification_status="Auditor Verified",
+        )
+
+        response = self.client.post(
+            "/api/president/monthly-dues/approve/",
+            json.dumps({"dues_id": dues.dues_id_PK, "action": "approve", "remarks": "OK"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        dues.refresh_from_db()
+        self.assertEqual(dues.president_status, "President Approved")
+        self.assertEqual(dues.payment_status, "Full Payment")
+        self.assertEqual(dues.treasurer_status, "Treasurer Verified")
+        self.assertNotEqual(dues.treasurer_status, "Pending Treasurer Review")
+
+    def test_member_unpaid_months_excludes_months_with_existing_dues_records(self):
+        member = self.member
+        MonthlyDues.objects.create(
+            member_id_FK=member,
+            month_covered="2026-07",
+            amount=50,
+            payment_method="OTC",
+            payment_status="Pending",
+            treasurer_status="Pending Treasurer Review",
+            recorded_by_user_id_FK=OfficerUser.objects.create(
+                full_name="Treasurer",
+                username="treasurer_unpaid_" + str(timezone.now().timestamp()),
+                password_hash="unused",
+                role="Treasurer",
+                account_status="Active",
+            ),
+        )
+
+        officer = OfficerUser.objects.create(
+            full_name="Member Session",
+            username="member_session_" + str(timezone.now().timestamp()),
+            password_hash="unused",
+            role="Member",
+            account_status="Active",
+        )
+        member.officer_user_id_FK = officer
+        member.save(update_fields=["officer_user_id_FK"])
+
+        session, token = _create_zt_verified_session(officer)
+        test_session = self.client.session
+        test_session["access_token"] = token
+        test_session["officer_id"] = officer.user_id_PK
+        test_session["role"] = "Member"
+        test_session.save()
+
+        response = self.client.get("/api/member/unpaid-months/")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertNotIn("2026-07", [item["month"] for item in payload["unpaid_months"]])
+        self.assertIn("2026-07", payload["covered_months"])
+
+
 class AidTrackingPostCreationTests(TestCase):
     """Tests that posts and contributions are auto-created on presidential approval."""
 
