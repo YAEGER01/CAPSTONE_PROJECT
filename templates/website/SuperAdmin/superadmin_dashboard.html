@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superadmin Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f4f7fb; color: #202632; }
+        .container { max-width: 900px; margin: 40px auto; padding: 24px; background: white; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+        h1 { margin-top: 0; }
+        .card { border: 1px solid #dce6f2; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        code { background: #f3f6fb; padding: 2px 6px; border-radius: 4px; }
+        .actions a { display: inline-block; margin-top: 12px; padding: 10px 14px; background: #1f6feb; color: white; text-decoration: none; border-radius: 6px; }
+        .form-row { display: grid; gap: 6px; margin-bottom: 14px; }
+        .form-row label { font-weight: 600; }
+        .form-row input,
+        .form-row select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fbfdff; }
+        .button { display: inline-block; padding: 12px 18px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; text-decoration: none; }
+        .alert { padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; }
+        .alert.success { background: #ecfdf5; color: #166534; border: 1px solid #d1fae5; }
+        .alert.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Superadmin Dashboard</h1>
+        <p>This dashboard seeds the default superadmin and president accounts for local development.</p>
+
+        <div class="grid">
+            <div class="card">
+                <h3>Superadmin Account</h3>
+                <p><strong>Username:</strong> <code>{{ superadmin_account.username }}</code></p>
+                <p><strong>Password:</strong> <code>{{ superadmin_account.password }}</code></p>
+                <p><strong>Role:</strong> {{ superadmin_account.role }}</p>
+                <p><strong>Status:</strong> {{ superadmin_account.status }}</p>
+            </div>
+            <div class="card">
+                <h3>President Account</h3>
+                <p><strong>Full name:</strong> {{ president_account.full_name }}</p>
+                <p><strong>Username:</strong> <code>{{ president_account.username }}</code></p>
+                <p><strong>Password:</strong> <code>{{ president_account.password }}</code></p>
+                <p><strong>Role:</strong> {{ president_account.role }}</p>
+                <p><strong>Status:</strong> {{ president_account.status }}</p>
+                <p><strong>Email:</strong> {{ president_account.email }}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Create / Update President Account</h3>
+            {% if form_feedback %}
+                <div class="alert {{ form_feedback.level }}">{{ form_feedback.message }}</div>
+            {% endif %}
+            <form method="post" action="">
+                {% csrf_token %}
+                <div class="form-row">
+                    <label for="president_full_name">Full name</label>
+                    <input id="president_full_name" name="president_full_name" type="text" value="{{ president_account.full_name }}" required />
+                </div>
+                <div class="form-row">
+                    <label for="president_username">Username</label>
+                    <input id="president_username" name="president_username" type="text" value="{{ president_account.username }}" required />
+                </div>
+                <div class="form-row">
+                    <label for="president_password">Password</label>
+                    <input id="president_password" name="president_password" type="password" placeholder="Enter new password" required />
+                </div>
+                <div class="form-row">
+                    <label for="president_email">Email</label>
+                    <input id="president_email" name="president_email" type="email" value="{{ president_account.email }}" />
+                </div>
+                <div class="form-row">
+                    <label for="president_account_status">Status</label>
+                    <select id="president_account_status" name="president_account_status">
+                        <option value="Active" {% if president_account.status == "Active" %}selected{% endif %}>Active</option>
+                        <option value="Inactive" {% if president_account.status == "Inactive" %}selected{% endif %}>Inactive</option>
+                    </select>
+                </div>
+                <button type="submit" class="button">Save President Account</button>
+            </form>
+        </div>
+
+        <div class="card actions">
+            <h3>Quick access</h3>
+            <a href="{{ president_dashboard_url }}">Open President Dashboard</a>
+            <a href="{% url 'login' %}?force=1">Back to Login</a>
+        </div>
+    </div>
+</body>
+</html>
