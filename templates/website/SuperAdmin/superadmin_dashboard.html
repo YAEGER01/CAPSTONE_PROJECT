@@ -80,6 +80,28 @@
             </form>
         </div>
 
+        <div class="card">
+            <h3>Fund Safety Threshold</h3>
+            <p style="color:#475569;">The safety threshold is the reserve amount kept unspendable. Only the fund balance above it counts as "available" for disbursement checks (e.g. Pay with Funds / Release).</p>
+            <p style="margin:8px 0;">
+                <strong>Fund balance:</strong> <code>₱{{ fund_balance|floatformat:2 }}</code> &nbsp;|&nbsp;
+                <strong>Safety threshold:</strong> <code>₱{{ safety_threshold|floatformat:2 }}</code> &nbsp;|&nbsp;
+                <strong>Available to spend:</strong> <code>₱{{ fund_available|floatformat:2 }}</code>
+            </p>
+            {% if settings_feedback %}
+                <div class="alert {{ settings_feedback.level }}">{{ settings_feedback.message }}</div>
+            {% endif %}
+            <form method="post" action="">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="safety_threshold" />
+                <div class="form-row">
+                    <label for="safety_threshold">Safety threshold (₱)</label>
+                    <input id="safety_threshold" name="safety_threshold" type="number" min="0" step="0.01" value="{{ safety_threshold }}" required />
+                </div>
+                <button type="submit" class="button">Save Safety Threshold</button>
+            </form>
+        </div>
+
         <div class="card actions">
             <h3>Quick access</h3>
             <a href="{{ president_dashboard_url }}">Open President Dashboard</a>

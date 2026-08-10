@@ -1149,7 +1149,16 @@ function handleDeathSubmit(event) {
   } else if (relGroup && relGroup.value === "extended" && relText) {
     relValue = relText.value.trim();
   }
-  if (!relValue) {
+
+  // The deceased's relationship to the member drives the benefit amount.
+  // When the deceased IS the member, the benefit is always the member rate
+  // (₱500 per bylaw), regardless of the claimant's own relationship.
+  var deceasedRel = relValue;
+  if (scenario === "member") {
+    deceasedRel = "member";
+  }
+
+  if (!relValue && scenario !== "member") {
     showToast("Please select or specify the relationship.", true);
     return;
   }
@@ -1162,11 +1171,20 @@ function handleDeathSubmit(event) {
     if (cntInput) formData.set("death_contact", cntInput.value);
   }
   formData.append("death_member", memberId);
-  formData.append("death_rel", relValue);
+  formData.append("death_rel", deceasedRel);
+  // Keep the claimant's own relationship for the claimant record when the member dies
+  formData.append("death_claimant_rel", relValue);
   var relGroupEl = visibleCard
     ? visibleCard.querySelector(".death-rel-group")
     : null;
-  formData.append("death_rel_group", relGroupEl ? relGroupEl.value : "");
+  formData.append(
+    "death_rel_group",
+    scenario === "member"
+      ? "immediate"
+      : relGroupEl
+        ? relGroupEl.value
+        : "",
+  );
 
   var deathQueue = FileQueue.getFiles("death");
   if (deathQueue.length === 0) {

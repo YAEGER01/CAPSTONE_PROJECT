@@ -2660,10 +2660,14 @@ def treasurer_death_aid_add(request: HttpRequest):
             status=400,
         )
 
+    # The claimant's own relationship to the member (separate from the deceased's
+    # relationship). For a member-death claim death_rel is forced to "member".
+    claimant_rel = (request.POST.get("death_claimant_rel") or "").strip() or death_rel
+
     claimant_obj, _ = Claimant.objects.get_or_create(
         member_id_FK=member_obj,
         full_name=death_claimant,
-        relationship_to_member=death_rel,
+        relationship_to_member=claimant_rel,
         defaults={
             "contact_number": death_contact,
             "authorization_status": "Pending Authorization",
@@ -3212,6 +3216,7 @@ def treasurer_approved_aid_posts(request: HttpRequest):
             "amount": str(archive.amount) if archive else "0",
             "finish_status": post.finish_status or "",
             "finish_paid_with_funds": post.finish_paid_with_funds,
+            "finish_cycle": post.finish_cycle,
             "remaining_balance": max(0, float(post.total_expected) - float(post.total_collected)),
             "created_at": post.created_at.isoformat() if post.created_at else "",
             "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
@@ -3612,8 +3617,8 @@ def treasurer_aid_post_paid_with_funds(request: HttpRequest):
     except (ValueError, AidTrackingPost.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Active post not found."}, status=404)
 
-    if post.finish_status in ("paid_with_funds", "pending_auditor", "pending_approval", "pending_president", "approved"):
-        return JsonResponse({"ok": False, "error": "A finish or fund request is already in progress for this post."}, status=400)
+    if post.finish_status:
+        return JsonResponse({"ok": False, "error": "A finish or fund request is already in progress for this post. Pay with Funds may only be initiated from the original tracking state."}, status=400)
 
     archive = post.archive_id_FK
     member_name = archive.member_name if archive else "Unknown"
@@ -3621,7 +3626,8 @@ def treasurer_aid_post_paid_with_funds(request: HttpRequest):
     post.finish_status = "pending_auditor"
     post.finish_skip_remaining = True
     post.finish_paid_with_funds = True
-    post.save(update_fields=["finish_status", "finish_skip_remaining", "finish_paid_with_funds"])
+    post.finish_cycle = 1
+    post.save(update_fields=["finish_status", "finish_skip_remaining", "finish_paid_with_funds", "finish_cycle"])
 
     _record_audit_trail(
         table="aid_tracking_post",
@@ -3653,7 +3659,17 @@ def treasurer_aid_post_paid_with_funds(request: HttpRequest):
 
     _recalculate_total_collected(post.post_id_PK)
 
-    return JsonResponse({"ok": True, "status": "pending_auditor", "message": "Fund disbursement sent to Auditor for verification."})
+    # Advisory fund check (non-blocking at initiation; the hard gate runs at release).
+    fund_warning = ""
+    safety_threshold = float(SystemSetting.objects.get_or_create(
+        setting_key="safety_threshold", defaults={"setting_value": "20000"}
+    )[0].setting_value)
+    balance = float(FundTransaction.get_balance())
+    available = balance - safety_threshold
+    if available < float(post.total_expected):
+        fund_warning = f"Insufficient fund balance to disburse this post (available ₱{available:,.2f}, need ₱{float(post.total_expected):,.2f}). The release step will block disbursement until funds are available."
+
+    return JsonResponse({"ok": True, "status": "pending_auditor", "fund_warning": fund_warning, "message": "Fund disbursement sent to Auditor for verification."})
 
 
 @require_POST
@@ -4421,6 +4437,29 @@ def treasurer_aid_post_release(request: HttpRequest):
     archive = post.archive_id_FK
     member_name = archive.member_name if archive else "Unknown"
 
+    if post.finish_paid_with_funds:
+        # One-release-per-post guard: the fund outflow may only ever be recorded once.
+        already_released = FundTransaction.objects.filter(
+            direction="outflow",
+            source_type="aid_post_payment",
+            source_id=post.post_id_PK,
+        ).exists()
+        if already_released:
+            return JsonResponse({"ok": False, "error": "Funds already disbursed for this post. A paid-with-funds post can only be released once."}, status=400)
+
+        # Fund-balance gate: never let the fund fall below the safety threshold.
+        safety_threshold = float(SystemSetting.objects.get_or_create(
+            setting_key="safety_threshold", defaults={"setting_value": "20000"}
+        )[0].setting_value)
+        balance = float(FundTransaction.get_balance())
+        available = balance - safety_threshold
+        required = float(post.total_expected)
+        if available < required:
+            return JsonResponse({
+                "ok": False,
+                "error": f"Insufficient fund balance. Available ₱{available:,.2f} (balance ₱{balance:,.2f} minus safety threshold ₱{safety_threshold:,.2f}); need ₱{required:,.2f} to disburse this post.",
+            }, status=400)
+
     transactions = []
 
     if post.finish_paid_with_funds:
@@ -4602,6 +4641,21 @@ def treasurer_aid_post_close_repayment(request: HttpRequest):
     except (ValueError, AidTrackingPost.DoesNotExist):
         return JsonResponse({"ok": False, "error": "Repayment post not found."}, status=404)
 
+    # Repayment threshold gate: the fund must be substantially replenished
+    # before the post may be closed. Skipping cannot be used to dodge this.
+    threshold_pct = float(SystemSetting.objects.get_or_create(
+        setting_key="aid_repayment_threshold_percent", defaults={"setting_value": "70"}
+    )[0].setting_value)
+    collected = float(post.total_collected)
+    expected = float(post.total_expected)
+    collected_pct = (collected / expected * 100) if expected > 0 else 100.0
+    if expected > 0 and collected_pct < threshold_pct:
+        remaining = max(0, expected - collected)
+        return JsonResponse({
+            "ok": False,
+            "error": f"Cannot close repayment yet — collected ₱{collected:,.2f} of ₱{expected:,.2f} ({collected_pct:.1f}%). Need at least {threshold_pct:g}% ({remaining:,.2f} still owed).",
+        }, status=400)
+
     # Skip any remaining NOT_PAID contributions
     skipped = Contribution.objects.filter(
         aid_tracking_post_id_FK=post, status="NOT_PAID",
@@ -4614,7 +4668,8 @@ def treasurer_aid_post_close_repayment(request: HttpRequest):
     )
     post.total_collected = totals["total_collected"] or 0
     post.finish_status = "pending_auditor"
-    post.save(update_fields=["finish_status", "total_collected"])
+    post.finish_cycle = 2
+    post.save(update_fields=["finish_status", "total_collected", "finish_cycle"])
 
     _record_audit_trail(
         table="AID_TRACKING_POST",

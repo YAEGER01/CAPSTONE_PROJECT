@@ -1,0 +1,56 @@
+{% load static %}
+<div id="zt-badge" data-zt-state="checking"
+     style="position:fixed;bottom:16px;left:16px;z-index:9998;display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:#fff;border:1px solid #ddd;box-shadow:0 4px 14px rgba(0,0,0,0.12);font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:12px;font-weight:600;color:#37474f;cursor:pointer;user-select:none;">
+  <span style="font-size:16px;line-height:1;">&#128737;&#65039;</span>
+  <span id="zt-badge-label">Checking...</span>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var badge = document.getElementById("zt-badge");
+  var label = document.getElementById("zt-badge-label");
+
+  function setState(state) {
+    badge.setAttribute("data-zt-state", state);
+    if (state === "verified") {
+      label.textContent = "Zero Trust Verified";
+      badge.style.borderColor = "#1b5e20";
+      badge.style.color = "#1b5e20";
+    } else if (state === "unverified") {
+      label.textContent = "Zero Trust Required - Verify";
+      badge.style.borderColor = "#f57f17";
+      badge.style.color = "#e65100";
+    } else {
+      label.textContent = "Checking...";
+      badge.style.borderColor = "#ddd";
+      badge.style.color = "#37474f";
+    }
+  }
+
+  async function refresh() {
+    if (typeof window.ensureZeroTrust !== "function") {
+      setState("unverified");
+      return;
+    }
+    try {
+      var resp = await fetch("/api/auth/zero-trust/status/", {
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+      });
+      var data = await resp.json();
+      setState(data && data.ok && data.verified ? "verified" : "unverified");
+    } catch (e) {
+      setState("unverified");
+    }
+  }
+
+  badge.addEventListener("click", async function () {
+    setState("checking");
+    var ok = await window.ensureZeroTrust();
+    setState(ok ? "verified" : "unverified");
+  });
+
+  refresh();
+})();
+</script>

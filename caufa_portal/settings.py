@@ -10,6 +10,15 @@ SECRET_KEY = _os.getenv("SECRET_KEY", "django-insecure-change-me-for-production"
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
+# Dev-only: skip the login MFA/OTP step (forces auto-trust). Set to False in production.
+MFA_LOGIN_BYPASS = _os.getenv("MFA_LOGIN_BYPASS", "true").lower() in {"1", "true", "yes", "on"}
+
+# Dev-only: skip password verification on login (any password accepted). Set to False in production.
+PASSWORD_LOGIN_BYPASS = _os.getenv("PASSWORD_LOGIN_BYPASS", "true").lower() in {"1", "true", "yes", "on"}
+
+# Dev-only: disable Cloudflare Turnstile verification. Set to False in production.
+TURNSTILE_BYPASS = _os.getenv("TURNSTILE_BYPASS", "true").lower() in {"1", "true", "yes", "on"}
+
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",

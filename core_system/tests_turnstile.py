@@ -19,7 +19,7 @@ class TurnstileSecurityTests(SimpleTestCase):
         request = SimpleNamespace(get_host=lambda: "localhost:8000")
         self.assertFalse(is_turnstile_enabled(request))
 
-    @override_settings(TURNSTILE_SITE_KEY="site-key", TURNSTILE_SECRET_KEY="secret-key")
+    @override_settings(TURNSTILE_SITE_KEY="site-key", TURNSTILE_SECRET_KEY="secret-key", TURNSTILE_BYPASS=False)
     @patch("core_system.turnstile._post_turnstile_siteverify")
     def test_validation_accepts_successful_cloudflare_response(self, mock_post):
         mock_post.return_value = {"success": True}

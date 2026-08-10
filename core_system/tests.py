@@ -492,14 +492,15 @@ class AidTrackingPostCreationTests(TestCase):
         self.assertEqual(posts.count(), 1)
 
         post = posts.first()
-        self.assertEqual(post.total_expected, 200)
+        self.assertEqual(post.total_expected, 20000)
         self.assertEqual(post.total_collected, 0)
 
         contributions = Contribution.objects.filter(aid_tracking_post_id_FK=post)
-        self.assertEqual(contributions.count(), 2)
+        # Only active members other than the recipient contribute.
+        self.assertEqual(contributions.count(), 1)
 
         for c in contributions:
-            self.assertEqual(float(c.expected_amount), 100)
+            self.assertEqual(float(c.expected_amount), 20000)
             self.assertEqual(c.status, "NOT_PAID")
 
     def test_death_aid_approval_creates_post_with_correct_amount(self):
@@ -542,10 +543,11 @@ class AidTrackingPostCreationTests(TestCase):
         self.assertEqual(posts.count(), 1)
 
         contributions = Contribution.objects.filter(aid_tracking_post_id_FK=posts.first())
-        self.assertEqual(contributions.count(), 2)
+        # Only active members other than the recipient contribute.
+        self.assertEqual(contributions.count(), 1)
 
         for c in contributions:
-            self.assertEqual(float(c.expected_amount), 300)
+            self.assertEqual(float(c.expected_amount), 50000)
 
 
 class AidTrackingReadTests(TestCase):
@@ -635,7 +637,7 @@ class AidTrackingReadTests(TestCase):
 
 
 class AidTrackingActionTests(TestCase):
-    """Tests that auditor can mark PAID, SKIPPED, and send notifications."""
+    """Tests that contribution payment/skip actions work via the shared aid endpoints."""
 
     def setUp(self):
         self.member = Member.objects.create(
@@ -692,7 +694,7 @@ class AidTrackingActionTests(TestCase):
     def test_mark_as_paid(self):
         self._login_auditor()
         response = self.client.post(
-            "/api/auditor/aid-post-member-pay/",
+            "/api/treasurer/aid-post-member-pay/",
             {"contribution_id": str(self.contribution.contribution_id_PK)},
         )
         self.assertEqual(response.status_code, 200)
@@ -700,7 +702,7 @@ class AidTrackingActionTests(TestCase):
         self.assertTrue(data["ok"])
 
         self.contribution.refresh_from_db()
-        self.assertEqual(self.contribution.status, "PAID")
+        self.assertEqual(self.contribution.status, "RECORDED")
         self.assertEqual(float(self.contribution.paid_amount), 500)
 
         self.post.refresh_from_db()
@@ -709,7 +711,7 @@ class AidTrackingActionTests(TestCase):
     def test_mark_as_skipped(self):
         self._login_auditor()
         response = self.client.post(
-            "/api/auditor/aid-post-member-skip/",
+            "/api/treasurer/aid-post-member-skip/",
             {"contribution_id": str(self.contribution.contribution_id_PK), "notes": "On leave"},
         )
         self.assertEqual(response.status_code, 200)
@@ -1124,7 +1126,7 @@ class FullWorkflowSmokeTests(TestCase):
             self.assertEqual(dues.remittance_reference, "ISU-CAUFA-26-1")
             self.assertEqual(dues.deduction_batch_reference, "Payroll batch test")
             tv = TransactionVerification.objects.get(table_name="monthly_dues", record_id=dues.dues_id_PK)
-            self.assertEqual(tv.verification_status, "Pending Treasurer Review")
+            self.assertEqual(tv.verification_status, "Pending Auditor Review")
 
     def test_salary_bulk_skips_duplicates(self):
         trez = self._create_officer("Treasurer", "BP3")

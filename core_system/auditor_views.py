@@ -1265,6 +1265,7 @@ def auditor_approved_aid_posts(request: HttpRequest):
             "collection_rate": collection_rate,
             "finish_status": post.finish_status or "",
             "finish_paid_with_funds": post.finish_paid_with_funds,
+            "finish_cycle": post.finish_cycle,
             "status": archive.status if archive else "",
             "amount": str(archive.amount) if archive else "0",
             "created_at": post.created_at.isoformat() if post.created_at else "",
@@ -1282,7 +1283,8 @@ def auditor_aid_post_members(request: HttpRequest, post_id: int):
 
     try:
         post = AidTrackingPost.objects.select_related("archive_id_FK").get(
-            post_id_PK=post_id
+            post_id_PK=post_id,
+            is_active=True,
         )
     except AidTrackingPost.DoesNotExist:
         return JsonResponse({"ok": False, "error": "Post not found."}, status=404)
@@ -1522,6 +1524,8 @@ def auditor_pending_finish_requests(request: HttpRequest):
             "collection_rate": round((paid / total * 100) if total else 0, 1),
             "paid_count": paid,
             "total_count": total,
+            "finish_paid_with_funds": post.finish_paid_with_funds,
+            "finish_cycle": post.finish_cycle,
             "has_deduction_sheet": bool(post.deduction_sheet),
             "deduction_batch_reference": post.deduction_batch_reference or "",
             "deduction_payroll_period": post.deduction_payroll_period or "",
@@ -1580,6 +1584,8 @@ def auditor_finish_request_details(request: HttpRequest):
         "total_paid": round(total_paid, 2),
         "paid_count": paid_count,
         "total_count": contributions.count(),
+        "finish_paid_with_funds": post.finish_paid_with_funds,
+        "finish_cycle": post.finish_cycle,
         "details": details,
     })
 
@@ -1616,9 +1622,32 @@ def auditor_verify_post_finish(request: HttpRequest):
     if decision == "verified" and not post.finish_paid_with_funds and not post.deduction_sheet:
         return JsonResponse({"ok": False, "error": "Deduction sheet has not been uploaded for this post. Treasurer must upload the salary deduction sheet before Auditor can verify."}, status=400)
 
+    if decision == "verified" and post.finish_paid_with_funds and post.finish_cycle >= 2:
+        missing = []
+        if not post.deduction_sheet:
+            missing.append("the salary deduction sheet")
+        if post.deduction_remitted_amount is None:
+            missing.append("the recorded remittance")
+        if missing:
+            return JsonResponse({"ok": False, "error": "Repayment verification requires " + " and ".join(missing) + " to be recorded first."}, status=400)
+
     if decision == "rejected":
-        post.finish_status = "rejected"
-        post.save(update_fields=["finish_status"])
+        if post.finish_paid_with_funds and post.finish_cycle >= 2:
+            # Cycle 2 (repayment close) rejection returns the post to the repayment phase
+            post.finish_status = "repayment"
+            post.save(update_fields=["finish_status"])
+            rejection_note = "Repayment close rejected — post returned to repayment phase."
+        elif post.finish_paid_with_funds:
+            # Cycle 1 (fund disbursement) rejection resets the flags so the Treasurer can choose again
+            post.finish_status = ""
+            post.finish_paid_with_funds = False
+            post.finish_skip_remaining = False
+            post.save(update_fields=["finish_status", "finish_paid_with_funds", "finish_skip_remaining"])
+            rejection_note = "Fund disbursement rejected — paid-with-funds flags reset. Treasurer can retry."
+        else:
+            post.finish_status = "rejected"
+            post.save(update_fields=["finish_status"])
+            rejection_note = "Finish request rejected."
 
         _record_audit_trail(
             table="AID_TRACKING_POST",
@@ -1626,7 +1655,7 @@ def auditor_verify_post_finish(request: HttpRequest):
             action="FINISH_REJECTED",
             actor=officer,
             ip=request.META.get("REMOTE_ADDR"),
-            notes=remarks or "Auditor rejected finish request",
+            notes=remarks or rejection_note,
         )
 
         channel_layer = get_channel_layer()
@@ -1634,7 +1663,7 @@ def auditor_verify_post_finish(request: HttpRequest):
             "type": "aid_post_finish_rejected", "post_id": post.post_id_PK, "member_name": member_name,
         })
 
-        return JsonResponse({"ok": True, "message": "Finish request rejected.", "status": "rejected"})
+        return JsonResponse({"ok": True, "message": rejection_note, "status": post.finish_status or "tracking"})
 
     post.finish_status = "pending_president"
     post.save(update_fields=["finish_status"])

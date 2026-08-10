@@ -22,6 +22,9 @@ def is_localhost_request(request=None) -> bool:
 
 
 def is_turnstile_enabled(request=None) -> bool:
+    if getattr(settings, "TURNSTILE_BYPASS", False):
+        return False
+
     site_key = (getattr(settings, "TURNSTILE_SITE_KEY", "") or "").strip()
     secret_key = (getattr(settings, "TURNSTILE_SECRET_KEY", "") or "").strip()
     if not site_key or not secret_key:

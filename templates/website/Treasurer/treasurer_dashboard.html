@@ -478,6 +478,119 @@
         color: #757575;
       }
 
+      .rc-card-locked {
+        position: relative;
+        opacity: 0.45;
+        pointer-events: none;
+        filter: grayscale(0.85);
+        user-select: none;
+      }
+
+      .rc-card-locked::after {
+        content: "\f023";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 5;
+        background: #546e7a;
+        color: #fff;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+      }
+
+      .rc-card-readonly {
+        position: relative;
+        opacity: 0.78;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .rc-card-readonly::before {
+        content: "READ-ONLY";
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 6;
+        padding: 3px 10px;
+        background: rgba(13, 71, 161, 0.45);
+        color: #fff;
+        font-size: 0.66rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        opacity: 1;
+        white-space: nowrap;
+      }
+
+      .rc-card-readonly::after {
+        content: "\f06e";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        position: absolute;
+        top: 6px;
+        right: 12px;
+        z-index: 7;
+        background: rgba(255, 255, 255, 0.22);
+        color: #fff;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        opacity: 1;
+      }
+
+      .rc-card-vanish {
+        opacity: 0 !important;
+        transform: scale(0.88) translateY(-8px);
+        transition: opacity 0.28s ease, transform 0.28s ease;
+        pointer-events: none;
+      }
+
+      .rc-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(13, 71, 161, 0.07);
+        border: 1px solid #0d47a1;
+        border-radius: 999px;
+        padding: 6px 6px 6px 16px;
+        color: #0d47a1;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.4;
+        overflow: hidden;
+        white-space: nowrap;
+        cursor: default;
+      }
+
+      .rc-pill .rc-pill-text {
+        max-width: 0;
+        opacity: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        margin: 0;
+        transition: max-width 0.45s ease, opacity 0.35s ease 0.15s;
+      }
+
+      .rc-pill:hover .rc-pill-text {
+        max-width: 1000px;
+        opacity: 1;
+        margin: 0;
+      }
+
       /* Dues Tracking Calendar boxes */
       .dt-month-box {
         border: 2px solid #e0e0e0;
@@ -4456,7 +4569,26 @@
               <div id="rcPostsContainer" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;"></div>
             </div>
 
-            <div class="dashboard-panel" id="rcMembersPanel" style="display:none;">
+            <div class="dashboard-panel" id="rcMembersPanel" style="display:none;position:relative;">
+              <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                <button id="rcReleaseBtn" style="display:none;padding:8px 20px;border-radius:8px;border:none;background:#0d47a1;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+                  <i class="fa-solid fa-hand-holding-dollar"></i> Release
+                </button>
+                <div id="rcReleasePill" class="rc-pill" style="display:none;">
+                  <i class="fa-solid fa-circle-info"></i>
+                  <span class="rc-pill-text">The contributions has been paid with funds — release, and the repayment phase will follow after.</span>
+                  <button id="rcReleasePillBtn" style="padding:8px 20px;border-radius:999px;border:none;background:#0d47a1;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+                    <i class="fa-solid fa-hand-holding-dollar"></i> Release
+                  </button>
+                </div>
+                <button id="rcNormalPayBtn" style="padding:8px 20px;border-radius:8px;border:none;background:#0d47a1;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+                  <i class="fa-solid fa-user-check"></i> Normal Pay
+                </button>
+                <button id="rcPaidWithFundsBtn" style="padding:8px 20px;border-radius:8px;border:none;background:#1b5e20;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
+                  <i class="fa-solid fa-bolt"></i> Paid with Funds
+                </button>
+              </div>
+              <div id="rcContributionsCard" class="rc-card-locked" style="position:relative;padding:16px;background:#f8fbf8;border:1px solid #c8e6c9;border-radius:12px;margin-bottom:16px;">
               <div class="panel-header-row">
                 <div>
                   <h3 class="panel-title" id="rcSelectedPostTitle" style="display:inline;">Member Contributions</h3>
@@ -4464,14 +4596,8 @@
                   <p class="panel-subtitle" id="rcSelectedPostSubtitle">Select an aid post to view contributions</p>
                 </div>
                 <div style="display:flex;gap:8px;">
-                  <button id="rcReleaseBtn" style="display:none;padding:8px 20px;border-radius:8px;border:none;background:#0d47a1;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
-                    <i class="fa-solid fa-hand-holding-dollar"></i> Release
-                  </button>
                   <button id="rcCloseRepaymentBtn" style="display:none;padding:8px 20px;border-radius:8px;border:none;background:#4a148c;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
                     <i class="fa-solid fa-check-double"></i> Close Repayment
-                  </button>
-                  <button id="rcPaidWithFundsBtn" style="padding:8px 20px;border-radius:8px;border:none;background:#1b5e20;color:#fff;font-weight:600;font-size:0.82rem;cursor:pointer;white-space:nowrap;">
-                    <i class="fa-solid fa-bolt"></i> Paid with Funds
                   </button>
                   <button id="rcMarkFinishedBtn" disabled style="padding:8px 20px;border-radius:8px;border:1px solid #f9a825;background:#fff8e1;color:#f57f17;font-weight:600;font-size:0.82rem;cursor:not-allowed;white-space:nowrap;opacity:0.5;">
                     <i class="fa-solid fa-clipboard"></i> Mark as Finished
@@ -4515,9 +4641,10 @@
                   </tbody>
                 </table>
               </div>
+              </div>
 
               <!-- Deduction Sheet Upload -->
-              <div id="rcDeductionSheetSection" style="display:none;margin-top:20px;padding:16px;background:#f8fbf8;border:1px solid #c8e6c9;border-radius:12px;">
+              <div id="rcDeductionSheetSection" class="rc-card-locked" style="display:none;position:relative;margin-top:20px;padding:16px;background:#f8fbf8;border:1px solid #c8e6c9;border-radius:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                   <div>
                     <h4 style="margin:0;font-size:0.95rem;color:#1b5e20;">Salary Deduction Evidence</h4>
@@ -4546,7 +4673,7 @@
               </div>
 
               <!-- Remittance Record -->
-              <div id="rcRemittanceSection" style="display:none;margin-top:16px;padding:16px;background:#f1f8ff;border:1px solid #90caf9;border-radius:12px;">
+              <div id="rcRemittanceSection" class="rc-card-locked" style="display:none;position:relative;margin-top:16px;padding:16px;background:#f1f8ff;border:1px solid #90caf9;border-radius:12px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                   <div>
                     <h4 style="margin:0;font-size:0.95rem;color:#0d47a1;">Salary Deduction Remittance</h4>
@@ -4572,6 +4699,13 @@
                   </button>
                 </div>
                 <div id="rcRemittanceMessage" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:0.82rem;"></div>
+              </div>
+
+              <!-- Approval In-Review Overlay -->
+              <div id="rcApprovalOverlay" style="display:none;position:absolute;inset:0;z-index:30;background:rgba(255,255,255,0.94);border-radius:14px;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;">
+                <div style="font-size:2.4rem;color:#f57f17;margin-bottom:12px;"><i class="fa-solid fa-hourglass-half"></i></div>
+                <div style="font-size:1.05rem;font-weight:700;color:#37474f;">Awaiting Auditor Verification &amp; President Approval</div>
+                <div style="font-size:0.85rem;color:#757575;margin-top:8px;max-width:420px;">Once approved, you will be able to disburse the aid.</div>
               </div>
             </div>
           </section>
@@ -7874,6 +8008,32 @@
       (function () {
         "use strict";
         var rcState = { posts: [], selectedPostId: null };
+        var rcFund = { available: 0, balance: 0, safety_threshold: 0 };
+        var rcNormalPayActive = false;
+        var rcDeductionUploaded = false;
+        var rcRemittanceRecorded = false;
+        var rcRepayThresholdPct = 70;
+
+        function rcSetDisabled(btn, disabled, tip) {
+          if (!btn) return;
+          btn.disabled = disabled;
+          btn.style.opacity = disabled ? "0.5" : "";
+          btn.style.cursor = disabled ? "not-allowed" : "pointer";
+          btn.title = tip || "";
+        }
+
+        function rcFetchFund() {
+          return fetch("/api/fund-balance/", { credentials: "same-origin" })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              if (d.ok) {
+                rcFund.balance = parseFloat(d.balance || 0);
+                rcFund.safety_threshold = parseFloat(d.safety_threshold || 0);
+                rcFund.available = parseFloat(d.available || 0);
+              }
+            })
+            .catch(function () {});
+        }
 
         function rcFmt(num) {
           return "₱" + parseFloat(num).toLocaleString("en-PH", { minimumFractionDigits: 2 });
@@ -7891,6 +8051,8 @@
             var barColor = rate >= 100 ? "#2e7d32" : rate >= 50 ? "#f9a825" : "#d32f2f";
             var borderColor = p.finish_status === "pending_release" ? "#0d47a1" : p.finish_status === "repayment" ? "#4a148c" : (active ? '#1b5e20' : '#e0e0e0');
             var active = rcState.selectedPostId === p.post_id ? "selected" : "";
+            var repayPct = p.total_expected > 0 ? (p.total_collected / p.total_expected * 100) : 100;
+            var repayReady = repayPct >= 70;
             return '<div class="rc-card" data-post-id="' + p.post_id + '" style="background:#fafdfa;border:2px solid ' + borderColor + ';border-radius:12px;padding:16px;cursor:pointer;transition:all 0.2s;">' +
               '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">' +
               '<span style="background:' + (p.aid_type === "medical_aid" ? "#e3f2fd" : "#fce4ec") + ';color:' + (p.aid_type === "medical_aid" ? "#1565c0" : "#c62828") + ';padding:2px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;">' + p.aid_label + '</span>' +
@@ -7902,14 +8064,16 @@
               '<div style="height:100%;width:' + rate + '%;background:' + barColor + ';border-radius:3px;transition:width 0.4s;"></div>' +
               '</div>' +
               '<div style="text-align:right;font-size:0.72rem;color:' + barColor + ';margin-top:4px;font-weight:600;">' + rate + '%</div>' +
-              (p.finish_paid_with_funds && p.finish_status !== "approved"
-                ? '<div style="margin-top:8px;padding:4px 10px;border-radius:6px;background:rgba(230,81,0,0.12);border:1px solid rgba(230,81,0,0.4);color:#bf360c;font-size:0.72rem;font-weight:600;text-align:center;">Paid with Funds — Members still owe ' + rcFmt(p.remaining_balance) + ' — PENDING</div>'
+              (p.finish_paid_with_funds && (p.finish_status === "pending_auditor" || p.finish_status === "pending_president")
+                ? '<div style="margin-top:8px;padding:4px 10px;border-radius:6px;background:rgba(230,81,0,0.12);border:1px solid rgba(230,81,0,0.4);color:#bf360c;font-size:0.72rem;font-weight:600;text-align:center;"><i class="fa-solid fa-building-columns"></i> ' + (p.finish_cycle >= 2 ? 'Repayment close — in review' : 'Paid with Funds — disbursement in review') + '</div>'
                 : '') +
               (p.finish_status === "pending_release"
                 ? '<div style="margin-top:8px;padding:4px 10px;border-radius:6px;background:rgba(13,71,161,0.12);border:1px solid rgba(13,71,161,0.4);color:#0d47a1;font-size:0.72rem;font-weight:600;text-align:center;"><i class="fa-solid fa-hand-holding-dollar"></i> Pending Release — Click to release funds</div>'
                 : '') +
               (p.finish_status === "repayment"
-                ? '<div style="margin-top:8px;padding:4px 10px;border-radius:6px;background:rgba(74,20,140,0.12);border:1px solid rgba(74,20,140,0.4);color:#4a148c;font-size:0.72rem;font-weight:600;text-align:center;"><i class="fa-solid fa-rotate-left"></i> Repayment — Members still owe ' + rcFmt(p.remaining_balance) + '</div>'
+                ? '<div style="margin-top:8px;padding:4px 10px;border-radius:6px;background:rgba(74,20,140,0.12);border:1px solid rgba(74,20,140,0.4);color:#4a148c;font-size:0.72rem;font-weight:600;text-align:center;"><i class="fa-solid fa-rotate-left"></i> Repayment — Members still owe ' + rcFmt(p.remaining_balance) + '</div>' +
+                  '<div style="margin-top:6px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;"><div style="height:100%;width:' + Math.min(100, repayPct) + '%;background:' + (repayReady ? '#2e7d32' : '#4a148c') + ';border-radius:3px;"></div></div>' +
+                  '<div style="text-align:right;font-size:0.7rem;color:' + (repayReady ? '#2e7d32' : '#4a148c') + ';margin-top:2px;font-weight:600;">Repaid ' + repayPct.toFixed(1) + '% (target 70%)' + (repayReady ? ' — ready to close' : '') + '</div>'
                 : '') +
               '</div>';
           }).join("");
@@ -7935,28 +8099,62 @@
           document.getElementById("rcPendingBadge").style.display = "none";
 
           var paidBtn = document.getElementById("rcPaidWithFundsBtn");
+          var normalPayBtn = document.getElementById("rcNormalPayBtn");
           var releaseBtn = document.getElementById("rcReleaseBtn");
+          var releasePill = document.getElementById("rcReleasePill");
+          var releasePillBtn = document.getElementById("rcReleasePillBtn");
           var finishBtn = document.getElementById("rcMarkFinishedBtn");
           var closeRepayBtn = document.getElementById("rcCloseRepaymentBtn");
 
+          rcNormalPayActive = false;
+          rcDeductionUploaded = !!post.has_deduction_sheet;
+          rcRemittanceRecorded = !!post.has_remittance;
+          rcUpdateNormalPayLockState();
+          rcUpdateApprovalOverlay(post);
+          rcUpdateReleaseReadOnly(post);
+
           if (post.finish_status === "pending_release") {
             if (paidBtn) paidBtn.style.display = "none";
+            if (normalPayBtn) normalPayBtn.style.display = "none";
             if (finishBtn) finishBtn.style.display = "none";
             if (closeRepayBtn) closeRepayBtn.style.display = "none";
-            if (releaseBtn) releaseBtn.style.display = "";
+            if (post.finish_paid_with_funds) {
+              if (releaseBtn) releaseBtn.style.display = "none";
+              if (releasePill) { releasePill.style.display = "flex"; if (releasePillBtn) rcSetDisabled(releasePillBtn, false, ""); }
+            } else {
+              if (releasePill) releasePill.style.display = "none";
+              if (releaseBtn) { releaseBtn.style.display = ""; rcSetDisabled(releaseBtn, false, ""); }
+            }
           } else if (post.finish_status === "repayment") {
             if (releaseBtn) releaseBtn.style.display = "none";
+            if (releasePill) releasePill.style.display = "none";
             if (paidBtn) paidBtn.style.display = "none";
+            if (normalPayBtn) normalPayBtn.style.display = "none";
             if (finishBtn) finishBtn.style.display = "none";
-            if (closeRepayBtn) closeRepayBtn.style.display = "";
+            if (closeRepayBtn) {
+              closeRepayBtn.style.display = "";
+              var repayCollected = parseFloat(post.total_collected || 0);
+              var repayExpected = parseFloat(post.total_expected || 0);
+              var repayPct = repayExpected > 0 ? (repayCollected / repayExpected * 100) : 100;
+              var repayReady = repayPct >= rcRepayThresholdPct;
+              rcSetDisabled(closeRepayBtn, !repayReady,
+                repayReady ? "" :
+                "Repaid " + repayPct.toFixed(1) + "% of " + rcFmt(repayExpected) + " — need " + rcRepayThresholdPct + "% (" + rcFmt(Math.max(0, repayExpected - repayCollected)) + " still owed)");
+            }
           } else {
             if (releaseBtn) releaseBtn.style.display = "none";
+            if (releasePill) releasePill.style.display = "none";
             if (closeRepayBtn) closeRepayBtn.style.display = "none";
+            if (normalPayBtn) normalPayBtn.style.display = "";
             if (paidBtn) {
               if (post.finish_status === "paid_with_funds" || post.finish_paid_with_funds) {
                 paidBtn.style.display = "none";
               } else {
                 paidBtn.style.display = "";
+                var need = parseFloat(post.total_expected || 0);
+                rcSetDisabled(paidBtn, rcFund.available < need,
+                  rcFund.available >= need ? "" :
+                  "Insufficient fund balance — available " + rcFmt(rcFund.available) + ", need " + rcFmt(need));
               }
             }
             if (finishBtn) finishBtn.style.display = "";
@@ -8061,8 +8259,8 @@
                 else if (m.status === "PENDING_VERIFICATION") statusBadge = "<span style=\"background:#fff8e1;color:#f57f17;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">Paid - Pending Verification</span>";
                 else if (m.status === "SKIPPED") statusBadge = "<span style=\"background:#fff3e0;color:#e65100;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">SKIPPED</span>";
                 else statusBadge = "<span style=\"background:#f5f5f5;color:#757575;padding:2px 10px;border-radius:10px;font-size:0.75rem;font-weight:600;\">NOT PAID</span>";
-                return "<tr data-contribution-id=\"" + m.contribution_id + "\">" +
-                  "<td style=\"text-align:center;\"><input type=\"checkbox\" class=\"rc-row-cb\" value=\"" + m.contribution_id + "\"></td>" +
+                return "<tr data-contribution-id=\"" + m.contribution_id + "\" data-status=\"" + m.status + "\">" +
+                  "<td style=\"text-align:center;\"><input type=\"checkbox\" class=\"rc-row-cb\" value=\"" + m.contribution_id + "\"" + (m.status === "RECORDED" ? " disabled" : "") + "></td>" +
                   "<td>" + escapeHtml(m.employee_id || "\u2014") + "</td>" +
                   "<td>" + escapeHtml(m.member_name) + "</td>" +
                   "<td>" + escapeHtml(m.department || "\u2014") + "</td>" +
@@ -8136,9 +8334,19 @@
           });
 
           if (paidBtn) {
-            paidBtn.disabled = isLocked;
-            paidBtn.style.opacity = isLocked ? "0.5" : "";
-            paidBtn.style.cursor = isLocked ? "not-allowed" : "";
+            if (isLocked) {
+              paidBtn.disabled = true;
+              paidBtn.style.opacity = "0.5";
+              paidBtn.style.cursor = "not-allowed";
+              paidBtn.title = "Members are locked (all contributions pending verification).";
+            } else {
+              // Preserve the fund-balance gate when the lock clears
+              var post = rcState.posts.find(function (p) { return p.post_id === rcState.selectedPostId; });
+              var need = post ? parseFloat(post.total_expected || 0) : 0;
+              rcSetDisabled(paidBtn, rcFund.available < need,
+                rcFund.available >= need ? "" :
+                "Insufficient fund balance — available " + rcFmt(rcFund.available) + ", need " + rcFmt(need));
+            }
           }
           // finish button is controlled by rcUpdateFinishBtnState — not locked here
         }
@@ -8174,15 +8382,25 @@
           });
         }
 
+        function rcSelectableCbs() {
+          return Array.prototype.filter.call(
+            document.querySelectorAll("#rcMembersTableBody .rc-row-cb"),
+            function (cb) {
+              var row = cb.closest("tr");
+              return row && row.getAttribute("data-status") !== "RECORDED";
+            }
+          );
+        }
+
         function rcSelectAllHandler() {
           var checked = this.checked;
-          document.querySelectorAll("#rcMembersTableBody .rc-row-cb").forEach(function (cb) { cb.checked = checked; });
+          rcSelectableCbs().forEach(function (cb) { cb.checked = checked; });
           rcUpdateBulkBar();
         }
 
         function rcRowCheckHandler() {
-          var all = document.querySelectorAll("#rcMembersTableBody .rc-row-cb");
-          var checked = document.querySelectorAll("#rcMembersTableBody .rc-row-cb:checked");
+          var all = rcSelectableCbs();
+          var checked = all.filter(function (cb) { return cb.checked; });
           var selectAll = document.getElementById("rcSelectAll");
           if (selectAll) selectAll.checked = all.length > 0 && checked.length === all.length;
           rcUpdateBulkBar();
@@ -8190,17 +8408,107 @@
 
         function rcInit() {
           var container = document.getElementById("rcPostsContainer");
-          if (!container) return;
+          if (!container) return Promise.resolve();
 
-          fetch("/api/treasurer/approved-aid-posts/", { credentials: "same-origin" })
+          rcFetchFund();
+          return fetch("/api/treasurer/approved-aid-posts/", { credentials: "same-origin" })
             .then(function (r) { return r.json(); })
             .then(function (data) {
               if (data.ok) {
                 rcState.posts = data.posts || [];
                 rcRenderPosts(rcState.posts);
               }
+              rcUpdateAidGreenDot();
             })
             .catch(function () {});
+        }
+
+        function rcUpdateAidGreenDot() {
+          var el = document.getElementById("aid-claims-green-dot");
+          if (!el) return;
+          var count = (rcState.posts || []).length;
+          el.textContent = count > 99 ? "99+" : count;
+          el.style.display = count > 0 ? "inline-flex" : "none";
+        }
+
+        function rcRemovePostCard(postId) {
+          rcState.posts = rcState.posts.filter(function (p) { return p.post_id !== postId; });
+          var card = document.querySelector('#rcPostsContainer .rc-card[data-post-id="' + postId + '"]');
+          if (card) {
+            card.classList.add("rc-card-vanish");
+            window.setTimeout(function () {
+              if (card.parentNode) card.parentNode.removeChild(card);
+            }, 320);
+          }
+        }
+
+        function rcSetCardLocked(id, locked) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.classList.toggle("rc-card-locked", locked);
+        }
+
+        function rcIsCollectingPost(post) {
+          if (!post) return false;
+          return !post.finish_status;
+        }
+
+        function rcUpdateApprovalOverlay(post) {
+          var overlay = document.getElementById("rcApprovalOverlay");
+          if (!overlay) return;
+          var inReview = post && (post.finish_status === "pending_auditor" || post.finish_status === "pending_president");
+          overlay.style.display = inReview ? "flex" : "none";
+          if (inReview) {
+            rcSetCardLocked("rcContributionsCard", true);
+            rcSetCardLocked("rcDeductionSheetSection", true);
+            rcSetCardLocked("rcRemittanceSection", true);
+          }
+        }
+
+        function rcSetCardReadOnly(id, ro) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          if (ro) {
+            el.classList.remove("rc-card-locked");
+            el.classList.add("rc-card-readonly");
+          } else {
+            el.classList.remove("rc-card-readonly");
+          }
+        }
+
+        function rcUpdateReleaseReadOnly(post) {
+          var isRelease = post && post.finish_status === "pending_release";
+          rcSetCardReadOnly("rcContributionsCard", isRelease);
+          rcSetCardReadOnly("rcDeductionSheetSection", isRelease);
+          rcSetCardReadOnly("rcRemittanceSection", isRelease);
+        }
+
+        function rcUpdateNormalPayLockState() {
+          var post = rcState.posts.find(function (p) { return p.post_id === rcState.selectedPostId; });
+          if (!rcIsCollectingPost(post)) {
+            if (post && post.finish_status === "repayment") {
+              var repayReady = rcDeductionUploaded && rcRemittanceRecorded;
+              rcSetCardLocked("rcContributionsCard", !repayReady);
+              rcSetCardLocked("rcDeductionSheetSection", false);
+              rcSetCardLocked("rcRemittanceSection", false);
+            } else {
+              rcSetCardLocked("rcContributionsCard", false);
+              rcSetCardLocked("rcDeductionSheetSection", false);
+              rcSetCardLocked("rcRemittanceSection", false);
+            }
+            return;
+          }
+          var ready = rcDeductionUploaded && rcRemittanceRecorded;
+          rcSetCardLocked("rcContributionsCard", !(rcNormalPayActive && ready));
+          rcSetCardLocked("rcDeductionSheetSection", !rcNormalPayActive);
+          rcSetCardLocked("rcRemittanceSection", !rcNormalPayActive);
+        }
+
+        function rcStartNormalPay() {
+          if (rcNormalPayActive) return;
+          rcNormalPayActive = true;
+          rcUpdateNormalPayLockState();
+          showToast("Normal Pay started — upload the deduction sheet and record remittance to unlock contributions.", false);
         }
 
         function rcBindFilters() {
@@ -8219,11 +8527,17 @@
           var paidBtn = document.getElementById("rcPaidWithFundsBtn");
           if (paidBtn) paidBtn.addEventListener("click", rcPaidWithFunds);
 
+          var normalPayBtn = document.getElementById("rcNormalPayBtn");
+          if (normalPayBtn) normalPayBtn.addEventListener("click", rcStartNormalPay);
+
           var finishBtn = document.getElementById("rcMarkFinishedBtn");
           if (finishBtn) finishBtn.addEventListener("click", rcMarkFinished);
 
           var releaseBtn = document.getElementById("rcReleaseBtn");
           if (releaseBtn) releaseBtn.addEventListener("click", rcReleasePost);
+
+          var releasePillBtn = document.getElementById("rcReleasePillBtn");
+          if (releasePillBtn) releasePillBtn.addEventListener("click", rcReleasePost);
 
           var closeRepayBtn = document.getElementById("rcCloseRepaymentBtn");
           if (closeRepayBtn) closeRepayBtn.addEventListener("click", rcCloseRepayment);
@@ -8244,7 +8558,8 @@
           var msg = document.getElementById("rcDeductionMessage");
           if (!section) return;
           if (msg) msg.style.display = "none";
-          if (post && post.finish_status !== "pending_release" && post.finish_status !== "repayment" && post.finish_status !== "approved") {
+          var showSection = post && (post.finish_status === "repayment" || (post.finish_status !== "approved" && !(post.finish_paid_with_funds && post.finish_cycle < 2)));
+          if (showSection) {
             section.style.display = "block";
             if (post.has_deduction_sheet) {
               if (status) status.innerHTML = '<span style="color:#2e7d32;"><i class="fa-solid fa-check-circle"></i> Uploaded — Ref: ' + escapeHtml(post.deduction_batch_reference || "") + " | Period: " + escapeHtml(post.deduction_payroll_period || "") + "</span>";
@@ -8307,7 +8622,9 @@
               post.has_deduction_sheet = true;
               post.deduction_batch_reference = data.batch_reference;
               post.deduction_payroll_period = data.payroll_period;
+              rcDeductionUploaded = true;
               rcUpdateDeductionSection(post);
+              rcUpdateNormalPayLockState();
             } else {
               if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = data.error || "Upload failed."; }
             }
@@ -8323,7 +8640,8 @@
           var msg = document.getElementById("rcRemittanceMessage");
           if (!section) return;
           if (msg) msg.style.display = "none";
-          if (post && post.finish_status !== "pending_release" && post.finish_status !== "repayment" && post.finish_status !== "approved") {
+          var showSection = post && (post.finish_status === "repayment" || (post.finish_status !== "approved" && !(post.finish_paid_with_funds && post.finish_cycle < 2)));
+          if (showSection) {
             section.style.display = "block";
             if (post.has_remittance) {
               if (status) status.innerHTML = '<span style="color:#0d47a1;"><i class="fa-solid fa-check-circle"></i> Recorded — ₱' + parseFloat(post.deduction_remitted_amount).toLocaleString("en-PH", {minimumFractionDigits:2}) + ' on ' + post.deduction_remitted_date + ' (ref: ' + escapeHtml(post.deduction_remittance_reference || "") + ')</span>';
@@ -8331,6 +8649,11 @@
             } else {
               if (status) status.innerHTML = '<span style="color:#f57f17;"><i class="fa-solid fa-clock"></i> Not yet recorded</span>';
               if (form) form.style.display = "flex";
+              var amountInput = document.getElementById("rcRemitAmount");
+              if (amountInput) {
+                var collected = parseFloat(post.total_collected || 0);
+                if (collected > 0) amountInput.value = collected.toFixed(2);
+              }
             }
           } else {
             section.style.display = "none";
@@ -8383,7 +8706,9 @@
               post.deduction_remitted_amount = data.remitted_amount;
               post.deduction_remittance_reference = data.remittance_reference;
               post.deduction_remitted_date = data.remitted_date;
+              rcRemittanceRecorded = true;
               rcUpdateRemittanceSection(post);
+              rcUpdateNormalPayLockState();
             } else {
               if (msg) { msg.style.display = "block"; msg.style.background = "#ffebee"; msg.style.color = "#c62828"; msg.textContent = data.error || "Failed to record remittance."; }
             }
@@ -8451,7 +8776,9 @@
               .then(function (r) { return r.json(); })
               .then(function (data) {
                 if (data.ok) {
-                  document.getElementById("rcMembersPanel").style.display = "none";
+                  post.finish_status = "pending_auditor";
+                  rcUpdateNormalPayLockState();
+                  rcUpdateApprovalOverlay(post);
                   rcInit();
                   showToast("Finish request sent to Auditor for verification.", false);
                 } else {
@@ -8466,41 +8793,56 @@
           var post = rcState.posts.find(function (p) { return p.post_id === rcState.selectedPostId; });
           if (!post) return;
 
-          Swal.fire({
-            title: "Paid with Funds?",
-            html: 'Disburse <strong>' + rcFmt(post.total_expected) + '</strong> from the fund to cover <strong>' + escapeHtml(post.member_name) + "</strong>'s " + post.aid_label + '?<br><br>Members will still owe their contributions to replenish the fund.',
-            icon: "question",
-            showCancelButton: true,
-            confirmButtonText: "Yes, disburse",
-            cancelButtonText: "Cancel",
-            confirmButtonColor: "#1b5e20",
-            reverseButtons: true,
-            customClass: { popup: "swal-custom-animated" },
-          }).then(async function (result) {
-            if (!result.isConfirmed) return;
-            var ztOk = await window.ensureZeroTrust();
-            if (!ztOk) return;
-            var fd = new FormData();
-            fd.append("post_id", post.post_id);
-            fetch("/api/treasurer/aid-post-paid-with-funds/", {
-              method: "POST",
-              credentials: "same-origin",
-              headers: { "X-CSRFToken": getCookie("csrftoken") },
-              body: fd,
-            })
-              .then(function (r) { return r.json(); })
-              .then(function (data) {
-                if (data.ok) {
-                  document.getElementById("rcMembersPanel").style.display = "none";
-                  rcInit();
-                  if (typeof initIO === "function") initIO();
-                  if (typeof initMonthlyChart === "function") initMonthlyChart();
-                  showToast("Post paid with funds successfully.", false);
-                } else {
-                  showToast(data.error || "Failed to process payment.", true);
-                }
+          rcFetchFund().then(function () {
+            var need = parseFloat(post.total_expected || 0);
+            if (rcFund.available < need) {
+              Swal.fire({
+                title: "Insufficient Fund Balance",
+                html: 'Cannot disburse <strong>' + rcFmt(need) + '</strong>.<br><br>Fund available: <strong>' + rcFmt(rcFund.available) + '</strong> (balance ' + rcFmt(rcFund.balance) + ' minus safety threshold ' + rcFmt(rcFund.safety_threshold) + ').<br>Shortfall: <strong>' + rcFmt(need - rcFund.available) + '</strong>.',
+                icon: "error",
+                confirmButtonColor: "#bf360c",
+              });
+              rcSetDisabled(document.getElementById("rcPaidWithFundsBtn"), true, "Insufficient fund balance");
+              return;
+            }
+
+            Swal.fire({
+              title: "Paid with Funds?",
+              html: 'Disburse <strong>' + rcFmt(need) + '</strong> from the fund to cover <strong>' + escapeHtml(post.member_name) + "</strong>'s " + post.aid_label + '?<br><br><strong>Fund summary:</strong> balance ' + rcFmt(rcFund.balance) + ' | safety threshold ' + rcFmt(rcFund.safety_threshold) + ' | available ' + rcFmt(rcFund.available) + '<br><br>Members will still owe their contributions to replenish the fund.',
+              icon: "question",
+              showCancelButton: true,
+              confirmButtonText: "Yes, disburse",
+              cancelButtonText: "Cancel",
+              confirmButtonColor: "#1b5e20",
+              reverseButtons: true,
+              customClass: { popup: "swal-custom-animated" },
+            }).then(async function (result) {
+              if (!result.isConfirmed) return;
+              var ztOk = await window.ensureZeroTrust();
+              if (!ztOk) return;
+              var fd = new FormData();
+              fd.append("post_id", post.post_id);
+              fetch("/api/treasurer/aid-post-paid-with-funds/", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "X-CSRFToken": getCookie("csrftoken") },
+                body: fd,
               })
-              .catch(function () { showToast("Network error.", true); });
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                  if (data.ok) {
+                    document.getElementById("rcMembersPanel").style.display = "none";
+                    rcInit();
+                    if (typeof initIO === "function") initIO();
+                    if (typeof initMonthlyChart === "function") initMonthlyChart();
+                    if (data.fund_warning) showToast(data.fund_warning, true);
+                    else showToast("Post paid with funds successfully.", false);
+                  } else {
+                    showToast(data.error || "Failed to process payment.", true);
+                  }
+                })
+                .catch(function () { showToast("Network error.", true); });
+            });
           });
         }
 
@@ -8518,7 +8860,7 @@
 
           Swal.fire({
             title: "Release Funds?",
-            html: 'Record fund transactions and close <strong>' + escapeHtml(post.member_name) + "</strong>'s " + post.aid_label + ' post?' + inflowLine + '<br>' + outflowLine,
+            html: 'Record fund transactions and close <strong>' + escapeHtml(post.member_name) + "</strong>'s " + post.aid_label + ' post?' + inflowLine + '<br>' + outflowLine + (post.finish_paid_with_funds ? '<br><br><em style="color:#bf360c;">This is the authoritative fund-balance check. The fund balance is re-checked at submit time.</em>' : ''),
             icon: "question",
             showCancelButton: true,
             confirmButtonText: "Yes, Release",
@@ -8528,27 +8870,50 @@
             customClass: { popup: "swal-custom-animated" },
           }).then(function (result) {
             if (!result.isConfirmed) return;
-            var fd = new FormData();
-            fd.append("post_id", post.post_id);
-            fetch("/api/treasurer/aid-post-release/", {
-              method: "POST",
-              credentials: "same-origin",
-              headers: { "X-CSRFToken": getCookie("csrftoken") },
-              body: fd,
-            })
-              .then(function (r) { return r.json(); })
-              .then(function (data) {
-                if (data.ok) {
-                  document.getElementById("rcMembersPanel").style.display = "none";
-                  rcInit();
-                  if (typeof initIO === "function") initIO();
-                  if (typeof initMonthlyChart === "function") initMonthlyChart();
-                  Swal.fire({icon:"success",title:"Released",text:data.message || "Funds released."});
-                } else {
-                  showToast(data.error || "Failed to release.", true);
-                }
+            var doRelease = function () {
+              var fd = new FormData();
+              fd.append("post_id", post.post_id);
+              fetch("/api/treasurer/aid-post-release/", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "X-CSRFToken": getCookie("csrftoken") },
+                body: fd,
               })
-              .catch(function () { showToast("Network error.", true); });
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                  if (data.ok) {
+                    var panel = document.getElementById("rcMembersPanel");
+                    if (panel) panel.style.display = "none";
+                    rcRemovePostCard(post.post_id);
+                    rcUpdateAidGreenDot();
+                    Swal.fire({icon:"success",title:"Released",text:data.message || "Funds released."});
+                    rcInit();
+                    if (typeof initIO === "function") initIO();
+                    if (typeof initMonthlyChart === "function") initMonthlyChart();
+                    if (typeof fetchReleases === "function") fetchReleases();
+                  } else {
+                    showToast(data.error || "Failed to release.", true);
+                  }
+                })
+                .catch(function () { showToast("Network error.", true); });
+            };
+            if (post.finish_paid_with_funds) {
+              rcFetchFund().then(function () {
+                var need = parseFloat(post.total_expected || 0);
+                if (rcFund.available < need) {
+                  Swal.fire({
+                    title: "Insufficient Fund Balance",
+                    html: 'Cannot release <strong>' + rcFmt(need) + '</strong>.<br><br>Fund available: <strong>' + rcFmt(rcFund.available) + '</strong> (balance ' + rcFmt(rcFund.balance) + ' minus safety threshold ' + rcFmt(rcFund.safety_threshold) + ').<br>Shortfall: <strong>' + rcFmt(need - rcFund.available) + '</strong>. The post stays pending release.',
+                    icon: "error",
+                    confirmButtonColor: "#bf360c",
+                  });
+                  return;
+                }
+                doRelease();
+              });
+            } else {
+              doRelease();
+            }
           });
         }
 
@@ -8556,9 +8921,20 @@
           var post = rcState.posts.find(function (p) { return p.post_id === rcState.selectedPostId; });
           if (!post) return;
 
+          var collected = parseFloat(post.total_collected || 0);
+          var expected = parseFloat(post.total_expected || 0);
+          var shortfall = Math.max(0, expected - collected);
+          var html = 'Close <strong>' + escapeHtml(post.member_name) + "</strong>'s " + post.aid_label + ' repayment?<br>Remaining NOT_PAID members will be <strong>skipped</strong>.<br>Total collected: ' + rcFmt(collected) + ' of ' + rcFmt(expected);
+          if (shortfall > 0) {
+            html += '<br><br><div style="background:#fff8e1;border:1px solid #f57f17;color:#e65100;padding:8px 12px;border-radius:8px;text-align:left;">The fund will remain <strong>' + rcFmt(shortfall) + '</strong> short after closing (skipped members do not repay).</div>' +
+                    '<label style="display:flex;gap:8px;align-items:center;margin-top:12px;text-align:left;font-size:0.85rem;">' +
+                    '<input type="checkbox" id="rcShortfallAck" style="width:16px;height:16px;"> ' +
+                    '<span>I acknowledge the fund will be short by <strong>' + rcFmt(shortfall) + '</strong>.</span></label>';
+          }
+
           Swal.fire({
             title: "Close Repayment?",
-            html: 'Close <strong>' + escapeHtml(post.member_name) + "</strong>'s " + post.aid_label + ' repayment?<br>Remaining NOT_PAID members will be <strong>skipped</strong>.<br>Total collected: ' + rcFmt(post.total_collected) + ' of ' + rcFmt(post.total_expected),
+            html: html,
             icon: "question",
             showCancelButton: true,
             confirmButtonText: "Yes, Close Repayment",
@@ -8566,6 +8942,14 @@
             confirmButtonColor: "#4a148c",
             reverseButtons: true,
             customClass: { popup: "swal-custom-animated" },
+            preConfirm: function () {
+              var ack = document.getElementById("rcShortfallAck");
+              if (shortfall > 0 && ack && !ack.checked) {
+                Swal.showValidationMessage("Please confirm the shortfall before closing.");
+                return false;
+              }
+              return true;
+            },
           }).then(function (result) {
             if (!result.isConfirmed) return;
             var fd = new FormData();
@@ -8684,6 +9068,7 @@
             }
           } catch (e) { console.error("Inflow/outflow init failed:", e); }
         }
+        window.initIO = initIO;
         document.addEventListener("turbo:load", initIO);
       })();
     </script>
@@ -8804,6 +9189,7 @@
             });
           } catch (e) { console.error("Monthly chart init failed:", e); }
         }
+        window.initMonthlyChart = initMonthlyChart;
         document.addEventListener("turbo:load", initMonthlyChart);
       })();
     </script>

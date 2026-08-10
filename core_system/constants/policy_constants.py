@@ -74,6 +74,7 @@ def get_death_aid_amount(relationship: str) -> float:
     normalized = relationship.strip().lower()
     amount_map = {
         "member": _get_float("death_aid_member", POLICY.death_aid_member),
+        "self": _get_float("death_aid_member", POLICY.death_aid_member),
         "spouse": _get_float("death_aid_spouse", POLICY.death_aid_spouse),
         "husband": _get_float("death_aid_spouse", POLICY.death_aid_spouse),
         "wife": _get_float("death_aid_spouse", POLICY.death_aid_spouse),
@@ -93,6 +94,7 @@ def get_death_aid_amount(relationship: str) -> float:
 
 DEATH_AID_RELATIONSHIP_MAP = {
     "member": "immediate",
+    "self": "immediate",
     "spouse": "immediate",
     "husband": "immediate",
     "wife": "immediate",

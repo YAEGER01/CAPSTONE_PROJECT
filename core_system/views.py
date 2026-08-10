@@ -10,6 +10,7 @@ from __future__ import annotations
 from __future__ import annotations
 
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.db.models import Q, Sum, Prefetch
@@ -118,7 +119,13 @@ def _ensure_default_superadmin_accounts():
     return superadmin, president
 
 
-def _build_superadmin_dashboard_context(superadmin: OfficerUser, president: OfficerUser, form_feedback: dict | None = None):
+def _build_superadmin_dashboard_context(superadmin: OfficerUser, president: OfficerUser, form_feedback: dict | None = None, settings_feedback: dict | None = None):
+    safety_threshold_obj = SystemSetting.objects.get_or_create(
+        setting_key="safety_threshold",
+        defaults={"setting_value": "20000"},
+    )[0]
+    safety_threshold = Decimal(safety_threshold_obj.setting_value)
+    fund_balance = Decimal(str(FundTransaction.get_balance()))
     return {
         "superadmin_account": {
             "username": superadmin.username,
@@ -136,7 +143,37 @@ def _build_superadmin_dashboard_context(superadmin: OfficerUser, president: Offi
         },
         "president_dashboard_url": "/president/",
         "form_feedback": form_feedback,
+        "settings_feedback": settings_feedback,
+        "safety_threshold": safety_threshold,
+        "fund_balance": fund_balance,
+        "fund_available": fund_balance - safety_threshold,
     }
+
+
+def _handle_superadmin_settings_form(request: HttpRequest) -> dict:
+    """Handle the fund safety threshold setting update."""
+    feedback = {"ok": False, "message": "", "level": "error"}
+    raw = (request.POST.get("safety_threshold") or "").strip()
+    if not raw:
+        feedback["message"] = "Safety threshold is required."
+        return feedback
+    try:
+        value = Decimal(raw)
+    except (InvalidOperation, ValueError):
+        feedback["message"] = "Safety threshold must be a valid number."
+        return feedback
+    if value < 0:
+        feedback["message"] = "Safety threshold cannot be negative."
+        return feedback
+
+    SystemSetting.objects.update_or_create(
+        setting_key="safety_threshold",
+        defaults={"setting_value": str(value)},
+    )
+    feedback["ok"] = True
+    feedback["message"] = f"Fund safety threshold updated to ₱{value:,.2f}."
+    feedback["level"] = "success"
+    return feedback
 
 
 def _handle_superadmin_president_form(request: HttpRequest, president: OfficerUser) -> tuple[OfficerUser, dict]:
@@ -184,11 +221,15 @@ def superadmin_dashboard(request: HttpRequest):
 
     superadmin, president = _ensure_default_superadmin_accounts()
     form_feedback = None
+    settings_feedback = None
 
     if request.method == "POST":
-        president, form_feedback = _handle_superadmin_president_form(request, president)
+        if request.POST.get("form_action") == "safety_threshold":
+            settings_feedback = _handle_superadmin_settings_form(request)
+        else:
+            president, form_feedback = _handle_superadmin_president_form(request, president)
 
-    context = _build_superadmin_dashboard_context(superadmin, president, form_feedback)
+    context = _build_superadmin_dashboard_context(superadmin, president, form_feedback, settings_feedback)
     return render(request, "website/Superadmin/superadmin_dashboard.html", context)
 
 

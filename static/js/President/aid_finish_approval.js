@@ -192,11 +192,33 @@
 
       var skipLabel = p.skip_remaining ? "Yes (auto-skip unpaid)" : "No";
 
+      var isFund = !!p.finish_paid_with_funds;
+      var isRepayClose = isFund && (p.finish_cycle || 1) >= 2;
+      var cycleBadge = isFund
+        ? (isRepayClose
+            ? '<span style="background:#f3e5f5;color:#6a1b9a;padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:600;margin-left:4px;">REPAYMENT CLOSE</span>'
+            : '<span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:10px;font-size:0.68rem;font-weight:600;margin-left:4px;">FUND DISBURSEMENT</span>')
+        : "";
+
+      var collected = parseFloat(p.total_collected) || 0;
+      var expected = parseFloat(p.total_expected) || 0;
+      var shortfall = Math.max(0, expected - collected);
+      var collectedCell;
+      if (isRepayClose) {
+        collectedCell =
+          formatMoneyPHP(collected) +
+          '<br><small style="color:' + (shortfall > 0 ? "#c62828" : "#2e7d32") + ';">' +
+          (shortfall > 0 ? "short " + formatMoneyPHP(shortfall) : "fully recovered") +
+          "</small>";
+      } else {
+        collectedCell = formatMoneyPHP(collected);
+      }
+
       tr.innerHTML =
         "<td><strong>" + escapeHtml(p.member_name || "Unknown") + "</strong>" + (p.verified_by_auditor ? ' <span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-size:0.65rem;font-weight:600;margin-left:4px;">Auditor Verified</span>' : '') + "</td>" +
-        "<td>" + escapeHtml(p.aid_label || "") + "</td>" +
-        "<td>" + formatMoneyPHP(p.total_expected) + "</td>" +
-        "<td>" + formatMoneyPHP(p.total_collected) + "</td>" +
+        "<td>" + escapeHtml(p.aid_label || "") + cycleBadge + "</td>" +
+        "<td>" + formatMoneyPHP(expected) + "</td>" +
+        "<td>" + collectedCell + "</td>" +
         '<td style="font-weight:600;color:' + rateColor + ';">' + p.collection_rate + "%</td>" +
         "<td>" + escapeHtml(skipLabel) + "</td>" +
         "<td style='font-size:0.82rem;color:#90a4ae;'>" + escapeHtml(p.created_by || "") + "<br><small>" + escapeHtml(p.created_at || "") + "</small></td>" +
@@ -217,16 +239,54 @@
   }
 
   async function handleApprove(postId, memberName) {
-    var result = await Swal.fire({
-      title: "Approve Finish?",
-      text: "This will mark " + (memberName || "this post") + " as finished and move it to history.",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Yes, approve",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#1b5e20",
-      reverseButtons: true,
-    });
+    var p = (__finishAllPosts || []).find(function (x) { return x.post_id === postId; }) || {};
+    var isRepayClose = !!p.finish_paid_with_funds && (p.finish_cycle || 1) >= 2;
+    var collected = parseFloat(p.total_collected) || 0;
+    var expected = parseFloat(p.total_expected) || 0;
+
+    if (isRepayClose && collected <= 0) {
+      await Swal.fire({
+        title: "Cannot Approve — Nothing Collected",
+        html:
+          "No repayments were collected for this post. Approving would CLOSE the post permanently with the full " +
+          "<strong>" + formatMoneyPHP(expected) + "</strong> recorded as shortfall.<br><br>" +
+          'Use <strong>Reject</strong> to return the post to the Auditor instead.',
+        icon: "warning",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#c62828",
+      });
+      return;
+    }
+
+    var result;
+    if (isRepayClose) {
+      var shortfall = Math.max(0, expected - collected);
+      result = await Swal.fire({
+        title: "Approve Repayment Close?",
+        html:
+          "This is a <strong>REPAYMENT CLOSE</strong>. Approving will <strong>CLOSE this post permanently</strong>.<br><br>" +
+          "Collected: <strong>" + formatMoneyPHP(collected) + "</strong> of " + formatMoneyPHP(expected) + ".<br>" +
+          'Shortfall after close: <strong style="color:#c62828;">' + formatMoneyPHP(shortfall) + "</strong>.<br><br>" +
+          "Fund inflows were already recorded in cycle 1, so no release will be made.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Yes, close post",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#1b5e20",
+        reverseButtons: true,
+      });
+    } else {
+      result = await Swal.fire({
+        title: "Approve Finish?",
+        text: "This will mark " + (memberName || "this post") + " as finished and move it to history.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Yes, approve",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#1b5e20",
+        reverseButtons: true,
+      });
+    }
     if (!result.isConfirmed) return;
 
     try {
@@ -289,9 +349,22 @@
           '</tr>';
       }).join("");
       var totalRow = data.paid_count > 0 ? '<tr style="font-weight:700;background:#f5f5f5;"><td colspan="2" style="padding:8px;text-align:right;">Total Paid:</td><td style="padding:8px;text-align:right;color:#2e7d32;">₱' + data.total_paid.toFixed(2) + '</td><td colspan="2" style="padding:8px;"></td></tr>' : '';
+      var isRepayClose = !!data.finish_paid_with_funds && (data.finish_cycle || 1) >= 2;
+      var summaryHtml;
+      if (isRepayClose) {
+        var short = Math.max(0, data.total_expected - data.total_paid);
+        summaryHtml = '<div style="margin:0 0 10px;padding:8px 10px;background:#f3e5f5;border-left:3px solid #6a1b9a;border-radius:4px;font-size:0.82rem;">' +
+          '<strong style="color:#6a1b9a;">REPAYMENT CLOSE</strong><br>' +
+          "Repaid <strong>" + formatMoneyPHP(data.total_paid) + "</strong> of " + formatMoneyPHP(data.total_expected) +
+          " — " + (short > 0 ? 'shortfall <strong style="color:#c62828;">' + formatMoneyPHP(short) + "</strong>" : "<strong style='color:#2e7d32;'>fully recovered</strong>") +
+          " after closing the post.</div>";
+      } else {
+        summaryHtml = "";
+      }
       Swal.fire({
         title: 'Finish Details — ' + escapeHtml(data.target_month),
         html:
+          summaryHtml +
           '<p style="margin:0 0 6px;font-size:0.85rem;color:#666;">' + data.paid_count + ' / ' + data.total_count + ' members paid | Expected: ₱' + data.total_expected.toFixed(2) + '</p>' +
           '<div style="max-height:360px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;">' +
           '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">' +

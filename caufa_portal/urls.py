@@ -23,6 +23,7 @@ def sw_js(request):
 urlpatterns = [
     path("favicon.ico", RedirectView.as_view(url="/static/img/isu_caufa_official.png", permanent=True)),
     path("sw.js", sw_js),
+    path("service-worker.js", sw_js),
     path("admin/", admin.site.urls),
     # 1. Main Landing: Dynamic homepage that queries existing backend data
     path("", homepage, name="home"),

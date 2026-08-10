@@ -1379,6 +1379,17 @@ def submit_presidential_aid_decision(request):
                 status=400,
             )
 
+        # Idempotency guard: a repeat of the exact same decision is a no-op,
+        # not a conflict. Prevents 409 storms from double-submits/retries.
+        if record.status == decision and record.president_decision == decision:
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": f"Aid request already {decision.lower()}. No changes made.",
+                    "idempotent": True,
+                }
+            )
+
         # Status gate: only allow acting on records in an auditor-verified state (S7).
         if record.status not in ("Auditor Verified", "Pending Auditor Verification", "Pending"):
             return JsonResponse(
@@ -2065,6 +2076,8 @@ def president_pending_finish_requests(request: HttpRequest):
             "total_collected": str(post.total_collected),
             "collection_rate": collection_rate,
             "skip_remaining": post.finish_skip_remaining,
+            "finish_paid_with_funds": post.finish_paid_with_funds,
+            "finish_cycle": post.finish_cycle,
             "status": archive.status if archive else "",
             "amount": str(archive.amount) if archive else "0",
             "created_by": post.created_by_user_id_FK.full_name if post.created_by_user_id_FK else "",
@@ -2128,6 +2141,8 @@ def president_finish_request_details(request: HttpRequest):
         "total_paid": round(total_paid, 2),
         "paid_count": paid_count,
         "total_count": contributions.count(),
+        "finish_paid_with_funds": post.finish_paid_with_funds,
+        "finish_cycle": post.finish_cycle,
         "details": details,
     })
 
@@ -2174,6 +2189,17 @@ def president_approve_aid_post_finish(request: HttpRequest):
         )
         post.total_collected = totals["total_collected"] or 0
 
+    if post.finish_paid_with_funds and post.finish_cycle >= 2:
+        collected_now = Contribution.objects.filter(
+            aid_tracking_post_id_FK=post,
+            status__in=["PAID", "RECORDED", "PENDING_VERIFICATION"],
+        ).aggregate(total=Sum("paid_amount"))["total"] or 0
+        if float(collected_now) <= 0:
+            return JsonResponse({
+                "ok": False,
+                "error": "Cannot approve repayment close: no repayments were collected. Reject the request to return the post to the Auditor instead.",
+            }, status=400)
+
     was_auditor_verified = post.finish_status == "pending_president"
 
     archive = post.archive_id_FK
@@ -2193,50 +2219,53 @@ def president_approve_aid_post_finish(request: HttpRequest):
             )
             post.total_collected = totals["total_collected"] or 0
 
-        if post.finish_paid_with_funds:
-            paid_contributions_qs = Contribution.objects.filter(
+        if post.finish_paid_with_funds and post.finish_cycle >= 2:
+            # Second cycle — repayment close. Close the post here. A paid-with-funds
+            # post is never routed back to release (prevents a second outflow / loop).
+            has_repayments = Contribution.objects.filter(
                 aid_tracking_post_id_FK=post, status="PAID",
+            ).exists()
+
+            post.finish_status = "approved"
+            post.is_active = False
+            post.save(update_fields=["finish_status", "is_active", "total_collected"])
+
+            if archive is not None:
+                if archive.transaction_type == "death_aid":
+                    DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
+                elif archive.transaction_type == "medical_aid":
+                    MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
+
+            _record_audit_trail(
+                table="AID_TRACKING_POST",
+                record_id=post.post_id_PK,
+                action="REPAYMENT_APPROVED",
+                actor=president,
+                new={
+                    "finish_status": "approved",
+                    "is_active": False,
+                    "total_collected": float(post.total_collected),
+                    "closed_without_repayments": not has_repayments,
+                    "shortfall": float(max(0, post.total_expected - post.total_collected)),
+                },
+                ip=request.META.get("REMOTE_ADDR"),
+                notes=("President approved repayment — post closed." if has_repayments else "President approved repayment close with no repayments collected — post closed."),
             )
 
-            if paid_contributions_qs.exists():
-                # Second cycle — repayments have been collected, close the post
-                # (inflow was already recorded at Auditor verify time)
-                post.finish_status = "approved"
-                post.is_active = False
-                post.save(update_fields=["finish_status", "is_active", "total_collected"])
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)("treasurer_dashboard", {
+                "type": "aid_post_finished", "post_id": post.post_id_PK, "member_name": member_name,
+            })
+            async_to_sync(channel_layer.group_send)("auditor_dashboard", {
+                "type": "data_changed", "section": "aids",
+            })
+            async_to_sync(channel_layer.group_send)("president_dashboard", {
+                "type": "data_changed", "section": "aids",
+            })
 
-                if archive is not None:
-                    if archive.transaction_type == "death_aid":
-                        DeathAid.objects.filter(death_aid_id_PK=archive.record_id).update(status="Released")
-                    elif archive.transaction_type == "medical_aid":
-                        MedicalAid.objects.filter(medical_aid_id_PK=archive.record_id).update(status="Released")
-
-                _record_audit_trail(
-                    table="AID_TRACKING_POST",
-                    record_id=post.post_id_PK,
-                    action="REPAYMENT_APPROVED",
-                    actor=president,
-                    new={
-                        "finish_status": "approved",
-                        "is_active": False,
-                        "total_collected": float(post.total_collected),
-                    },
-                    ip=request.META.get("REMOTE_ADDR"),
-                    notes="President approved repayment — post closed.",
-                )
-
-                channel_layer = get_channel_layer()
-                async_to_sync(channel_layer.group_send)("treasurer_dashboard", {
-                    "type": "aid_post_finished", "post_id": post.post_id_PK, "member_name": member_name,
-                })
-                async_to_sync(channel_layer.group_send)("auditor_dashboard", {
-                    "type": "data_changed", "section": "aids",
-                })
-                async_to_sync(channel_layer.group_send)("president_dashboard", {
-                    "type": "data_changed", "section": "aids",
-                })
-
+            if has_repayments:
                 return JsonResponse({"ok": True, "message": "Repayment approved. Aid post closed."})
+            return JsonResponse({"ok": True, "message": "Repayment close approved (no repayments collected). Aid post closed with shortfall on record."})
 
         # First cycle (paid-with-funds, no repayments yet) or normal pay: route to release
         post.finish_status = "pending_release"
@@ -2783,7 +2812,10 @@ def president_officers_update(request: HttpRequest, officer_id: int):
     if email and OfficerUser.objects.exclude(pk=officer.pk).filter(email__iexact=email).exists():
         return JsonResponse({"ok": False, "error": "Email already exists."}, status=409)
 
-    department = officer.department_id_FK
+    try:
+        department = officer.department_id_FK
+    except Department.DoesNotExist:
+        department = None
     if department_id not in (None, "", 0, "0"):
         department = _resolve_officer_department(department_id)
         if department is None:
@@ -2971,7 +3003,10 @@ def president_officer_self_enroll(request: HttpRequest):
     if Member.objects.filter(officer_user_id_FK=president).exists():
         return JsonResponse({"ok": False, "error": "This officer is already linked to a member profile."}, status=409)
 
-    department = president.department_id_FK
+    try:
+        department = president.department_id_FK
+    except Department.DoesNotExist:
+        department = None
     if department_id not in (None, "", 0, "0"):
         department = Department.objects.filter(department_id_PK=int(department_id)).first() or department
     elif department_name:

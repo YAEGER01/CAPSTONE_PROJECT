@@ -1,0 +1,345 @@
+{
+  "process": "Paid With Funds — Aid Tracking Post Lifecycle",
+  "description": "The cooperative fund pays an approved Medical/Death Aid benefit up front. Members owe repayments to replenish the fund. The post closes only after the Treasurer -> Auditor -> President pipeline completes twice: once for the fund disbursement, once for the repayment close.",
+  "actors": [
+    {
+      "name": "Treasurer",
+      "role": "initiates actions and moves money (fund outflow on release, fund inflow on remittance); never verifies or approves"
+    },
+    {
+      "name": "Auditor",
+      "role": "verifies actions submitted by the Treasurer; can reject; never approves"
+    },
+    {
+      "name": "President",
+      "role": "gives final approval; approval of the second cycle closes the post; never verifies"
+    }
+  ],
+  "contribution_statuses": [
+    "NOT_PAID",
+    "RECORDED",
+    "PENDING_VERIFICATION",
+    "PAID",
+    "SKIPPED"
+  ],
+  "finish_statuses": [
+    "",
+    "pending_auditor",
+    "pending_president",
+    "pending_release",
+    "repayment",
+    "rejected",
+    "approved"
+  ],
+  "states": [
+    {
+      "id": "tracking",
+      "phase": 0,
+      "status": "tracking",
+      "actor": "System (on President aid approval)",
+      "action": "Create AidTrackingPost and one Contribution per active member (NOT_PAID, expected_amount = aid / member count)",
+      "preconditions": [
+        "Medical/Death Aid claim approved by President",
+        "No finish or fund request already in progress"
+      ],
+      "transitions": [
+        {
+          "to": "pending_auditor",
+          "trigger": "Treasurer selects Pay with Funds (treasurer_aid_post_paid_with_funds)"
+        }
+      ],
+      "fund_transaction": null,
+      "audit_trail": null
+    },
+    {
+      "id": "pending_auditor_cycle1",
+      "phase": 1,
+      "status": "pending_auditor",
+      "actor": "Treasurer",
+      "action": "Pay with Funds: set finish_status=pending_auditor, finish_skip_remaining=True, finish_paid_with_funds=True",
+      "preconditions": [
+        "Post active",
+        "finish_status is empty (no request in progress)"
+      ],
+      "transitions": [
+        {
+          "to": "pending_president_cycle1",
+          "trigger": "Auditor verifies (decision=verified, deduction sheet NOT required for paid-with-funds)",
+          "actor": "Auditor"
+        },
+        {
+          "to": "rejected",
+          "trigger": "Auditor rejects (decision=rejected)",
+          "actor": "Auditor"
+        }
+      ],
+      "fund_transaction": null,
+      "audit_trail": "PAID_WITH_FUNDS"
+    },
+    {
+      "id": "pending_president_cycle1",
+      "phase": 2,
+      "status": "pending_president",
+      "actor": "Auditor",
+      "action": "Verify fund disbursement: no auto-skip of unpaid members (they still owe), notify President",
+      "preconditions": [
+        "Auditor verified"
+      ],
+      "transitions": [
+        {
+          "to": "pending_release",
+          "trigger": "President approves (finish_status=pending_release, unpaid members NOT skipped because paid_with_funds)",
+          "actor": "President"
+        }
+      ],
+      "fund_transaction": null,
+      "audit_trail": "FINISH_VERIFIED"
+    },
+    {
+      "id": "pending_release",
+      "phase": 3,
+      "status": "pending_release",
+      "actor": "President",
+      "action": "Approve disbursement: route to Treasurer for fund release",
+      "preconditions": [
+        "President approved (first cycle)"
+      ],
+      "transitions": [
+        {
+          "to": "repayment",
+          "trigger": "Treasurer releases funds",
+          "actor": "Treasurer"
+        }
+      ],
+      "fund_transaction": null,
+      "audit_trail": "FINISH_APPROVED"
+    },
+    {
+      "id": "repayment",
+      "phase": 4,
+      "status": "repayment",
+      "actor": "Treasurer",
+      "action": "Release funds: record FundTransaction OUTFLOW = total_expected (source_type=aid_post_payment), mark Death/MedicalAid Released, post stays active",
+      "preconditions": [
+        "President approved release"
+      ],
+      "transitions": [
+        {
+          "to": "pending_auditor_cycle2",
+          "trigger": "Treasurer clicks Close Repayment (remaining NOT_PAID -> SKIPPED, totals recomputed)",
+          "actor": "Treasurer"
+        }
+      ],
+      "fund_transaction": {
+        "direction": "outflow",
+        "amount": "total_expected",
+        "source_type": "aid_post_payment",
+        "description": "Fund disbursement - <member> (<aid_type>)"
+      },
+      "audit_trail": "FINISH_RELEASED"
+    },
+    {
+      "id": "repayment_collection",
+      "phase": 5,
+      "status": "repayment",
+      "actor": "Treasurer / Auditor",
+      "action": "Collect repayments: Treasurer marks RECORDED, Auditor marks PAID; Treasurer records salary deduction remittance (FundTransaction INFLOW, source_type=salary_deduction_remittance); members may be SKIPPED",
+      "preconditions": [
+        "Post in repayment phase"
+      ],
+      "transitions": [
+        {
+          "to": "pending_auditor_cycle2",
+          "trigger": "Treasurer decides repayments sufficient and closes repayment",
+          "actor": "Treasurer"
+        }
+      ],
+      "fund_transaction": {
+        "direction": "inflow",
+        "amount": "remitted_amount / contribution paid_amount",
+        "source_type": "salary_deduction_remittance | contribution",
+        "description": "Salary deduction remittance ref <ref> for aid post <id> / Aid contribution - <member>"
+      },
+      "audit_trail": "DEDUCTION_REMITTANCE_RECORDED | PAID"
+    },
+    {
+      "id": "pending_auditor_cycle2",
+      "phase": 6,
+      "status": "pending_auditor",
+      "actor": "Treasurer",
+      "action": "Close Repayment: skip remaining NOT_PAID contributions (SKIPPED, manual override), recompute total_collected",
+      "preconditions": [
+        "Post in repayment phase"
+      ],
+      "transitions": [
+        {
+          "to": "pending_president_cycle2",
+          "trigger": "Auditor verifies repayments",
+          "actor": "Auditor"
+        },
+        {
+          "to": "rejected",
+          "trigger": "Auditor rejects",
+          "actor": "Auditor"
+        }
+      ],
+      "fund_transaction": null,
+      "audit_trail": "REPAYMENT_SUBMITTED_FOR_VERIFICATION"
+    },
+    {
+      "id": "pending_president_cycle2",
+      "phase": 7,
+      "status": "pending_president",
+      "actor": "Auditor",
+      "action": "Verify repayments: convert RECORDED/PENDING_VERIFICATION to PAID, record per-contribution FundTransaction INFLOW (source_type=contribution, ref AID-<post>-C-<contrib>)",
+      "preconditions": [
+        "Auditor verified"
+      ],
+      "transitions": [
+        {
+          "to": "approved",
+          "trigger": "President approves (paid_with_funds + paid contributions exist -> close post: finish_status=approved, is_active=False)",
+          "actor": "President"
+        },
+        {
+          "to": "pending_release",
+          "trigger": "Edge case: President approves but NO paid contributions exist -> falls back to release again"
+        }
+      ],
+      "fund_transaction": {
+        "direction": "inflow",
+        "amount": "contribution paid_amount",
+        "source_type": "contribution",
+        "description": "Aid contribution - <member> for <member>'s <aid_type>"
+      },
+      "audit_trail": "FINISH_VERIFIED"
+    },
+    {
+      "id": "approved",
+      "phase": 8,
+      "status": "approved",
+      "actor": "President",
+      "action": "Approve repayment close: post closed (finish_status=approved, is_active=False), underlying aid stays Released, dashboards notified",
+      "preconditions": [
+        "Auditor verified repayments",
+        "At least one paid contribution exists"
+      ],
+      "transitions": [],
+      "fund_transaction": null,
+      "audit_trail": "REPAYMENT_APPROVED"
+    },
+    {
+      "id": "rejected",
+      "phase": 99,
+      "status": "rejected",
+      "actor": "Auditor",
+      "action": "Reject request: post returns to working state, Treasurer notified",
+      "preconditions": [
+        "Auditor decision = rejected at cycle 1 or cycle 2"
+      ],
+      "transitions": [],
+      "fund_transaction": null,
+      "audit_trail": "FINISH_REJECTED"
+    }
+  ],
+  "pipeline": [
+    {
+      "cycle": 1,
+      "purpose": "Fund disbursement (money OUT of the fund)",
+      "steps": [
+        {
+          "order": 1,
+          "stage": "Treasurer initiates",
+          "from_status": "tracking",
+          "action": "Pay with Funds",
+          "to_status": "pending_auditor"
+        },
+        {
+          "order": 2,
+          "stage": "Auditor verifies",
+          "from_status": "pending_auditor",
+          "action": "Verify (deduction sheet waived for paid-with-funds)",
+          "to_status": "pending_president"
+        },
+        {
+          "order": 3,
+          "stage": "President approves",
+          "from_status": "pending_president",
+          "action": "Approve (unpaid members NOT auto-skipped)",
+          "to_status": "pending_release"
+        },
+        {
+          "order": 4,
+          "stage": "Treasurer executes",
+          "from_status": "pending_release",
+          "action": "Release fund (outflow = total_expected), mark aid Released",
+          "to_status": "repayment"
+        }
+      ]
+    },
+    {
+      "cycle": 2,
+      "purpose": "Repayment close (money BACK IN to the fund)",
+      "steps": [
+        {
+          "order": 1,
+          "stage": "Treasurer initiates",
+          "from_status": "repayment",
+          "action": "Close Repayment (skip remaining unpaid, recompute totals)",
+          "to_status": "pending_auditor"
+        },
+        {
+          "order": 2,
+          "stage": "Auditor verifies",
+          "from_status": "pending_auditor",
+          "action": "Verify repayments, record per-contribution inflows",
+          "to_status": "pending_president"
+        },
+        {
+          "order": 3,
+          "stage": "President approves",
+          "from_status": "pending_president",
+          "action": "Approve repayment close",
+          "to_status": "approved"
+        }
+      ]
+    }
+  ],
+  "end_states": [
+    "approved (post closed, is_active=False, appears in aid post history)",
+    "rejected (auditor rejection, Treasurer notified)"
+  ],
+  "money_flow": [
+    {
+      "step": "Cycle 1 release",
+      "direction": "outflow",
+      "amount": "total_expected",
+      "source_type": "aid_post_payment",
+      "effect": "Fund depleted by the aid payout"
+    },
+    {
+      "step": "Cycle 2 auditor verify",
+      "direction": "inflow",
+      "amount": "per paid contribution",
+      "source_type": "contribution",
+      "effect": "Fund replenished by member repayments"
+    },
+    {
+      "step": "Repayment remittance",
+      "direction": "inflow",
+      "amount": "remitted amount",
+      "source_type": "salary_deduction_remittance",
+      "effect": "Fund replenished by salary deduction remittances"
+    }
+  ],
+  "rules": [
+    "Treasurer: only initiates actions and moves money; never verifies or approves",
+    "Auditor: only verifies or rejects; never approves, never closes a post",
+    "President: only approves; approval of cycle 2 closes the post",
+    "No deduction sheet required for paid-with-funds verification (fund, not member contributions, pays the aid)",
+    "Unpaid members are NOT auto-skipped at cycle 1 approval (they still owe the fund)",
+    "Remaining unpaid members are SKIPPED only when the Treasurer closes the repayment",
+    "A finish/fund request cannot be started while one is already in progress",
+    "Every money-affecting step (outflow and inflows) passes through the TAP pipeline"
+  ]
+}

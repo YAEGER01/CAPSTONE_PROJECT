@@ -1008,6 +1008,10 @@ class AidTrackingPost(models.Model):
         default=False,
         help_text="True when the post was paid using organizational funds instead of member contributions"
     )
+    finish_cycle = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="1 = fund disbursement cycle, 2 = repayment close cycle (paid-with-funds only)"
+    )
     deduction_sheet = models.FileField(
         upload_to="deduction_sheets/", null=True, blank=True,
         help_text="Uploaded salary deduction accounting sheet"
@@ -1334,6 +1338,38 @@ class PayrollDeduction(models.Model):
             models.Index(fields=["batch_id_FK", "category"]),
             models.Index(fields=["member_id_FK"]),
         ]
+
+
+class SalaryDeductionExemption(models.Model):
+    STATUS_CHOICES = [
+        ("Pending", "Pending"),
+        ("Approved", "Approved"),
+        ("Rejected", "Rejected"),
+    ]
+
+    exemption_id_PK = models.AutoField(primary_key=True)
+    member_id_FK = models.ForeignKey(
+        Member,
+        on_delete=models.CASCADE,
+        db_column="member_id_FK",
+        related_name="salary_deduction_exemptions",
+    )
+    month_covered = models.CharField(max_length=50)
+    reason = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="Pending")
+    requested_at = models.DateTimeField(auto_now_add=True)
+    requested_by_member = models.BooleanField(default=False)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_remarks = models.TextField(null=True, blank=True)
+    reviewed_by_user_id_FK = models.ForeignKey(
+        OfficerUser, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        db_column="reviewed_by_user_id_FK",
+    )
+
+    class Meta:
+        db_table = "SALARY_DEDUCTION_EXEMPTION"
+        ordering = ["-requested_at"]
 
 
 class BackupJob(models.Model):

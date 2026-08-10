@@ -10,6 +10,7 @@ from channels.layers import get_channel_layer
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpRequest
 from django.utils import timezone
 
@@ -651,7 +652,10 @@ def route_back_to_treasurer(
 
 
 def _officer_to_json(officer):
-    department = getattr(officer, "department_id_FK", None)
+    try:
+        department = officer.department_id_FK
+    except ObjectDoesNotExist:
+        department = None
     return {
         "id": officer.user_id_PK,
         "full_name": officer.full_name,

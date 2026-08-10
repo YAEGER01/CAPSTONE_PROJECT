@@ -36,7 +36,7 @@ def create_initial_officers():
             "username": "auditor_admin",
             "password": "SecureAuditorPass2026!",
             "role": "Auditor",
-        },
+        },s
         {
             "full_name": "Head Treasurer",
             "username": "treasurer_admin",
